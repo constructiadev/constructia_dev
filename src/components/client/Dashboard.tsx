@@ -8,7 +8,8 @@ import {
   Brain,
   CheckCircle,
   AlertTriangle,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 import { callGeminiAI } from '../../lib/supabase';
 
