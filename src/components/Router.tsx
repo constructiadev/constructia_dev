@@ -7,10 +7,15 @@ import LoginForm from './auth/LoginForm';
 
 // Layouts
 import AdminLayout from './layout/AdminLayout';
+import ClientLayout from './layout/ClientLayout';
 
 // Páginas Admin
 import AdminDashboard from './admin/Dashboard';
 
+// Páginas Cliente
+import ClientDashboard from './client/Dashboard';
+import Companies from './client/Companies';
+import DocumentUpload from './client/DocumentUpload';
 // Componente de Loading
 function Loading() {
   return (
@@ -71,16 +76,20 @@ export default function Router() {
         </Route>
 
         {/* Rutas del Cliente */}
-        <Route path="/client/dashboard" element={
+        <Route path="/client" element={
           <ProtectedRoute>
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold text-gray-800">Portal Cliente</h1>
-                <p className="text-gray-600 mt-2">En desarrollo - Fase 2</p>
-              </div>
-            </div>
+            <ClientLayout />
           </ProtectedRoute>
-        } />
+        }>
+          <Route path="dashboard" element={<ClientDashboard />} />
+          <Route path="companies" element={<Companies />} />
+          <Route path="projects" element={<div className="p-6">Módulo de Proyectos (En desarrollo)</div>} />
+          <Route path="upload" element={<DocumentUpload />} />
+          <Route path="documents" element={<div className="p-6">Módulo de Documentos (En desarrollo)</div>} />
+          <Route path="metrics" element={<div className="p-6">Módulo de Métricas (En desarrollo)</div>} />
+          <Route path="subscription" element={<div className="p-6">Módulo de Suscripción (En desarrollo)</div>} />
+          <Route path="settings" element={<div className="p-6">Configuración Cliente (En desarrollo)</div>} />
+        </Route>
 
         {/* Ruta 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
