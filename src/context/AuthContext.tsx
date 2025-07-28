@@ -20,18 +20,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AuthProvider useEffect iniciado');
     // Verificar sesión existente
     authService.getSession().then(session => {
+      console.log('Sesión existente obtenida:', session?.user?.email);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
       }
       setLoading(false);
+      console.log('Estado inicial de autenticación establecido');
     });
 
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Estado de autenticación cambiado:', event, session?.user?.email);
         setUser(session?.user ?? null);
         if (session?.user) {
           await fetchUserRole(session.user.id);
@@ -39,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserRole(null);
         }
         setLoading(false);
+        console.log('Cambio de estado de autenticación procesado');
       }
     );
 
@@ -46,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchUserRole = async (userId: string) => {
+    console.log('Obteniendo rol de usuario para ID:', userId);
     try {
       const { data } = await supabase
         .from('users')
@@ -53,41 +59,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
       
+      console.log('Rol de usuario obtenido:', data?.role);
       setUserRole(data?.role || 'client');
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('Error al obtener el rol de usuario:', error);
       setUserRole('client');
     }
   };
 
   const login = async (email: string, password: string, isAdmin = false) => {
+    console.log('Función login de AuthContext llamada con:', { email, isAdmin });
     try {
       // Para desarrollo, simular login exitoso con credenciales de prueba
       if (isAdmin && email === 'admin@constructia.com' && password === 'superadmin123') {
         // Simular usuario admin
-        setUser({ 
+        console.log('Estableciendo usuario admin simulado');
+        const simulatedAdminUser = { 
           id: 'admin-001', 
           email: 'admin@constructia.com',
           user_metadata: { role: 'admin' }
-        } as any);
+        } as any;
+        setUser(simulatedAdminUser);
         setUserRole('admin');
+        console.log('Usuario admin simulado establecido:', simulatedAdminUser);
       } else if (!isAdmin && email === 'cliente@test.com' && password === 'password123') {
         // Simular usuario cliente
-        setUser({ 
+        console.log('Estableciendo usuario cliente simulado');
+        const simulatedClientUser = { 
           id: 'client-001', 
           email: 'cliente@test.com',
           user_metadata: { role: 'client' }
-        } as any);
+        } as any;
+        setUser(simulatedClientUser);
         setUserRole('client');
+        console.log('Usuario cliente simulado establecido:', simulatedClientUser);
       } else {
         // Intentar login real con Supabase
+        console.log('Intentando login real con Supabase desde AuthContext');
         if (isAdmin) {
           await authService.loginAdmin(email, password);
         } else {
           await authService.loginClient(email, password);
         }
+        console.log('Login real completado desde AuthContext');
       }
     } catch (error) {
+      console.error('Error en AuthContext login:', error);
       throw error;
     }
   };
