@@ -3,6 +3,22 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { authService } from '../lib/auth';
 
+// Development mode fallback users
+const DEV_USERS = {
+  'admin@constructia.com': {
+    id: 'dev-admin-001',
+    email: 'admin@constructia.com',
+    role: 'admin' as const,
+    password: 'superadmin123'
+  },
+  'cliente@test.com': {
+    id: 'dev-client-001', 
+    email: 'cliente@test.com',
+    role: 'client' as const,
+    password: 'password123'
+  }
+};
+
 interface AuthContextType {
   user: User | null;
   userRole: 'client' | 'admin' | null;
@@ -53,6 +69,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserRole = async (userId: string) => {
     console.log('Obteniendo rol de usuario para ID:', userId);
     try {
+      // Check if it's a development user
+      const devUser = Object.values(DEV_USERS).find(u => u.id === userId);
+      if (devUser) {
+        console.log('Rol de usuario dev obtenido:', devUser.role);
+        setUserRole(devUser.role);
+        return;
+      }
+
       const { data } = await supabase
         .from('users')
         .select('role')
@@ -70,12 +94,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string, isAdmin = false) => {
     console.log('Función login de AuthContext llamada con:', { email, isAdmin });
     try {
-      // Intentar login real con Supabase
+      // Check for development users first
+      const devUser = DEV_USERS[email as keyof typeof DEV_USERS];
+      if (devUser && devUser.password === password) {
+        console.log('Usando usuario de desarrollo:', email);
+        // Create a mock user object
+        const mockUser = {
+          id: devUser.id,
+          email: devUser.email,
+          aud: 'authenticated',
+          role: 'authenticated',
+          email_confirmed_at: new Date().toISOString(),
+          phone: '',
+          confirmed_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          app_metadata: {},
+          user_metadata: {},
+          identities: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as User;
+        
+        setUser(mockUser);
+        setUserRole(devUser.role);
+        return;
+      }
+
+      // Try real Supabase login
       console.log('Intentando login real con Supabase desde AuthContext');
-      if (isAdmin) {
-        await authService.loginAdmin(email, password);
-      } else {
-        await authService.loginClient(email, password);
+      try {
+        if (isAdmin) {
+          await authService.loginAdmin(email, password);
+        } else {
+          await authService.loginClient(email, password);
+        }
+      } catch (supabaseError) {
+        console.error('Error de Supabase, usando modo desarrollo:', supabaseError);
+        throw new Error('Credenciales inválidas. Verifica que los usuarios de prueba estén configurados en Supabase.');
       }
       console.log('Login real completado desde AuthContext');
     } catch (error) {
@@ -85,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    // Para desarrollo, simplemente limpiar el estado
+    // Clear state
     setUser(null);
     setUserRole(null);
     
