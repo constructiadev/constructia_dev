@@ -19,6 +19,7 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('handleSubmit llamado');
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -27,9 +28,11 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
       // Para desarrollo, permitir credenciales de prueba sin validación real
       if (isAdmin && email === 'admin@constructia.com' && password === 'superadmin123') {
         // Simular login exitoso de admin
+        console.log('Navegando a /admin');
         navigate('/admin');
       } else if (!isAdmin && email === 'cliente@test.com' && password === 'password123') {
         // Simular login exitoso de cliente
+        console.log('Navegando a /client/dashboard');
         navigate('/client/dashboard');
       } else {
         // Intentar login real con Supabase
@@ -37,6 +40,7 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
         navigate(isAdmin ? '/admin' : '/client/dashboard');
       }
     } catch (error: any) {
+      console.log('Error en handleSubmit:', error);
       setError(error.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
