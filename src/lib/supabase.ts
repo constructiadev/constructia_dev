@@ -98,6 +98,20 @@ export const updateClientObraliaCredentials = async (
   credentials: { username: string; password: string }
 ) => {
   try {
+    // Handle development users with mock response
+    if (clientId === 'dev-client-uuid-001' || clientId === 'dev-admin-uuid-001') {
+      // Simulate successful update for development users
+      return {
+        id: clientId,
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        },
+        updated_at: new Date().toISOString()
+      };
+    }
+
     const { data, error } = await supabase
       .from('clients')
       .update({
