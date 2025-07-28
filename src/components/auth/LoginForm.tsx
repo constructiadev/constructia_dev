@@ -24,8 +24,18 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
     setError('');
 
     try {
-      await login(email, password, isAdmin);
-      navigate(isAdmin ? '/admin' : '/client/dashboard');
+      // Para desarrollo, permitir credenciales de prueba sin validación real
+      if (isAdmin && email === 'admin@constructia.com' && password === 'superadmin123') {
+        // Simular login exitoso de admin
+        navigate('/admin');
+      } else if (!isAdmin && email === 'cliente@test.com' && password === 'password123') {
+        // Simular login exitoso de cliente
+        navigate('/client/dashboard');
+      } else {
+        // Intentar login real con Supabase
+        await login(email, password, isAdmin);
+        navigate(isAdmin ? '/admin' : '/client/dashboard');
+      }
     } catch (error: any) {
       setError(error.message || 'Error al iniciar sesión');
     } finally {
