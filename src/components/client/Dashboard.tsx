@@ -11,7 +11,31 @@ import {
   Download,
   Upload
 } from 'lucide-react';
-import { callGeminiAI } from '../../lib/supabase';
+import { callGeminiAI, getCurrentClientData, updateClientObraliaCredentials } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import ObraliaCredentialsModal from './ObraliaCredentialsModal';
+
+interface ClientData {
+  id: string;
+  client_id: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  subscription_plan: string;
+  subscription_status: string;
+  storage_used: number;
+  storage_limit: number;
+  documents_processed: number;
+  tokens_available: number;
+  obralia_credentials?: {
+    username: string;
+    password: string;
+    configured: boolean;
+  };
+  created_at: string;
+  updated_at: string;
+}
 
 interface ClientKPICardProps {
   title: string;
@@ -47,6 +71,9 @@ function ClientKPICard({ title, value, change, trend, icon: Icon, color }: Clien
 export default function ClientDashboard() {
   const [aiAssistance, setAiAssistance] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [clientData, setClientData] = useState<ClientData | null>(null);
+  const [showObraliaModal, setShowObraliaModal] = useState(false);
+  const { user } = useAuth();
 
   // KPIs del Cliente
   const clientKPIs = [
@@ -96,8 +123,64 @@ export default function ClientDashboard() {
     }
   };
 
+  const loadClientData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const data = await getCurrentClientData(user.id);
+      setClientData(data);
+      
+      // Verificar si necesita configurar credenciales de Obralia
+      const needsObraliaConfig = !data.obralia_credentials || 
+                                !data.obralia_credentials.configured;
+      
+      if (needsObraliaConfig) {
+        setShowObraliaModal(true);
+      }
+    } catch (error) {
+      console.error('Error loading client data:', error);
+      // Si hay error, asumir que necesita configuración
+      setShowObraliaModal(true);
+    }
+  };
+
+  const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
+    if (!clientData?.id && !user?.id) {
+      throw new Error('No se pudo identificar el cliente');
+    }
+
+    try {
+      // Si no tenemos clientData, usar un ID simulado basado en el usuario
+      const clientIdToUse = clientData?.id || `client-${user?.id}`;
+      
+      await updateClientObraliaCredentials(clientIdToUse, credentials);
+      
+      // Actualizar el estado local
+      if (clientData) {
+        setClientData({
+          ...clientData,
+          obralia_credentials: {
+            username: credentials.username,
+            password: credentials.password,
+            configured: true
+          }
+        });
+      }
+      
+      setShowObraliaModal(false);
+      
+      // Mostrar mensaje de éxito
+      alert('¡Credenciales de Obralia configuradas exitosamente! Ahora puedes subir documentos.');
+      
+    } catch (error) {
+      console.error('Error saving Obralia credentials:', error);
+      throw new Error('Error al guardar las credenciales. Intenta nuevamente.');
+    }
+  };
+
   useEffect(() => {
     generateAIAssistance();
+    loadClientData();
   }, []);
 
   return (
@@ -222,6 +305,13 @@ export default function ClientDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Credenciales Obralia */}
+      <ObraliaCredentialsModal
+        isOpen={showObraliaModal}
+        onSave={handleSaveObraliaCredentials}
+        clientName={clientData?.company_name || user?.email || 'Cliente'}
+      />
     </div>
   );
 }
