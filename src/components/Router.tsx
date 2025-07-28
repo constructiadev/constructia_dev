@@ -21,7 +21,12 @@ import AIIntegrationModule from './admin/AIIntegrationModule';
 // Páginas Cliente
 import ClientDashboard from './client/Dashboard';
 import Companies from './client/Companies';
+import Projects from './client/Projects';
+import Documents from './client/Documents';
+import Metrics from './client/Metrics';
+import Subscription from './client/Subscription';
 import DocumentUpload from './client/DocumentUpload';
+
 // Componente de Loading
 function Loading() {
   return (
@@ -89,11 +94,11 @@ export default function Router() {
         }>
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="companies" element={<Companies />} />
-          <Route path="projects" element={<div className="p-6">Módulo de Proyectos (En desarrollo)</div>} />
+          <Route path="projects" element={<Projects />} />
           <Route path="upload" element={<DocumentUpload />} />
-          <Route path="documents" element={<div className="p-6">Módulo de Documentos (En desarrollo)</div>} />
-          <Route path="metrics" element={<div className="p-6">Módulo de Métricas (En desarrollo)</div>} />
-          <Route path="subscription" element={<div className="p-6">Módulo de Suscripción (En desarrollo)</div>} />
+          <Route path="documents" element={<Documents />} />
+          <Route path="metrics" element={<Metrics />} />
+          <Route path="subscription" element={<Subscription />} />
           <Route path="settings" element={<div className="p-6">Configuración Cliente (En desarrollo)</div>} />
         </Route>
 
