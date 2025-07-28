@@ -70,39 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string, isAdmin = false) => {
     console.log('Función login de AuthContext llamada con:', { email, isAdmin });
     try {
-      // Para desarrollo, simular login exitoso con credenciales de prueba
-      if (isAdmin && email === 'admin@constructia.com' && password === 'superadmin123') {
-        // Simular usuario admin
-        console.log('Estableciendo usuario admin simulado');
-        const simulatedAdminUser = { 
-          id: 'admin-001', 
-          email: 'admin@constructia.com',
-          user_metadata: { role: 'admin' }
-        } as any;
-        setUser(simulatedAdminUser);
-        setUserRole('admin');
-        console.log('Usuario admin simulado establecido:', simulatedAdminUser);
-      } else if (!isAdmin && email === 'cliente@test.com' && password === 'password123') {
-        // Simular usuario cliente
-        console.log('Estableciendo usuario cliente simulado');
-        const simulatedClientUser = { 
-          id: 'client-001', 
-          email: 'cliente@test.com',
-          user_metadata: { role: 'client' }
-        } as any;
-        setUser(simulatedClientUser);
-        setUserRole('client');
-        console.log('Usuario cliente simulado establecido:', simulatedClientUser);
+      // Intentar login real con Supabase
+      console.log('Intentando login real con Supabase desde AuthContext');
+      if (isAdmin) {
+        await authService.loginAdmin(email, password);
       } else {
-        // Intentar login real con Supabase
-        console.log('Intentando login real con Supabase desde AuthContext');
-        if (isAdmin) {
-          await authService.loginAdmin(email, password);
-        } else {
-          await authService.loginClient(email, password);
-        }
-        console.log('Login real completado desde AuthContext');
+        await authService.loginClient(email, password);
       }
+      console.log('Login real completado desde AuthContext');
     } catch (error) {
       console.error('Error en AuthContext login:', error);
       throw error;

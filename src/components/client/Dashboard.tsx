@@ -145,27 +145,22 @@ export default function ClientDashboard() {
   };
 
   const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
-    if (!clientData?.id && !user?.id) {
-      throw new Error('No se pudo identificar el cliente');
+    if (!clientData?.id) {
+      throw new Error('No se pudo identificar el cliente. Por favor, recarga la página.');
     }
 
     try {
-      // Si no tenemos clientData, usar un ID simulado basado en el usuario
-      const clientIdToUse = clientData?.id || `client-${user?.id}`;
-      
-      await updateClientObraliaCredentials(clientIdToUse, credentials);
+      await updateClientObraliaCredentials(clientData.id, credentials);
       
       // Actualizar el estado local
-      if (clientData) {
-        setClientData({
-          ...clientData,
-          obralia_credentials: {
-            username: credentials.username,
-            password: credentials.password,
-            configured: true
-          }
-        });
-      }
+      setClientData({
+        ...clientData,
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      });
       
       setShowObraliaModal(false);
       
