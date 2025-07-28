@@ -11,6 +11,11 @@ import ClientLayout from './layout/ClientLayout';
 
 // Páginas Admin
 import AdminDashboard from './admin/Dashboard';
+import ClientsManagement from './admin/ClientsManagement';
+import FinancialModule from './admin/FinancialModule';
+import DatabaseModule from './admin/DatabaseModule';
+import APIManagement from './admin/APIManagement';
+import AuditModule from './admin/AuditModule';
 
 // Páginas Cliente
 import ClientDashboard from './client/Dashboard';
@@ -66,12 +71,12 @@ export default function Router() {
           </ProtectedRoute>
         }>
           <Route index element={<AdminDashboard />} />
-          <Route path="clients" element={<div className="p-6">Módulo de Clientes (En desarrollo)</div>} />
-          <Route path="financial" element={<div className="p-6">Módulo Financiero (En desarrollo)</div>} />
+          <Route path="clients" element={<ClientsManagement />} />
+          <Route path="financial" element={<FinancialModule />} />
           <Route path="ai" element={<div className="p-6">Módulo IA & Integraciones (En desarrollo)</div>} />
-          <Route path="database" element={<div className="p-6">Módulo Base de Datos (En desarrollo)</div>} />
-          <Route path="api" element={<div className="p-6">Módulo API Management (En desarrollo)</div>} />
-          <Route path="audit" element={<div className="p-6">Módulo Auditoría (En desarrollo)</div>} />
+          <Route path="database" element={<DatabaseModule />} />
+          <Route path="api" element={<APIManagement />} />
+          <Route path="audit" element={<AuditModule />} />
           <Route path="settings" element={<div className="p-6">Configuración (En desarrollo)</div>} />
         </Route>
 
