@@ -228,22 +228,30 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Evolución de Ingresos</h4>
-            <Line data={revenueData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Line data={revenueData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Documentos por Día</h4>
-            <Bar data={documentsData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Bar data={documentsData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Distribución de Clientes</h4>
-            <Doughnut data={clientsData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Doughnut data={clientsData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Rendimiento del Sistema</h4>
-            <Line data={performanceData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Line data={performanceData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
         </div>
       </div>

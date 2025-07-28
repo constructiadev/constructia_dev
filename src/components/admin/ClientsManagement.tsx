@@ -316,17 +316,32 @@ export default function ClientsManagement() {
                   <input
                     type="text"
                     placeholder="usuario@obralia.com"
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado Integración</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                    <option value="configured">Configurado</option>
-                    <option value="pending">Pendiente</option>
-                    <option value="error">Error</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña Obralia</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
                 </div>
+              </div>
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estado Integración</label>
+                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                  <option value="configured">Configurado</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="error">Error</option>
+                </select>
+              </div>
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Importante:</strong> Las credenciales de Obralia son obligatorias para poder subir documentos.
+                </p>
               </div>
             </div>
 

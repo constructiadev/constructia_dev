@@ -205,22 +205,30 @@ export default function Metrics() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Evolución de Documentos</h4>
-            <Line data={documentsEvolutionData} options={{ responsive: true, maintainAspectRatio: false }} height={250} />
+            <div className="h-64">
+              <Line data={documentsEvolutionData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Tipos de Documentos</h4>
-            <Doughnut data={documentTypesData} options={{ responsive: true, maintainAspectRatio: false }} height={250} />
+            <div className="h-64">
+              <Doughnut data={documentTypesData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Tiempo de Procesamiento</h4>
-            <Bar data={processingTimeData} options={{ responsive: true, maintainAspectRatio: false }} height={250} />
+            <div className="h-64">
+              <Bar data={processingTimeData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Uso de Almacenamiento</h4>
-            <Line data={storageUsageData} options={{ responsive: true, maintainAspectRatio: false }} height={250} />
+            <div className="h-64">
+              <Line data={storageUsageData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
         </div>
       </div>

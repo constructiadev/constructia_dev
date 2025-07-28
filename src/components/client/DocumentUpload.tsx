@@ -291,25 +291,39 @@ export default function DocumentUpload() {
 
       {/* Zona de Subida */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        {/* Verificación de credenciales Obralia */}
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-red-800">Credenciales Obralia Requeridas</h4>
+              <p className="text-sm text-red-700 mt-1">
+                Para poder subir documentos, necesitas configurar tus credenciales de Obralia/Nalanda. 
+                Contacta con el administrador para configurarlas.
+              </p>
+            </div>
+          </div>
+        </div>
+        
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
             isDragActive 
               ? 'border-green-500 bg-green-50' 
-              : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
+              : 'border-gray-300 hover:border-red-400 hover:bg-red-50 opacity-50 cursor-not-allowed'
           }`}
         >
-          <input {...getInputProps()} />
+          <input {...getInputProps()} disabled />
           <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           {isDragActive ? (
             <p className="text-green-600 font-medium">Suelta los archivos aquí...</p>
           ) : (
             <div>
-              <p className="text-gray-600 font-medium mb-2">
-                Arrastra y suelta tus documentos aquí, o haz clic para seleccionar
+              <p className="text-red-600 font-medium mb-2">
+                Subida deshabilitada - Configura credenciales Obralia primero
               </p>
               <p className="text-sm text-gray-500">
-                Soporta PDF, DOC, DOCX, PNG, JPG (máx. 10MB por archivo)
+                Contacta con el administrador para habilitar la subida de documentos
               </p>
             </div>
           )}

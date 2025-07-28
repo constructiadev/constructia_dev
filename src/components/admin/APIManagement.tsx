@@ -251,17 +251,23 @@ export default function APIManagement() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Requests por Hora</h4>
-            <Line data={requestsData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Line data={requestsData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Tiempo de Respuesta</h4>
-            <Bar data={responseTimeData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Bar data={responseTimeData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Endpoints Más Usados</h4>
-            <Doughnut data={endpointUsageData} options={{ responsive: true, maintainAspectRatio: false }} height={200} />
+            <div className="h-48">
+              <Doughnut data={endpointUsageData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
           </div>
         </div>
       </div>
