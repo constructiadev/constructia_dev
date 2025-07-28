@@ -19,6 +19,10 @@ export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/
 // Helper para llamadas a Gemini AI
 export const callGeminiAI = async (prompt: string) => {
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
+
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
@@ -34,7 +38,27 @@ export const callGeminiAI = async (prompt: string) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini AI Error: ${response.statusText}`);
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
