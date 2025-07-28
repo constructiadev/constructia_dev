@@ -13,7 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Configuración de la API de Gemini
-export const GEMINI_API_KEY = 'AIzaSyBeCWidKQl7beufEFlraRTQJUmGH-1lD-o';
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
 // Helper para llamadas a Gemini AI
