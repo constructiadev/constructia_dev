@@ -63,9 +63,12 @@ export interface Document {
   classification_confidence: number;
   ai_metadata: any;
   upload_status: 'pending' | 'processing' | 'classified' | 'uploaded_to_obralia' | 'completed' | 'error';
-  obralia_status: 'pending' | 'uploaded' | 'validated' | 'rejected';
+  obralia_status: 'pending' | 'uploaded' | 'validated' | 'rejected' | 'error';
   security_scan_status: 'pending' | 'safe' | 'threat_detected';
   deletion_scheduled_at?: string;
+  obralia_document_id?: string;
+  processing_attempts: number;
+  last_processing_error?: string;
   created_at: string;
   updated_at: string;
 }

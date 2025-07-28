@@ -16,6 +16,7 @@ import FinancialModule from './admin/FinancialModule';
 import DatabaseModule from './admin/DatabaseModule';
 import APIManagement from './admin/APIManagement';
 import AuditModule from './admin/AuditModule';
+import AIIntegrationModule from './admin/AIIntegrationModule';
 
 // Páginas Cliente
 import ClientDashboard from './client/Dashboard';
@@ -73,7 +74,7 @@ export default function Router() {
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />
-          <Route path="ai" element={<div className="p-6">Módulo IA & Integraciones (En desarrollo)</div>} />
+          <Route path="ai" element={<AIIntegrationModule />} />
           <Route path="database" element={<DatabaseModule />} />
           <Route path="api" element={<APIManagement />} />
           <Route path="audit" element={<AuditModule />} />

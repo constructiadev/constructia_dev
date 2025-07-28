@@ -15,10 +15,11 @@ import { callGeminiAI } from '../../lib/supabase';
 interface UploadedFile {
   id: string;
   file: File;
-  status: 'uploading' | 'analyzing' | 'classified' | 'error';
+  status: 'uploading' | 'analyzing' | 'classified' | 'pending_obralia' | 'uploading_obralia' | 'obralia_validated' | 'completed' | 'error';
   classification?: string;
   confidence?: number;
   obralia_section?: string;
+  obralia_status?: 'pending' | 'uploaded' | 'validated' | 'rejected';
   error_message?: string;
 }
 
@@ -143,6 +144,51 @@ export default function DocumentUpload() {
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
   };
 
+  const processToObralia = async () => {
+    const classifiedFiles = uploadedFiles.filter(f => f.status === 'classified');
+    
+    for (const fileData of classifiedFiles) {
+      try {
+        // Actualizar estado a pending_obralia
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id ? { ...f, status: 'pending_obralia' } : f
+        ));
+
+        // Simular procesamiento asíncrono
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id ? { ...f, status: 'uploading_obralia' } : f
+        ));
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id ? { 
+            ...f, 
+            status: 'obralia_validated',
+            obralia_status: 'validated'
+          } : f
+        ));
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id ? { ...f, status: 'completed' } : f
+        ));
+
+      } catch (error) {
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id ? { 
+            ...f, 
+            status: 'error',
+            error_message: 'Error al procesar con Obralia'
+          } : f
+        ));
+      }
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'uploading':
@@ -150,6 +196,14 @@ export default function DocumentUpload() {
       case 'analyzing':
         return <Brain className="h-4 w-4 text-purple-600 animate-pulse" />;
       case 'classified':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'pending_obralia':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'uploading_obralia':
+        return <Upload className="h-4 w-4 text-blue-600 animate-pulse" />;
+      case 'obralia_validated':
+        return <CheckCircle className="h-4 w-4 text-emerald-600" />;
+      case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'error':
         return <AlertCircle className="h-4 w-4 text-red-600" />;
@@ -166,6 +220,14 @@ export default function DocumentUpload() {
         return 'Analizando con IA...';
       case 'classified':
         return `${file.classification} (${file.confidence}% confianza)`;
+      case 'pending_obralia':
+        return 'Esperando subida a Obralia...';
+      case 'uploading_obralia':
+        return 'Subiendo a Obralia...';
+      case 'obralia_validated':
+        return 'Validado en Obralia';
+      case 'completed':
+        return 'Proceso completado';
       case 'error':
         return file.error_message || 'Error';
       default:
@@ -298,7 +360,10 @@ export default function DocumentUpload() {
           
           {uploadedFiles.some(f => f.status === 'classified') && (
             <div className="mt-6 pt-4 border-t border-gray-200">
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+              <button 
+                onClick={processToObralia}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+              >
                 Procesar y Subir a Obralia ({uploadedFiles.filter(f => f.status === 'classified').length} documentos)
               </button>
             </div>
