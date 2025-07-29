@@ -161,6 +161,99 @@ export default function FinancialModule() {
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
+  const [showGatewayModal, setShowGatewayModal] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState<any>(null);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [paymentGateways, setPaymentGateways] = useState([
+    {
+      id: 'stripe_main',
+      name: 'Stripe',
+      icon: CreditCard,
+      status: 'active' as const,
+      commission: '2.9% + €0.30',
+      transactions: 156,
+      volume: '€21,450',
+      color: 'bg-blue-600',
+      commission_type: 'mixed',
+      commission_percentage: 2.9,
+      commission_fixed: 0.30,
+      commission_periods: [
+        {
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          percentage: 2.9,
+          fixed: 0.30
+        }
+      ],
+      supported_currencies: ['EUR', 'USD'],
+      description: 'Pasarela principal para tarjetas de crédito'
+    },
+    {
+      id: 'paypal_main',
+      name: 'PayPal',
+      icon: DollarSign,
+      status: 'active' as const,
+      commission: '3.4% + €0.35',
+      transactions: 89,
+      volume: '€13,200',
+      color: 'bg-blue-500',
+      commission_type: 'mixed',
+      commission_percentage: 3.4,
+      commission_fixed: 0.35,
+      commission_periods: [
+        {
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          percentage: 3.4,
+          fixed: 0.35
+        }
+      ],
+      supported_currencies: ['EUR', 'USD'],
+      description: 'Pagos con cuenta PayPal'
+    },
+    {
+      id: 'sepa_main',
+      name: 'SEPA',
+      icon: Building,
+      status: 'active' as const,
+      commission: '€0.50 fija',
+      transactions: 34,
+      volume: '€8,900',
+      color: 'bg-green-600',
+      commission_type: 'fixed',
+      commission_fixed: 0.50,
+      commission_periods: [
+        {
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          fixed: 0.50
+        }
+      ],
+      supported_currencies: ['EUR'],
+      description: 'Transferencias bancarias SEPA'
+    },
+    {
+      id: 'bizum_main',
+      name: 'Bizum',
+      icon: Smartphone,
+      status: 'warning' as const,
+      commission: '1.5%',
+      transactions: 12,
+      volume: '€2,300',
+      color: 'bg-orange-600',
+      commission_type: 'percentage',
+      commission_percentage: 1.5,
+      commission_periods: [
+        {
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          percentage: 1.5
+        }
+      ],
+      supported_currencies: ['EUR'],
+      description: 'Pagos móviles Bizum'
+    }
+  ]);
 
   // KPIs Financieros Principales
   const financialKPIs = [
@@ -177,44 +270,6 @@ export default function FinancialModule() {
   ];
 
   // Pasarelas de Pago
-  const paymentGateways = [
-    {
-      name: 'Stripe',
-      icon: CreditCard,
-      status: 'active' as const,
-      commission: '2.9% + €0.30',
-      transactions: 156,
-      volume: '€21,450',
-      color: 'bg-blue-600'
-    },
-    {
-      name: 'PayPal',
-      icon: DollarSign,
-      status: 'active' as const,
-      commission: '3.4% + €0.35',
-      transactions: 89,
-      volume: '€13,200',
-      color: 'bg-blue-500'
-    },
-    {
-      name: 'SEPA',
-      icon: Building,
-      status: 'active' as const,
-      commission: '€0.50 fija',
-      transactions: 34,
-      volume: '€8,900',
-      color: 'bg-green-600'
-    },
-    {
-      name: 'Bizum',
-      icon: Smartphone,
-      status: 'warning' as const,
-      commission: '1.5%',
-      transactions: 12,
-      volume: '€2,300',
-      color: 'bg-orange-600'
-    }
-  ];
 
   // Eventos Fiscales
   const fiscalEvents = [
@@ -363,6 +418,56 @@ export default function FinancialModule() {
     alert(`Cálculo completado:\nIngresos brutos: €${taxCalculation.gross_revenue}\nIVA: €${taxCalculation.vat}\nIRPF: €${taxCalculation.irpf}\nIngresos netos: €${taxCalculation.net_revenue}`);
   };
 
+  // Funciones para gestión de pasarelas
+  const handleCreateGateway = () => {
+    setSelectedGateway(null);
+    setModalMode('create');
+    setShowGatewayModal(true);
+  };
+
+  const handleViewGateway = (gatewayName: string) => {
+    const gateway = paymentGateways.find(g => g.name === gatewayName);
+    setSelectedGateway(gateway);
+    setModalMode('view');
+    setShowGatewayModal(true);
+  };
+
+  const handleEditGateway = (gatewayName: string) => {
+    const gateway = paymentGateways.find(g => g.name === gatewayName);
+    setSelectedGateway(gateway);
+    setModalMode('edit');
+    setShowGatewayModal(true);
+  };
+
+  const handleDeleteGateway = (gatewayName: string) => {
+    if (confirm(`¿Estás seguro de que quieres eliminar la pasarela ${gatewayName}?`)) {
+      setPaymentGateways(prev => prev.filter(g => g.name !== gatewayName));
+      alert(`Pasarela ${gatewayName} eliminada exitosamente`);
+    }
+  };
+
+  const handleSaveGateway = async (gatewayData: any) => {
+    try {
+      if (modalMode === 'create') {
+        const newGateway = {
+          ...gatewayData,
+          icon: CreditCard, // Default icon
+          transactions: 0,
+          volume: '€0'
+        };
+        setPaymentGateways(prev => [...prev, newGateway]);
+        alert('Pasarela creada exitosamente');
+      } else if (modalMode === 'edit') {
+        setPaymentGateways(prev => prev.map(g => 
+          g.id === selectedGateway?.id ? { ...g, ...gatewayData } : g
+        ));
+        alert('Pasarela actualizada exitosamente');
+      }
+      setShowGatewayModal(false);
+    } catch (error) {
+      alert('Error al guardar la pasarela');
+    }
+  };
   useEffect(() => {
     generateFinancialInsights();
   }, []);
@@ -480,14 +585,26 @@ export default function FinancialModule() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-800">Configuración de Pasarelas de Pago</h3>
-          <button className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-            <Globe className="h-4 w-4 mr-2" />
+          <button 
+            onClick={handleCreateGateway}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <Plus className="h-4 w-4 mr-2" />
             Nueva Pasarela
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {paymentGateways.map((gateway, index) => (
-            <PaymentGatewayCard key={index} {...gateway} />
+            <PaymentGatewayCard 
+              key={gateway.id} 
+              name={gateway.name}
+              icon={gateway.icon}
+              status={gateway.status}
+              commission={gateway.commission}
+              transactions={gateway.transactions}
+              volume={gateway.volume}
+              color={gateway.color}
+            />
           ))}
         </div>
       </div>
@@ -623,6 +740,15 @@ export default function FinancialModule() {
           </button>
         </div>
       </div>
+
+      {/* Modal de Pasarela de Pago */}
+      <PaymentGatewayModal
+        isOpen={showGatewayModal}
+        onClose={() => setShowGatewayModal(false)}
+        onSave={handleSaveGateway}
+        gateway={selectedGateway}
+        mode={modalMode}
+      />
     </div>
   );
 }

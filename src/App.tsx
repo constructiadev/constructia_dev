@@ -1,11 +1,14 @@
 import React from 'react';
 import Router from './components/Router';
 import { AuthProvider } from './context/AuthContext';
+import { PaymentGatewayProvider } from './context/PaymentGatewayContext';
 
 function App() {
   return (
     <AuthProvider>
-      <Router />
+      <PaymentGatewayProvider>
+        <Router />
+      </PaymentGatewayProvider>
     </AuthProvider>
   );
 }
