@@ -11,7 +11,11 @@ import {
   Zap,
   Building2,
   Play,
-  X
+  X,
+  Pause,
+  Volume2,
+  VolumeX,
+  RotateCcw
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
