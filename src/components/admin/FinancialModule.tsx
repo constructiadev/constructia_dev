@@ -95,7 +95,7 @@ function PaymentGatewayCard({ name, icon: Icon, status, commission, transactions
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+    <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow relative">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <div className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center mr-3`}>
@@ -122,11 +122,6 @@ function PaymentGatewayCard({ name, icon: Icon, status, commission, transactions
           <span className="font-medium text-gray-900">{volume}</span>
         </div>
       </div>
-      
-      <button className="w-full mt-4 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium">
-        <Settings className="h-4 w-4 inline mr-2" />
-        Configurar
-      </button>
     </div>
   );
 }
@@ -597,16 +592,24 @@ export default function FinancialModule() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {paymentGateways.map((gateway, index) => (
-            <PaymentGatewayCard 
-              key={gateway.id} 
-              name={gateway.name}
-              icon={gateway.icon}
-              status={gateway.status}
-              commission={gateway.commission}
-              transactions={gateway.transactions}
-              volume={gateway.volume}
-              color={gateway.color}
-            />
+            <div key={gateway.id} className="relative">
+              <PaymentGatewayCard 
+                name={gateway.name}
+                icon={gateway.icon}
+                status={gateway.status}
+                commission={gateway.commission}
+                transactions={gateway.transactions}
+                volume={gateway.volume}
+                color={gateway.color}
+              />
+              <button 
+                onClick={() => handleEditGateway(gateway.name)}
+                className="w-full mt-4 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configurar
+              </button>
+            </div>
           ))}
         </div>
       </div>
