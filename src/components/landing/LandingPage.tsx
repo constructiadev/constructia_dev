@@ -404,6 +404,58 @@ export default function LandingPage() {
             ))}
           </div>
 
+          {/* Información sobre Tokens para Suscriptores */}
+          <div className="mt-16 bg-blue-50 border border-blue-200 rounded-xl p-8">
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                ¿Necesitas Más Capacidad Puntualmente?
+              </h3>
+              <p className="text-lg text-gray-600 mb-6 max-w-3xl mx-auto">
+                Los <strong>Tokens de Servicio</strong> son perfectos para picos de trabajo: nuevos proyectos, 
+                inspecciones en obra, o cuando necesites procesar más documentos de lo habitual.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white p-6 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-gray-900 mb-2">Paquete Básico</h4>
+                  <p className="text-3xl font-bold text-blue-600 mb-2">€29</p>
+                  <p className="text-gray-600 mb-3">500 tokens adicionales</p>
+                  <p className="text-sm text-gray-500">Ideal para proyectos pequeños</p>
+                </div>
+                <div className="bg-white p-6 rounded-lg border border-blue-200 ring-2 ring-blue-500">
+                  <div className="text-center mb-2">
+                    <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                      Más Popular
+                    </span>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Paquete Profesional</h4>
+                  <p className="text-3xl font-bold text-blue-600 mb-2">€79</p>
+                  <p className="text-gray-600 mb-3">1,500 tokens adicionales</p>
+                  <p className="text-sm text-gray-500">Perfecto para inspecciones</p>
+                </div>
+                <div className="bg-white p-6 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-gray-900 mb-2">Paquete Empresarial</h4>
+                  <p className="text-3xl font-bold text-blue-600 mb-2">€199</p>
+                  <p className="text-gray-600 mb-3">5,000 tokens adicionales</p>
+                  <p className="text-sm text-gray-500">Para grandes proyectos</p>
+                </div>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-yellow-800">
+                  <strong>Nota:</strong> Los tokens son un complemento para suscriptores activos. 
+                  Se añaden a tu cuenta actual y no tienen caducidad.
+                </p>
+              </div>
+              <p className="text-gray-600">
+                <strong>¿Ya eres cliente?</strong>{' '}
+                <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
+                  Inicia sesión para comprar tokens →
+                </Link>
+              </p>
+            </div>
+          </div>
           <div className="text-center mt-12">
             <p className="text-gray-600 mb-4">
               ¿Necesitas algo más específico?
