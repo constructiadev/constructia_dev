@@ -745,10 +745,6 @@ export default function FinancialModule() {
           </button>
         </div>
       </div>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* Modal de Pasarela de Pago */}
       <PaymentGatewayModal
