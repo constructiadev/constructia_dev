@@ -39,13 +39,68 @@ export const authService = {
 
   // Registro de cliente
   async registerClient(email: string, password: string, clientData: any) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: clientData
+    try {
+      // First, try to sign up the user without additional data
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: clientData
+        }
+      });
+      
+      if (error) {
+        // If signup fails with metadata, try without it
+        if (error.message.includes('Database error saving new user')) {
+          const { data: retryData, error: retryError } = await supabase.auth.signUp({
+            email,
+            password
+          });
+          
+          if (retryError) throw retryError;
+          
+          // If user creation succeeds, manually create client record
+          if (retryData.user) {
+            await this.createClientRecord(retryData.user.id, email, clientData);
+          }
+          
+          return retryData;
+        }
+        throw error;
       }
-    });
+      
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  },
+
+  // Helper method to create client record manually
+  async createClientRecord(userId: string, email: string, clientData: any) {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .insert({
+          user_id: userId,
+          client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
+          company_name: clientData.company_name || '',
+          contact_name: clientData.contact_name || '',
+          email: email,
+          phone: clientData.phone || '',
+          address: clientData.address || '',
+          subscription_plan: clientData.selected_plan || 'basic'
+        });
+      
+      if (error) {
+        console.error('Error creating client record:', error);
+        // Don't throw here - user is already created
+      }
+    } catch (error) {
+      console.error('Error in createClientRecord:', error);
+      // Don't throw here - user is already created
+    }
+  },
     
     if (error) throw error;
     return data;
