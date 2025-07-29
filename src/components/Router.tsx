@@ -7,6 +7,11 @@ import LoginForm from './auth/LoginForm';
 import RegisterForm from './auth/RegisterForm';
 import LandingPage from './landing/LandingPage';
 
+// Componentes Legales
+import TermsOfService from './legal/TermsOfService';
+import PrivacyPolicy from './legal/PrivacyPolicy';
+import CookiePolicy from './legal/CookiePolicy';
+
 // Layouts
 import AdminLayout from './layout/AdminLayout';
 import ClientLayout from './layout/ClientLayout';
@@ -78,6 +83,11 @@ export default function Router() {
       <Routes>
         {/* Landing Page */}
         <Route path="/landing" element={<LandingPage />} />
+        
+        {/* Páginas Legales */}
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/cookie-policy" element={<CookiePolicy />} />
         
         {/* Rutas de autenticación */}
         <Route path="/" element={
