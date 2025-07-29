@@ -39,10 +39,7 @@ export default function Companies() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showObraliaModal, setShowObraliaModal] = useState(false);
   const [obraliaCompanyId, setObraliaCompanyId] = useState<string>('');
-  const { user } = useAuth();
-
-  // Datos simulados de empresas
-  const companies: Company[] = [
+  const [companies, setCompanies] = useState<Company[]>([
     {
       id: '1',
       name: 'Construcciones García S.L.',
@@ -82,7 +79,8 @@ export default function Companies() {
       status: 'inactive',
       obralia_configured: false
     }
-  ];
+  ]);
+  const { user } = useAuth();
 
   const filteredCompanies = companies.filter(company =>
     company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,8 +113,15 @@ export default function Companies() {
       const clientData = await getCurrentClientData(user.id);
       await updateClientObraliaCredentials(clientData.id, credentials);
       
-      // Actualizar el estado local de la empresa
-      // En una implementación real, esto se haría con la base de datos
+      // Actualizar el estado local de la empresa específica
+      setCompanies(prevCompanies => 
+        prevCompanies.map(company => 
+          company.id === obraliaCompanyId 
+            ? { ...company, obralia_configured: true }
+            : company
+        )
+      );
+      
       alert('¡Credenciales de Obralia configuradas exitosamente para la empresa!');
       setShowObraliaModal(false);
       setObraliaCompanyId('');
