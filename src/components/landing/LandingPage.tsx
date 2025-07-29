@@ -25,6 +25,9 @@ import Logo from '../common/Logo';
 
 export default function LandingPage() {
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Animación de datos en tiempo real
   useEffect(() => {
@@ -405,47 +408,50 @@ export default function LandingPage() {
           </div>
 
           {/* Información sobre Tokens para Suscriptores */}
-          <div className="mt-16 bg-blue-50 border border-blue-200 rounded-xl p-8">
+          <div className="mt-16 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-8">
             <div className="text-center">
               <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Zap className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                ¿Necesitas Más Capacidad Puntualmente?
+                Tokens de Servicio para Suscriptores
               </h3>
               <p className="text-lg text-gray-600 mb-6 max-w-3xl mx-auto">
-                Los <strong>Tokens de Servicio</strong> son perfectos para picos de trabajo: nuevos proyectos, 
-                inspecciones en obra, o cuando necesites procesar más documentos de lo habitual.
+                Los <strong>Tokens de Servicio</strong> son un upgrade puntual y no recurrente para suscriptores activos. 
+                Perfectos para picos de trabajo: nuevos proyectos, inspecciones en obra, o cuando necesites procesar 
+                más documentos de lo habitual.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-gray-900 mb-2">Paquete Básico</h4>
-                  <p className="text-3xl font-bold text-blue-600 mb-2">€29</p>
-                  <p className="text-gray-600 mb-3">500 tokens adicionales</p>
-                  <p className="text-sm text-gray-500">Ideal para proyectos pequeños</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg border border-blue-200 ring-2 ring-blue-500">
-                  <div className="text-center mb-2">
-                    <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                      Más Popular
-                    </span>
+              
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-4">¿Cuándo necesitas tokens adicionales?</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <Building2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-green-800">Nuevo Proyecto</p>
+                    <p className="text-xs text-green-600">Gran volumen inicial</p>
                   </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Paquete Profesional</h4>
-                  <p className="text-3xl font-bold text-blue-600 mb-2">€79</p>
-                  <p className="text-gray-600 mb-3">1,500 tokens adicionales</p>
-                  <p className="text-sm text-gray-500">Perfecto para inspecciones</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-gray-900 mb-2">Paquete Empresarial</h4>
-                  <p className="text-3xl font-bold text-blue-600 mb-2">€199</p>
-                  <p className="text-gray-600 mb-3">5,000 tokens adicionales</p>
-                  <p className="text-sm text-gray-500">Para grandes proyectos</p>
+                  <div className="text-center p-4 bg-orange-50 rounded-lg">
+                    <Eye className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-orange-800">Inspección en Obra</p>
+                    <p className="text-xs text-orange-600">Documentación intensiva</p>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <TrendingUp className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-purple-800">Pico de Actividad</p>
+                    <p className="text-xs text-purple-600">Temporada alta</p>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <FileText className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-blue-800">Auditoría</p>
+                    <p className="text-xs text-blue-600">Revisión masiva</p>
+                  </div>
                 </div>
               </div>
+              
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-yellow-800">
-                  <strong>Nota:</strong> Los tokens son un complemento para suscriptores activos. 
-                  Se añaden a tu cuenta actual y no tienen caducidad.
+                  <strong>Solo para suscriptores:</strong> Los tokens son un upgrade puntual y no recurrente 
+                  que se añade a tu suscripción actual. No tienen caducidad y se usan cuando los necesites.
                 </p>
               </div>
               <p className="text-gray-600">
@@ -643,16 +649,85 @@ export default function LandingPage() {
             </div>
 
             {/* Contenido del Video */}
-            <div className="relative bg-gray-900 aspect-video">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="bg-white/20 rounded-full p-8 mb-6 mx-auto w-24 h-24 flex items-center justify-center">
-                    <Play className="h-10 w-10 text-white ml-1" />
-                  </div>
-                  <p className="text-white text-xl font-semibold mb-2">Ver ConstructIA en Acción</p>
-                  <p className="text-white/80">Demo de la plataforma</p>
+            <div className="relative bg-gray-900 aspect-video overflow-hidden">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                poster="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                muted={isVideoMuted}
+                onPlay={() => setIsVideoPlaying(true)}
+                onPause={() => setIsVideoPlaying(false)}
+                onEnded={() => setIsVideoPlaying(false)}
+              >
+                <source src="https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4" type="video/mp4" />
+                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+                Tu navegador no soporta el elemento video.
+              </video>
+              
+              {/* Overlay de controles */}
+              <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => {
+                      if (videoRef.current) {
+                        if (isVideoPlaying) {
+                          videoRef.current.pause();
+                        } else {
+                          videoRef.current.play();
+                        }
+                      }
+                    }}
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-4 transition-colors"
+                  >
+                    {isVideoPlaying ? (
+                      <Pause className="h-8 w-8 text-white" />
+                    ) : (
+                      <Play className="h-8 w-8 text-white ml-1" />
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      if (videoRef.current) {
+                        setIsVideoMuted(!isVideoMuted);
+                        videoRef.current.muted = !isVideoMuted;
+                      }
+                    }}
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 transition-colors"
+                  >
+                    {isVideoMuted ? (
+                      <VolumeX className="h-6 w-6 text-white" />
+                    ) : (
+                      <Volume2 className="h-6 w-6 text-white" />
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = 0;
+                        videoRef.current.play();
+                      }
+                    }}
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 transition-colors"
+                  >
+                    <RotateCcw className="h-6 w-6 text-white" />
+                  </button>
                 </div>
               </div>
+              
+              {/* Indicador de estado cuando no está reproduciendo */}
+              {!isVideoPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="bg-white/20 rounded-full p-8 mb-6 mx-auto w-24 h-24 flex items-center justify-center backdrop-blur-sm">
+                      <Play className="h-10 w-10 text-white ml-1" />
+                    </div>
+                    <p className="text-white text-xl font-semibold mb-2">Ver ConstructIA en Acción</p>
+                    <p className="text-white/80">Haz clic para reproducir el demo</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer del Modal */}
