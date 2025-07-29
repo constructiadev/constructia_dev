@@ -145,9 +145,374 @@ function PricingCard({ name, price, period, features, popular = false, color, bu
   );
 }
 
+interface DemoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function DemoModal({ isOpen, onClose }: DemoModalProps) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const demoSteps = [
+    {
+      id: 1,
+      title: "1. Subir Documento",
+      description: "El usuario arrastra y suelta un documento PDF",
+      icon: Upload,
+      color: "bg-blue-500",
+      animation: "upload"
+    },
+    {
+      id: 2,
+      title: "2. Seleccionar Empresa y Proyecto",
+      description: "Especifica la empresa y proyecto de destino",
+      icon: Building2,
+      color: "bg-green-500",
+      animation: "select"
+    },
+    {
+      id: 3,
+      title: "3. IA Clasifica Documento",
+      description: "Gemini AI analiza y clasifica automáticamente",
+      icon: Brain,
+      color: "bg-purple-500",
+      animation: "classify"
+    },
+    {
+      id: 4,
+      title: "4. Subida a Obralia/Nalanda",
+      description: "El documento se sube automáticamente a la sección correcta",
+      icon: Globe,
+      color: "bg-orange-500",
+      animation: "obralia"
+    },
+    {
+      id: 5,
+      title: "5. Validación en Obralia",
+      description: "Esperamos confirmación de que el documento fue validado",
+      icon: CheckCircle,
+      color: "bg-emerald-500",
+      animation: "validate"
+    },
+    {
+      id: 6,
+      title: "6. Limpieza Automática",
+      description: "El documento se elimina automáticamente de ConstructIA",
+      icon: Shield,
+      color: "bg-red-500",
+      animation: "cleanup"
+    }
+  ];
+
+  useEffect(() => {
+    if (isPlaying && currentStep < demoSteps.length - 1) {
+      const timer = setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+        setProgress(0);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else if (isPlaying && currentStep === demoSteps.length - 1) {
+      const timer = setTimeout(() => {
+        setIsPlaying(false);
+        setCurrentStep(0);
+        setProgress(0);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep, isPlaying]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      const progressTimer = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) return 0;
+          return prev + 2;
+        });
+      }, 60);
+      return () => clearInterval(progressTimer);
+    }
+  }, [isPlaying, currentStep]);
+
+  const startDemo = () => {
+    setIsPlaying(true);
+    setCurrentStep(0);
+    setProgress(0);
+  };
+
+  const resetDemo = () => {
+    setIsPlaying(false);
+    setCurrentStep(0);
+    setProgress(0);
+  };
+
+  if (!isOpen) return null;
+
+  const currentStepData = demoSteps[currentStep];
+  const StepIcon = currentStepData.icon;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-8 rounded-t-3xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-bold mb-2">Demo Interactivo ConstructIA</h2>
+              <p className="text-green-100">Descubre cómo funciona nuestra plataforma paso a paso</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors p-2"
+            >
+              <X className="h-8 w-8" />
+            </button>
+          </div>
+        </div>
+
+        {/* Demo Content */}
+        <div className="p-8">
+          {/* Progress Bar */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-medium text-gray-600">
+                Paso {currentStep + 1} de {demoSteps.length}
+              </span>
+              <span className="text-sm text-gray-500">
+                {isPlaying ? 'Reproduciendo...' : 'Pausado'}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${((currentStep + 1) / demoSteps.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Current Step Display */}
+          <div className="text-center mb-8">
+            <div className={`w-24 h-24 ${currentStepData.color} rounded-full flex items-center justify-center mx-auto mb-6 transform transition-all duration-500 ${
+              isPlaying ? 'scale-110 animate-pulse' : 'scale-100'
+            }`}>
+              <StepIcon className="h-12 w-12 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">{currentStepData.title}</h3>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">{currentStepData.description}</p>
+          </div>
+
+          {/* Step Progress for Current Step */}
+          {isPlaying && (
+            <div className="mb-8">
+              <div className="w-full bg-gray-200 rounded-full h-1">
+                <div 
+                  className={`${currentStepData.color} h-1 rounded-full transition-all duration-100`}
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Visual Representation */}
+          <div className="bg-gray-50 rounded-2xl p-8 mb-8">
+            <div className="grid grid-cols-6 gap-4">
+              {demoSteps.map((step, index) => {
+                const Icon = step.icon;
+                const isActive = index === currentStep;
+                const isCompleted = index < currentStep;
+                
+                return (
+                  <div key={step.id} className="text-center">
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 transition-all duration-500 ${
+                      isActive 
+                        ? `${step.color} scale-110 animate-pulse` 
+                        : isCompleted 
+                        ? 'bg-green-500' 
+                        : 'bg-gray-300'
+                    }`}>
+                      <Icon className={`h-8 w-8 ${isActive || isCompleted ? 'text-white' : 'text-gray-500'}`} />
+                    </div>
+                    <p className={`text-xs font-medium ${
+                      isActive ? 'text-gray-900' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {step.title.split('.')[1]?.trim() || step.title}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Demo Animation Area */}
+          <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 mb-8 min-h-48 flex items-center justify-center">
+            {currentStep === 0 && (
+              <div className="text-center">
+                <div className={`w-32 h-32 border-4 border-dashed border-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all duration-500 ${
+                  isPlaying ? 'border-blue-600 bg-blue-100' : ''
+                }`}>
+                  <Upload className={`h-16 w-16 text-blue-500 transition-all duration-500 ${
+                    isPlaying ? 'animate-bounce' : ''
+                  }`} />
+                </div>
+                <p className="text-gray-600">Arrastra tu documento aquí</p>
+              </div>
+            )}
+
+            {currentStep === 1 && (
+              <div className="text-center">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className={`bg-white p-6 rounded-xl border-2 transition-all duration-500 ${
+                    isPlaying ? 'border-green-500 shadow-lg' : 'border-gray-200'
+                  }`}>
+                    <Building2 className="h-12 w-12 text-green-600 mx-auto mb-3" />
+                    <p className="font-semibold">Construcciones García S.L.</p>
+                  </div>
+                  <div className={`bg-white p-6 rounded-xl border-2 transition-all duration-500 ${
+                    isPlaying ? 'border-green-500 shadow-lg' : 'border-gray-200'
+                  }`}>
+                    <FileText className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                    <p className="font-semibold">Edificio Residencial Centro</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="text-center">
+                <div className={`bg-white p-8 rounded-xl border-2 transition-all duration-500 ${
+                  isPlaying ? 'border-purple-500 shadow-lg' : 'border-gray-200'
+                }`}>
+                  <Brain className={`h-16 w-16 text-purple-600 mx-auto mb-4 transition-all duration-500 ${
+                    isPlaying ? 'animate-pulse' : ''
+                  }`} />
+                  <p className="font-semibold text-lg mb-2">Analizando con Gemini AI...</p>
+                  <div className="bg-gray-200 rounded-full h-2 w-48 mx-auto">
+                    <div className={`bg-purple-500 h-2 rounded-full transition-all duration-1000 ${
+                      isPlaying ? 'w-full' : 'w-0'
+                    }`}></div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-3">Clasificación: Certificado de Obra (94% confianza)</p>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="text-center">
+                <div className="flex items-center justify-center space-x-8">
+                  <div className="bg-white p-6 rounded-xl border-2 border-gray-200">
+                    <FileText className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                    <p className="font-semibold">Certificado.pdf</p>
+                  </div>
+                  <div className={`transition-all duration-1000 ${isPlaying ? 'animate-pulse' : ''}`}>
+                    <ArrowRight className="h-8 w-8 text-orange-500" />
+                  </div>
+                  <div className={`bg-white p-6 rounded-xl border-2 transition-all duration-500 ${
+                    isPlaying ? 'border-orange-500 shadow-lg' : 'border-gray-200'
+                  }`}>
+                    <Globe className="h-12 w-12 text-orange-600 mx-auto mb-3" />
+                    <p className="font-semibold">Obralia/Nalanda</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 4 && (
+              <div className="text-center">
+                <div className={`bg-white p-8 rounded-xl border-2 transition-all duration-500 ${
+                  isPlaying ? 'border-emerald-500 shadow-lg' : 'border-gray-200'
+                }`}>
+                  <CheckCircle className={`h-16 w-16 text-emerald-600 mx-auto mb-4 transition-all duration-500 ${
+                    isPlaying ? 'animate-bounce' : ''
+                  }`} />
+                  <p className="font-semibold text-lg mb-2">Validando en Obralia...</p>
+                  <div className="bg-gray-200 rounded-full h-2 w-48 mx-auto">
+                    <div className={`bg-emerald-500 h-2 rounded-full transition-all duration-1000 ${
+                      isPlaying ? 'w-full' : 'w-0'
+                    }`}></div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-3">Estado: Documento validado correctamente</p>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 5 && (
+              <div className="text-center">
+                <div className={`bg-white p-8 rounded-xl border-2 transition-all duration-500 ${
+                  isPlaying ? 'border-red-500 shadow-lg' : 'border-gray-200'
+                }`}>
+                  <Shield className={`h-16 w-16 text-red-600 mx-auto mb-4 transition-all duration-500 ${
+                    isPlaying ? 'animate-pulse' : ''
+                  }`} />
+                  <p className="font-semibold text-lg mb-2">Limpieza Automática</p>
+                  <p className="text-sm text-gray-600">El documento se elimina de ConstructIA tras 7 días</p>
+                  <div className="mt-4 p-4 bg-green-50 rounded-lg">
+                    <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-green-800">¡Proceso Completado!</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center justify-center space-x-4">
+            {!isPlaying ? (
+              <button
+                onClick={startDemo}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 flex items-center"
+              >
+                <Play className="h-5 w-5 mr-2" />
+                Iniciar Demo
+              </button>
+            ) : (
+              <button
+                onClick={resetDemo}
+                className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 flex items-center"
+              >
+                <X className="h-5 w-5 mr-2" />
+                Detener Demo
+              </button>
+            )}
+            
+            <button
+              onClick={() => navigate('/')}
+              className="border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white font-bold py-3 px-8 rounded-xl transition-all duration-300"
+            >
+              Probar Ahora
+            </button>
+          </div>
+
+          {/* Benefits Summary */}
+          <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6">
+            <h4 className="font-bold text-gray-800 mb-4 text-center">Beneficios del Proceso Automatizado</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <Clock className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                <p className="font-semibold text-gray-800">Ahorro de Tiempo</p>
+                <p className="text-sm text-gray-600">70% menos tiempo en gestión documental</p>
+              </div>
+              <div className="text-center">
+                <Brain className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                <p className="font-semibold text-gray-800">Precisión IA</p>
+                <p className="text-sm text-gray-600">94.7% de precisión en clasificación</p>
+              </div>
+              <div className="text-center">
+                <Shield className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                <p className="font-semibold text-gray-800">Seguridad Total</p>
+                <p className="text-sm text-gray-600">Eliminación automática tras validación</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function LandingPage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<Array<{type: 'user' | 'ai', message: string}>>([]);
