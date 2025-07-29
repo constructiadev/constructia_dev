@@ -127,43 +127,176 @@ export default function LandingPage() {
             </div>
             
             <div className="relative">
-              <div className="bg-white rounded-2xl shadow-2xl p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800">Procesamiento IA</h3>
-                  <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                    En vivo
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center p-3 bg-blue-50 rounded-lg">
-                    <FileText className="h-5 w-5 text-blue-600 mr-3" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">certificado_obra_A.pdf</p>
-                      <p className="text-xs text-gray-600">Clasificando con IA...</p>
+              <div className="bg-white rounded-2xl shadow-2xl p-8 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-blue-50 opacity-50"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-800">IA en Acción</h3>
+                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium animate-pulse">
+                      Procesando...
                     </div>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   </div>
                   
-                  <div className="flex items-center p-3 bg-green-50 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">factura_materiales_B.pdf</p>
-                      <p className="text-xs text-green-600">Subido a Obralia ✓</p>
+                  <div className="space-y-4">
+                    <div className="flex items-center p-4 bg-white/80 rounded-lg border border-green-200 transform hover:scale-105 transition-transform">
+                      <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center mr-4 animate-spin">
+                        <Brain className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-800">Analizando documento...</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full animate-pulse" style={{ width: '75%' }}></div>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs text-green-600 font-medium">94% confianza</span>
-                  </div>
-                  
-                  <div className="flex items-center p-3 bg-purple-50 rounded-lg">
-                    <Brain className="h-5 w-5 text-purple-600 mr-3" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">dni_trabajador_C.pdf</p>
-                      <p className="text-xs text-purple-600">Validado en Obralia ✓</p>
+                    
+                    <div className="flex items-center p-4 bg-white/80 rounded-lg border border-blue-200">
+                      <CheckCircle className="h-8 w-8 text-green-500 mr-4 animate-bounce" />
+                      <div>
+                        <p className="font-semibold text-gray-800">Clasificación: Certificado</p>
+                        <p className="text-sm text-gray-600">Confianza: 94.7%</p>
+                      </div>
                     </div>
-                    <span className="text-xs text-purple-600 font-medium">97% confianza</span>
+                    
+                    <div className="flex items-center p-4 bg-white/80 rounded-lg border border-purple-200">
+                      <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-4">
+                        <Zap className="h-4 w-4 text-white animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800">Subiendo a Obralia...</p>
+                        <p className="text-sm text-purple-600">Integración automática</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonios */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Lo que Dicen Nuestros Clientes
+            </h2>
+            <p className="text-xl text-gray-600">
+              Empresas de construcción que ya confían en ConstructIA
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                  <Building2 className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Juan García</h4>
+                  <p className="text-sm text-gray-600">Director, Construcciones García S.L.</p>
+                </div>
+              </div>
+              <p className="text-gray-700 italic">
+                "ConstructIA ha revolucionado nuestra gestión documental. Lo que antes nos tomaba 
+                horas ahora se hace en minutos. La precisión de la IA es impresionante."
+              </p>
+              <div className="flex items-center mt-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                  <Building2 className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">María López</h4>
+                  <p className="text-sm text-gray-600">Gerente, Obras Públicas del Norte</p>
+                </div>
+              </div>
+              <p className="text-gray-700 italic">
+                "La integración con Obralia es perfecta. Nuestros documentos se suben automáticamente 
+                y el equipo puede enfocarse en la construcción, no en el papeleo."
+              </p>
+              <div className="flex items-center mt-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                  <Building2 className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Carlos Martín</h4>
+                  <p className="text-sm text-gray-600">CEO, Reformas Integrales López</p>
+                </div>
+              </div>
+              <p className="text-gray-700 italic">
+                "ROI inmediato. En el primer mes recuperamos la inversión solo en tiempo ahorrado. 
+                El soporte técnico es excepcional."
+              </p>
+              <div className="flex items-center mt-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Estadísticas */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              ConstructIA en Números
+            </h2>
+            <p className="text-xl text-gray-600">
+              Resultados que hablan por sí solos
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="h-8 w-8 text-green-600" />
+              </div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">500+</div>
+              <div className="text-gray-600">Empresas Activas</div>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-8 w-8 text-blue-600" />
+              </div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">2M+</div>
+              <div className="text-gray-600">Documentos Procesados</div>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Brain className="h-8 w-8 text-purple-600" />
+              </div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">95%</div>
+              <div className="text-gray-600">Precisión IA</div>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-8 w-8 text-orange-600" />
+              </div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">3s</div>
+              <div className="text-gray-600">Tiempo Promedio</div>
             </div>
           </div>
         </div>
