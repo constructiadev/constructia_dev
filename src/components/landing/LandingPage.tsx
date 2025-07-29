@@ -1068,10 +1068,5 @@ export default function LandingPage() {
           title="Acceso administrador"
         >
           <Shield className="h-3 w-3 text-gray-400" />
-        </Link>
-      </footer>
-    </div>
-  );
-}
 
 export default LandingPage
