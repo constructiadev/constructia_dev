@@ -25,8 +25,7 @@ export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
       return await attemptGeminiCall(prompt);
     } catch (error) {
       const isRetryableError = error instanceof Error && 
-        error.message.includes('503') && 
-        error.message.includes('overloaded');
+        error.message.includes('503');
       
       if (isRetryableError && attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
@@ -88,8 +87,8 @@ const attemptGeminiCall = async (prompt: string) => {
     const data = await response.json();
     return data.candidates[0]?.content?.parts[0]?.text || '';
   } catch (error) {
-    // Use warn for transient 503 overload errors, error for others
-    if (error instanceof Error && error.message.includes('503') && error.message.includes('overloaded')) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
       console.warn('Gemini AI temporarily overloaded:', error.message);
     } else {
       console.error('Error calling Gemini AI:', error);
