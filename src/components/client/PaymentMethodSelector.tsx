@@ -275,7 +275,6 @@ export default function PaymentMethodSelector({
       </div>
     </div>
 
-
       {/* Modal de Mandato SEPA */}
       <SEPAMandateForm
         isOpen={showSEPAForm}
@@ -295,3 +294,4 @@ export default function PaymentMethodSelector({
       />
     </>
   );
+}
