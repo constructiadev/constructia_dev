@@ -41,27 +41,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Auto-login para demo del administrador
     const autoLoginAdmin = async () => {
       try {
-        const mockUser = {
-          id: 'dev-admin-001',
-          email: 'admin@constructia.com',
-          aud: 'authenticated',
-          role: 'authenticated',
-          email_confirmed_at: new Date().toISOString(),
-          phone: '',
-          confirmed_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          app_metadata: {},
-          user_metadata: {},
-          identities: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as User;
-        
-        setUser(mockUser);
-        setUserRole('admin');
+        // No auto-login - let users start from landing page
+        setUser(null);
+        setUserRole(null);
         setLoading(false);
-        console.log('Auto-login de administrador completado');
-        return;
+        console.log('No auto-login - starting from landing page');
       } catch (error) {
         console.error('Error en auto-login:', error);
       }
