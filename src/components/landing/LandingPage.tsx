@@ -862,10 +862,10 @@ export default function LandingPage() {
               </a>
               <Link 
                 to="/admin/login" 
-                className="text-gray-500 hover:text-gray-700 transition-colors opacity-70 hover:opacity-100"
+                className="text-gray-500 hover:text-gray-700 transition-colors"
                 title="Panel de Administración"
               >
-                <Settings className="h-5 w-5" />
+                <Shield className="h-5 w-5" />
               </Link>
             </div>
           </div>
