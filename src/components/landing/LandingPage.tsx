@@ -320,6 +320,166 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Sección Sobre ConstructIA */}
+      <section id="empresa" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Sobre ConstructIA
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Somos pioneros en la digitalización del sector construcción, 
+              combinando inteligencia artificial con experiencia en el sector.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Nuestra Misión</h3>
+              <p className="text-gray-600 mb-6">
+                Revolucionar la gestión documental en construcción mediante IA avanzada, 
+                eliminando la burocracia manual y optimizando los procesos administrativos 
+                para que las empresas se enfoquen en lo que mejor saben hacer: construir.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                  <span className="text-gray-700">Especialistas en sector construcción</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                  <span className="text-gray-700">Tecnología de vanguardia</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                  <span className="text-gray-700">Soporte personalizado</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-6">
+              <div className="text-center p-6 bg-green-50 rounded-xl">
+                <div className="text-3xl font-bold text-green-600 mb-2">500+</div>
+                <div className="text-sm text-green-800">Empresas Confiando</div>
+              </div>
+              <div className="text-center p-6 bg-blue-50 rounded-xl">
+                <div className="text-3xl font-bold text-blue-600 mb-2">2M+</div>
+                <div className="text-sm text-blue-800">Documentos Procesados</div>
+              </div>
+              <div className="text-center p-6 bg-purple-50 rounded-xl">
+                <div className="text-3xl font-bold text-purple-600 mb-2">95%</div>
+                <div className="text-sm text-purple-800">Precisión IA</div>
+              </div>
+              <div className="text-center p-6 bg-orange-50 rounded-xl">
+                <div className="text-3xl font-bold text-orange-600 mb-2">24/7</div>
+                <div className="text-sm text-orange-800">Soporte Disponible</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-8">
+            <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Nuestro Equipo</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Building2 className="h-8 w-8 text-green-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Expertos en Construcción</h4>
+                <p className="text-gray-600 text-sm">
+                  Más de 20 años de experiencia en el sector, conocemos los desafíos reales.
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Brain className="h-8 w-8 text-blue-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Ingenieros de IA</h4>
+                <p className="text-gray-600 text-sm">
+                  PhDs en Machine Learning especializados en procesamiento de documentos.
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-purple-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Especialistas en Seguridad</h4>
+                <p className="text-gray-600 text-sm">
+                  Certificaciones ISO 27001 y GDPR para máxima protección de datos.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Proceso de Implementación */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Implementación en 3 Pasos Simples
+            </h2>
+            <p className="text-xl text-gray-600">
+              Desde el registro hasta la operación completa en menos de una semana
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-green-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 text-xl font-bold">
+                1
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Registro y Configuración</h3>
+              <p className="text-gray-600 mb-4">
+                Crea tu cuenta, configura tus empresas y proyectos. 
+                Nuestro asistente IA te guía paso a paso.
+              </p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800 font-medium">⏱️ Solo 5 minutos</p>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-blue-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 text-xl font-bold">
+                2
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Entrenamiento Personalizado</h3>
+              <p className="text-gray-600 mb-4">
+                Nuestro equipo configura la IA específicamente para tus tipos de documentos 
+                y procesos empresariales.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800 font-medium">📚 2-3 días hábiles</p>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <div className="bg-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 text-xl font-bold">
+                3
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Operación Completa</h3>
+              <p className="text-gray-600 mb-4">
+                Comienza a subir documentos y disfruta de la automatización completa 
+                con integración directa a Obralia.
+              </p>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="text-sm text-purple-800 font-medium">🚀 Inmediato</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-16 text-center">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-8 max-w-2xl mx-auto">
+              <h4 className="text-xl font-bold text-green-900 mb-4">🎯 Garantía de Satisfacción</h4>
+              <p className="text-green-800">
+                Si no estás completamente satisfecho en los primeros 30 días, 
+                te devolvemos el 100% de tu dinero. Sin preguntas.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Planes y Precios */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -545,6 +705,88 @@ export default function LandingPage() {
                   <p className="text-gray-600 text-sm">Gerente, Reformas Integrales López</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Preguntas Frecuentes
+            </h2>
+            <p className="text-xl text-gray-600">
+              Resolvemos las dudas más comunes sobre ConstructIA
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                ¿Qué tipos de documentos puede procesar la IA?
+              </h3>
+              <p className="text-gray-600">
+                Nuestra IA procesa facturas, certificados, DNIs, contratos, seguros, planos técnicos, 
+                albaranes, nóminas y cualquier documento relacionado con construcción. La precisión 
+                promedio es del 95% y mejora continuamente con el uso.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                ¿Cómo funciona la integración con Obralia/Nalanda?
+              </h3>
+              <p className="text-gray-600">
+                Una vez configuradas tus credenciales de Obralia, los documentos se suben automáticamente 
+                tras ser clasificados por la IA. El sistema mantiene trazabilidad completa y notifica 
+                el estado de cada documento en tiempo real.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                ¿Qué tan segura es la plataforma?
+              </h3>
+              <p className="text-gray-600">
+                Utilizamos encriptación SSL de 256 bits, cumplimos con GDPR, tenemos certificación 
+                ISO 27001 y realizamos auditorías de seguridad regulares. Tus documentos están 
+                más seguros que en sistemas tradicionales.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                ¿Puedo cancelar mi suscripción en cualquier momento?
+              </h3>
+              <p className="text-gray-600">
+                Sí, puedes cancelar en cualquier momento desde tu panel de control. No hay 
+                penalizaciones ni costos ocultos. Mantienes acceso hasta el final del período 
+                facturado y puedes exportar todos tus datos.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                ¿Qué tipo de soporte técnico ofrecen?
+              </h3>
+              <p className="text-gray-600">
+                Ofrecemos soporte por email (plan Básico), soporte prioritario (plan Profesional) 
+                y soporte 24/7 con gestor dedicado (plan Empresarial). También incluimos 
+                documentación completa y tutoriales en video.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                ¿Necesito conocimientos técnicos para usar ConstructIA?
+              </h3>
+              <p className="text-gray-600">
+                No, ConstructIA está diseñado para ser intuitivo. Si sabes usar email y navegador web, 
+                puedes usar nuestra plataforma. Además, ofrecemos entrenamiento personalizado y 
+                nuestro asistente IA te guía en cada paso.
+              </p>
             </div>
           </div>
         </div>
