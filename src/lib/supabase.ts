@@ -90,8 +90,6 @@ const attemptGeminiCall = async (prompt: string) => {
     // Use warn for transient 503 errors, error for others
     if (error instanceof Error && error.message.includes('503')) {
       console.warn('Gemini AI temporarily overloaded:', error.message);
-    } else {
-      console.error('Error calling Gemini AI:', error);
     }
     throw error;
   }
