@@ -51,7 +51,7 @@ export default function DocumentUpload() {
   ];
 
   // Verificar configuración de Obralia al cargar
-  React.useEffect(() => {
+  useEffect(() => {
     const checkObraliaConfig = async () => {
       if (!user?.id) return;
       
@@ -66,7 +66,7 @@ export default function DocumentUpload() {
     };
     
     checkObraliaConfig();
-  }, [user]);
+  }, [user?.id]);
 
   const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
     if (!user?.id) {
