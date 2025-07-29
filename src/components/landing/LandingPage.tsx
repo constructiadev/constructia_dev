@@ -33,7 +33,8 @@ import {
   Code,
   Database,
   Cloud,
-  Lock
+  Lock,
+  Upload
 } from 'lucide-react';
 import Logo from '../common/Logo';
 import { callGeminiAI } from '../../lib/supabase';
