@@ -123,6 +123,5 @@ export default function Router() {
       </Routes>
     </BrowserRouter>
   );
-}
 
-export default Router
+export default Router;
