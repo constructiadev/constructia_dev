@@ -17,6 +17,7 @@ import DatabaseModule from './admin/DatabaseModule';
 import APIManagement from './admin/APIManagement';
 import AuditModule from './admin/AuditModule';
 import AIIntegrationModule from './admin/AIIntegrationModule';
+import SettingsModule from './admin/SettingsModule';
 
 // Páginas Cliente
 import ClientDashboard from './client/Dashboard';
@@ -97,7 +98,7 @@ export default function Router() {
           <Route path="database" element={<DatabaseModule />} />
           <Route path="api" element={<APIManagement />} />
           <Route path="audit" element={<AuditModule />} />
-          <Route path="settings" element={<div className="p-6">Configuración (En desarrollo)</div>} />
+          <Route path="settings" element={<SettingsModule />} />
         </Route>
 
         {/* Rutas del Cliente */}
