@@ -741,6 +741,223 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Contact Section */}
+      <section id="contact" className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              ¿Tienes Preguntas? Contáctanos
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Nuestro equipo de expertos está aquí para ayudarte a implementar ConstructIA en tu empresa
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Información de Contacto */}
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Información de Contacto</h3>
+                <div className="space-y-6">
+                  <div className="flex items-start">
+                    <div className="bg-green-100 p-3 rounded-lg mr-4">
+                      <Mail className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Email</h4>
+                      <p className="text-gray-600">contacto@constructia.com</p>
+                      <p className="text-sm text-gray-500">Respuesta en menos de 24 horas</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-3 rounded-lg mr-4">
+                      <Phone className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Teléfono</h4>
+                      <p className="text-gray-600">+34 91 000 00 00</p>
+                      <p className="text-sm text-gray-500">Lunes a Viernes, 9:00 - 18:00</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-purple-100 p-3 rounded-lg mr-4">
+                      <MapPin className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Oficina</h4>
+                      <p className="text-gray-600">Calle Innovación 123</p>
+                      <p className="text-gray-600">28001 Madrid, España</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-orange-100 p-3 rounded-lg mr-4">
+                      <MessageCircle className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Chat en Vivo</h4>
+                      <p className="text-gray-600">Disponible en la plataforma</p>
+                      <p className="text-sm text-gray-500">Soporte técnico inmediato</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Horarios de Soporte */}
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 text-green-600 mr-2" />
+                  Horarios de Soporte
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Lunes - Viernes:</span>
+                    <span className="font-medium">9:00 - 18:00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Sábados:</span>
+                    <span className="font-medium">10:00 - 14:00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Domingos:</span>
+                    <span className="font-medium">Cerrado</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-gray-600">Emergencias 24/7:</span>
+                    <span className="font-medium text-green-600">Plan Empresarial</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Formulario de Contacto */}
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Envíanos un Mensaje</h3>
+              <form className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Tu nombre"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Empresa
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Nombre de tu empresa"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="+34 600 000 000"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de Consulta
+                  </label>
+                  <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    <option value="">Selecciona una opción</option>
+                    <option value="demo">Solicitar Demo</option>
+                    <option value="pricing">Información de Precios</option>
+                    <option value="integration">Integración con Obralia</option>
+                    <option value="support">Soporte Técnico</option>
+                    <option value="custom">Plan Personalizado</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mensaje *
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Cuéntanos sobre tu proyecto y cómo podemos ayudarte..."
+                  ></textarea>
+                </div>
+                
+                <div className="flex items-start">
+                  <input
+                    type="checkbox"
+                    className="mt-1 mr-3"
+                  />
+                  <label className="text-sm text-gray-600">
+                    Acepto recibir comunicaciones comerciales de ConstructIA y he leído la{' '}
+                    <a href="#" className="text-green-600 hover:text-green-700">política de privacidad</a>
+                  </label>
+                </div>
+                
+                <button
+                  type="submit"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center"
+                >
+                  <Send className="h-5 w-5 mr-2" />
+                  Enviar Mensaje
+                </button>
+              </form>
+            </div>
+          </div>
+          
+          {/* Información Adicional */}
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-8 w-8 text-green-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">Respuesta Rápida</h4>
+              <p className="text-gray-600">Respondemos todas las consultas en menos de 24 horas</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">Equipo Experto</h4>
+              <p className="text-gray-600">Especialistas en construcción y tecnología IA</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ExternalLink className="h-8 w-8 text-purple-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">Demo Personalizada</h4>
+              <p className="text-gray-600">Configuramos una demo específica para tu empresa</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
