@@ -295,3 +295,5 @@ export default function PaymentMethodSelector({
     </>
   );
 }
+
+export default PaymentMethodSelector
