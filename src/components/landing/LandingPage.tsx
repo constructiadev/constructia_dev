@@ -823,3 +823,5 @@ function VideoModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
     </div>
   );
 }
+
+export default LandingPage
