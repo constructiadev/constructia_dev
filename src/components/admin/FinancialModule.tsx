@@ -21,7 +21,8 @@ import {
   CheckCircle,
   Clock,
   Globe,
-  Shield
+  Shield,
+  Plus
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { callGeminiAI } from '../../lib/supabase';
