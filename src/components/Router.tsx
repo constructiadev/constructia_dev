@@ -52,7 +52,7 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 
   if (loading) return <Loading />;
   
-  if (!user) return <Navigate to="/" replace />;
+  if (!user) return <Navigate to="/landing" replace />;
   
   if (requireAdmin && userRole !== 'admin') {
     return <Navigate to="/client/dashboard" replace />;
@@ -75,8 +75,19 @@ export default function Router() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rutas públicas */}
+        {/* Landing Page */}
+        <Route path="/landing" element={<LandingPage />} />
+        
+        {/* Rutas de autenticación */}
         <Route path="/" element={
+          user ? (
+            userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/client/dashboard" replace />
+          ) : (
+            <Navigate to="/landing" replace />
+          )
+        } />
+        
+        <Route path="/login" element={
           user ? (
             userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/client/dashboard" replace />
           ) : (
@@ -84,7 +95,9 @@ export default function Router() {
           )
         } />
         
-        <Route path="/admin/login" element={<LoginForm isAdmin />} />
+        <Route path="/admin/login" element={
+          user && userRole === 'admin' ? <Navigate to="/admin" replace /> : <LoginForm isAdmin />
+        } />
 
         {/* Rutas del Admin */}
         <Route path="/admin" element={
@@ -119,7 +132,7 @@ export default function Router() {
         </Route>
 
         {/* Ruta 404 */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     </BrowserRouter>
   );
