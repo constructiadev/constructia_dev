@@ -22,6 +22,13 @@ import {
   Globe,
   Eye,
   Settings
+  Mail,
+  Phone,
+  MapPin,
+  MessageCircle,
+  Send,
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
