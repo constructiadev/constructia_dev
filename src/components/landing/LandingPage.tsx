@@ -21,7 +21,7 @@ import {
   TrendingUp,
   Globe,
   Eye,
-  Settings
+  Settings,
   Mail,
   Phone,
   MapPin,
