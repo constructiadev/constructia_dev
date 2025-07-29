@@ -173,21 +173,19 @@ export default function LandingPage() {
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
+          <div className="flex justify-between items-center py-4 h-16">
+            <div className="flex items-center space-x-4">
               <Logo size="md" />
-              <div className="ml-4 hidden md:flex items-center text-sm text-gray-600">
-                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+              <div className="hidden sm:block">
+                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-semibold">
                   Powered by Gemini AI
                 </span>
               </div>
             </div>
-            <nav className="hidden md:flex space-x-8">
+            
+            <nav className="hidden lg:flex items-center space-x-6">
               <a href="#features" className="text-gray-600 hover:text-green-600 transition-colors">
                 Características
-              </a>
-              <a href="#realtime" className="text-gray-600 hover:text-green-600 transition-colors">
-                En Tiempo Real
               </a>
               <a href="#demo" className="text-gray-600 hover:text-green-600 transition-colors">
                 Demo
@@ -198,30 +196,32 @@ export default function LandingPage() {
               <a href="#pricing" className="text-gray-600 hover:text-green-600 transition-colors">
                 Precios
               </a>
-              <a href="#tokens" className="text-gray-600 hover:text-green-600 transition-colors">
-                Tokens & Almacenamiento
-              </a>
             </nav>
-            <div className="flex items-center space-x-4">
-              <Link
-                to="/login"
-                className="text-gray-600 hover:text-green-600 transition-colors"
-              >
-                Iniciar Sesión
-              </Link>
-              <Link
-                to="/register"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Comenzar Gratis
-              </Link>
-              <button
-                onClick={() => setShowVideoModal(true)}
-                className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Ver Demo
-              </button>
+            
+            <div className="flex items-center space-x-3">
+              <div className="hidden sm:block">
+                <Link
+                  to="/login"
+                  className="text-gray-600 hover:text-green-600 transition-colors font-medium"
+                >
+                  Iniciar Sesión
+                </Link>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Link
+                  to="/register"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors font-semibold"
+                >
+                  Comenzar Gratis
+                </Link>
+                <button
+                  onClick={() => setShowVideoModal(true)}
+                  className="hidden md:flex border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-semibold transition-colors items-center"
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Ver Demo
+                </button>
+              </div>
             </div>
           </div>
         </div>
