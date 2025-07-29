@@ -1143,7 +1143,7 @@ function LandingPage() {
               type="email"
               placeholder="tu@empresa.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: '72px', height: '72px' }}
               className="flex-1 px-6 py-4 rounded-xl border-0 focus:ring-4 focus:ring-white/20 text-gray-900"
             />
             <button 
