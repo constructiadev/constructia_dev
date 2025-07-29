@@ -38,35 +38,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('AuthProvider useEffect iniciado');
     
-    // Auto-login para demo del administrador
-    const autoLoginAdmin = async () => {
-      try {
-        // No auto-login - let users start from landing page
-        setUser(null);
-        setUserRole(null);
-        setLoading(false);
-        console.log('No auto-login - starting from landing page');
-      } catch (error) {
-        console.error('Error en auto-login:', error);
-        setLoading(false);
-      }
-    };
-    
-    autoLoginAdmin();
-    
-    // Cleanup function
-    return () => {
-      console.log('AuthProvider cleanup');
-    };
-    
     // Verificar sesión existente
     authService.getSession().then(session => {
       console.log('Sesión existente obtenida:', session?.user?.email);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
       console.log('Estado inicial de autenticación establecido');
     });
 
@@ -79,8 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await fetchUserRole(session.user.id);
         } else {
           setUserRole(null);
+          setLoading(false);
         }
-        setLoading(false);
         console.log('Cambio de estado de autenticación procesado');
       }
     );
@@ -96,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (devUser) {
         console.log('Rol de usuario dev obtenido:', devUser.role);
         setUserRole(devUser.role);
+        setLoading(false);
         return;
       }
 
@@ -107,9 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       console.log('Rol de usuario obtenido:', data?.role);
       setUserRole(data?.role || 'client');
+      setLoading(false);
     } catch (error) {
       console.error('Error al obtener el rol de usuario:', error);
       setUserRole('client');
+      setLoading(false);
     }
   };
 
