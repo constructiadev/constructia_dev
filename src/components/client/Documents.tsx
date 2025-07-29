@@ -154,7 +154,8 @@ export default function Documents() {
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.document_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.project_name.toLowerCase().includes(searchTerm.toLowerCase());
+                         doc.project_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.company_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || doc.document_type === filterType;
     const matchesStatus = filterStatus === 'all' || doc.upload_status === filterStatus;
     const matchesProject = filterProject === 'all' || doc.project_name === filterProject;
@@ -248,7 +249,7 @@ export default function Documents() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar documentos..."
+                placeholder="Buscar por nombre, tipo, proyecto o empresa..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
