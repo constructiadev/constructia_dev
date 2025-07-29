@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import SEPAMandateForm from './SEPAMandateForm';
+import PaymentMethodSelector from './PaymentMethodSelector';
 import { 
   CreditCard, 
   Package, 
@@ -19,7 +21,6 @@ import {
 } from 'lucide-react';
 
 interface SubscriptionPlan {
-import SEPAMandateForm from './SEPAMandateForm';
   id: string;
   name: string;
   price: number;
