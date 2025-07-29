@@ -161,7 +161,6 @@ export default function FinancialModule() {
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
-  const [activeTab, setActiveTab] = useState('overview');
   const [paymentGateways, setPaymentGateways] = useState([
     {
       id: 'stripe_main',
@@ -470,12 +469,6 @@ export default function FinancialModule() {
     generateFinancialInsights();
   }, []);
 
-  const tabs = [
-    { id: 'overview', name: 'Resumen', icon: BarChart3 },
-    { id: 'receipts', name: 'Recibos', icon: Receipt },
-    { id: 'gateways', name: 'Pasarelas', icon: CreditCard },
-    { id: 'reports', name: 'Reportes', icon: Download }
-  ];
   return (
     <div className="space-y-8">
       {/* Header con IA Financiera */}
@@ -515,31 +508,6 @@ export default function FinancialModule() {
         )}
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.name}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-6">
-          {/* Tab: Resumen */}
-          {activeTab === 'overview' && (
-            <div className="space-y-8">
       {/* KPIs Financieros */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -609,17 +577,6 @@ export default function FinancialModule() {
           </div>
         </div>
       </div>
-            </div>
-          )}
-
-          {/* Tab: Recibos */}
-          {activeTab === 'receipts' && (
-            <ReceiptManagement />
-          )}
-
-          {/* Tab: Pasarelas */}
-          {activeTab === 'gateways' && (
-            <div className="space-y-8">
 
       {/* Configuración de Pasarelas de Pago */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -658,7 +615,7 @@ export default function FinancialModule() {
       </div>
 
       {/* Calendario Fiscal con IA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-800">Calendario Fiscal Inteligente</h3>
           <div className="flex items-center space-x-2">
@@ -677,7 +634,7 @@ export default function FinancialModule() {
       {/* Resumen Financiero y Acciones */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Resumen del Mes */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumen del Mes</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -715,7 +672,7 @@ export default function FinancialModule() {
         </div>
 
         {/* Estado de Configuración */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Estado de Configuración</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -754,7 +711,7 @@ export default function FinancialModule() {
       </div>
 
       {/* Acciones Rápidas */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button 
@@ -797,10 +754,6 @@ export default function FinancialModule() {
         gateway={selectedGateway}
         mode={modalMode}
       />
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
