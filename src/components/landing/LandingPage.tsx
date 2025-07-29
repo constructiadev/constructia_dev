@@ -205,6 +205,9 @@ export default function LandingPage() {
               <a href="#pricing" className="text-gray-600 hover:text-green-600 transition-colors">
                 Precios
               </a>
+              <a href="#contact" className="text-gray-600 hover:text-green-600 transition-colors">
+                Contacto
+              </a>
             </nav>
             
             <div className="flex items-center space-x-3">
