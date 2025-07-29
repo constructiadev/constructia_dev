@@ -20,7 +20,8 @@ import {
   Clock,
   TrendingUp,
   Globe,
-  Eye
+  Eye,
+  Settings
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
@@ -191,11 +192,8 @@ export default function LandingPage() {
               <a href="#features" className="text-gray-600 hover:text-green-600 transition-colors">
                 Características
               </a>
-              <a href="#demo" className="text-gray-600 hover:text-green-600 transition-colors">
-                Demo
-              </a>
-              <a href="#testimonials" className="text-gray-600 hover:text-green-600 transition-colors">
-                Testimonios
+              <a href="#services" className="text-gray-600 hover:text-green-600 transition-colors">
+                Servicios IA
               </a>
               <a href="#pricing" className="text-gray-600 hover:text-green-600 transition-colors">
                 Precios
@@ -343,6 +341,179 @@ export default function LandingPage() {
                 <p className="text-gray-600">{feature.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* AI Services Section */}
+      <section id="services" className="py-20 bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center bg-purple-100 text-purple-800 px-4 py-2 rounded-full text-sm font-semibold mb-6">
+              <Brain className="h-4 w-4 mr-2" />
+              Powered by Gemini AI
+            </div>
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">
+              Servicios de IA Especializados
+            </h2>
+            <p className="text-xl text-gray-600 max-w-4xl mx-auto">
+              Soluciones inteligentes diseñadas específicamente para el sector de la construcción, 
+              con IA avanzada que entiende las particularidades de cada tipo de proyecto.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+            {/* Gestión Documental General */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 w-16 h-16 rounded-xl flex items-center justify-center mb-6">
+                <FileText className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Gestión Documental Inteligente
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Clasificación automática de documentos de construcción con IA avanzada. 
+                Procesamiento inteligente de facturas, certificados, contratos y más.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-3" />
+                  Clasificación automática con 95% precisión
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-3" />
+                  Extracción de datos clave
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-3" />
+                  Integración directa con Obralia
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-3" />
+                  Procesamiento en tiempo real
+                </div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Tiempo promedio:</span>
+                  <span className="font-bold text-green-600">2.3 segundos</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Certificación de Maquinarias */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="bg-gradient-to-br from-orange-500 to-red-600 w-16 h-16 rounded-xl flex items-center justify-center mb-6">
+                <Settings className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Certificación de Maquinarias
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Gestión especializada de documentación técnica para maquinaria de construcción. 
+                IA entrenada específicamente para certificados, inspecciones y mantenimiento.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-orange-500 mr-3" />
+                  Certificados de inspección técnica
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-orange-500 mr-3" />
+                  Documentación de mantenimiento
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-orange-500 mr-3" />
+                  Seguros y pólizas de maquinaria
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-orange-500 mr-3" />
+                  Alertas de vencimiento automáticas
+                </div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Precisión especializada:</span>
+                  <span className="font-bold text-orange-600">97.2%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Obra Civil y Pública */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="bg-gradient-to-br from-blue-500 to-purple-600 w-16 h-16 rounded-xl flex items-center justify-center mb-6">
+                <Building2 className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Obra Civil y Pública
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Gestión integral y puntual de documentación para proyectos de obra civil y pública. 
+                IA especializada en normativas y requisitos específicos del sector público.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-blue-500 mr-3" />
+                  Documentación de licitaciones
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-blue-500 mr-3" />
+                  Certificados de obra pública
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-blue-500 mr-3" />
+                  Cumplimiento normativo automático
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="h-4 w-4 text-blue-500 mr-3" />
+                  Gestión de permisos y licencias
+                </div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Cumplimiento normativo:</span>
+                  <span className="font-bold text-blue-600">99.1%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Características Técnicas de la IA */}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Tecnología IA de Vanguardia
+              </h3>
+              <p className="text-gray-600 max-w-3xl mx-auto">
+                Nuestro sistema utiliza Gemini AI de Google, entrenado específicamente para el sector de la construcción
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl">
+                <Brain className="h-10 w-10 text-purple-600 mx-auto mb-4" />
+                <h4 className="font-bold text-gray-900 mb-2">Gemini AI</h4>
+                <p className="text-sm text-gray-600">Modelo de IA más avanzado de Google</p>
+              </div>
+              
+              <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
+                <Zap className="h-10 w-10 text-green-600 mx-auto mb-4" />
+                <h4 className="font-bold text-gray-900 mb-2">Procesamiento Rápido</h4>
+                <p className="text-sm text-gray-600">Resultados en menos de 3 segundos</p>
+              </div>
+              
+              <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl">
+                <Shield className="h-10 w-10 text-blue-600 mx-auto mb-4" />
+                <h4 className="font-bold text-gray-900 mb-2">Seguridad Total</h4>
+                <p className="text-sm text-gray-600">Encriptación y cumplimiento GDPR</p>
+              </div>
+              
+              <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-red-50 rounded-xl">
+                <TrendingUp className="h-10 w-10 text-orange-600 mx-auto mb-4" />
+                <h4 className="font-bold text-gray-900 mb-2">Mejora Continua</h4>
+                <p className="text-sm text-gray-600">IA que aprende de cada documento</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
