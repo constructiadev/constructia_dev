@@ -201,10 +201,10 @@ export default function CookiePolicy() {
                   Todos los navegadores permiten gestionar las cookies a través de su configuración de privacidad.
                 </p>
                 <ul className="text-xs text-gray-600 space-y-1">
-                  <li>• <strong>Chrome:</strong> Configuración > Privacidad y seguridad > Cookies</li>
-                  <li>• <strong>Firefox:</strong> Preferencias > Privacidad y seguridad</li>
-                  <li>• <strong>Safari:</strong> Preferencias > Privacidad</li>
-                  <li>• <strong>Edge:</strong> Configuración > Privacidad, búsqueda y servicios</li>
+                  <li>• <strong>Chrome:</strong> Configuración {'>'} Privacidad y seguridad {'>'} Cookies</li>
+                  <li>• <strong>Firefox:</strong> Preferencias {'>'} Privacidad y seguridad</li>
+                  <li>• <strong>Safari:</strong> Preferencias {'>'} Privacidad</li>
+                  <li>• <strong>Edge:</strong> Configuración {'>'} Privacidad, búsqueda y servicios</li>
                 </ul>
               </div>
             </div>
