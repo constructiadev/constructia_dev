@@ -108,9 +108,12 @@ export default function LandingPage() {
                   Comenzar Gratis
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
-                <button className="border border-gray-300 hover:border-green-600 text-gray-700 hover:text-green-600 px-8 py-4 rounded-xl font-semibold text-lg transition-colors">
-                  Ver Demo
-                </button>
+                <a 
+                  href="#contacto"
+                  className="border border-gray-300 hover:border-green-600 text-gray-700 hover:text-green-600 px-8 py-4 rounded-xl font-semibold text-lg transition-colors flex items-center justify-center"
+                >
+                  Contáctanos
+                </a>
               </div>
 
               <div className="flex items-center space-x-6 text-sm text-gray-600">
