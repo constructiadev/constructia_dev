@@ -43,6 +43,10 @@ interface PaymentHistory {
 export default function Subscription() {
   const [currentPlan] = useState('professional');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [showStorageModal, setShowStorageModal] = useState(false);
+  const [selectedTokenPackage, setSelectedTokenPackage] = useState('');
+  const [selectedStoragePackage, setSelectedStoragePackage] = useState('');
 
   // Plan actual del cliente
   const currentSubscription = {
@@ -57,6 +61,59 @@ export default function Subscription() {
     documents_processed: 127,
     documents_limit: 500
   };
+
+  // Paquetes de tokens disponibles
+  const tokenPackages = [
+    {
+      id: 'tokens_500',
+      name: 'Paquete Básico',
+      tokens: 500,
+      price: 29,
+      description: 'Ideal para uso ocasional',
+      popular: false
+    },
+    {
+      id: 'tokens_1500',
+      name: 'Paquete Profesional',
+      tokens: 1500,
+      price: 79,
+      description: 'Perfecto para uso regular',
+      popular: true
+    },
+    {
+      id: 'tokens_5000',
+      name: 'Paquete Empresarial',
+      tokens: 5000,
+      price: 199,
+      description: 'Para uso intensivo',
+      popular: false
+    }
+  ];
+
+  // Paquetes de almacenamiento adicional
+  const storagePackages = [
+    {
+      id: 'storage_1gb',
+      name: '+1GB Adicional',
+      storage: '1GB',
+      price: 9.99,
+      description: 'Ampliación mensual'
+    },
+    {
+      id: 'storage_5gb',
+      name: '+5GB Adicional',
+      storage: '5GB',
+      price: 39.99,
+      description: 'Ampliación mensual'
+    },
+    {
+      id: 'storage_10gb',
+      name: '+10GB Adicional',
+      storage: '10GB',
+      price: 69.99,
+      description: 'Ampliación mensual'
+    }
+  ];
 
   // Planes disponibles
   const subscriptionPlans: SubscriptionPlan[] = [
@@ -190,6 +247,179 @@ export default function Subscription() {
     return 'bg-green-500';
   };
 
+  const purchaseTokens = async () => {
+    const selectedPackage = tokenPackages.find(p => p.id === selectedTokenPackage);
+    if (!selectedPackage) return;
+    
+    try {
+      // Simular compra de tokens
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      alert(`¡Compra exitosa! Has adquirido ${selectedPackage.tokens} tokens por €${selectedPackage.price}`);
+      setShowTokenModal(false);
+      setSelectedTokenPackage('');
+    } catch (error) {
+      alert('Error al procesar la compra. Intenta nuevamente.');
+    }
+  };
+
+  const purchaseStorage = async () => {
+    const selectedPackage = storagePackages.find(p => p.id === selectedStoragePackage);
+    if (!selectedPackage) return;
+    
+    try {
+      // Simular compra de almacenamiento
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      alert(`¡Compra exitosa! Has adquirido ${selectedPackage.storage} adicional por €${selectedPackage.price}/mes`);
+      setShowStorageModal(false);
+      setSelectedStoragePackage('');
+    } catch (error) {
+      alert('Error al procesar la compra. Intenta nuevamente.');
+    }
+  };
+
+  const TokenPurchaseModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-gray-800">Comprar Tokens de Servicio</h3>
+          <button
+            onClick={() => setShowTokenModal(false)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-semibold text-blue-800 mb-2">¿Qué son los tokens?</h4>
+          <p className="text-sm text-blue-700">
+            Los tokens se utilizan para el procesamiento de documentos con IA. Cada documento consume tokens según su complejidad. 
+            Esta es una compra única, no recurrente.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {tokenPackages.map((pkg) => (
+            <div 
+              key={pkg.id}
+              className={`relative border-2 rounded-xl p-6 cursor-pointer transition-all ${
+                selectedTokenPackage === pkg.id
+                  ? 'border-green-500 bg-green-50'
+                  : pkg.popular
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => setSelectedTokenPackage(pkg.id)}
+            >
+              {pkg.popular && (
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    Más Popular
+                  </span>
+                </div>
+              )}
+              
+              <div className="text-center">
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">{pkg.name}</h4>
+                <div className="mb-4">
+                  <span className="text-3xl font-bold text-gray-900">€{pkg.price}</span>
+                  <span className="text-gray-600 ml-1">una vez</span>
+                </div>
+                <div className="mb-4">
+                  <span className="text-2xl font-bold text-green-600">{pkg.tokens.toLocaleString()}</span>
+                  <span className="text-gray-600 ml-1">tokens</span>
+                </div>
+                <p className="text-sm text-gray-600">{pkg.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={() => setShowTokenModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={purchaseTokens}
+            disabled={!selectedTokenPackage}
+            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Comprar Tokens
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const StoragePurchaseModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-gray-800">Ampliar Almacenamiento</h3>
+          <button
+            onClick={() => setShowStorageModal(false)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <h4 className="font-semibold text-orange-800 mb-2">Almacenamiento Adicional</h4>
+          <p className="text-sm text-orange-700">
+            Amplía tu capacidad de almacenamiento mensualmente. El cargo se añadirá a tu facturación recurrente.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {storagePackages.map((pkg) => (
+            <div 
+              key={pkg.id}
+              className={`border-2 rounded-xl p-6 cursor-pointer transition-all ${
+                selectedStoragePackage === pkg.id
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => setSelectedStoragePackage(pkg.id)}
+            >
+              <div className="text-center">
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">{pkg.name}</h4>
+                <div className="mb-4">
+                  <span className="text-3xl font-bold text-gray-900">€{pkg.price}</span>
+                  <span className="text-gray-600 ml-1">/mes</span>
+                </div>
+                <div className="mb-4">
+                  <span className="text-2xl font-bold text-blue-600">{pkg.storage}</span>
+                  <span className="text-gray-600 ml-1">adicional</span>
+                </div>
+                <p className="text-sm text-gray-600">{pkg.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={() => setShowStorageModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={purchaseStorage}
+            disabled={!selectedStoragePackage}
+            className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Ampliar Almacenamiento
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -293,6 +523,80 @@ export default function Subscription() {
                 style={{ width: `${getUsagePercentage(currentSubscription.documents_processed, currentSubscription.documents_limit)}%` }}
               ></div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Compra de Tokens y Almacenamiento */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-6">Servicios Adicionales</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="bg-green-100 p-2 rounded-lg mr-3">
+                  <Zap className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">Tokens de Servicio</h4>
+                  <p className="text-sm text-gray-600">Para procesamiento de documentos con IA</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-gray-600">Tokens disponibles:</span>
+                <span className="font-medium">{currentSubscription.tokens_limit - currentSubscription.tokens_used}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(currentSubscription.tokens_used, currentSubscription.tokens_limit))}`}
+                  style={{ width: `${getUsagePercentage(currentSubscription.tokens_used, currentSubscription.tokens_limit)}%` }}
+                ></div>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowTokenModal(true)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              Comprar Tokens
+            </button>
+          </div>
+          
+          <div className="border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                  <HardDrive className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">Almacenamiento Adicional</h4>
+                  <p className="text-sm text-gray-600">Amplía tu capacidad de almacenamiento</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-gray-600">Almacenamiento usado:</span>
+                <span className="font-medium">{currentSubscription.storage_used}MB / {currentSubscription.storage_limit}MB</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(currentSubscription.storage_used, currentSubscription.storage_limit))}`}
+                  style={{ width: `${getUsagePercentage(currentSubscription.storage_used, currentSubscription.storage_limit)}%` }}
+                ></div>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowStorageModal(true)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              Ampliar Almacenamiento
+            </button>
           </div>
         </div>
       </div>
@@ -504,6 +808,10 @@ export default function Subscription() {
           </div>
         </div>
       </div>
+
+      {/* Modales */}
+      {showTokenModal && <TokenPurchaseModal />}
+      {showStorageModal && <StoragePurchaseModal />}
     </div>
   );
 }

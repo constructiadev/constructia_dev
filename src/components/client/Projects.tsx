@@ -35,6 +35,7 @@ interface Project {
 export default function Projects() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCompany, setFilterCompany] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
@@ -116,13 +117,18 @@ export default function Projects() {
     }
   ];
 
+  // Lista única de empresas para el filtro
+  const companies = [...new Set(projects.map(p => p.company_name))];
+
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.location.toLowerCase().includes(searchTerm.toLowerCase());
+                         project.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         project.company_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || project.status === filterStatus;
+    const matchesCompany = filterCompany === 'all' || project.company_name === filterCompany;
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesCompany;
   });
 
   const getStatusColor = (status: string) => {
@@ -301,13 +307,24 @@ export default function Projects() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar proyectos..."
+                placeholder="Buscar por proyecto, empresa o ubicación..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
           </div>
+          
+          <select
+            value={filterCompany}
+            onChange={(e) => setFilterCompany(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+          >
+            <option value="all">Todas las empresas</option>
+            {companies.map(company => (
+              <option key={company} value={company}>{company}</option>
+            ))}
+          </select>
           
           <select
             value={filterStatus}

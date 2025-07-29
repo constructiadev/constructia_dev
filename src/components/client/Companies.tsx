@@ -9,8 +9,15 @@ import {
   Phone,
   Mail,
   Calendar,
-  Users
+  Users,
+  Settings,
+  Globe,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
+import ObraliaCredentialsModal from './ObraliaCredentialsModal';
+import { useAuth } from '../../context/AuthContext';
+import { getCurrentClientData, updateClientObraliaCredentials } from '../../lib/supabase';
 
 interface Company {
   id: string;
@@ -23,12 +30,16 @@ interface Company {
   documents: number;
   created_at: string;
   status: 'active' | 'inactive';
+  obralia_configured?: boolean;
 }
 
 export default function Companies() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [showObraliaModal, setShowObraliaModal] = useState(false);
+  const [obraliaCompanyId, setObraliaCompanyId] = useState<string>('');
+  const { user } = useAuth();
 
   // Datos simulados de empresas
   const companies: Company[] = [
@@ -42,7 +53,8 @@ export default function Companies() {
       projects: 5,
       documents: 87,
       created_at: '2024-01-15',
-      status: 'active'
+      status: 'active',
+      obralia_configured: true
     },
     {
       id: '2',
@@ -54,7 +66,8 @@ export default function Companies() {
       projects: 3,
       documents: 124,
       created_at: '2024-02-20',
-      status: 'active'
+      status: 'active',
+      obralia_configured: false
     },
     {
       id: '3',
@@ -66,7 +79,8 @@ export default function Companies() {
       projects: 2,
       documents: 45,
       created_at: '2024-03-10',
-      status: 'inactive'
+      status: 'inactive',
+      obralia_configured: false
     }
   ];
 
@@ -84,6 +98,32 @@ export default function Companies() {
     if (confirm('¿Estás seguro de que quieres eliminar esta empresa?')) {
       // Lógica de eliminación
       console.log('Eliminando empresa:', companyId);
+    }
+  };
+
+  const handleObraliaConfig = (companyId: string) => {
+    setObraliaCompanyId(companyId);
+    setShowObraliaModal(true);
+  };
+
+  const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
+    if (!user?.id) {
+      throw new Error('No se pudo identificar el usuario. Por favor, recarga la página.');
+    }
+
+    try {
+      const clientData = await getCurrentClientData(user.id);
+      await updateClientObraliaCredentials(clientData.id, credentials);
+      
+      // Actualizar el estado local de la empresa
+      // En una implementación real, esto se haría con la base de datos
+      alert('¡Credenciales de Obralia configuradas exitosamente para la empresa!');
+      setShowObraliaModal(false);
+      setObraliaCompanyId('');
+      
+    } catch (error) {
+      console.error('Error saving Obralia credentials:', error);
+      throw new Error('Error al guardar las credenciales. Intenta nuevamente.');
     }
   };
 
@@ -253,6 +293,37 @@ export default function Companies() {
                 <p className="text-xs text-green-800">Documentos</p>
               </div>
             </div>
+            {/* Estado de Obralia */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Globe className="h-4 w-4 text-gray-600 mr-2" />
+                  <span className="text-sm font-medium text-gray-700">Obralia/Nalanda</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {company.obralia_configured ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-xs text-green-600 font-medium">Configurado</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      <span className="text-xs text-orange-600 font-medium">No configurado</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              {!company.obralia_configured && (
+                <button
+                  onClick={() => handleObraliaConfig(company.id)}
+                  className="mt-2 w-full flex items-center justify-center px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  <Settings className="h-3 w-3 mr-2" />
+                  Configurar Obralia
+                </button>
+              )}
+            </div>
 
             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
               <div className="flex items-center text-xs text-gray-500">
@@ -293,6 +364,13 @@ export default function Companies() {
           </button>
         </div>
       )}
+
+      {/* Modal de Credenciales Obralia */}
+      <ObraliaCredentialsModal
+        isOpen={showObraliaModal}
+        onSave={handleSaveObraliaCredentials}
+        clientName={user?.email || 'Cliente'}
+      />
 
       {/* Modal */}
       {showModal && <CompanyModal />}

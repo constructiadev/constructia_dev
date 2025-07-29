@@ -8,9 +8,14 @@ import {
   AlertCircle,
   Brain,
   Loader,
-  Eye
+  Eye,
+  Settings,
+  Globe
 } from 'lucide-react';
 import { callGeminiAI } from '../../lib/supabase';
+import ObraliaCredentialsModal from './ObraliaCredentialsModal';
+import { useAuth } from '../../context/AuthContext';
+import { getCurrentClientData, updateClientObraliaCredentials } from '../../lib/supabase';
 
 interface UploadedFile {
   id: string;
@@ -27,6 +32,9 @@ export default function DocumentUpload() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
+  const [showObraliaModal, setShowObraliaModal] = useState(false);
+  const [obraliaConfigured, setObraliaConfigured] = useState(false);
+  const { user } = useAuth();
 
   // Datos simulados
   const companies = [
@@ -41,6 +49,44 @@ export default function DocumentUpload() {
     { id: '3', name: 'Puente Industrial A-7', company_id: '2' },
     { id: '4', name: 'Centro Comercial Valencia', company_id: '3' }
   ];
+
+  // Verificar configuración de Obralia al cargar
+  React.useEffect(() => {
+    const checkObraliaConfig = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const clientData = await getCurrentClientData(user.id);
+        const isConfigured = clientData.obralia_credentials?.configured || false;
+        setObraliaConfigured(isConfigured);
+      } catch (error) {
+        console.error('Error checking Obralia config:', error);
+        setObraliaConfigured(false);
+      }
+    };
+    
+    checkObraliaConfig();
+  }, [user]);
+
+  const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
+    if (!user?.id) {
+      throw new Error('No se pudo identificar el usuario. Por favor, recarga la página.');
+    }
+
+    try {
+      const clientData = await getCurrentClientData(user.id);
+      await updateClientObraliaCredentials(clientData.id, credentials);
+      
+      setObraliaConfigured(true);
+      setShowObraliaModal(false);
+      
+      alert('¡Credenciales de Obralia configuradas exitosamente! Ahora puedes subir documentos.');
+      
+    } catch (error) {
+      console.error('Error saving Obralia credentials:', error);
+      throw new Error('Error al guardar las credenciales. Intenta nuevamente.');
+    }
+  };
 
   const filteredProjects = projects.filter(p => p.company_id === selectedCompany);
 
@@ -292,38 +338,74 @@ export default function DocumentUpload() {
       {/* Zona de Subida */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         {/* Verificación de credenciales Obralia */}
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className={`mb-6 p-4 rounded-lg border ${
+          obraliaConfigured 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
           <div className="flex items-start">
-            <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
+            {obraliaConfigured ? (
+              <CheckCircle className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
+            )}
             <div>
-              <h4 className="font-semibold text-red-800">Credenciales Obralia Requeridas</h4>
-              <p className="text-sm text-red-700 mt-1">
-                Para poder subir documentos, necesitas configurar tus credenciales de Obralia/Nalanda. 
-                Contacta con el administrador para configurarlas.
+              <h4 className={`font-semibold ${
+                obraliaConfigured ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {obraliaConfigured ? 'Credenciales Obralia Configuradas' : 'Credenciales Obralia Requeridas'}
+              </h4>
+              <p className={`text-sm mt-1 ${
+                obraliaConfigured ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {obraliaConfigured 
+                  ? 'Tus credenciales están configuradas correctamente. Puedes subir documentos.'
+                  : 'Para poder subir documentos, necesitas configurar tus credenciales de Obralia/Nalanda.'
+                }
               </p>
+              {!obraliaConfigured && (
+                <button
+                  onClick={() => setShowObraliaModal(true)}
+                  className="mt-3 flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configurar Credenciales
+                </button>
+              )}
             </div>
           </div>
         </div>
         
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+          className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
             isDragActive 
               ? 'border-green-500 bg-green-50' 
+              : obraliaConfigured
+              ? 'border-gray-300 hover:border-green-400 hover:bg-green-50 cursor-pointer'
               : 'border-gray-300 hover:border-red-400 hover:bg-red-50 opacity-50 cursor-not-allowed'
           }`}
         >
-          <input {...getInputProps()} disabled />
+          <input {...getInputProps()} disabled={!obraliaConfigured} />
           <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           {isDragActive ? (
             <p className="text-green-600 font-medium">Suelta los archivos aquí...</p>
+          ) : obraliaConfigured ? (
+            <div>
+              <p className="text-gray-700 font-medium mb-2">
+                Arrastra y suelta tus archivos aquí, o haz clic para seleccionar
+              </p>
+              <p className="text-sm text-gray-500">
+                Soporta PDF, DOC, DOCX, JPG, PNG (máx. 10MB por archivo)
+              </p>
+            </div>
           ) : (
             <div>
               <p className="text-red-600 font-medium mb-2">
                 Subida deshabilitada - Configura credenciales Obralia primero
               </p>
               <p className="text-sm text-gray-500">
-                Contacta con el administrador para habilitar la subida de documentos
+                Haz clic en "Configurar Credenciales" para habilitar la subida
               </p>
             </div>
           )}
@@ -384,6 +466,13 @@ export default function DocumentUpload() {
           )}
         </div>
       )}
+
+      {/* Modal de Credenciales Obralia */}
+      <ObraliaCredentialsModal
+        isOpen={showObraliaModal}
+        onSave={handleSaveObraliaCredentials}
+        clientName={user?.email || 'Cliente'}
+      />
 
       {/* Información de Ayuda */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
