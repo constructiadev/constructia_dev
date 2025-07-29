@@ -398,7 +398,7 @@ export default function LandingPage() {
               <a href="#testimonials" className="block py-2 text-gray-700">Testimonios</a>
               <a href="#contact" className="block py-2 text-gray-700">Contacto</a>
               <button 
-                onClick={() => navigate('/client/login')}
+                onClick={() => navigate('/')}
                 className="block w-full text-left py-2 text-green-600"
               >
                 Iniciar Sesión
@@ -429,7 +429,7 @@ export default function LandingPage() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <button 
-                  onClick={() => navigate('/client/login')}
+                  onClick={() => navigate('/')}
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg flex items-center justify-center"
                 >
                   Prueba Gratis 14 Días
@@ -890,3 +890,5 @@ export default function LandingPage() {
     </div>
   );
 }
+
+export default LandingPage
