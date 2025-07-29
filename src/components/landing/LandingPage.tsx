@@ -144,7 +144,7 @@ function PricingCard({ name, price, period, features, popular = false, color, bu
   );
 }
 
-export default function LandingPage() {
+function LandingPage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
@@ -890,5 +890,3 @@ export default function LandingPage() {
     </div>
   );
 }
-
-export default LandingPage
