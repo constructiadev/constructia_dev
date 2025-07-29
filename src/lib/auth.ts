@@ -101,6 +101,10 @@ export const authService = {
       // Don't throw here - user is already created
     }
   },
+
+  // Reset password
+  async resetPassword(email: string) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email);
     
     if (error) throw error;
     return data;
