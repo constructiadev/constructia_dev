@@ -890,3 +890,5 @@ function LandingPage() {
     </div>
   );
 }
+
+export default LandingPage
