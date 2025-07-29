@@ -117,7 +117,12 @@ export default function ClientDashboard() {
       const assistance = await callGeminiAI(prompt);
       setAiAssistance(assistance);
     } catch (error) {
-      setAiAssistance('Error al generar asistencia. Intenta nuevamente.');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('503') && errorMessage.includes('overloaded')) {
+        setAiAssistance('🤖 El servicio de IA está temporalmente sobrecargado. Por favor, inténtalo de nuevo más tarde.');
+      } else {
+        setAiAssistance('Error al generar asistencia. Intenta nuevamente.');
+      }
     } finally {
       setLoading(false);
     }
