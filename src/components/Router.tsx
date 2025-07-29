@@ -26,6 +26,7 @@ import Documents from './client/Documents';
 import Metrics from './client/Metrics';
 import Subscription from './client/Subscription';
 import DocumentUpload from './client/DocumentUpload';
+import Settings from './client/Settings';
 
 // Componente de Loading
 function Loading() {
@@ -40,6 +41,13 @@ function Loading() {
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, userRole, loading } = useAuth();
 
+  console.log('ProtectedRoute renderizado. Estado:', { 
+    user: user?.email, 
+    userRole, 
+    loading, 
+    requireAdmin 
+  });
+
   if (loading) return <Loading />;
   
   if (!user) return <Navigate to="/" replace />;
@@ -53,6 +61,12 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 
 export default function Router() {
   const { user, userRole, loading } = useAuth();
+
+  console.log('Router renderizado. Estado:', { 
+    user: user?.email, 
+    userRole, 
+    loading 
+  });
 
   if (loading) return <Loading />;
 
@@ -99,7 +113,7 @@ export default function Router() {
           <Route path="documents" element={<Documents />} />
           <Route path="metrics" element={<Metrics />} />
           <Route path="subscription" element={<Subscription />} />
-          <Route path="settings" element={<div className="p-6">Configuración Cliente (En desarrollo)</div>} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         {/* Ruta 404 */}
