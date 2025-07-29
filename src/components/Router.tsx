@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 // Componentes de Auth
 import LoginForm from './auth/LoginForm';
+import RegisterForm from './auth/RegisterForm';
 import LandingPage from './landing/LandingPage';
 
 // Layouts
@@ -93,6 +94,14 @@ export default function Router() {
         
         <Route path="/admin/login" element={
           user && userRole === 'admin' ? <Navigate to="/admin" replace /> : <LoginForm isAdmin />
+        } />
+        
+        <Route path="/register" element={
+          user ? (
+            userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/client/dashboard" replace />
+          ) : (
+            <RegisterForm />
+          )
         } />
 
         {/* Rutas del Admin */}
