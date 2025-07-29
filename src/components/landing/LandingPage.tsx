@@ -1419,7 +1419,7 @@ function LandingPage() {
               <a href="#" className="text-gray-400 hover:text-white transition-colors">Cookies</a>
               <button 
                 onClick={() => navigate('/admin/login')}
-                className="text-gray-400 hover:text-white transition-colors flex items-center"
+                className="text-gray-400 hover:text-green-400 transition-colors p-1 rounded hover:bg-gray-800"
                 title="Acceso Administrador"
               >
                 <Shield className="h-4 w-4" />
@@ -1428,6 +1428,9 @@ function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Demo Modal */}
+      <DemoModal isOpen={showDemoModal} onClose={() => setShowDemoModal(false)} />
 
       {/* AI Chat Assistant */}
       <div className="fixed bottom-6 right-6 z-50">
