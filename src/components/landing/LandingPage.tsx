@@ -957,10 +957,11 @@ function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <FeatureCard 
-                key={index} 
-                {...feature} 
-                delay={index * 100}
+              <img 
+                src="/Logo ConstructIA.png" 
+                alt="ConstructIA Logo" 
+                className="h-15 w-15 object-contain"
+                style={{ height: '60px', width: '60px' }}
               />
             ))}
           </div>
