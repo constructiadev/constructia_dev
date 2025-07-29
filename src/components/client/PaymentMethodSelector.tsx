@@ -12,7 +12,6 @@ import {
   Info
 } from 'lucide-react';
 import { usePaymentGateways } from '../../context/PaymentGatewayContext';
-import SEPAMandateForm from './SEPAMandateForm';
 
 interface PaymentMethodSelectorProps {
   amount: number;
