@@ -157,7 +157,16 @@ function LandingPage() {
     name: '',
     email: '',
     company: '',
-    message: ''
+    phone: '',
+    position: '',
+    employees: '',
+    documents_monthly: '',
+    current_solution: '',
+    budget: '',
+    timeline: '',
+    message: '',
+    newsletter: false,
+    demo_request: false
   });
 
   // Estadísticas dinámicas
@@ -235,7 +244,21 @@ function LandingPage() {
     // Simular envío
     await new Promise(resolve => setTimeout(resolve, 1000));
     alert('¡Mensaje enviado! Nos pondremos en contacto contigo pronto.');
-    setContactForm({ name: '', email: '', company: '', message: '' });
+    setContactForm({ 
+      name: '', 
+      email: '', 
+      company: '', 
+      phone: '', 
+      position: '', 
+      employees: '', 
+      documents_monthly: '', 
+      current_solution: '', 
+      budget: '', 
+      timeline: '', 
+      message: '', 
+      newsletter: false, 
+      demo_request: false 
+    });
   };
 
   const features = [
@@ -352,6 +375,56 @@ function LandingPage() {
     }
   ];
 
+  // Planes de Tokens
+  const tokenPlans = [
+    {
+      name: 'Paquete Básico',
+      price: '€29',
+      tokens: '500',
+      features: [
+        '500 tokens de procesamiento',
+        'Válido por 12 meses',
+        'Ideal para uso ocasional',
+        'Sin límite de documentos',
+        'Soporte por email'
+      ],
+      color: 'bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700',
+      buttonText: 'Comprar Tokens',
+      description: 'Perfecto para empresas pequeñas'
+    },
+    {
+      name: 'Paquete Profesional',
+      price: '€59',
+      tokens: '1,200',
+      features: [
+        '1,200 tokens de procesamiento',
+        'Válido por 12 meses',
+        'Ideal para uso regular',
+        'Procesamiento prioritario',
+        'Soporte prioritario'
+      ],
+      popular: true,
+      color: 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700',
+      buttonText: 'Comprar Tokens',
+      description: 'Más popular entre empresas medianas'
+    },
+    {
+      name: 'Paquete Empresarial',
+      price: '€89',
+      tokens: '2,000',
+      features: [
+        '2,000 tokens de procesamiento',
+        'Válido por 18 meses',
+        'Ideal para uso intensivo',
+        'Procesamiento ultra-rápido',
+        'Soporte dedicado 24/7'
+      ],
+      color: 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
+      buttonText: 'Comprar Tokens',
+      description: 'Para grandes volúmenes de documentos'
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -373,10 +446,10 @@ function LandingPage() {
                 Iniciar Sesión
               </button>
               <button 
-                onClick={() => navigate('/admin/login')}
+                onClick={() => navigate('/register')}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                Admin
+                Registrarse
               </button>
             </div>
 
@@ -403,6 +476,12 @@ function LandingPage() {
                 className="block w-full text-left py-2 text-green-600"
               >
                 Iniciar Sesión
+              </button>
+              <button 
+                onClick={() => navigate('/register')}
+                className="block w-full text-left py-2 text-green-600"
+              >
+                Registrarse
               </button>
             </div>
           </div>
@@ -598,10 +677,75 @@ function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {pricingPlans.map((plan, index) => (
-              <PricingCard key={index} {...plan} />
-            ))}
+          {/* Suscripciones Mensuales */}
+          <div className="mb-16">
+            <h3 className="text-2xl font-bold text-gray-800 text-center mb-8">Suscripciones Mensuales</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {pricingPlans.map((plan, index) => (
+                <PricingCard key={index} {...plan} />
+              ))}
+            </div>
+          </div>
+
+          {/* Separador */}
+          <div className="flex items-center justify-center mb-16">
+            <div className="border-t border-gray-300 flex-1"></div>
+            <div className="px-6">
+              <div className="bg-white px-6 py-3 rounded-full border border-gray-300">
+                <span className="text-gray-600 font-medium">O compra tokens únicos</span>
+              </div>
+            </div>
+            <div className="border-t border-gray-300 flex-1"></div>
+          </div>
+
+          {/* Paquetes de Tokens */}
+          <div>
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Paquetes de Tokens</h3>
+              <p className="text-lg text-gray-600">Compra única • Sin renovación automática • Válido por 12-18 meses</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {tokenPlans.map((plan, index) => (
+                <div key={index} className={`relative bg-white rounded-2xl p-8 shadow-lg border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 ${
+                  plan.popular ? 'border-orange-500 scale-105' : 'border-gray-200'
+                }`}>
+                  {plan.popular && (
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2 rounded-full text-sm font-bold flex items-center">
+                        <Zap className="h-4 w-4 mr-2" />
+                        Más Popular
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="text-center mb-8">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">{plan.name}</h3>
+                    <div className="mb-2">
+                      <span className="text-5xl font-bold text-gray-900">{plan.price}</span>
+                      <span className="text-gray-600 ml-2">una vez</span>
+                    </div>
+                    <div className="mb-4">
+                      <span className="text-2xl font-bold text-orange-600">{plan.tokens}</span>
+                      <span className="text-gray-600 ml-1">tokens</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{plan.description}</p>
+                  </div>
+                  
+                  <ul className="space-y-4 mb-8">
+                    {plan.features.map((feature, featureIndex) => (
+                      <li key={featureIndex} className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
+                        <span className="text-gray-700">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  
+                  <button className={`w-full ${plan.color} text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1`}>
+                    {plan.buttonText}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="text-center mt-12">
@@ -695,7 +839,7 @@ function LandingPage() {
 
             <div className="bg-gray-50 rounded-2xl p-8">
               <form onSubmit={handleContactSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <input
                     type="text"
                     placeholder="Nombre"
@@ -714,13 +858,90 @@ function LandingPage() {
                   />
                 </div>
                 
-                <input
-                  type="text"
-                  placeholder="Empresa"
-                  value={contactForm.company}
-                  onChange={(e) => setContactForm({...contactForm, company: e.target.value})}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <input
+                    type="text"
+                    placeholder="Empresa / Constructora"
+                    value={contactForm.company}
+                    onChange={(e) => setContactForm({...contactForm, company: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Teléfono"
+                    value={contactForm.phone}
+                    onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <input
+                    type="text"
+                    placeholder="Cargo / Posición"
+                    value={contactForm.position}
+                    onChange={(e) => setContactForm({...contactForm, position: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <select
+                    value={contactForm.employees}
+                    onChange={(e) => setContactForm({...contactForm, employees: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Número de empleados</option>
+                    <option value="1-10">1-10 empleados</option>
+                    <option value="11-50">11-50 empleados</option>
+                    <option value="51-200">51-200 empleados</option>
+                    <option value="200+">Más de 200 empleados</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <select
+                    value={contactForm.documents_monthly}
+                    onChange={(e) => setContactForm({...contactForm, documents_monthly: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Documentos por mes</option>
+                    <option value="0-100">0-100 documentos</option>
+                    <option value="100-500">100-500 documentos</option>
+                    <option value="500-1000">500-1000 documentos</option>
+                    <option value="1000+">Más de 1000 documentos</option>
+                  </select>
+                  <select
+                    value={contactForm.budget}
+                    onChange={(e) => setContactForm({...contactForm, budget: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Presupuesto mensual</option>
+                    <option value="<100">Menos de €100</option>
+                    <option value="100-300">€100 - €300</option>
+                    <option value="300-500">€300 - €500</option>
+                    <option value="500+">Más de €500</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <input
+                    type="text"
+                    placeholder="Solución actual (si la hay)"
+                    value={contactForm.current_solution}
+                    onChange={(e) => setContactForm({...contactForm, current_solution: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <select
+                    value={contactForm.timeline}
+                    onChange={(e) => setContactForm({...contactForm, timeline: e.target.value})}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Cuándo implementar</option>
+                    <option value="inmediato">Inmediatamente</option>
+                    <option value="1-3-meses">En 1-3 meses</option>
+                    <option value="3-6-meses">En 3-6 meses</option>
+                    <option value="6+-meses">En más de 6 meses</option>
+                  </select>
+                </div>
                 
                 <textarea
                   placeholder="Cuéntanos sobre tu proyecto..."
@@ -731,12 +952,39 @@ function LandingPage() {
                   required
                 />
                 
+                <div className="space-y-3">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={contactForm.demo_request}
+                      onChange={(e) => setContactForm({...contactForm, demo_request: e.target.checked})}
+                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+                    />
+                    <span className="ml-3 text-sm text-gray-700">Solicitar demo personalizada</span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={contactForm.newsletter}
+                      onChange={(e) => setContactForm({...contactForm, newsletter: e.target.checked})}
+                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+                    />
+                    <span className="ml-3 text-sm text-gray-700">Suscribirme al newsletter con novedades y tips</span>
+                  </label>
+                </div>
+
                 <button
                   type="submit"
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300"
                 >
                   Enviar Mensaje
                 </button>
+                
+                <p className="text-xs text-gray-500 text-center">
+                  Al enviar este formulario, aceptas nuestros términos de servicio y política de privacidad. 
+                  Nos comprometemos a no enviar spam y puedes darte de baja en cualquier momento.
+                </p>
               </form>
             </div>
           </div>
@@ -804,6 +1052,13 @@ function LandingPage() {
               <a href="#" className="text-gray-400 hover:text-white transition-colors">Privacidad</a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors">Términos</a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors">Cookies</a>
+              <button 
+                onClick={() => navigate('/admin/login')}
+                className="text-gray-400 hover:text-white transition-colors flex items-center"
+                title="Acceso Administrador"
+              >
+                <Shield className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
