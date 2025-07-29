@@ -881,7 +881,7 @@ function LandingPage() {
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg flex items-center justify-center"
                 >
                   Prueba Gratis 14 Días
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  onClick={() => setShowDemo(true)}
                 </button>
                 <button className="border-2 border-gray-300 hover:border-green-600 text-gray-700 hover:text-green-600 font-bold py-4 px-8 rounded-xl transition-all duration-300 flex items-center justify-center">
                   <Play className="mr-2 h-5 w-5" />
