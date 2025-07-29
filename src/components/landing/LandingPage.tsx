@@ -130,10 +130,20 @@ export default function LandingPage() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <Logo size="md" />
+            <div className="flex items-center">
+              <Logo size="md" />
+              <div className="ml-4 hidden md:flex items-center text-sm text-gray-600">
+                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                  Powered by Gemini AI
+                </span>
+              </div>
+            </div>
             <nav className="hidden md:flex space-x-8">
               <a href="#features" className="text-gray-600 hover:text-green-600 transition-colors">
                 Características
+              </a>
+              <a href="#realtime" className="text-gray-600 hover:text-green-600 transition-colors">
+                En Tiempo Real
               </a>
               <a href="#demo" className="text-gray-600 hover:text-green-600 transition-colors">
                 Demo
@@ -143,6 +153,9 @@ export default function LandingPage() {
               </a>
               <a href="#pricing" className="text-gray-600 hover:text-green-600 transition-colors">
                 Precios
+              </a>
+              <a href="#tokens" className="text-gray-600 hover:text-green-600 transition-colors">
+                Tokens & Almacenamiento
               </a>
             </nav>
             <div className="flex items-center space-x-4">

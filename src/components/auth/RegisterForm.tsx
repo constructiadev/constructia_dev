@@ -224,8 +224,17 @@ export default function RegisterForm() {
   };
 
   const onSubmit = async (data: RegisterFormData) => {
-    if (!selectedPlan) return;
+    console.log('onSubmit llamado con datos:', data);
     
+    // Encontrar el plan seleccionado
+    const plan = plans.find(p => p.id === data.selected_plan);
+    if (!plan) {
+      console.error('Plan no encontrado:', data.selected_plan);
+      return;
+    }
+    
+    console.log('Plan encontrado:', plan);
+    setSelectedPlan(plan);
     setShowPaymentSelector(true);
   };
 
