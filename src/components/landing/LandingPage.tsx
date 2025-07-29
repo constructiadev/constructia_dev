@@ -374,6 +374,161 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Tokens & Storage Section */}
+      <section id="tokens" className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Tokens de Servicio & Almacenamiento
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Amplía tu capacidad con tokens de procesamiento IA y almacenamiento adicional
+            </p>
+            <div className="mt-4 inline-flex items-center bg-purple-100 rounded-full px-4 py-2">
+              <Brain className="h-5 w-5 text-purple-600 mr-2" />
+              <span className="text-purple-600 font-medium">Powered by Gemini AI</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Tokens de Servicio */}
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <div className="text-center mb-8">
+                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Zap className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Tokens de Servicio IA</h3>
+                <p className="text-gray-600">Para procesamiento de documentos con Gemini AI</p>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Paquete Básico</h4>
+                      <p className="text-sm text-gray-600">500 tokens IA</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">€29</div>
+                      <div className="text-sm text-gray-500">una vez</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-2 border-green-500 bg-green-50 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Paquete Profesional</h4>
+                      <p className="text-sm text-gray-600">1,500 tokens IA</p>
+                      <span className="inline-block bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium mt-1">
+                        Más Popular
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">€79</div>
+                      <div className="text-sm text-gray-500">una vez</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Paquete Empresarial</h4>
+                      <p className="text-sm text-gray-600">5,000 tokens IA</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">€199</div>
+                      <div className="text-sm text-gray-500">una vez</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">¿Qué son los tokens?</h4>
+                <p className="text-sm text-blue-700">
+                  Los tokens se consumen al procesar documentos con Gemini AI. Cada documento 
+                  consume tokens según su complejidad. Son compras únicas, no recurrentes.
+                </p>
+              </div>
+            </div>
+            
+            {/* Almacenamiento Adicional */}
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <div className="text-center mb-8">
+                <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Almacenamiento Adicional</h3>
+                <p className="text-gray-600">Amplía tu capacidad de almacenamiento</p>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">+1GB Adicional</h4>
+                      <p className="text-sm text-gray-600">Ampliación mensual</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">€9.99</div>
+                      <div className="text-sm text-gray-500">/mes</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-2 border-blue-500 bg-blue-50 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">+5GB Adicional</h4>
+                      <p className="text-sm text-gray-600">Ampliación mensual</p>
+                      <span className="inline-block bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium mt-1">
+                        Recomendado
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">€39.99</div>
+                      <div className="text-sm text-gray-500">/mes</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">+10GB Adicional</h4>
+                      <p className="text-sm text-gray-600">Ampliación mensual</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">€69.99</div>
+                      <div className="text-sm text-gray-500">/mes</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <h4 className="font-semibold text-orange-800 mb-2">Almacenamiento Seguro</h4>
+                <p className="text-sm text-orange-700">
+                  Todos los documentos se almacenan con encriptación de extremo a extremo. 
+                  El almacenamiento adicional se factura mensualmente.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-center mt-12">
+            <Link
+              to="/register"
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 rounded-lg font-semibold transition-all inline-flex items-center"
+            >
+              Comenzar con Tokens Incluidos
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
       {/* Testimonials Section */}
       <section id="testimonials" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
