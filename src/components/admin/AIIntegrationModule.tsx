@@ -27,7 +27,8 @@ import {
   HardDrive,
   Wifi,
   Code,
-  Terminal
+  Terminal,
+  CreditCard
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { callGeminiAI } from '../../lib/supabase';
