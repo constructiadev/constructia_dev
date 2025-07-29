@@ -915,9 +915,16 @@ function LandingPage() {
               <div className="bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl p-8 shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-500">
                 <div className="bg-white rounded-2xl p-6 space-y-4">
                   <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <img 
+                      src="/Logo ConstructIA.png" 
+                      alt="ConstructIA Logo" 
+                      className="h-10 w-10 object-contain"
+                    />
+                    <div className="text-2xl font-bold text-gray-800">
+                      <span style={{ fontFamily: 'Century Gothic, sans-serif' }}>
+                        Construct<span className="text-green-600">IA</span>
+                      </span>
+                    </div>
                   </div>
                   <div className="space-y-3">
                     <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
@@ -957,11 +964,10 @@ function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <img 
-                src="/Logo ConstructIA.png" 
-                alt="ConstructIA Logo" 
-                className="h-15 w-15 object-contain"
-                style={{ height: '60px', width: '60px' }}
+              <FeatureCard 
+                key={index} 
+                {...feature} 
+                delay={index * 100}
               />
             ))}
           </div>
@@ -1143,7 +1149,7 @@ function LandingPage() {
               type="email"
               placeholder="tu@empresa.com"
               value={email}
-              style={{ width: '72px', height: '72px' }}
+              onChange={(e) => setEmail(e.target.value)}
               className="flex-1 px-6 py-4 rounded-xl border-0 focus:ring-4 focus:ring-white/20 text-gray-900"
             />
             <button 
