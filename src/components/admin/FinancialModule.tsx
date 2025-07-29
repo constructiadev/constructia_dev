@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { callGeminiAI } from '../../lib/supabase';
+import PaymentGatewayModal from './PaymentGatewayModal';
 
 interface FinancialKPICardProps {
   title: string;
