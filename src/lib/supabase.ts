@@ -204,3 +204,6 @@ export const getCurrentClientData = async (userId: string) => {
     throw error;
   }
 };
+
+
+export { supabase }
