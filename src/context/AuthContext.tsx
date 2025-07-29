@@ -48,11 +48,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('No auto-login - starting from landing page');
       } catch (error) {
         console.error('Error en auto-login:', error);
+        setLoading(false);
       }
     };
     
     autoLoginAdmin();
-    return;
+    
+    // Cleanup function
+    return () => {
+      console.log('AuthProvider cleanup');
+    };
     
     // Verificar sesión existente
     authService.getSession().then(session => {

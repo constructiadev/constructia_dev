@@ -129,7 +129,10 @@ export default function ClientDashboard() {
   };
 
   const loadClientData = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setShowObraliaModal(false);
+      return;
+    }
     
     try {
       const data = await getCurrentClientData(user.id);
@@ -145,7 +148,7 @@ export default function ClientDashboard() {
     } catch (error) {
       console.error('Error loading client data:', error);
       // Si hay error, asumir que necesita configuración
-      setShowObraliaModal(true);
+      setShowObraliaModal(false);
     }
   };
 
