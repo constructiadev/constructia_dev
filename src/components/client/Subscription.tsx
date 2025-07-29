@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 interface SubscriptionPlan {
+import SEPAMandateForm from './SEPAMandateForm';
   id: string;
   name: string;
   price: number;
@@ -47,6 +48,8 @@ export default function Subscription() {
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [selectedTokenPackage, setSelectedTokenPackage] = useState('');
   const [selectedStoragePackage, setSelectedStoragePackage] = useState('');
+  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
 
   // Plan actual del cliente
   const currentSubscription = {
@@ -274,6 +277,20 @@ export default function Subscription() {
       setSelectedStoragePackage('');
     } catch (error) {
       alert('Error al procesar la compra. Intenta nuevamente.');
+    }
+  };
+
+  const handlePlanUpgrade = (plan: SubscriptionPlan) => {
+    setSelectedPlan(plan);
+    setShowPaymentSelector(true);
+  };
+
+  const handlePaymentMethodSelected = (gatewayId: string) => {
+    console.log('Método de pago seleccionado:', gatewayId);
+    setShowPaymentSelector(false);
+    
+    if (selectedPlan) {
+      alert(`¡Plan ${selectedPlan.name} activado exitosamente con el método de pago seleccionado!`);
     }
   };
 
@@ -710,6 +727,7 @@ export default function Subscription() {
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
                 disabled={currentPlan === plan.id}
+                onClick={() => currentPlan !== plan.id && handlePlanUpgrade(plan)}
               >
                 {currentPlan === plan.id ? 'Plan Actual' : 'Cambiar Plan'}
               </button>
@@ -812,6 +830,31 @@ export default function Subscription() {
       {/* Modales */}
       {showTokenModal && <TokenPurchaseModal />}
       {showStorageModal && <StoragePurchaseModal />}
+      
+      {/* Selector de Método de Pago */}
+      {showPaymentSelector && selectedPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Seleccionar Método de Pago - {selectedPlan.name}
+              </h3>
+              <button
+                onClick={() => setShowPaymentSelector(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <PaymentMethodSelector
+              amount={selectedPlan.price}
+              currency="EUR"
+              onSelect={handlePaymentMethodSelected}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

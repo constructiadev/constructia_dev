@@ -12,6 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import { usePaymentGateways } from '../../context/PaymentGatewayContext';
+import SEPAMandateForm from './SEPAMandateForm';
 
 interface PaymentMethodSelectorProps {
   amount: number;
@@ -28,6 +29,8 @@ export default function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const { getActiveGatewaysForCurrency, calculateCommission } = usePaymentGateways();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
+  const [showSEPAForm, setShowSEPAForm] = useState(false);
+  const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<any>(null);
 
   const availableGateways = getActiveGatewaysForCurrency(currency);
 
@@ -65,6 +68,30 @@ export default function PaymentMethodSelector({
     return amount >= (gateway.min_amount || 0) && 
            amount <= (gateway.max_amount || Infinity) &&
            gateway.status === 'active';
+  };
+
+  const handleSEPASelection = (gateway: any) => {
+    setSelectedSEPAGateway(gateway);
+    setShowSEPAForm(true);
+  };
+
+  const handleSEPAMandateSubmit = async (mandateData: any) => {
+    try {
+      // Aquí se procesaría el mandato SEPA
+      console.log('Mandato SEPA firmado:', mandateData);
+      
+      // Simular procesamiento
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Notificar selección del gateway SEPA
+      onSelect(selectedSEPAGateway.id);
+      
+      alert('¡Mandato SEPA firmado exitosamente! El servicio comenzará una vez procesado el mandato.');
+      
+    } catch (error) {
+      console.error('Error al procesar mandato SEPA:', error);
+      throw error;
+    }
   };
 
   if (availableGateways.length === 0) {
@@ -139,7 +166,15 @@ export default function PaymentMethodSelector({
                   ? 'border-gray-200 hover:border-gray-300 bg-white'
                   : 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
               }`}
-              onClick={() => isAvailable && onSelect(gateway.id)}
+              onClick={() => {
+                if (!isAvailable) return;
+                
+                if (gateway.type === 'sepa') {
+                  handleSEPASelection(gateway);
+                } else {
+                  onSelect(gateway.id);
+                }
+              }}
             >
               {/* Indicador de selección */}
               {isSelected && (
@@ -190,10 +225,17 @@ export default function PaymentMethodSelector({
                   </div>
                   <div className="flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
-                    <span>Procesamiento inmediato</span>
+                    <span>{gateway.type === 'sepa' ? 'Procesamiento 1-2 días' : 'Procesamiento inmediato'}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Nota especial para SEPA */}
+              {gateway.type === 'sepa' && (
+                <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                  <strong>Nota:</strong> Requiere firma de mandato SEPA. El servicio comenzará una vez firmado el mandato.
+                </div>
+              )}
 
               {/* Estado de disponibilidad */}
               {!isAvailable && (
@@ -231,5 +273,23 @@ export default function PaymentMethodSelector({
         </div>
       </div>
     </div>
+
+    {/* Modal de Mandato SEPA */}
+    <SEPAMandateForm
+      isOpen={showSEPAForm}
+      onClose={() => setShowSEPAForm(false)}
+      onSubmit={handleSEPAMandateSubmit}
+      amount={amount}
+      currency={currency}
+      description="Suscripción ConstructIA"
+      clientData={{
+        name: "Cliente de Prueba",
+        address: "Calle Ejemplo 123",
+        city: "Madrid",
+        postalCode: "28001",
+        country: "España",
+        taxId: "12345678A"
+      }}
+    />
   );
 }
