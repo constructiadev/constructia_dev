@@ -50,6 +50,11 @@ export const authService = {
       });
       
       if (error) {
+        // Handle user already exists error
+        if (error.message.includes('User already registered') || error.message.includes('user_already_exists')) {
+          throw new Error('El usuario ya está registrado. Por favor, inicia sesión.');
+        }
+        
         // If signup fails with metadata, try without it
         if (error.message.includes('Database error saving new user')) {
           const { data: retryData, error: retryError } = await supabase.auth.signUp({
