@@ -17,7 +17,7 @@ export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 // Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 3) => {
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
