@@ -518,6 +518,9 @@ function LandingPage() {
   const [chatHistory, setChatHistory] = useState<Array<{type: 'user' | 'ai', message: string}>>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [email, setEmail] = useState('');
+  const [showDemo, setShowDemo] = useState(false);
+  const [demoStep, setDemoStep] = useState(0);
+  const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: '',
     email: '',
