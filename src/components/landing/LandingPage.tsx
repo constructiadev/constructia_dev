@@ -13,8 +13,8 @@ import {
   Play,
   X,
   Pause,
-  Volume2,
   VolumeX,
+  Volume2,
   RotateCcw
 } from 'lucide-react';
 import Logo from '../common/Logo';
@@ -88,7 +88,7 @@ export default function LandingPage() {
                 Demo
               </a>
               <a href="#testimonials" className="text-gray-600 hover:text-green-600 transition-colors">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                Testimonios
               </a>
               <a href="#pricing" className="text-gray-600 hover:text-green-600 transition-colors">
                 Precios
@@ -166,27 +166,28 @@ export default function LandingPage() {
             </div>
             
             {/* Video Demo Animado */}
-          {/* Imagen Hero Restaurada */}
-              <div 
-            <img 
-              src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=800" 
-              alt="Gestión documental inteligente" 
-              className="w-full h-auto rounded-2xl shadow-2xl"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">ConstructIA en Acción</h3>
-                    <p className="text-sm text-gray-600">Procesamiento inteligente de documentos</p>
+            {/* Imagen Hero Restaurada */}
+            <div className="relative">
+              <img 
+                src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=800" 
+                alt="Gestión documental inteligente" 
+                className="w-full h-auto rounded-2xl shadow-2xl"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">ConstructIA en Acción</h3>
+                      <p className="text-sm text-gray-600">Procesamiento inteligente de documentos</p>
+                    </div>
+                    <button
+                      onClick={() => setShowVideoModal(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full transition-colors"
+                    >
+                      <Play className="h-5 w-5" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowVideoModal(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full transition-colors"
-                  >
-                    <Play className="h-5 w-5" />
-                  </button>
                 </div>
               </div>
             </div>

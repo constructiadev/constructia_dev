@@ -108,7 +108,8 @@ export default function PaymentMethodSelector({
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -273,24 +274,24 @@ export default function PaymentMethodSelector({
       </div>
     </div>
 
-    </div>
 
-    {/* Modal de Mandato SEPA */}
-    <SEPAMandateForm
-      isOpen={showSEPAForm}
-      onClose={() => setShowSEPAForm(false)}
-      onSubmit={handleSEPAMandateSubmit}
-      amount={amount}
-      currency={currency}
-      description="Suscripción ConstructIA"
-      clientData={{
-        name: "Cliente de Prueba",
-        address: "Calle Ejemplo 123",
-        city: "Madrid",
-        postalCode: "28001",
-        country: "España",
-        taxId: "12345678A"
-      }}
-    />
+      {/* Modal de Mandato SEPA */}
+      <SEPAMandateForm
+        isOpen={showSEPAForm}
+        onClose={() => setShowSEPAForm(false)}
+        onSubmit={handleSEPAMandateSubmit}
+        amount={amount}
+        currency={currency}
+        description="Suscripción ConstructIA"
+        clientData={{
+          name: "Cliente de Prueba",
+          address: "Calle Ejemplo 123",
+          city: "Madrid",
+          postalCode: "28001",
+          country: "España",
+          taxId: "12345678A"
+        }}
+      />
+    </>
   );
 }
