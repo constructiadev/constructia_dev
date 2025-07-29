@@ -26,7 +26,8 @@ import {
   Database,
   Layers,
   Play,
-  Pause
+  Pause,
+  Upload
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { callGeminiAI } from '../../lib/supabase';
