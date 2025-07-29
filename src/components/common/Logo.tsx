@@ -1,5 +1,4 @@
 import React from 'react';
-import { Building2 } from 'lucide-react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -20,9 +19,15 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
 
   return (
     <div className="flex items-center space-x-2">
-      <div className="bg-green-600 p-2 rounded-lg">
-        <Building2 className="text-white" size={size === 'sm' ? 16 : size === 'md' ? 24 : 32} />
-      </div>
+      <img 
+        src="/Logo ConstructIA.png" 
+        alt="ConstructIA Logo" 
+        className={`${
+          size === 'sm' ? 'h-8 w-8' : 
+          size === 'md' ? 'h-10 w-10' : 
+          'h-12 w-12'
+        } object-contain`}
+      />
       <div className={`font-bold ${sizeClasses[size]} ${colorClasses[variant]}`}>
         <span style={{ fontFamily: 'Century Gothic, sans-serif' }}>
           Construct<span className="text-green-600">IA</span>
