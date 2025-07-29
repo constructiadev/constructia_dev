@@ -130,23 +130,17 @@ export default function LandingPage() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
               <Logo size="md" />
-              <div className="ml-4 hidden md:flex items-center text-sm text-gray-600">
+              <div className="hidden md:flex items-center">
                 <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
                   Powered by Gemini AI
                 </span>
               </div>
             </div>
-            <nav className="hidden md:flex space-x-8">
+            <nav className="hidden lg:flex space-x-6">
               <a href="#features" className="text-gray-600 hover:text-green-600 transition-colors">
                 Características
-              </a>
-              <a href="#realtime" className="text-gray-600 hover:text-green-600 transition-colors">
-                En Tiempo Real
-              </a>
-              <a href="#demo" className="text-gray-600 hover:text-green-600 transition-colors">
-                Demo
               </a>
               <a href="#testimonials" className="text-gray-600 hover:text-green-600 transition-colors">
                 Testimonios
@@ -155,25 +149,25 @@ export default function LandingPage() {
                 Precios
               </a>
               <a href="#tokens" className="text-gray-600 hover:text-green-600 transition-colors">
-                Tokens & Almacenamiento
+                Tokens
               </a>
             </nav>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <Link
                 to="/login"
-                className="text-gray-600 hover:text-green-600 transition-colors"
+                className="hidden sm:block text-gray-600 hover:text-green-600 transition-colors font-medium"
               >
                 Iniciar Sesión
               </Link>
               <Link
                 to="/register"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors font-semibold"
               >
                 Comenzar Gratis
               </Link>
               <button
                 onClick={() => setShowVideoModal(true)}
-                className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center"
+                className="hidden md:flex border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-semibold transition-colors items-center"
               >
                 <Play className="mr-2 h-4 w-4" />
                 Ver Demo
