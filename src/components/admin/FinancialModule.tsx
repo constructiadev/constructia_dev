@@ -470,6 +470,12 @@ export default function FinancialModule() {
     generateFinancialInsights();
   }, []);
 
+  const tabs = [
+    { id: 'overview', name: 'Resumen', icon: BarChart3 },
+    { id: 'receipts', name: 'Recibos', icon: Receipt },
+    { id: 'gateways', name: 'Pasarelas', icon: CreditCard },
+    { id: 'reports', name: 'Reportes', icon: Download }
+  ];
   return (
     <div className="space-y-8">
       {/* Header con IA Financiera */}
@@ -509,6 +515,31 @@ export default function FinancialModule() {
         )}
       </div>
 
+      {/* Tabs Navigation */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <tab.icon className="h-4 w-4 mr-2" />
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {/* Tab: Resumen */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8">
       {/* KPIs Financieros */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -578,9 +609,20 @@ export default function FinancialModule() {
           </div>
         </div>
       </div>
+            </div>
+          )}
+
+          {/* Tab: Recibos */}
+          {activeTab === 'receipts' && (
+            <ReceiptManagement />
+          )}
+
+          {/* Tab: Pasarelas */}
+          {activeTab === 'gateways' && (
+            <div className="space-y-8">
 
       {/* Configuración de Pasarelas de Pago */}
-      <div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-800">Configuración de Pasarelas de Pago</h3>
           <button 
@@ -614,10 +656,6 @@ export default function FinancialModule() {
           ))}
         </div>
       </div>
-
-      {/* Tab: Reportes */}
-      {activeTab === 'reports' && (
-        <div className="space-y-8">
 
       {/* Calendario Fiscal con IA */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -751,9 +789,6 @@ export default function FinancialModule() {
         </div>
       </div>
 
-        </div>
-      )}
-
       {/* Modal de Pasarela de Pago */}
       <PaymentGatewayModal
         isOpen={showGatewayModal}
@@ -762,6 +797,10 @@ export default function FinancialModule() {
         gateway={selectedGateway}
         mode={modalMode}
       />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
