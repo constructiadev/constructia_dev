@@ -80,11 +80,7 @@ export default function Router() {
         
         {/* Rutas de autenticación */}
         <Route path="/" element={
-          user ? (
-            userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/client/dashboard" replace />
-          ) : (
-            <Navigate to="/landing" replace />
-          )
+          <Navigate to="/landing" replace />
         } />
         
         <Route path="/login" element={
