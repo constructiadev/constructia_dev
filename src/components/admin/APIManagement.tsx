@@ -650,7 +650,7 @@ export default function APIManagement() {
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
-                <p className="font-medium text-gray-800">Tiempo de respuesta > 500ms</p>
+                <p className="font-medium text-gray-800">Tiempo de respuesta mayor a 500ms</p>
                 <p className="text-sm text-gray-600">Alerta por email</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -661,7 +661,7 @@ export default function APIManagement() {
             
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
-                <p className="font-medium text-gray-800">Error rate > 1%</p>
+                <p className="font-medium text-gray-800">Error rate mayor a 1%</p>
                 <p className="text-sm text-gray-600">Alerta crítica</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -672,7 +672,7 @@ export default function APIManagement() {
             
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div>
-                <p className="font-medium text-gray-800">Uptime < 99%</p>
+                <p className="font-medium text-gray-800">Uptime menor a 99%</p>
                 <p className="text-sm text-gray-600">Alerta de disponibilidad</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
