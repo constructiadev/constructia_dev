@@ -571,255 +571,65 @@ export default function LandingPage() {
       </footer>
 
       {/* Modal de Video Demo */}
-      <VideoModal 
-        isOpen={showVideoModal} 
-        onClose={() => setShowVideoModal(false)} 
-      />
-    </div>
-  );
-}
-
-// Componente del Modal de Video
-function VideoModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const [videoProgress, setVideoProgress] = useState(0);
-
-  // Simular video con animación
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isVideoPlaying && isOpen) {
-      interval = setInterval(() => {
-        setVideoProgress(prev => {
-          if (prev >= 100) {
-            setIsVideoPlaying(false);
-            return 0;
-          }
-          return prev + 0.5; // Progreso cada 100ms para video de 20 segundos
-        });
-      }, 100);
-    }
-    return () => clearInterval(interval);
-  }, [isVideoPlaying, isOpen]);
-
-  const togglePlay = () => {
-    setIsVideoPlaying(!isVideoPlaying);
-    if (!isVideoPlaying && videoProgress >= 100) {
-      setVideoProgress(0);
-    }
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-
-  const restartVideo = () => {
-    setVideoProgress(0);
-    setIsVideoPlaying(true);
-  };
-
-  // Reset cuando se cierra el modal
-  useEffect(() => {
-    if (!isOpen) {
-      setIsVideoPlaying(false);
-      setVideoProgress(0);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="relative bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-4xl">
-        {/* Header del Modal */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold">ConstructIA en Acción</h3>
-              <p className="text-green-100">Demo interactivo de la plataforma</p>
+      {showVideoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-4xl">
+            {/* Header del Modal */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">ConstructIA en Acción</h3>
+                  <p className="text-green-100">Demo interactivo de la plataforma</p>
+                </div>
+                <button
+                  onClick={() => setShowVideoModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-        </div>
 
-        {/* Contenido del Video */}
-        <div className="relative bg-gray-900 aspect-video">
-          {/* Simulación de interfaz de ConstructIA */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            {!isVideoPlaying && videoProgress === 0 ? (
-              <div className="text-center">
-                <div className="bg-white/20 rounded-full p-8 mb-6 mx-auto w-24 h-24 flex items-center justify-center">
-                  <Play className="h-10 w-10 text-white ml-1" />
-                </div>
-                <p className="text-white text-xl font-semibold mb-2">Ver ConstructIA en Acción</p>
-                <p className="text-white/80">Demo interactivo de 20 segundos</p>
-              </div>
-            ) : (
-              <div className="w-full h-full relative">
-                {/* Simulación de interfaz de ConstructIA */}
-                <div className="absolute inset-6 bg-white rounded-lg p-6 opacity-95">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <img 
-                        src="/Logo ConstructIA.png" 
-                        alt="ConstructIA" 
-                        className="w-12 h-12 object-contain mr-4"
-                      />
-                      <div>
-                        <h4 className="font-bold text-gray-900">ConstructIA</h4>
-                        <p className="text-sm text-gray-600">Gestión Documental IA</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-600">Documentos Procesados</div>
-                      <div className="text-3xl font-bold text-green-600">
-                        {Math.floor(videoProgress * 1.27)}
-                      </div>
-                    </div>
+            {/* Contenido del Video */}
+            <div className="relative bg-gray-900 aspect-video">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="bg-white/20 rounded-full p-8 mb-6 mx-auto w-24 h-24 flex items-center justify-center">
+                    <Play className="h-10 w-10 text-white ml-1" />
                   </div>
-                  
-                  {/* Simulación de documentos siendo procesados */}
-                  <div className="space-y-3">
-                    {[
-                      { name: 'Certificado_Obra_A.pdf', type: 'Certificado', threshold: 20 },
-                      { name: 'Factura_Materiales_B.pdf', type: 'Factura', threshold: 45 },
-                      { name: 'DNI_Trabajador_C.pdf', type: 'Identificación', threshold: 70 }
-                    ].map((doc, i) => (
-                      <div 
-                        key={i}
-                        className={`flex items-center p-3 rounded-lg transition-all duration-500 ${
-                          videoProgress > doc.threshold ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
-                        }`}
-                      >
-                        <FileText className={`h-5 w-5 mr-3 ${
-                          videoProgress > doc.threshold ? 'text-green-600' : 'text-gray-400'
-                        }`} />
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">{doc.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {videoProgress > doc.threshold ? `Clasificado como ${doc.type}` : 'Analizando con IA...'}
-                          </div>
-                        </div>
-                        {videoProgress > doc.threshold && (
-                          <div className="flex items-center">
-                            <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                            <span className="text-xs text-green-600 font-medium">
-                              {Math.floor(85 + Math.random() * 10)}% confianza
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Barra de progreso de IA */}
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="font-medium">Procesamiento IA Global</span>
-                      <span className="text-green-600 font-bold">{Math.floor(videoProgress)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div 
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-300"
-                        style={{ width: `${videoProgress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Controles del video */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={togglePlay}
-                  className="bg-white/20 hover:bg-white/30 rounded-full p-3 transition-colors"
-                >
-                  {isVideoPlaying ? (
-                    <Pause className="h-5 w-5 text-white" />
-                  ) : (
-                    <Play className="h-5 w-5 text-white ml-0.5" />
-                  )}
-                </button>
-                
-                <button
-                  onClick={toggleMute}
-                  className="bg-white/20 hover:bg-white/30 rounded-full p-3 transition-colors"
-                >
-                  {isMuted ? (
-                    <VolumeX className="h-5 w-5 text-white" />
-                  ) : (
-                    <Volume2 className="h-5 w-5 text-white" />
-                  )}
-                </button>
-                
-                <button
-                  onClick={restartVideo}
-                  className="bg-white/20 hover:bg-white/30 rounded-full p-3 transition-colors"
-                >
-                  <RotateCcw className="h-5 w-5 text-white" />
-                </button>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="text-white text-sm">
-                  {Math.floor(videoProgress * 0.2)}s / 20s
+                  <p className="text-white text-xl font-semibold mb-2">Ver ConstructIA en Acción</p>
+                  <p className="text-white/80">Demo de la plataforma</p>
                 </div>
               </div>
             </div>
-            
-            {/* Barra de progreso del video */}
-            <div className="mt-4">
-              <div className="w-full bg-white/20 rounded-full h-1">
-                <div 
-                  className="bg-green-500 h-1 rounded-full transition-all duration-300"
-                  style={{ width: `${videoProgress}%` }}
-                ></div>
+
+            {/* Footer del Modal */}
+            <div className="bg-gray-50 p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Demo mostrando el procesamiento de documentos con IA
+                </div>
+                <div className="flex space-x-3">
+                  <Link
+                    to="/register"
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
+                    onClick={() => setShowVideoModal(false)}
+                  >
+                    Comenzar Gratis
+                  </Link>
+                  <Link
+                    to="/admin/login"
+                    className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
+                    onClick={() => setShowVideoModal(false)}
+                  >
+                    Ver Demo Admin
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Indicador de reproducción */}
-          {isVideoPlaying && (
-            <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold animate-pulse">
-              🔴 EN VIVO
-            </div>
-          )}
         </div>
-
-        {/* Footer del Modal */}
-        <div className="bg-gray-50 p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Demo interactivo mostrando el procesamiento de documentos con IA
-            </div>
-            <div className="flex space-x-3">
-              <Link
-                to="/register"
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
-                onClick={onClose}
-              >
-                Comenzar Gratis
-              </Link>
-              <Link
-                to="/admin/login"
-                className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
-                onClick={onClose}
-              >
-                Ver Demo Admin
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
