@@ -615,7 +615,7 @@ export default function FinancialModule() {
       </div>
 
       {/* Calendario Fiscal con IA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-800">Calendario Fiscal Inteligente</h3>
           <div className="flex items-center space-x-2">
@@ -634,7 +634,7 @@ export default function FinancialModule() {
       {/* Resumen Financiero y Acciones */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Resumen del Mes */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumen del Mes</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -672,7 +672,7 @@ export default function FinancialModule() {
         </div>
 
         {/* Estado de Configuración */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Estado de Configuración</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -711,7 +711,7 @@ export default function FinancialModule() {
       </div>
 
       {/* Acciones Rápidas */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button 
@@ -743,6 +743,10 @@ export default function FinancialModule() {
               <p className="text-xs text-purple-600">247 emitidos este mes</p>
             </div>
           </button>
+        </div>
+      </div>
+            </div>
+          )}
         </div>
       </div>
 

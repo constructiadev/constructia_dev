@@ -17,7 +17,8 @@ import {
   MapPin,
   Calendar,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getCurrentClientData, updateClientObraliaCredentials } from '../../lib/supabase';
