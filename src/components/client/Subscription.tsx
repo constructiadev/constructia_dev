@@ -62,6 +62,7 @@ export default function Subscription() {
   const [tokensAvailable, setTokensAvailable] = useState(450);
   const [storageUsed, setStorageUsed] = useState(850);
   const [storageLimit, setStorageLimit] = useState(1000);
+  const [paymentReceipts, setPaymentReceipts] = useState<{[key: string]: any}>({});
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([
     {
       id: '1',
@@ -432,6 +433,12 @@ export default function Subscription() {
       };
       setPaymentHistory(prev => [newPayment, ...prev]);
       
+      // Guardar el recibo para poder descargarlo después
+      setPaymentReceipts(prev => ({
+        ...prev,
+        [newPayment.id]: receipt
+      }));
+      
       setShowTokenModal(false);
       setSelectedTokenPackage('');
       
@@ -524,6 +531,12 @@ export default function Subscription() {
       };
       setPaymentHistory(prev => [newPayment, ...prev]);
       
+      // Guardar el recibo para poder descargarlo después
+      setPaymentReceipts(prev => ({
+        ...prev,
+        [newPayment.id]: receipt
+      }));
+      
       setShowStorageModal(false);
       setSelectedStoragePackage('');
       
@@ -613,6 +626,12 @@ export default function Subscription() {
           };
           setPaymentHistory(prev => [newPayment, ...prev]);
           
+          // Guardar el recibo para poder descargarlo después
+          setPaymentReceipts(prev => ({
+            ...prev,
+            [newPayment.id]: receipt
+          }));
+          
           setSelectedReceipt(receipt);
           setShowReceiptModal(true);
           
@@ -625,6 +644,17 @@ export default function Subscription() {
       };
       
       createPlanChangeReceipt();
+    }
+  };
+
+  const downloadReceiptFromHistory = (paymentId: string) => {
+    const receipt = paymentReceipts[paymentId];
+    if (receipt) {
+      // Crear una instancia temporal del ReceiptGenerator para generar el PDF
+      setSelectedReceipt(receipt);
+      setShowReceiptModal(true);
+    } else {
+      alert('Recibo no disponible para descarga');
     }
   };
 
@@ -1105,11 +1135,13 @@ export default function Subscription() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {payment.invoice_url && (
-                      <button className="text-blue-600 hover:text-blue-800 text-sm">
+                    <button 
+                      onClick={() => downloadReceiptFromHistory(payment.id)}
+                      className="text-blue-600 hover:text-blue-800 text-sm"
+                      title="Descargar recibo"
+                    >
                         <Download className="h-4 w-4" />
-                      </button>
-                    )}
+                    </button>
                   </td>
                 </tr>
               ))}
