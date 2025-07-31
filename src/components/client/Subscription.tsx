@@ -59,6 +59,9 @@ export default function Subscription() {
   const [loading, setLoading] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [tokensAvailable, setTokensAvailable] = useState(450);
+  const [storageUsed, setStorageUsed] = useState(850);
+  const [storageLimit, setStorageLimit] = useState(1000);
   const { user } = useAuth();
 
   // Auto-seleccionar el paquete popular cuando se abre el modal
@@ -140,6 +143,13 @@ export default function Subscription() {
           };
           setClientData(mockClientData);
         }
+      }
+      
+      // Inicializar estados locales con datos del cliente
+      if (data) {
+        setTokensAvailable(data.tokens_available || 450);
+        setStorageUsed(data.storage_used || 850);
+        setStorageLimit(data.storage_limit || 1000);
       }
     };
 
@@ -408,6 +418,9 @@ export default function Subscription() {
       setSelectedReceipt(receipt);
       setShowReceiptModal(true);
       
+      // Actualizar tokens disponibles localmente
+      setTokensAvailable(prev => prev + selectedPackage.tokens);
+      
       setShowTokenModal(false);
       setSelectedTokenPackage('');
       
@@ -482,6 +495,10 @@ export default function Subscription() {
       // Mostrar recibo en pantalla
       setSelectedReceipt(receipt);
       setShowReceiptModal(true);
+      
+      // Actualizar almacenamiento localmente
+      const additionalStorage = parseInt(selectedPackage.storage.replace(/[^\d]/g, '')) * 1024; // Convert GB to MB
+      setStorageLimit(prev => prev + additionalStorage);
       
       setShowStorageModal(false);
       setSelectedStoragePackage('');
@@ -771,7 +788,7 @@ export default function Subscription() {
             <Zap className="h-8 w-8 text-orange-600 mx-auto mb-2" />
             <p className="text-sm font-medium text-orange-800">Tokens IA</p>
             <p className="text-lg font-bold text-orange-600">
-              {currentSubscription.tokens_limit - currentSubscription.tokens_used}
+              {tokensAvailable}
             </p>
             <p className="text-xs text-orange-700">Disponibles</p>
           </div>
@@ -783,13 +800,13 @@ export default function Subscription() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Almacenamiento</span>
               <span className="text-sm text-gray-600">
-                {currentSubscription.storage_used}MB / {currentSubscription.storage_limit}MB
+                {storageUsed}MB / {storageLimit}MB
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
-                className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(currentSubscription.storage_used, currentSubscription.storage_limit))}`}
-                style={{ width: `${getUsagePercentage(currentSubscription.storage_used, currentSubscription.storage_limit)}%` }}
+                className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(storageUsed, storageLimit))}`}
+                style={{ width: `${getUsagePercentage(storageUsed, storageLimit)}%` }}
               ></div>
             </div>
           </div>
@@ -798,13 +815,13 @@ export default function Subscription() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Tokens IA</span>
               <span className="text-sm text-gray-600">
-                {currentSubscription.tokens_used} / {currentSubscription.tokens_limit}
+                {1000 - tokensAvailable} / 1000
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
-                className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(currentSubscription.tokens_used, currentSubscription.tokens_limit))}`}
-                style={{ width: `${getUsagePercentage(currentSubscription.tokens_used, currentSubscription.tokens_limit)}%` }}
+                className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(1000 - tokensAvailable, 1000))}`}
+                style={{ width: `${getUsagePercentage(1000 - tokensAvailable, 1000)}%` }}
               ></div>
             </div>
           </div>
@@ -846,12 +863,12 @@ export default function Subscription() {
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-gray-600">Tokens disponibles:</span>
-                <span className="font-medium">{currentSubscription.tokens_limit - currentSubscription.tokens_used}</span>
+                <span className="font-medium">{tokensAvailable}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(currentSubscription.tokens_used, currentSubscription.tokens_limit))}`}
-                  style={{ width: `${getUsagePercentage(currentSubscription.tokens_used, currentSubscription.tokens_limit)}%` }}
+                  className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(1000 - tokensAvailable, 1000))}`}
+                  style={{ width: `${getUsagePercentage(1000 - tokensAvailable, 1000)}%` }}
                 ></div>
               </div>
             </div>
@@ -880,12 +897,12 @@ export default function Subscription() {
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-gray-600">Almacenamiento usado:</span>
-                <span className="font-medium">{currentSubscription.storage_used}MB / {currentSubscription.storage_limit}MB</span>
+                <span className="font-medium">{storageUsed}MB / {storageLimit}MB</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(currentSubscription.storage_used, currentSubscription.storage_limit))}`}
-                  style={{ width: `${getUsagePercentage(currentSubscription.storage_used, currentSubscription.storage_limit)}%` }}
+                  className={`h-2 rounded-full ${getUsageColor(getUsagePercentage(storageUsed, storageLimit))}`}
+                  style={{ width: `${getUsagePercentage(storageUsed, storageLimit)}%` }}
                 ></div>
               </div>
             </div>
