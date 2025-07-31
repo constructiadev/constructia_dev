@@ -63,6 +63,9 @@ export default function ObraliaCredentialsModal({
       reset();
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
+      // Show specific error message to user
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al guardar credenciales: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

@@ -100,19 +100,8 @@ export const updateClientObraliaCredentials = async (
   credentials: { username: string; password: string }
 ) => {
   try {
-    // Handle development users with mock response
-    if (clientId === 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' || clientId === 'b1c2d3e4-f5a6-7890-1234-567890abcdef') {
-      // Simulate successful update for development users
-      return {
-        id: clientId,
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        },
-        updated_at: new Date().toISOString()
-      };
-    }
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
 
     const { data, error } = await supabase
       .from('clients')
@@ -127,7 +116,16 @@ export const updateClientObraliaCredentials = async (
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+
+    if (!data) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    console.log('Successfully updated Obralia credentials');
     return data;
   } catch (error) {
     console.error('Error updating Obralia credentials:', error);
