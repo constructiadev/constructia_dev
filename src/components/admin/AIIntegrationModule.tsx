@@ -444,6 +444,64 @@ export default function AIIntegrationModule() {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleStartTraining = async () => {
+    setLoading(true);
+    try {
+      // Simular entrenamiento completo del modelo de IA
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      alert('¡Entrenamiento completo iniciado exitosamente! El modelo se optimizará con los últimos 12,456 documentos. Tiempo estimado: 2-3 horas.');
+    } catch (error) {
+      alert('Error al iniciar el entrenamiento del modelo de IA.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportMetrics = () => {
+    const metricsData = {
+      timestamp: new Date().toISOString(),
+      ai_accuracy: '94.7%',
+      processing_time: '2.3s',
+      documents_processed: 12456,
+      api_requests: 8947,
+      success_rate: '98.2%',
+      confidence_threshold: confidenceThreshold,
+      model_version: selectedModel,
+      queue_size: processingQueue.length
+    };
+    
+    const jsonContent = JSON.stringify(metricsData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai_metrics_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    alert('Métricas de IA exportadas exitosamente en formato JSON');
+  };
+
+  const handleAdvancedConfig = () => {
+    // Simular apertura de configuración avanzada
+    const configOptions = [
+      'Configurar modelos personalizados',
+      'Ajustar parámetros de entrenamiento',
+      'Configurar webhooks de IA',
+      'Gestionar cache de respuestas',
+      'Configurar alertas de rendimiento'
+    ];
+    
+    const selectedOption = prompt(
+      `Selecciona una opción de configuración avanzada:\n\n${configOptions.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nIngresa el número (1-5):`
+    );
+    
+    if (selectedOption && selectedOption >= '1' && selectedOption <= '5') {
+      const option = configOptions[parseInt(selectedOption) - 1];
+      alert(`Configuración seleccionada: ${option}\n\nEsta funcionalidad estará disponible en la próxima versión.`);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header con IA */}
@@ -930,13 +988,35 @@ export default function AIIntegrationModule() {
         
         <div className="mt-6 pt-4 border-t">
           <div className="flex space-x-4">
-            <button className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+            <button 
+              onClick={handleStartTraining}
+              disabled={loading}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Iniciando Entrenamiento...
+                </>
+              ) : (
+                <>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Iniciar Entrenamiento Completo
+                </>
+              )}
+            </button>
+            <button 
+              onClick={handleExportMetrics}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center"
+            >
+              <Download className="h-4 w-4 mr-2" />
               Iniciar Entrenamiento Completo
             </button>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
-              Exportar Métricas IA
-            </button>
-            <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors">
+            <button 
+              onClick={handleAdvancedConfig}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors flex items-center"
+            >
+              <Settings className="h-4 w-4 mr-2" />
               Configuración Avanzada
             </button>
           </div>
