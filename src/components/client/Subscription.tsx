@@ -61,6 +61,21 @@ export default function Subscription() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const { user } = useAuth();
 
+  // Auto-seleccionar el paquete popular cuando se abre el modal
+  useEffect(() => {
+    if (showTokenModal && !selectedTokenPackage) {
+      const popularPackage = tokenPackages.find(p => p.popular);
+      if (popularPackage) {
+        setSelectedTokenPackage(popularPackage.id);
+      }
+    }
+  }, [showTokenModal]);
+
+  useEffect(() => {
+    if (showStorageModal && !selectedStoragePackage) {
+      setSelectedStoragePackage(storagePackages[0].id);
+    }
+  }, [showStorageModal]);
   // Cargar datos del cliente al montar el componente
   useEffect(() => {
     const loadClientData = async () => {
@@ -292,29 +307,6 @@ export default function Subscription() {
       // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Crear recibo
-      const receiptData = {
-        clientId: clientData.id,
-        amount: selectedPackage.price,
-        paymentMethod: 'Tarjeta de Crédito',
-        gatewayName: 'Stripe',
-        description: `Compra de Tokens - ${selectedPackage.name}`,
-        transactionId: `txn_tokens_${Date.now()}`,
-        invoiceItems: [{
-          description: `${selectedPackage.name} - ${selectedPackage.tokens.toLocaleString()} Tokens IA`,
-          quantity: 1,
-          unit_price: selectedPackage.price / 1.21,
-          total: selectedPackage.price / 1.21
-        }],
-        clientDetails: {
-          name: clientData.company_name,
-          contact: clientData.contact_name,
-          email: clientData.email,
-          address: clientData.address,
-          phone: clientData.phone
-        }
-      };
-      
       // Crear recibo simulado con estructura completa
       const receipt = {
         id: `receipt_${Date.now()}`,
@@ -330,11 +322,16 @@ export default function Subscription() {
         currency: 'EUR',
         payment_method: 'Tarjeta de Crédito',
         gateway_name: 'Stripe',
-        description: receiptData.description,
+        description: `Compra de Tokens - ${selectedPackage.name}`,
         payment_date: new Date().toISOString(),
         status: 'paid' as const,
-        transaction_id: receiptData.transactionId,
-        invoice_items: receiptData.invoiceItems,
+        transaction_id: `txn_tokens_${Date.now()}`,
+        invoice_items: [{
+          description: `${selectedPackage.name} - ${selectedPackage.tokens.toLocaleString()} Tokens IA`,
+          quantity: 1,
+          unit_price: selectedPackage.price / 1.21,
+          total: selectedPackage.price / 1.21
+        }],
         tax_details: {
           base: selectedPackage.price / 1.21,
           iva_rate: 21,
@@ -361,7 +358,7 @@ export default function Subscription() {
       setShowTokenModal(false);
       setSelectedTokenPackage('');
       
-      alert('¡Tokens comprados exitosamente! El recibo se ha enviado por email.');
+      // No mostrar alert aquí, el modal del recibo ya indica el éxito
     } catch (error) {
       console.error('Error purchasing tokens:', error);
       alert('Error al procesar la compra. Intenta nuevamente.');
