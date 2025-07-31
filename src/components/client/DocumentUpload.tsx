@@ -75,6 +75,11 @@ export default function DocumentUpload() {
 
     try {
       const clientData = await getCurrentClientData(user.id);
+      
+      if (!clientData || !clientData.id) {
+        throw new Error('No se pudieron encontrar los datos del cliente. Por favor, contacta con soporte técnico.');
+      }
+      
       await updateClientObraliaCredentials(clientData.id, credentials);
       
       setObraliaConfigured(true);

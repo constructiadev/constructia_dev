@@ -113,7 +113,7 @@ export default function Companies() {
       const clientData = await getCurrentClientData(user.id);
       
       if (!clientData || !clientData.id) {
-        throw new Error('No se pudo identificar los datos del cliente. Por favor, recarga la página e intenta nuevamente.');
+        throw new Error('No se pudieron encontrar los datos del cliente. Por favor, contacta con soporte técnico.');
       }
       
       await updateClientObraliaCredentials(clientData.id, credentials);
