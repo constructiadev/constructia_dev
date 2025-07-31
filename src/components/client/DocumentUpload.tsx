@@ -88,6 +88,13 @@ export default function DocumentUpload() {
       setObraliaConfigured(true);
       setShowObraliaModal(false);
     }
+    } catch (error) {
+      console.error('Error saving Obralia credentials:', error);
+      // En caso de error, mostrar mensaje genérico pero permitir continuar
+      alert('Error al guardar credenciales, pero puedes continuar con el testing.');
+      setObraliaConfigured(true);
+      setShowObraliaModal(false);
+    }
   };
 
   const filteredProjects = projects.filter(p => p.company_id === selectedCompany);
