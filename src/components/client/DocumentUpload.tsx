@@ -10,7 +10,8 @@ import {
   Loader,
   Eye,
   Settings,
-  Globe
+  Globe,
+  Clock
 } from 'lucide-react';
 import { callGeminiAI } from '../../lib/supabase';
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
@@ -72,22 +73,17 @@ export default function DocumentUpload() {
     try {
       // Simular guardado exitoso de credenciales para desarrollo/testing
       await new Promise(resolve => setTimeout(resolve, 1000));
-        console.warn('Using development mode: mock client data for user', user.id);
+      
+      if (!user?.id) {
+        console.warn('Using development mode: mock client data for user', user?.id);
       }
       
-      await updateClientObraliaCredentials(clientId, credentials);
+      await updateClientObraliaCredentials(user?.id, credentials);
       setObraliaConfigured(true);
       setShowObraliaModal(false);
       
       alert('¡Credenciales de Obralia configuradas exitosamente! Ahora puedes subir documentos.');
       
-    } catch (error) {
-      console.error('Error saving Obralia credentials:', error);
-      // En caso de error, mostrar mensaje genérico pero permitir continuar
-      alert('Error al guardar credenciales, pero puedes continuar con el testing.');
-      setObraliaConfigured(true);
-      setShowObraliaModal(false);
-    }
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
       // En caso de error, mostrar mensaje genérico pero permitir continuar
