@@ -113,6 +113,28 @@ function ObraliaConnectionModal({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected');
 
+  // URL directa de Nalanda para acceso rápido
+  const NALANDA_LOGIN_URL = 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth?ui_locales=es+en+pt&scope=openid&response_type=code&nln_action=redirect&redirect_uri=https%3A%2F%2Fapp.nalandaglobal.com%2FcuadroMandoSubcontratistaByPropietario%21executeLegacy.action%3FcifPropietarioObra%3DA28233534&state=tEO5k9LKsYgxxFseUPQukwYcxwAf9RQWup79Qkk_XGg&nonce=-nbdOhp9ZiDn0J3BFOvdhlebtygGGeO8CAzTN5BNnsk&client_id=nalanda-app';
+
+  const openNalandaDirect = () => {
+    window.open(NALANDA_LOGIN_URL, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+  };
+
+  const copyCredentials = () => {
+    const credentialsText = `Usuario: ${clientCredentials.username}\nContraseña: ${clientCredentials.password}`;
+    navigator.clipboard.writeText(credentialsText).then(() => {
+      alert('Credenciales copiadas al portapapeles');
+    }).catch(() => {
+      // Fallback para navegadores que no soportan clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = credentialsText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('Credenciales copiadas al portapapeles');
+    });
+  };
   const connectToObralia = async () => {
     setIsConnecting(true);
     try {
@@ -179,6 +201,54 @@ function ObraliaConnectionModal({
           </div>
         </div>
 
+        {/* Acceso Directo a Nalanda */}
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Globe className="h-5 w-5 text-orange-600 mr-3" />
+              <div>
+                <h4 className="font-semibold text-orange-800">Acceso Directo a Nalanda</h4>
+                <p className="text-sm text-orange-700">
+                  Abre Nalanda en nueva pestaña y copia las credenciales automáticamente
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={copyCredentials}
+                className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copiar Credenciales
+              </button>
+              <button
+                onClick={openNalandaDirect}
+                className="flex items-center px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm"
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Abrir Nalanda
+              </button>
+            </div>
+          </div>
+          
+          {/* Credenciales Visibles */}
+          <div className="mt-3 p-3 bg-white border border-orange-200 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-orange-800">Usuario:</span>
+                <p className="text-orange-700 font-mono bg-orange-100 px-2 py-1 rounded mt-1">
+                  {clientCredentials.username}
+                </p>
+              </div>
+              <div>
+                <span className="font-medium text-orange-800">Contraseña:</span>
+                <p className="text-orange-700 font-mono bg-orange-100 px-2 py-1 rounded mt-1">
+                  {clientCredentials.password}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
         {/* Connection Status */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
@@ -1056,7 +1126,8 @@ export default function ManualManagement() {
             <h4 className="font-semibold text-blue-800 mb-2">Gestión Manual Operativa</h4>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• <strong>Drag & Drop:</strong> Arrastra archivos directamente sobre las filas de proyectos</li>
-              <li>• <strong>Conexión Directa:</strong> Conecta automáticamente con las credenciales del cliente</li>
+              <li>• <strong>Acceso Directo Nalanda:</strong> Abre Nalanda en nueva pestaña con un clic</li>
+              <li>• <strong>Credenciales Automáticas:</strong> Copia las credenciales del cliente al portapapeles</li>
               <li>• <strong>Procesamiento por Lotes:</strong> Selecciona múltiples documentos para subida masiva</li>
               <li>• <strong>IA Integrada:</strong> Detecta automáticamente archivos corruptos y prioriza</li>
               <li>• <strong>Organización Jerárquica:</strong> Cliente → Empresa → Proyecto → Documentos</li>
