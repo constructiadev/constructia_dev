@@ -258,6 +258,13 @@ export default function Subscription() {
     try {
       // Simular compra de tokens
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Actualizar tokens disponibles
+      setCurrentSubscription(prev => ({
+        ...prev,
+        tokens_limit: prev.tokens_limit + selectedPackage.tokens
+      }));
+      
       alert(`¡Compra exitosa! Has adquirido ${selectedPackage.tokens} tokens por €${selectedPackage.price}`);
       setShowTokenModal(false);
       setSelectedTokenPackage('');
@@ -273,6 +280,14 @@ export default function Subscription() {
     try {
       // Simular compra de almacenamiento
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Actualizar límite de almacenamiento
+      const additionalStorage = parseInt(selectedPackage.storage.replace('GB', '')) * 1024; // Convertir GB a MB
+      setCurrentSubscription(prev => ({
+        ...prev,
+        storage_limit: prev.storage_limit + additionalStorage
+      }));
+      
       alert(`¡Compra exitosa! Has adquirido ${selectedPackage.storage} adicional por €${selectedPackage.price}/mes`);
       setShowStorageModal(false);
       setSelectedStoragePackage('');

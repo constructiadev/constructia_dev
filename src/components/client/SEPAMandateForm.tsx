@@ -128,6 +128,9 @@ export default function SEPAMandateForm({
   const handleFormSubmit = async (data: SEPAMandateData) => {
     setIsSubmitting(true);
     try {
+      // Generar ID único para el mandato
+      const uniqueMandateId = `SEPA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       // Capturar datos de auditoría
       const auditData = {
         ...data,
@@ -135,7 +138,7 @@ export default function SEPAMandateForm({
         ip_address: '192.168.1.100', // En producción obtener IP real
         user_agent: navigator.userAgent,
         session_id: `session_${Date.now()}`,
-        mandate_id: mandateId,
+        mandate_id: uniqueMandateId,
         amount,
         currency,
         description

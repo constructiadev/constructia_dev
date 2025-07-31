@@ -27,6 +27,7 @@ import {
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { callGeminiAI } from '../../lib/supabase';
 import PaymentGatewayModal from './PaymentGatewayModal';
+import SEPAMandatesManagement from './SEPAMandatesManagement';
 
 interface FinancialKPICardProps {
   title: string;
@@ -161,6 +162,7 @@ export default function FinancialModule() {
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [activeFinancialTab, setActiveFinancialTab] = useState('overview');
   const [paymentGateways, setPaymentGateways] = useState([
     {
       id: 'stripe_main',
@@ -469,6 +471,13 @@ export default function FinancialModule() {
     generateFinancialInsights();
   }, []);
 
+  const financialTabs = [
+    { id: 'overview', name: 'Resumen', icon: BarChart3 },
+    { id: 'gateways', name: 'Pasarelas', icon: CreditCard },
+    { id: 'sepa', name: 'Mandatos SEPA', icon: Building },
+    { id: 'reports', name: 'Reportes', icon: Receipt }
+  ];
+
   return (
     <div className="space-y-8">
       {/* Header con IA Financiera */}
@@ -508,6 +517,30 @@ export default function FinancialModule() {
         )}
       </div>
 
+      {/* Tabs de Navegación */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            {financialTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveFinancialTab(tab.id)}
+                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeFinancialTab === tab.id
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <tab.icon className="h-4 w-4 mr-2" />
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {activeFinancialTab === 'overview' && (
+            <>
       {/* KPIs Financieros */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -577,6 +610,11 @@ export default function FinancialModule() {
           </div>
         </div>
       </div>
+            </>
+          )}
+
+          {activeFinancialTab === 'gateways' && (
+            <>
 
       {/* Configuración de Pasarelas de Pago */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -611,6 +649,22 @@ export default function FinancialModule() {
               </button>
             </div>
           ))}
+        </div>
+      </div>
+            </>
+          )}
+
+          {activeFinancialTab === 'sepa' && (
+            <SEPAMandatesManagement />
+          )}
+
+          {activeFinancialTab === 'reports' && (
+            <div className="text-center py-12">
+              <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Reportes Financieros</h3>
+              <p className="text-gray-600">Funcionalidad de reportes en desarrollo</p>
+            </div>
+          )}
         </div>
       </div>
 

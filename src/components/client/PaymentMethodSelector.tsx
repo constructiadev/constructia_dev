@@ -77,6 +77,39 @@ export default function PaymentMethodSelector({
 
   const handleSEPAMandateSubmit = async (mandateData: any) => {
     try {
+      // Obtener datos del cliente actual
+      if (!user?.id) {
+        throw new Error('Usuario no identificado');
+      }
+      
+      const clientData = await getCurrentClientData(user.id);
+      
+      // Preparar datos del mandato para guardar
+      const mandateToSave = {
+        mandate_id: mandateData.mandate_id,
+        client_id: clientData.id,
+        deudor_nombre: mandateData.deudor_nombre,
+        deudor_direccion: mandateData.deudor_direccion,
+        deudor_codigo_postal: mandateData.deudor_codigo_postal,
+        deudor_ciudad: mandateData.deudor_ciudad,
+        deudor_pais: mandateData.deudor_pais,
+        deudor_identificacion: mandateData.deudor_identificacion,
+        iban: mandateData.iban,
+        bic: mandateData.bic,
+        banco_nombre: mandateData.banco_nombre,
+        tipo_pago: mandateData.tipo_pago,
+        amount: mandateData.amount,
+        currency: mandateData.currency,
+        description: mandateData.description,
+        fecha_firma: mandateData.fecha_firma,
+        ip_address: mandateData.ip_address,
+        user_agent: mandateData.user_agent,
+        session_id: mandateData.session_id
+      };
+      
+      // Guardar mandato en la base de datos
+      await saveSEPAMandate(mandateToSave);
+      
       // Aquí se procesaría el mandato SEPA
       console.log('Mandato SEPA firmado:', mandateData);
       
