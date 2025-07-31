@@ -24,6 +24,7 @@ import DatabaseModule from './admin/DatabaseModule';
 import APIManagement from './admin/APIManagement';
 import AuditModule from './admin/AuditModule';
 import AIIntegrationModule from './admin/AIIntegrationModule';
+import ManualManagement from './admin/ManualManagement';
 import SettingsModule from './admin/SettingsModule';
 
 // Páginas Cliente
@@ -125,6 +126,7 @@ export default function Router() {
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />
           <Route path="ai" element={<AIIntegrationModule />} />
+          <Route path="manual" element={<ManualManagement />} />
           <Route path="database" element={<DatabaseModule />} />
           <Route path="api" element={<APIManagement />} />
           <Route path="audit" element={<AuditModule />} />
