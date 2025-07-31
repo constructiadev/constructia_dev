@@ -108,6 +108,13 @@ export default function Companies() {
     try {
       // Simular guardado exitoso de credenciales para desarrollo/testing
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Obtener datos del cliente actual
+      let clientId;
+      try {
+        const clientData = await getCurrentClientData(user.id);
+        clientId = clientData.id;
+      } catch (error) {
         console.warn('Using development mode: mock client data for user', user.id);
       }
       
