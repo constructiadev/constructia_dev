@@ -512,7 +512,6 @@ function ClientRow({ client, isExpanded, onToggle, onConnectObralia, onStatusCha
                   onDrop={(files) => onDrop(files, client.client_id, company.company_id, project.project_id)}
                 />
               ))}
-            </React.Fragment>
           ))}
         </React.Fragment>
       ))}
