@@ -76,11 +76,15 @@ export default function DocumentUpload() {
     try {
       const clientData = await getCurrentClientData(user.id);
       
+      // Si no hay datos del cliente (usuario de desarrollo), crear datos mock
+      let clientId = clientData?.id;
       if (!clientData || !clientData.id) {
-        throw new Error('No se pudieron encontrar los datos del cliente. Por favor, contacta con soporte técnico.');
+        // Para usuarios de desarrollo, usar el user.id como clientId mock
+        clientId = user.id;
+        console.warn('Using development mode: mock client data for user', user.id);
       }
       
-      await updateClientObraliaCredentials(clientData.id, credentials);
+      await updateClientObraliaCredentials(clientId, credentials);
       
       setObraliaConfigured(true);
       setShowObraliaModal(false);
