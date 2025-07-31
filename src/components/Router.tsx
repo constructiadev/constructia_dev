@@ -35,6 +35,7 @@ import Metrics from './client/Metrics';
 import Subscription from './client/Subscription';
 import DocumentUpload from './client/DocumentUpload';
 import Settings from './client/Settings';
+import ReceiptHistory from './client/ReceiptHistory';
 
 // Componente de Loading
 function Loading() {
