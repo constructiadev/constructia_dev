@@ -255,9 +255,38 @@ export default function Subscription() {
     const selectedPackage = tokenPackages.find(p => p.id === selectedTokenPackage);
     if (!selectedPackage) return;
     
+    setLoading(true);
     try {
-      // Simular compra de tokens
+      // Obtener datos del cliente
+      const clientData = await getCurrentClientData(user?.id || '');
+      
+      // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Crear recibo
+      const receiptData = {
+        clientId: clientData.id,
+        amount: selectedPackage.price,
+        paymentMethod: 'Tarjeta de Crédito',
+        gatewayName: 'Stripe',
+        description: `Compra de Tokens - ${selectedPackage.name}`,
+        transactionId: `txn_tokens_${Date.now()}`,
+        invoiceItems: [{
+          description: `${selectedPackage.name} - ${selectedPackage.tokens.toLocaleString()} Tokens IA`,
+          quantity: 1,
+          unit_price: selectedPackage.price / 1.21,
+          total: selectedPackage.price / 1.21
+        }],
+        clientDetails: {
+          name: clientData.company_name,
+          contact: clientData.contact_name,
+          email: clientData.email,
+          address: clientData.address,
+          phone: clientData.phone
+        }
+      };
+      
+      const receipt = await createReceipt(receiptData);
       
       // Actualizar tokens disponibles
       setCurrentSubscription(prev => ({
@@ -265,11 +294,20 @@ export default function Subscription() {
         tokens_limit: prev.tokens_limit + selectedPackage.tokens
       }));
       
-      alert(`¡Compra exitosa! Has adquirido ${selectedPackage.tokens} tokens por €${selectedPackage.price}`);
+      // Enviar recibo por email
+      await sendReceiptByEmail(receipt.id, clientData.email);
+      
+      // Mostrar recibo en pantalla
+      setSelectedReceipt(receipt);
+      setShowReceiptModal(true);
+      
       setShowTokenModal(false);
       setSelectedTokenPackage('');
     } catch (error) {
+      console.error('Error purchasing tokens:', error);
       alert('Error al procesar la compra. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -277,9 +315,38 @@ export default function Subscription() {
     const selectedPackage = storagePackages.find(p => p.id === selectedStoragePackage);
     if (!selectedPackage) return;
     
+    setLoading(true);
     try {
-      // Simular compra de almacenamiento
+      // Obtener datos del cliente
+      const clientData = await getCurrentClientData(user?.id || '');
+      
+      // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Crear recibo
+      const receiptData = {
+        clientId: clientData.id,
+        amount: selectedPackage.price,
+        paymentMethod: 'Tarjeta de Crédito',
+        gatewayName: 'Stripe',
+        description: `Ampliación de Almacenamiento - ${selectedPackage.name}`,
+        transactionId: `txn_storage_${Date.now()}`,
+        invoiceItems: [{
+          description: `${selectedPackage.name} - Ampliación mensual`,
+          quantity: 1,
+          unit_price: selectedPackage.price / 1.21,
+          total: selectedPackage.price / 1.21
+        }],
+        clientDetails: {
+          name: clientData.company_name,
+          contact: clientData.contact_name,
+          email: clientData.email,
+          address: clientData.address,
+          phone: clientData.phone
+        }
+      };
+      
+      const receipt = await createReceipt(receiptData);
       
       // Actualizar límite de almacenamiento
       const additionalStorage = parseInt(selectedPackage.storage.replace('GB', '')) * 1024; // Convertir GB a MB
@@ -288,11 +355,20 @@ export default function Subscription() {
         storage_limit: prev.storage_limit + additionalStorage
       }));
       
-      alert(`¡Compra exitosa! Has adquirido ${selectedPackage.storage} adicional por €${selectedPackage.price}/mes`);
+      // Enviar recibo por email
+      await sendReceiptByEmail(receipt.id, clientData.email);
+      
+      // Mostrar recibo en pantalla
+      setSelectedReceipt(receipt);
+      setShowReceiptModal(true);
+      
       setShowStorageModal(false);
       setSelectedStoragePackage('');
     } catch (error) {
+      console.error('Error purchasing storage:', error);
       alert('Error al procesar la compra. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -306,7 +382,49 @@ export default function Subscription() {
     setShowPaymentSelector(false);
     
     if (selectedPlan) {
-      alert(`¡Plan ${selectedPlan.name} activado exitosamente con el método de pago seleccionado!`);
+      // Crear recibo para cambio de plan
+      const createPlanChangeReceipt = async () => {
+        try {
+          const clientData = await getCurrentClientData(user?.id || '');
+          
+          const receiptData = {
+            clientId: clientData.id,
+            amount: selectedPlan.price,
+            paymentMethod: gatewayId === 'stripe_main' ? 'Tarjeta de Crédito' : 
+                          gatewayId === 'paypal_main' ? 'PayPal' :
+                          gatewayId === 'sepa_main' ? 'Transferencia SEPA' : 'Bizum',
+            gatewayName: gatewayId === 'stripe_main' ? 'Stripe' : 
+                        gatewayId === 'paypal_main' ? 'PayPal' :
+                        gatewayId === 'sepa_main' ? 'SEPA' : 'Bizum',
+            description: `Cambio a Plan ${selectedPlan.name} - ${new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`,
+            transactionId: `txn_plan_${Date.now()}`,
+            invoiceItems: [{
+              description: `Plan ${selectedPlan.name} ConstructIA - ${new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`,
+              quantity: 1,
+              unit_price: selectedPlan.price / 1.21,
+              total: selectedPlan.price / 1.21
+            }],
+            clientDetails: {
+              name: clientData.company_name,
+              contact: clientData.contact_name,
+              email: clientData.email,
+              address: clientData.address,
+              phone: clientData.phone
+            }
+          };
+          
+          const receipt = await createReceipt(receiptData);
+          await sendReceiptByEmail(receipt.id, clientData.email);
+          
+          setSelectedReceipt(receipt);
+          setShowReceiptModal(true);
+          
+        } catch (error) {
+          console.error('Error creating plan change receipt:', error);
+        }
+      };
+      
+      createPlanChangeReceipt();
     }
   };
 
@@ -868,6 +986,38 @@ export default function Subscription() {
               currency="EUR"
               onSelect={handlePaymentMethodSelected}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Recibo */}
+      {showReceiptModal && selectedReceipt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 bg-green-50">
+              <div className="flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-green-800">¡Compra Completada!</h3>
+                  <p className="text-green-700">Tu recibo ha sido enviado por email</p>
+                </div>
+              </div>
+            </div>
+            <ReceiptGenerator
+              receiptData={selectedReceipt}
+              onEmailSent={() => {
+                alert('Recibo reenviado exitosamente');
+              }}
+              showActions={true}
+            />
+            <div className="p-4 border-t border-gray-200 text-center">
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                Continuar
+              </button>
+            </div>
           </div>
         </div>
       )}

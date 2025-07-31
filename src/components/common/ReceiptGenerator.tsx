@@ -264,6 +264,13 @@ export default function ReceiptGenerator({
       <div id="receipt-content" className="hidden">
         <ReceiptContent receiptData={receiptData} />
       </div>
+
+      {/* Always render visible content */}
+      {!showPreview && (
+        <div className="p-6">
+          <ReceiptContent receiptData={receiptData} />
+        </div>
+      )}
     </>
   );
 }
@@ -310,7 +317,17 @@ function ReceiptContent({ receiptData }: { receiptData: ReceiptData }) {
         <div>
           <div className="flex items-center mb-4">
             <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mr-4">
-              <Building2 className="h-6 w-6 text-white" />
+              <img 
+                src="/Logo ConstructIA.png" 
+                alt="ConstructIA Logo" 
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  // Fallback to icon if image fails to load
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <Building2 className="h-6 w-6 text-white hidden" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">ConstructIA</h1>

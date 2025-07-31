@@ -681,6 +681,41 @@ export default function RegisterForm() {
           </div>
         </div>
       )}
+
+      {/* Modal de Recibo */}
+      {showReceiptModal && selectedReceipt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 bg-green-50">
+              <div className="flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-green-800">¡Registro Completado!</h3>
+                  <p className="text-green-700">Tu recibo ha sido enviado por email</p>
+                </div>
+              </div>
+            </div>
+            <ReceiptGenerator
+              receiptData={selectedReceipt}
+              onEmailSent={() => {
+                alert('Recibo reenviado exitosamente');
+              }}
+              showActions={true}
+            />
+            <div className="p-4 border-t border-gray-200 text-center">
+              <button
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  navigate('/client/dashboard');
+                }}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                Ir al Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
