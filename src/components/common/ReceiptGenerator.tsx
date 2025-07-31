@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Download, 
   Mail, 
@@ -72,18 +72,39 @@ export default function ReceiptGenerator({
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showPreview, setShowPreview] = useState(isPreview);
+  const receiptContentRef = useRef<HTMLDivElement>(null);
 
   const generatePDF = async () => {
     setIsGeneratingPDF(true);
     try {
-      const element = document.getElementById('receipt-content');
+      const element = receiptContentRef.current;
       if (!element) return;
+
+      // Hacer temporalmente visible el elemento oculto
+      const originalDisplay = element.style.display;
+      const originalPosition = element.style.position;
+      const originalLeft = element.style.left;
+      const originalZIndex = element.style.zIndex;
+      const originalOpacity = element.style.opacity;
+
+      element.style.display = 'block';
+      element.style.position = 'absolute';
+      element.style.left = '-9999px';
+      element.style.zIndex = '-1';
+      element.style.opacity = '1';
 
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         allowTaint: true
       });
+
+      // Restaurar estilos originales
+      element.style.display = originalDisplay;
+      element.style.position = originalPosition;
+      element.style.left = originalLeft;
+      element.style.zIndex = originalZIndex;
+      element.style.opacity = originalOpacity;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -261,7 +282,7 @@ export default function ReceiptGenerator({
       )}
 
       {/* Receipt Content (hidden for PDF generation) */}
-      <div id="receipt-content" className="hidden">
+      <div ref={receiptContentRef} className="hidden">
         <ReceiptContent receiptData={receiptData} />
       </div>
 
