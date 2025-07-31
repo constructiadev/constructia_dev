@@ -499,7 +499,9 @@ export default function Subscription() {
       setShowReceiptModal(true);
       
       // Actualizar almacenamiento localmente
-      const additionalStorage = parseInt(selectedPackage.storage.replace(/[^\d]/g, '')) * 1024; // Convert GB to MB
+      const storageValue = parseInt(selectedPackage.storage.replace(/[^\d]/g, ''));
+      const additionalStorage = storageValue * 1024; // Convert GB to MB
+      console.log(`Agregando ${storageValue}GB (${additionalStorage}MB) al límite actual de ${storageLimit}MB`);
       setStorageLimit(prev => prev + additionalStorage);
       
       setShowStorageModal(false);
