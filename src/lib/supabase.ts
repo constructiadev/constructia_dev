@@ -101,7 +101,7 @@ export const updateClientObraliaCredentials = async (
 ) => {
   try {
     // Handle development users with mock response
-    if (clientId === 'dev-client-uuid-001' || clientId === 'dev-admin-uuid-001') {
+    if (clientId === 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' || clientId === 'b1c2d3e4-f5a6-7890-1234-567890abcdef') {
       // Simulate successful update for development users
       return {
         id: clientId,
@@ -141,7 +141,7 @@ export const getCurrentClientData = async (userId: string) => {
     // Handle development users with mock data
     if (userId === 'dev-client-001') {
       return {
-        id: 'dev-client-uuid-001',
+        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
         user_id: 'dev-client-001',
         client_id: 'CLI-001',
         company_name: 'Empresa de Prueba S.L.',
@@ -165,7 +165,7 @@ export const getCurrentClientData = async (userId: string) => {
 
     if (userId === 'dev-admin-001') {
       return {
-        id: 'dev-admin-uuid-001',
+        id: 'b1c2d3e4-f5a6-7890-1234-567890abcdef',
         user_id: 'dev-admin-001',
         client_id: 'ADM-001',
         company_name: 'Constructia Admin',
