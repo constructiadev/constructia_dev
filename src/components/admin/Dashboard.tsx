@@ -407,26 +407,34 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+          <button 
             onClick={() => navigate('/admin/clients')}
+            className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+          >
             <Users className="h-5 w-5 text-blue-600 mr-2" />
             <span className="font-medium text-blue-800">Gestionar Clientes</span>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+          <button 
             onClick={() => navigate('/admin/financial')}
+            className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+          >
             <CreditCard className="h-5 w-5 text-green-600 mr-2" />
             <span className="font-medium text-green-800">Ver Finanzas</span>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+          <button 
             onClick={() => navigate('/admin/ai')}
+            className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+          >
             <Brain className="h-5 w-5 text-purple-600 mr-2" />
             <span className="font-medium text-purple-800">Configurar IA</span>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
+          <button 
             onClick={() => navigate('/admin/settings')}
+            className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+          >
             <Settings className="h-5 w-5 text-orange-600 mr-2" />
             <span className="font-medium text-orange-800">Configuración</span>
           </button>
