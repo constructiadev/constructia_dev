@@ -555,6 +555,12 @@ export default function RegisterForm() {
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
               <div className="flex items-start">
                 <Brain className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
+                <div>
+                  <p className="text-sm text-blue-800">{aiAssistance}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Form Content */}
           <form onSubmit={handleSubmit(onSubmit)} className="p-8">
