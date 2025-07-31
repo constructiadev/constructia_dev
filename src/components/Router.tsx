@@ -127,6 +127,7 @@ export default function Router() {
           <Route path="financial" element={<FinancialModule />} />
           <Route path="ai" element={<AIIntegrationModule />} />
           <Route path="manual" element={<ManualManagement />} />
+          <Route path="manual" element={<ManualManagement />} />
           <Route path="database" element={<DatabaseModule />} />
           <Route path="api" element={<APIManagement />} />
           <Route path="audit" element={<AuditModule />} />

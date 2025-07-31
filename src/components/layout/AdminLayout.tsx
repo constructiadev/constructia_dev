@@ -21,6 +21,7 @@ const navigation = [
   { name: 'Financiero', href: '/admin/financial', icon: CreditCard },
   { name: 'IA & Integraciones', href: '/admin/ai', icon: Brain },
   { name: 'Gestión Manual', href: '/admin/manual', icon: Settings },
+  { name: 'Gestión Manual', href: '/admin/manual', icon: Settings },
   { name: 'Base de Datos', href: '/admin/database', icon: Database },
   { name: 'API Management', href: '/admin/api', icon: BarChart3 },
   { name: 'Auditoría', href: '/admin/audit', icon: Activity },

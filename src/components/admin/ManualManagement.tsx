@@ -1,153 +1,522 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Users, Building2, FolderOpen, Search, Filter, Eye, Upload, CheckCircle, AlertTriangle, Clock, Brain, Settings, RefreshCw, Download, Play, Pause, SkipForward, Trash2, Edit, Globe, Shield, Zap, Database, TrendingUp, BarChart3, Activity, HardDrive, Cpu, Server, Monitor, Terminal, Code, Key, Lock, Unlock, Calendar, Mail, Phone, MapPin, Hash, Info, FileWarning as Warning, X, Plus, Minus, ArrowUp, ArrowDown, RotateCcw, Save, Send, Archive, Flag, Star, Bookmark } from 'lucide-react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import { callGeminiAI, supabase } from '../../lib/supabase';
+import { 
+  FileText, 
+  Users, 
+  Building2, 
+  FolderOpen, 
+  Search, 
+  Filter, 
+  Eye, 
+  Upload, 
+  CheckCircle, 
+  AlertTriangle, 
+  Clock,
+  Brain,
+  Settings,
+  RefreshCw,
+  Download,
+  Play,
+  Pause,
+  SkipForward,
+  Trash2,
+  Edit,
+  Globe,
+  Shield,
+  Zap,
+  Database,
+  TrendingUp,
+  BarChart3,
+  Activity,
+  HardDrive,
+  Cpu,
+  Server,
+  Monitor,
+  Terminal,
+  Code,
+  Key,
+  Lock,
+  Unlock,
+  Calendar,
+  Mail,
+  Phone,
+  MapPin,
+  Hash,
+  Info,
+  Warning,
+  X,
+  Plus,
+  Minus,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
+  Save,
+  Send,
+  Archive,
+  Flag,
+  Star,
+  Bookmark,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Copy
+} from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { callGeminiAI } from '../../lib/supabase';
 
-interface ManualQueueDocument {
+interface ManualDocument {
   id: string;
   document_id: string;
-  client_id: string;
-  company_id: string;
-  project_id: string;
-  queue_position: number;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  manual_status: 'pending' | 'in_progress' | 'uploaded' | 'validated' | 'error' | 'corrupted';
-  ai_analysis: {
-    classification: string;
-    confidence: number;
-    file_size: number;
-    file_type: string;
-    corruption_detected?: boolean;
-    integrity_score?: number;
-    recommended_action?: string;
-  };
-  admin_notes: string;
-  processed_by?: string;
-  processed_at?: string;
-  obralia_credentials: {
-    username?: string;
-    configured?: boolean;
-  };
+  filename: string;
+  original_name: string;
+  file_size: number;
+  file_type: string;
+  classification: string;
+  confidence: number;
   corruption_detected: boolean;
-  file_integrity_score: number;
+  integrity_score: number;
+  upload_status: 'pending' | 'uploading' | 'uploaded' | 'validated' | 'error' | 'corrupted';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  queue_position: number;
   retry_count: number;
-  last_error_message?: string;
+  last_error?: string;
+  admin_notes: string;
   created_at: string;
   updated_at: string;
-  // Joined data
-  document_filename: string;
-  document_original_name: string;
+}
+
+interface ClientGroup {
+  client_id: string;
   client_name: string;
-  company_name: string;
-  project_name: string;
   client_email: string;
+  obralia_credentials: {
+    username: string;
+    password: string;
+    configured: boolean;
+  };
+  companies: CompanyGroup[];
+  total_documents: number;
+  documents_per_hour: number;
+  last_activity: string;
+}
+
+interface CompanyGroup {
+  company_id: string;
+  company_name: string;
+  projects: ProjectGroup[];
+  total_documents: number;
+}
+
+interface ProjectGroup {
+  project_id: string;
+  project_name: string;
+  documents: ManualDocument[];
+  total_documents: number;
 }
 
 interface ManualKPICardProps {
   title: string;
   value: string | number;
-  change?: number;
-  trend?: 'up' | 'down' | 'stable';
   icon: React.ElementType;
   color: string;
   status?: 'good' | 'warning' | 'error';
-  description?: string;
-  period?: string;
+  realTime?: boolean;
 }
 
-function ManualKPICard({ 
-  title, 
-  value, 
-  change, 
-  trend, 
-  icon: Icon, 
-  color, 
-  status = 'good', 
-  description, 
-  period = 'tiempo real' 
-}: ManualKPICardProps) {
-  const trendColor = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600';
-  const trendSymbol = trend === 'up' ? '+' : trend === 'down' ? '-' : '';
-
+function ManualKPICard({ title, value, icon: Icon, color, status = 'good', realTime = true }: ManualKPICardProps) {
   const statusColors = {
-    good: 'text-green-600',
-    warning: 'text-yellow-600',
-    error: 'text-red-600'
+    good: 'border-green-200 bg-green-50',
+    warning: 'border-yellow-200 bg-yellow-50',
+    error: 'border-red-200 bg-red-50'
   };
-
-  const statusIcons = {
-    good: CheckCircle,
-    warning: AlertTriangle,
-    error: AlertTriangle
-  };
-
-  const StatusIcon = statusIcons[status];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
+    <div className={`border-2 rounded-xl p-4 ${statusColors[status]} hover:shadow-md transition-shadow`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={`p-2 rounded-lg ${color}`}>
+          <Icon className="h-5 w-5 text-white" />
         </div>
-        <div className="flex items-center space-x-2">
-          <StatusIcon className={`h-4 w-4 ${statusColors[status]}`} />
-          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-            {period}
-          </span>
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        {change !== undefined && trend && (
-          <div className="flex items-center justify-between mt-2">
-            <p className={`text-sm font-medium ${trendColor}`}>
-              {trendSymbol}{Math.abs(change)}% vs período anterior
-            </p>
+        {realTime && (
+          <div className="flex items-center">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+            <span className="text-xs text-gray-600">En vivo</span>
           </div>
         )}
-        {description && (
-          <p className="text-xs text-gray-500 mt-1">{description}</p>
+      </div>
+      <p className="text-sm font-medium text-gray-600">{title}</p>
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+interface ObraliaConnectionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  clientCredentials: {
+    username: string;
+    password: string;
+  };
+  clientName: string;
+  documentsToUpload: ManualDocument[];
+  onUploadComplete: (documentIds: string[]) => void;
+}
+
+function ObraliaConnectionModal({ 
+  isOpen, 
+  onClose, 
+  clientCredentials, 
+  clientName, 
+  documentsToUpload,
+  onUploadComplete 
+}: ObraliaConnectionModalProps) {
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected');
+
+  const connectToObralia = async () => {
+    setIsConnecting(true);
+    try {
+      // Simular conexión a Obralia
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setConnectionStatus('connected');
+      alert(`Conectado exitosamente a Obralia como ${clientCredentials.username}`);
+    } catch (error) {
+      setConnectionStatus('error');
+      alert('Error al conectar con Obralia. Verifica las credenciales.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const uploadDocuments = async () => {
+    if (connectionStatus !== 'connected') return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      for (let i = 0; i < documentsToUpload.length; i++) {
+        // Simular subida de cada documento
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setUploadProgress(((i + 1) / documentsToUpload.length) * 100);
+      }
+      
+      onUploadComplete(documentsToUpload.map(d => d.id));
+      alert(`${documentsToUpload.length} documentos subidos exitosamente a Obralia`);
+      onClose();
+    } catch (error) {
+      alert('Error durante la subida de documentos');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-gray-800">
+            Conexión Manual a Obralia/Nalanda
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Client Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <Users className="h-5 w-5 text-blue-600 mr-3" />
+            <div>
+              <h4 className="font-semibold text-blue-800">{clientName}</h4>
+              <p className="text-sm text-blue-700">
+                Usuario Obralia: {clientCredentials.username}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Connection Status */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-medium text-gray-700">Estado de Conexión</span>
+            <div className="flex items-center">
+              {connectionStatus === 'connected' && (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <span className="text-green-600 font-medium">Conectado</span>
+                </>
+              )}
+              {connectionStatus === 'error' && (
+                <>
+                  <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
+                  <span className="text-red-600 font-medium">Error</span>
+                </>
+              )}
+              {connectionStatus === 'disconnected' && (
+                <>
+                  <Clock className="h-4 w-4 text-gray-600 mr-2" />
+                  <span className="text-gray-600 font-medium">Desconectado</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {connectionStatus === 'disconnected' && (
+            <button
+              onClick={connectToObralia}
+              disabled={isConnecting}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isConnecting ? 'Conectando...' : 'Conectar a Obralia'}
+            </button>
+          )}
+        </div>
+
+        {/* Documents to Upload */}
+        <div className="mb-6">
+          <h4 className="font-medium text-gray-700 mb-3">
+            Documentos a Subir ({documentsToUpload.length})
+          </h4>
+          <div className="max-h-40 overflow-y-auto space-y-2">
+            {documentsToUpload.map((doc) => (
+              <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  <FileText className="h-4 w-4 text-blue-600 mr-2" />
+                  <span className="text-sm font-medium">{doc.original_name}</span>
+                </div>
+                <span className="text-xs text-gray-500">{doc.classification}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Upload Progress */}
+        {isUploading && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Progreso de Subida</span>
+              <span className="text-sm text-gray-600">{Math.round(uploadProgress)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
         )}
+
+        {/* Actions */}
+        <div className="flex space-x-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={uploadDocuments}
+            disabled={connectionStatus !== 'connected' || isUploading}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isUploading ? 'Subiendo...' : `Subir ${documentsToUpload.length} Documentos`}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-interface DocumentQueueCardProps {
-  document: ManualQueueDocument;
+interface ClientRowProps {
+  client: ClientGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onConnectObralia: (client: ClientGroup, documents: ManualDocument[]) => void;
   onStatusChange: (documentId: string, newStatus: string) => void;
-  onPriorityChange: (documentId: string, newPriority: string) => void;
-  onNotesUpdate: (documentId: string, notes: string) => void;
-  onRetry: (documentId: string) => void;
-  onRemove: (documentId: string) => void;
+  onDrop: (files: File[], clientId: string, companyId: string, projectId: string) => void;
 }
 
-function DocumentQueueCard({ 
-  document, 
-  onStatusChange, 
-  onPriorityChange, 
-  onNotesUpdate, 
-  onRetry, 
-  onRemove 
-}: DocumentQueueCardProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [notes, setNotes] = useState(document.admin_notes);
+function ClientRow({ client, isExpanded, onToggle, onConnectObralia, onStatusChange, onDrop }: ClientRowProps) {
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  
+  const allDocuments = client.companies.flatMap(company => 
+    company.projects.flatMap(project => project.documents)
+  );
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'normal': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  const pendingDocuments = allDocuments.filter(doc => doc.upload_status === 'pending');
+  const corruptedDocuments = allDocuments.filter(doc => doc.corruption_detected);
+
+  const handleSelectAll = () => {
+    if (selectedDocuments.length === pendingDocuments.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(pendingDocuments.map(d => d.id));
     }
   };
+
+  const handleDocumentSelect = (documentId: string) => {
+    setSelectedDocuments(prev => 
+      prev.includes(documentId) 
+        ? prev.filter(id => id !== documentId)
+        : [...prev, documentId]
+    );
+  };
+
+  const getSelectedDocuments = () => {
+    return allDocuments.filter(doc => selectedDocuments.includes(doc.id));
+  };
+
+  return (
+    <>
+      {/* Client Header Row */}
+      <tr className="bg-blue-50 border-b-2 border-blue-200">
+        <td colSpan={8} className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <button
+                onClick={onToggle}
+                className="mr-3 p-1 hover:bg-blue-100 rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-blue-600" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-blue-600" />
+                )}
+              </button>
+              <div className="bg-blue-100 p-2 rounded-lg mr-4">
+                <Users className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-blue-900">{client.client_name}</h3>
+                <p className="text-sm text-blue-700">{client.client_email}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-6">
+              {/* Obralia Credentials */}
+              <div className="flex items-center">
+                <Globe className="h-4 w-4 text-green-600 mr-2" />
+                <div className="text-right">
+                  <p className="text-sm font-medium text-green-800">
+                    {client.obralia_credentials.username}
+                  </p>
+                  <p className="text-xs text-green-600">Credenciales OK</p>
+                </div>
+              </div>
+              
+              {/* Stats */}
+              <div className="text-center">
+                <p className="text-lg font-bold text-blue-900">{client.total_documents}</p>
+                <p className="text-xs text-blue-700">Documentos</p>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-lg font-bold text-green-600">{client.documents_per_hour}</p>
+                <p className="text-xs text-green-700">Docs/hora</p>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleSelectAll}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+                >
+                  {selectedDocuments.length === pendingDocuments.length ? 'Deseleccionar' : 'Seleccionar'} Todo
+                </button>
+                <button
+                  onClick={() => onConnectObralia(client, getSelectedDocuments())}
+                  disabled={selectedDocuments.length === 0}
+                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm disabled:opacity-50 flex items-center"
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Conectar Obralia ({selectedDocuments.length})
+                </button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+
+      {/* Expanded Content */}
+      {isExpanded && client.companies.map((company) => (
+        <React.Fragment key={company.company_id}>
+          {/* Company Header */}
+          <tr className="bg-green-50">
+            <td colSpan={8} className="px-12 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Building2 className="h-4 w-4 text-green-600 mr-3" />
+                  <span className="font-medium text-green-800">{company.company_name}</span>
+                </div>
+                <span className="text-sm text-green-700">{company.total_documents} documentos</span>
+              </div>
+            </td>
+          </tr>
+
+          {/* Projects and Documents */}
+          {company.projects.map((project) => (
+            <React.Fragment key={project.project_id}>
+              {/* Project Header */}
+              <tr className="bg-purple-50">
+                <td colSpan={8} className="px-16 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FolderOpen className="h-4 w-4 text-purple-600 mr-2" />
+                      <span className="font-medium text-purple-800">{project.project_name}</span>
+                    </div>
+                    <span className="text-sm text-purple-700">{project.total_documents} documentos</span>
+                  </div>
+                </td>
+              </tr>
+
+              {/* Documents */}
+              {project.documents.map((document) => (
+                <DocumentRow
+                  key={document.id}
+                  document={document}
+                  isSelected={selectedDocuments.includes(document.id)}
+                  onSelect={() => handleDocumentSelect(document.id)}
+                  onStatusChange={onStatusChange}
+                  onDrop={(files) => onDrop(files, client.client_id, company.company_id, project.project_id)}
+                />
+              ))}
+            </React.Fragment>
+          ))}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+interface DocumentRowProps {
+  document: ManualDocument;
+  isSelected: boolean;
+  onSelect: () => void;
+  onStatusChange: (documentId: string, newStatus: string) => void;
+  onDrop: (files: File[]) => void;
+}
+
+function DocumentRow({ document, isSelected, onSelect, onStatusChange, onDrop }: DocumentRowProps) {
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/*': ['.png', '.jpg', '.jpeg'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
+    maxSize: 10 * 1024 * 1024,
+    noClick: true
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
+      case 'uploading': return 'bg-blue-100 text-blue-800';
       case 'uploaded': return 'bg-green-100 text-green-800';
       case 'validated': return 'bg-emerald-100 text-emerald-800';
       case 'error': return 'bg-red-100 text-red-800';
@@ -158,647 +527,444 @@ function DocumentQueueCard({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'in_progress': return <Upload className="h-4 w-4 text-blue-600 animate-pulse" />;
-      case 'uploaded': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'validated': return <CheckCircle className="h-4 w-4 text-emerald-600" />;
-      case 'error': return <AlertTriangle className="h-4 w-4 text-red-600" />;
-      case 'corrupted': return <AlertTriangle className="h-4 w-4 text-purple-600" />;
-      default: return <Clock className="h-4 w-4 text-gray-600" />;
+      case 'pending': return <Clock className="h-3 w-3 text-yellow-600" />;
+      case 'uploading': return <Upload className="h-3 w-3 text-blue-600 animate-pulse" />;
+      case 'uploaded': return <CheckCircle className="h-3 w-3 text-green-600" />;
+      case 'validated': return <CheckCircle className="h-3 w-3 text-emerald-600" />;
+      case 'error': return <AlertTriangle className="h-3 w-3 text-red-600" />;
+      case 'corrupted': return <AlertTriangle className="h-3 w-3 text-purple-600" />;
+      default: return <Clock className="h-3 w-3 text-gray-600" />;
     }
   };
 
-  const handleSaveNotes = () => {
-    onNotesUpdate(document.id, notes);
-    setIsEditing(false);
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-500';
+      case 'high': return 'bg-orange-500';
+      case 'normal': return 'bg-blue-500';
+      case 'low': return 'bg-gray-500';
+      default: return 'bg-gray-500';
+    }
   };
 
   return (
-    <div className={`border-2 rounded-xl p-6 ${
-      document.corruption_detected 
-        ? 'border-red-300 bg-red-50' 
-        : document.priority === 'urgent'
-        ? 'border-orange-300 bg-orange-50'
-        : 'border-gray-200 bg-white'
-    } hover:shadow-md transition-shadow`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <div className="bg-blue-100 p-2 rounded-lg mr-3">
-            <FileText className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-gray-800">{document.document_original_name}</h4>
-            <p className="text-sm text-gray-500">Posición en cola: #{document.queue_position}</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          {document.corruption_detected && (
-            <div className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-              Corrupto
-            </div>
-          )}
-          <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(document.priority)}`}>
-            {document.priority}
-          </div>
-        </div>
-      </div>
+    <tr 
+      {...getRootProps()}
+      className={`hover:bg-gray-50 ${
+        document.corruption_detected ? 'bg-red-50' : ''
+      } ${isDragActive ? 'bg-blue-100' : ''} ${isSelected ? 'bg-blue-50' : ''}`}
+    >
+      <input {...getInputProps()} />
+      
+      {/* Selection */}
+      <td className="px-6 py-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onSelect}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+      </td>
 
-      {/* Client and Project Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="flex items-center text-sm">
-          <Users className="h-4 w-4 text-gray-400 mr-2" />
+      {/* Document Info */}
+      <td className="px-6 py-3">
+        <div className="flex items-center">
+          <FileText className="h-4 w-4 text-blue-600 mr-2" />
           <div>
-            <p className="font-medium text-gray-800">{document.client_name}</p>
-            <p className="text-gray-500">{document.client_email}</p>
+            <p className="text-sm font-medium text-gray-900">{document.original_name}</p>
+            <p className="text-xs text-gray-500">
+              {(document.file_size / 1024 / 1024).toFixed(2)} MB • {document.file_type}
+            </p>
           </div>
         </div>
-        <div className="flex items-center text-sm">
-          <Building2 className="h-4 w-4 text-gray-400 mr-2" />
-          <p className="text-gray-700">{document.company_name}</p>
+      </td>
+
+      {/* Queue Position */}
+      <td className="px-6 py-3 text-center">
+        <div className="flex items-center justify-center">
+          <div className={`w-3 h-3 rounded-full mr-2 ${getPriorityColor(document.priority)}`}></div>
+          <span className="text-sm font-medium">#{document.queue_position}</span>
         </div>
-        <div className="flex items-center text-sm">
-          <FolderOpen className="h-4 w-4 text-gray-400 mr-2" />
-          <p className="text-gray-700">{document.project_name}</p>
-        </div>
-      </div>
+      </td>
 
       {/* AI Analysis */}
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-        <div className="flex items-center mb-2">
-          <Brain className="h-4 w-4 text-purple-600 mr-2" />
-          <span className="font-medium text-purple-800">Análisis IA</span>
+      <td className="px-6 py-3">
+        <div className="text-center">
+          <div className="flex items-center justify-center mb-1">
+            <Brain className="h-3 w-3 text-purple-600 mr-1" />
+            <span className="text-sm font-medium">{document.classification}</span>
+          </div>
+          <div className="text-xs text-gray-600">{document.confidence}% confianza</div>
+          {document.corruption_detected && (
+            <div className="text-xs text-red-600 font-medium mt-1">⚠️ Corrupto</div>
+          )}
         </div>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-purple-700">Clasificación:</span>
-            <p className="font-medium text-purple-600">{document.ai_analysis.classification}</p>
-          </div>
-          <div>
-            <span className="text-purple-700">Confianza:</span>
-            <p className="font-medium text-purple-600">{document.ai_analysis.confidence}%</p>
-          </div>
-          <div>
-            <span className="text-purple-700">Integridad:</span>
-            <p className={`font-medium ${
-              document.file_integrity_score >= 90 ? 'text-green-600' :
-              document.file_integrity_score >= 70 ? 'text-yellow-600' : 'text-red-600'
-            }`}>
-              {document.file_integrity_score}%
-            </p>
-          </div>
-          <div>
-            <span className="text-purple-700">Tamaño:</span>
-            <p className="font-medium text-purple-600">
-              {(document.ai_analysis.file_size / 1024 / 1024).toFixed(2)} MB
-            </p>
-          </div>
-        </div>
-      </div>
+      </td>
 
-      {/* Obralia Credentials Status */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Globe className="h-4 w-4 text-green-600 mr-2" />
-            <span className="text-sm font-medium text-green-800">Credenciales Obralia</span>
-          </div>
-          <div className="flex items-center">
-            {document.obralia_credentials.configured ? (
-              <>
-                <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
-                <span className="text-xs text-green-600">Configuradas</span>
-              </>
-            ) : (
-              <>
-                <AlertTriangle className="h-4 w-4 text-red-600 mr-1" />
-                <span className="text-xs text-red-600">No configuradas</span>
-              </>
-            )}
-          </div>
+      {/* Integrity */}
+      <td className="px-6 py-3 text-center">
+        <div className={`text-sm font-medium ${
+          document.integrity_score >= 90 ? 'text-green-600' :
+          document.integrity_score >= 70 ? 'text-yellow-600' : 'text-red-600'
+        }`}>
+          {document.integrity_score}%
         </div>
-        {document.obralia_credentials.username && (
-          <p className="text-xs text-green-700 mt-1">
-            Usuario: {document.obralia_credentials.username}
-          </p>
-        )}
-      </div>
+      </td>
 
-      {/* Status and Controls */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          {getStatusIcon(document.manual_status)}
-          <span className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(document.manual_status)}`}>
-            {document.manual_status}
-          </span>
-        </div>
-        <div className="flex items-center space-x-2">
+      {/* Status */}
+      <td className="px-6 py-3">
+        <div className="flex items-center justify-center">
+          {getStatusIcon(document.upload_status)}
           <select
-            value={document.priority}
-            onChange={(e) => onPriorityChange(document.id, e.target.value)}
-            className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="low">Baja</option>
-            <option value="normal">Normal</option>
-            <option value="high">Alta</option>
-            <option value="urgent">Urgente</option>
-          </select>
-          <select
-            value={document.manual_status}
+            value={document.upload_status}
             onChange={(e) => onStatusChange(document.id, e.target.value)}
-            className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+            className={`ml-2 px-2 py-1 rounded-full text-xs font-medium border-0 ${getStatusColor(document.upload_status)}`}
           >
             <option value="pending">Pendiente</option>
-            <option value="in_progress">En Progreso</option>
+            <option value="uploading">Subiendo</option>
             <option value="uploaded">Subido</option>
             <option value="validated">Validado</option>
             <option value="error">Error</option>
             <option value="corrupted">Corrupto</option>
           </select>
         </div>
-      </div>
+      </td>
 
-      {/* Admin Notes */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Notas del Administrador</span>
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="text-blue-600 hover:text-blue-800 text-xs"
-          >
-            {isEditing ? 'Cancelar' : 'Editar'}
-          </button>
-        </div>
-        {isEditing ? (
-          <div className="space-y-2">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-              placeholder="Agregar notas sobre el procesamiento manual..."
-            />
-            <div className="flex space-x-2">
-              <button
-                onClick={handleSaveNotes}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
-              >
-                Guardar
-              </button>
-              <button
-                onClick={() => {
-                  setNotes(document.admin_notes);
-                  setIsEditing(false);
-                }}
-                className="px-3 py-1 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded text-xs"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-            {document.admin_notes || 'Sin notas'}
-          </p>
-        )}
-      </div>
-
-      {/* Error Message */}
-      {document.last_error_message && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-          <div className="flex items-start">
-            <AlertTriangle className="h-4 w-4 text-red-600 mr-2 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-red-800">Último Error</p>
-              <p className="text-xs text-red-700">{document.last_error_message}</p>
-              <p className="text-xs text-red-600 mt-1">Reintentos: {document.retry_count}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Retry Count */}
+      <td className="px-6 py-3 text-center">
+        <span className={`text-sm ${document.retry_count > 0 ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+          {document.retry_count}
+        </span>
+      </td>
 
       {/* Actions */}
-      <div className="flex space-x-2">
-        <button
-          onClick={() => onRetry(document.id)}
-          className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm flex items-center justify-center"
-        >
-          <RotateCcw className="h-3 w-3 mr-1" />
-          Reintentar
-        </button>
-        <button className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm">
-          <Eye className="h-3 w-3" />
-        </button>
-        <button
-          onClick={() => onRemove(document.id)}
-          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
+      <td className="px-6 py-3">
+        <div className="flex space-x-1">
+          <button
+            onClick={() => onStatusChange(document.id, 'uploading')}
+            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+            title="Procesar"
+          >
+            <Play className="h-3 w-3" />
+          </button>
+          <button
+            className="p-1 text-green-600 hover:bg-green-100 rounded"
+            title="Ver"
+          >
+            <Eye className="h-3 w-3" />
+          </button>
+          <button
+            onClick={() => onStatusChange(document.id, 'pending')}
+            className="p-1 text-orange-600 hover:bg-orange-100 rounded"
+            title="Reintentar"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
 export default function ManualManagement() {
-  const [queueDocuments, setQueueDocuments] = useState<ManualQueueDocument[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<ManualQueueDocument[]>([]);
+  const [clientGroups, setClientGroups] = useState<ClientGroup[]>([]);
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
-  const [filterClient, setFilterClient] = useState('all');
+  const [showObraliaModal, setShowObraliaModal] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<ClientGroup | null>(null);
+  const [selectedDocuments, setSelectedDocuments] = useState<ManualDocument[]>([]);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentSession, setCurrentSession] = useState<any>(null);
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
-  // KPIs de Gestión Manual
-  const manualKPIs = [
-    { title: 'Documentos en Cola', value: queueDocuments.length.toString(), status: 'warning' as const, icon: Clock, color: 'bg-yellow-500', description: 'Pendientes de procesamiento manual', period: 'tiempo real' },
-    { title: 'Documentos Corruptos', value: queueDocuments.filter(d => d.corruption_detected).length.toString(), status: 'error' as const, icon: AlertTriangle, color: 'bg-red-500', description: 'Requieren atención inmediata', period: 'tiempo real' },
-    { title: 'En Progreso', value: queueDocuments.filter(d => d.manual_status === 'in_progress').length.toString(), status: 'good' as const, icon: Upload, color: 'bg-blue-500', description: 'Siendo procesados actualmente', period: 'tiempo real' },
-    { title: 'Subidos Hoy', value: '23', change: 15.2, trend: 'up' as const, status: 'good' as const, icon: CheckCircle, color: 'bg-green-500', description: 'Documentos subidos manualmente', period: 'diario' },
-    { title: 'Validados Hoy', value: '18', change: 12.5, trend: 'up' as const, status: 'good' as const, icon: Shield, color: 'bg-emerald-500', description: 'Documentos validados en Obralia', period: 'diario' },
-    { title: 'Tiempo Promedio', value: '4.2min', change: -8.3, trend: 'up' as const, status: 'good' as const, icon: Clock, color: 'bg-purple-500', description: 'Por documento procesado', period: 'promedio' },
-    { title: 'Tasa de Éxito', value: '94.7%', change: 2.1, trend: 'up' as const, status: 'good' as const, icon: TrendingUp, color: 'bg-indigo-500', description: 'Documentos procesados exitosamente', period: 'mensual' },
-    { title: 'Sesión Activa', value: currentSession ? 'Sí' : 'No', status: currentSession ? 'good' as const : 'warning' as const, icon: Activity, color: 'bg-cyan-500', description: 'Estado de la sesión de procesamiento', period: 'tiempo real' }
-  ];
-
-  // Datos simulados de documentos en cola
-  const mockQueueDocuments: ManualQueueDocument[] = [
+  // Datos simulados organizados por cliente
+  const mockClientGroups: ClientGroup[] = [
     {
-      id: '1',
-      document_id: 'doc_001',
       client_id: 'cli_001',
-      company_id: 'comp_001',
-      project_id: 'proj_001',
-      queue_position: 1,
-      priority: 'urgent',
-      manual_status: 'pending',
-      ai_analysis: {
-        classification: 'Certificado',
-        confidence: 92,
-        file_size: 2456789,
-        file_type: 'application/pdf',
-        corruption_detected: false,
-        integrity_score: 95,
-        recommended_action: 'upload_immediately'
-      },
-      admin_notes: 'Documento urgente para proyecto crítico',
-      obralia_credentials: { username: 'juan_garcia', configured: true },
-      corruption_detected: false,
-      file_integrity_score: 95,
-      retry_count: 0,
-      created_at: '2025-01-27T15:45:00Z',
-      updated_at: '2025-01-27T15:45:00Z',
-      document_filename: 'certificado_obra_A_20240127.pdf',
-      document_original_name: 'Certificado de Obra A.pdf',
       client_name: 'Construcciones García S.L.',
-      company_name: 'Construcciones García S.L.',
-      project_name: 'Edificio Residencial Centro',
-      client_email: 'juan@construccionesgarcia.com'
-    },
-    {
-      id: '2',
-      document_id: 'doc_002',
-      client_id: 'cli_002',
-      company_id: 'comp_002',
-      project_id: 'proj_002',
-      queue_position: 2,
-      priority: 'high',
-      manual_status: 'pending',
-      ai_analysis: {
-        classification: 'Factura',
-        confidence: 88,
-        file_size: 1234567,
-        file_type: 'application/pdf',
-        corruption_detected: false,
-        integrity_score: 88,
-        recommended_action: 'upload_normal'
+      client_email: 'juan@construccionesgarcia.com',
+      obralia_credentials: {
+        username: 'juan_garcia',
+        password: 'encrypted_password',
+        configured: true
       },
-      admin_notes: '',
-      obralia_credentials: { username: 'maria_lopez', configured: true },
-      corruption_detected: false,
-      file_integrity_score: 88,
-      retry_count: 1,
-      last_error_message: 'Timeout de conexión con Obralia',
-      created_at: '2025-01-27T15:42:00Z',
-      updated_at: '2025-01-27T15:42:00Z',
-      document_filename: 'factura_materiales_B_20240126.pdf',
-      document_original_name: 'Factura Materiales B.pdf',
-      client_name: 'Obras Públicas del Norte S.A.',
-      company_name: 'Obras Públicas del Norte S.A.',
-      project_name: 'Puente Industrial A-7',
-      client_email: 'maria@obrasnorte.es'
-    },
-    {
-      id: '3',
-      document_id: 'doc_003',
-      client_id: 'cli_003',
-      company_id: 'comp_003',
-      project_id: 'proj_003',
-      queue_position: 3,
-      priority: 'urgent',
-      manual_status: 'corrupted',
-      ai_analysis: {
-        classification: 'unknown',
-        confidence: 15,
-        file_size: 0,
-        file_type: 'application/pdf',
-        corruption_detected: true,
-        integrity_score: 0,
-        recommended_action: 'manual_review_required'
-      },
-      admin_notes: 'Archivo corrupto detectado por IA - requiere revisión manual',
-      obralia_credentials: { configured: false },
-      corruption_detected: true,
-      file_integrity_score: 0,
-      retry_count: 3,
-      last_error_message: 'Archivo corrupto o vacío detectado',
-      created_at: '2025-01-27T15:38:00Z',
-      updated_at: '2025-01-27T15:38:00Z',
-      document_filename: 'documento_corrupto.pdf',
-      document_original_name: 'Documento Corrupto.pdf',
-      client_name: 'Reformas Integrales López',
-      company_name: 'Reformas Integrales López',
-      project_name: 'Centro Comercial Valencia',
-      client_email: 'carlos@reformaslopez.com'
+      total_documents: 5,
+      documents_per_hour: 12,
+      last_activity: '2025-01-27T15:45:00Z',
+      companies: [
+        {
+          company_id: 'comp_001',
+          company_name: 'Construcciones García S.L.',
+          total_documents: 5,
+          projects: [
+            {
+              project_id: 'proj_001',
+              project_name: 'Edificio Residencial Centro',
+              total_documents: 3,
+              documents: [
+                {
+                  id: '1',
+                  document_id: 'doc_001',
+                  filename: 'certificado_obra_A.pdf',
+                  original_name: 'Certificado de Obra A.pdf',
+                  file_size: 2456789,
+                  file_type: 'application/pdf',
+                  classification: 'Certificado',
+                  confidence: 92,
+                  corruption_detected: false,
+                  integrity_score: 95,
+                  upload_status: 'pending',
+                  priority: 'urgent',
+                  queue_position: 1,
+                  retry_count: 0,
+                  admin_notes: 'Documento urgente para proyecto crítico',
+                  created_at: '2025-01-27T15:45:00Z',
+                  updated_at: '2025-01-27T15:45:00Z'
+                },
+                {
+                  id: '2',
+                  document_id: 'doc_002',
+                  filename: 'factura_materiales_B.pdf',
+                  original_name: 'Factura Materiales B.pdf',
+                  file_size: 1234567,
+                  file_type: 'application/pdf',
+                  classification: 'Factura',
+                  confidence: 88,
+                  corruption_detected: false,
+                  integrity_score: 88,
+                  upload_status: 'error',
+                  priority: 'high',
+                  queue_position: 2,
+                  retry_count: 1,
+                  last_error: 'Timeout de conexión con Obralia',
+                  admin_notes: '',
+                  created_at: '2025-01-27T15:42:00Z',
+                  updated_at: '2025-01-27T15:42:00Z'
+                },
+                {
+                  id: '3',
+                  document_id: 'doc_003',
+                  filename: 'documento_corrupto.pdf',
+                  original_name: 'Documento Corrupto.pdf',
+                  file_size: 0,
+                  file_type: 'application/pdf',
+                  classification: 'unknown',
+                  confidence: 15,
+                  corruption_detected: true,
+                  integrity_score: 0,
+                  upload_status: 'corrupted',
+                  priority: 'urgent',
+                  queue_position: 3,
+                  retry_count: 3,
+                  last_error: 'Archivo corrupto o vacío detectado',
+                  admin_notes: 'Archivo corrupto detectado por IA - requiere revisión manual',
+                  created_at: '2025-01-27T15:38:00Z',
+                  updated_at: '2025-01-27T15:38:00Z'
+                }
+              ]
+            },
+            {
+              project_id: 'proj_002',
+              project_name: 'Reforma Oficinas Norte',
+              total_documents: 2,
+              documents: [
+                {
+                  id: '4',
+                  document_id: 'doc_004',
+                  filename: 'contrato_reforma.pdf',
+                  original_name: 'Contrato de Reforma.pdf',
+                  file_size: 3456789,
+                  file_type: 'application/pdf',
+                  classification: 'Contrato',
+                  confidence: 94,
+                  corruption_detected: false,
+                  integrity_score: 96,
+                  upload_status: 'pending',
+                  priority: 'normal',
+                  queue_position: 4,
+                  retry_count: 0,
+                  admin_notes: '',
+                  created_at: '2025-01-27T15:35:00Z',
+                  updated_at: '2025-01-27T15:35:00Z'
+                },
+                {
+                  id: '5',
+                  document_id: 'doc_005',
+                  filename: 'seguro_obra.pdf',
+                  original_name: 'Seguro de Obra.pdf',
+                  file_size: 1876543,
+                  file_type: 'application/pdf',
+                  classification: 'Seguro',
+                  confidence: 91,
+                  corruption_detected: false,
+                  integrity_score: 93,
+                  upload_status: 'uploaded',
+                  priority: 'normal',
+                  queue_position: 5,
+                  retry_count: 0,
+                  admin_notes: 'Subido exitosamente',
+                  created_at: '2025-01-27T15:30:00Z',
+                  updated_at: '2025-01-27T15:30:00Z'
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ];
 
   useEffect(() => {
-    setQueueDocuments(mockQueueDocuments);
-    setFilteredDocuments(mockQueueDocuments);
+    setClientGroups(mockClientGroups);
     generateManualInsights();
   }, []);
-
-  useEffect(() => {
-    let filtered = queueDocuments.filter(doc => {
-      const matchesSearch = doc.document_original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           doc.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           doc.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           doc.project_name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = filterStatus === 'all' || doc.manual_status === filterStatus;
-      const matchesPriority = filterPriority === 'all' || doc.priority === filterPriority;
-      const matchesClient = filterClient === 'all' || doc.client_id === filterClient;
-      
-      return matchesSearch && matchesStatus && matchesPriority && matchesClient;
-    });
-
-    // Ordenar por prioridad y posición en cola
-    filtered.sort((a, b) => {
-      const priorityOrder = { urgent: 4, high: 3, normal: 2, low: 1 };
-      const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder];
-      const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder];
-      
-      if (aPriority !== bPriority) {
-        return bPriority - aPriority;
-      }
-      return a.queue_position - b.queue_position;
-    });
-
-    setFilteredDocuments(filtered);
-  }, [queueDocuments, searchTerm, filterStatus, filterPriority, filterClient]);
 
   const generateManualInsights = async () => {
     setLoading(true);
     try {
-      // Simular insights mientras Gemini está fallando
-      const mockInsights = `🔧 Análisis de Gestión Manual:
+      const totalDocuments = clientGroups.reduce((sum, client) => sum + client.total_documents, 0);
+      const corruptedCount = clientGroups.reduce((sum, client) => 
+        sum + client.companies.reduce((compSum, company) => 
+          compSum + company.projects.reduce((projSum, project) => 
+            projSum + project.documents.filter(doc => doc.corruption_detected).length, 0), 0), 0);
 
-1. **Cola Crítica**: ${queueDocuments.length} documentos pendientes, ${queueDocuments.filter(d => d.corruption_detected).length} corruptos detectados por IA.
+      const mockInsights = `🔧 Análisis de Gestión Manual ConstructIA:
 
-2. **Priorización Inteligente**: IA ha identificado ${queueDocuments.filter(d => d.priority === 'urgent').length} documentos urgentes que requieren procesamiento inmediato.
+1. **Cola Activa**: ${totalDocuments} documentos en cola, ${corruptedCount} corruptos detectados automáticamente por IA.
 
-3. **Optimización**: Tiempo promedio de 4.2min por documento, recomiendo procesar en lotes de 5-10 documentos para mayor eficiencia.`;
+2. **Eficiencia**: Promedio de 12 docs/hora por cliente, recomiendo procesar en lotes por proyecto para optimizar tiempo.
+
+3. **Priorización**: IA ha identificado documentos urgentes que requieren procesamiento inmediato antes que otros.`;
       
       setAiInsights(mockInsights);
     } catch (error) {
-      setAiInsights('Error al generar insights de gestión manual. La API de Gemini está temporalmente no disponible.');
+      setAiInsights('Error al generar insights. La API de Gemini está temporalmente no disponible.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusChange = async (documentId: string, newStatus: string) => {
-    setQueueDocuments(prev => prev.map(doc => 
-      doc.id === documentId 
-        ? { 
-            ...doc, 
-            manual_status: newStatus as any,
-            processed_at: newStatus === 'uploaded' || newStatus === 'validated' ? new Date().toISOString() : doc.processed_at,
-            updated_at: new Date().toISOString()
-          }
-        : doc
-    ));
-
-    // Simular actualización en base de datos
-    console.log(`Actualizando estado del documento ${documentId} a ${newStatus}`);
+  const toggleClientExpansion = (clientId: string) => {
+    setExpandedClients(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(clientId)) {
+        newSet.delete(clientId);
+      } else {
+        newSet.add(clientId);
+      }
+      return newSet;
+    });
   };
 
-  const handlePriorityChange = async (documentId: string, newPriority: string) => {
-    setQueueDocuments(prev => prev.map(doc => 
-      doc.id === documentId 
-        ? { ...doc, priority: newPriority as any, updated_at: new Date().toISOString() }
-        : doc
-    ));
-
-    console.log(`Actualizando prioridad del documento ${documentId} a ${newPriority}`);
+  const handleConnectObralia = (client: ClientGroup, documents: ManualDocument[]) => {
+    setSelectedClient(client);
+    setSelectedDocuments(documents);
+    setShowObraliaModal(true);
   };
 
-  const handleNotesUpdate = async (documentId: string, notes: string) => {
-    setQueueDocuments(prev => prev.map(doc => 
-      doc.id === documentId 
-        ? { ...doc, admin_notes: notes, updated_at: new Date().toISOString() }
-        : doc
-    ));
-
-    console.log(`Actualizando notas del documento ${documentId}: ${notes}`);
+  const handleUploadComplete = (documentIds: string[]) => {
+    // Actualizar estado de documentos subidos
+    setClientGroups(prev => prev.map(client => ({
+      ...client,
+      companies: client.companies.map(company => ({
+        ...company,
+        projects: company.projects.map(project => ({
+          ...project,
+          documents: project.documents.map(doc => 
+            documentIds.includes(doc.id) 
+              ? { ...doc, upload_status: 'uploaded' as const, updated_at: new Date().toISOString() }
+              : doc
+          )
+        }))
+      }))
+    })));
   };
 
-  const handleRetry = async (documentId: string) => {
-    setQueueDocuments(prev => prev.map(doc => 
-      doc.id === documentId 
-        ? { 
-            ...doc, 
-            manual_status: 'pending',
-            retry_count: doc.retry_count + 1,
-            last_error_message: undefined,
-            updated_at: new Date().toISOString()
-          }
-        : doc
-    ));
-
-    console.log(`Reintentando procesamiento del documento ${documentId}`);
+  const handleStatusChange = (documentId: string, newStatus: string) => {
+    setClientGroups(prev => prev.map(client => ({
+      ...client,
+      companies: client.companies.map(company => ({
+        ...company,
+        projects: company.projects.map(project => ({
+          ...project,
+          documents: project.documents.map(doc => 
+            doc.id === documentId 
+              ? { ...doc, upload_status: newStatus as any, updated_at: new Date().toISOString() }
+              : doc
+          )
+        }))
+      }))
+    })));
   };
 
-  const handleRemove = async (documentId: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este documento de la cola?')) {
-      setQueueDocuments(prev => prev.filter(doc => doc.id !== documentId));
-      console.log(`Eliminando documento ${documentId} de la cola manual`);
+  const handleFileDrop = (files: File[], clientId: string, companyId: string, projectId: string) => {
+    console.log('Archivos arrastrados:', files, 'para cliente:', clientId, 'empresa:', companyId, 'proyecto:', projectId);
+    // Aquí se procesarían los archivos arrastrados
+    alert(`${files.length} archivo(s) añadido(s) a la cola para procesamiento`);
+  };
+
+  // Calcular KPIs en tiempo real
+  const allDocuments = clientGroups.flatMap(client => 
+    client.companies.flatMap(company => 
+      company.projects.flatMap(project => project.documents)
+    )
+  );
+
+  const kpis = [
+    {
+      title: 'Total en Cola',
+      value: allDocuments.length.toString(),
+      icon: FileText,
+      color: 'bg-blue-500',
+      status: 'good' as const
+    },
+    {
+      title: 'Pendientes',
+      value: allDocuments.filter(d => d.upload_status === 'pending').length.toString(),
+      icon: Clock,
+      color: 'bg-yellow-500',
+      status: 'warning' as const
+    },
+    {
+      title: 'Subidos Hoy',
+      value: allDocuments.filter(d => d.upload_status === 'uploaded').length.toString(),
+      icon: CheckCircle,
+      color: 'bg-green-500',
+      status: 'good' as const
+    },
+    {
+      title: 'Corruptos',
+      value: allDocuments.filter(d => d.corruption_detected).length.toString(),
+      icon: AlertTriangle,
+      color: 'bg-red-500',
+      status: 'error' as const
+    },
+    {
+      title: 'En Progreso',
+      value: allDocuments.filter(d => d.upload_status === 'uploading').length.toString(),
+      icon: Upload,
+      color: 'bg-purple-500',
+      status: 'good' as const
+    },
+    {
+      title: 'Validados',
+      value: allDocuments.filter(d => d.upload_status === 'validated').length.toString(),
+      icon: Shield,
+      color: 'bg-emerald-500',
+      status: 'good' as const
     }
-  };
-
-  const startProcessingSession = async () => {
-    setIsProcessing(true);
-    const session = {
-      id: `session_${Date.now()}`,
-      admin_id: 'admin_001',
-      session_start: new Date().toISOString(),
-      documents_processed: 0,
-      documents_uploaded: 0,
-      documents_validated: 0,
-      session_status: 'active'
-    };
-    setCurrentSession(session);
-    console.log('Iniciando sesión de procesamiento manual');
-  };
-
-  const endProcessingSession = async () => {
-    if (currentSession) {
-      const updatedSession = {
-        ...currentSession,
-        session_end: new Date().toISOString(),
-        session_status: 'completed'
-      };
-      setCurrentSession(null);
-      setIsProcessing(false);
-      console.log('Finalizando sesión de procesamiento manual', updatedSession);
-    }
-  };
-
-  const processNextDocument = async () => {
-    const nextDoc = filteredDocuments.find(doc => doc.manual_status === 'pending');
-    if (nextDoc) {
-      await handleStatusChange(nextDoc.id, 'in_progress');
-      
-      // Simular procesamiento
-      setTimeout(async () => {
-        await handleStatusChange(nextDoc.id, 'uploaded');
-        
-        // Simular validación
-        setTimeout(async () => {
-          await handleStatusChange(nextDoc.id, 'validated');
-        }, 2000);
-      }, 3000);
-    }
-  };
-
-  const analyzeQueueWithAI = async () => {
-    setLoading(true);
-    try {
-      // Simular análisis de IA de la cola
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Actualizar análisis de documentos
-      setQueueDocuments(prev => prev.map(doc => ({
-        ...doc,
-        ai_analysis: {
-          ...doc.ai_analysis,
-          last_ai_analysis: new Date().toISOString(),
-          queue_recommendation: doc.corruption_detected ? 'manual_review' : 'auto_process'
-        }
-      })));
-      
-      alert('Análisis de IA completado. Se han actualizado las recomendaciones para todos los documentos en cola.');
-    } catch (error) {
-      alert('Error al analizar la cola con IA');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportQueueReport = () => {
-    const csvContent = [
-      ['Posición', 'Documento', 'Cliente', 'Empresa', 'Proyecto', 'Prioridad', 'Estado', 'Integridad', 'Fecha'].join(','),
-      ...filteredDocuments.map(doc => [
-        doc.queue_position,
-        `"${doc.document_original_name}"`,
-        `"${doc.client_name}"`,
-        `"${doc.company_name}"`,
-        `"${doc.project_name}"`,
-        doc.priority,
-        doc.manual_status,
-        `${doc.file_integrity_score}%`,
-        new Date(doc.created_at).toLocaleDateString('es-ES')
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cola_manual_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  // Datos para gráficos
-  const queueStatusData = {
-    labels: ['Pendientes', 'En Progreso', 'Subidos', 'Validados', 'Errores', 'Corruptos'],
-    datasets: [{
-      data: [
-        queueDocuments.filter(d => d.manual_status === 'pending').length,
-        queueDocuments.filter(d => d.manual_status === 'in_progress').length,
-        queueDocuments.filter(d => d.manual_status === 'uploaded').length,
-        queueDocuments.filter(d => d.manual_status === 'validated').length,
-        queueDocuments.filter(d => d.manual_status === 'error').length,
-        queueDocuments.filter(d => d.manual_status === 'corrupted').length
-      ],
-      backgroundColor: [
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(34, 197, 94, 0.8)',
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-        'rgba(168, 85, 247, 0.8)'
-      ],
-      borderWidth: 0
-    }]
-  };
-
-  const priorityDistributionData = {
-    labels: ['Urgente', 'Alta', 'Normal', 'Baja'],
-    datasets: [{
-      data: [
-        queueDocuments.filter(d => d.priority === 'urgent').length,
-        queueDocuments.filter(d => d.priority === 'high').length,
-        queueDocuments.filter(d => d.priority === 'normal').length,
-        queueDocuments.filter(d => d.priority === 'low').length
-      ],
-      backgroundColor: [
-        'rgba(239, 68, 68, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(156, 163, 175, 0.8)'
-      ],
-      borderWidth: 0
-    }]
-  };
-
-  const processingTimeData = {
-    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'],
-    datasets: [{
-      label: 'Documentos Procesados',
-      data: [12, 15, 8, 23, 18, 6, 4],
-      borderColor: 'rgb(34, 197, 94)',
-      backgroundColor: 'rgba(34, 197, 94, 0.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  };
-
-  const clients = [...new Set(queueDocuments.map(d => ({ id: d.client_id, name: d.client_name })))];
+  ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header con IA */}
       <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Gestión Manual de Documentos</h2>
-            <p className="text-orange-100 mt-1">Cola de procesamiento manual con IA integrada</p>
+            <p className="text-orange-100 mt-1">Cola operativa con conexión directa a Obralia/Nalanda</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
@@ -820,179 +986,81 @@ export default function ManualManagement() {
         
         {aiInsights && (
           <div className="mt-4 bg-white/10 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">🔧 Insights de Gestión Manual IA:</h3>
+            <h3 className="font-semibold mb-2">🔧 Insights Operativos IA:</h3>
             <div className="text-sm text-white/90 whitespace-pre-line">{aiInsights}</div>
           </div>
         )}
       </div>
 
-      {/* KPIs de Gestión Manual */}
+      {/* KPIs en Tiempo Real */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Métricas de Cola Manual</h3>
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4 text-gray-400" />
-            <span className="text-sm text-gray-600">Actualización automática</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {manualKPIs.map((kpi, index) => (
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Métricas en Tiempo Real</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {kpis.map((kpi, index) => (
             <ManualKPICard key={index} {...kpi} />
           ))}
         </div>
       </div>
 
-      {/* Controles de Sesión */}
+      {/* Controles Operativos */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-800">Control de Sesión de Procesamiento</h3>
-          <div className="flex items-center space-x-2">
-            {currentSession && (
-              <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                Sesión Activa
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-4">
-            <h4 className="font-semibold text-gray-700">Controles de Sesión</h4>
-            <div className="space-y-2">
-              {!isProcessing ? (
-                <button
-                  onClick={startProcessingSession}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Iniciar Sesión Manual
-                </button>
-              ) : (
-                <button
-                  onClick={endProcessingSession}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
-                >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Controles Operativos</h3>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setIsProcessing(!isProcessing)}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center ${
+                isProcessing 
+                  ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
+            >
+              {isProcessing ? (
+                <>
                   <Pause className="h-4 w-4 mr-2" />
-                  Finalizar Sesión
-                </button>
+                  Pausar Sesión
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Iniciar Sesión
+                </>
               )}
-              
-              <button
-                onClick={processNextDocument}
-                disabled={!isProcessing}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
-              >
-                <SkipForward className="h-4 w-4 mr-2" />
-                Procesar Siguiente
-              </button>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <h4 className="font-semibold text-gray-700">Análisis IA</h4>
-            <div className="space-y-2">
-              <button
-                onClick={analyzeQueueWithAI}
-                disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
-              >
-                <Brain className="h-4 w-4 mr-2" />
-                {loading ? 'Analizando...' : 'Analizar Cola con IA'}
-              </button>
-              
-              <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
-                <Shield className="h-4 w-4 mr-2" />
-                Detectar Corrupción
-              </button>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <h4 className="font-semibold text-gray-700">Reportes</h4>
-            <div className="space-y-2">
-              <button
-                onClick={exportQueueReport}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Exportar Cola
-              </button>
-              
-              <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Reporte Detallado
-              </button>
-            </div>
+            </button>
+            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center">
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Cola
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Gráficos de Análisis */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Análisis Visual de la Cola</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">Estado de Documentos</h4>
-              <Eye className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-            </div>
-            <div className="h-48">
-              <Doughnut data={queueStatusData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">Distribución de Prioridad</h4>
-              <BarChart3 className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-            </div>
-            <div className="h-48">
-              <Doughnut data={priorityDistributionData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">Procesamiento Semanal</h4>
-              <Download className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-            </div>
-            <div className="h-48">
-              <Line data={processingTimeData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros y Búsqueda */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-64">
+        {/* Filtros */}
+        <div className="flex space-x-4">
+          <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por documento, cliente, empresa o proyecto..."
+                placeholder="Buscar cliente, empresa, proyecto o documento..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
               />
             </div>
           </div>
-          
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
           >
             <option value="all">Todos los estados</option>
-            <option value="pending">Pendiente</option>
-            <option value="in_progress">En Progreso</option>
-            <option value="uploaded">Subido</option>
-            <option value="validated">Validado</option>
-            <option value="error">Error</option>
-            <option value="corrupted">Corrupto</option>
+            <option value="pending">Pendientes</option>
+            <option value="uploading">Subiendo</option>
+            <option value="uploaded">Subidos</option>
+            <option value="validated">Validados</option>
+            <option value="error">Errores</option>
+            <option value="corrupted">Corruptos</option>
           </select>
-          
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
@@ -1004,56 +1072,40 @@ export default function ManualManagement() {
             <option value="normal">Normal</option>
             <option value="low">Baja</option>
           </select>
-          
-          <select
-            value={filterClient}
-            onChange={(e) => setFilterClient(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-          >
-            <option value="all">Todos los clientes</option>
-            {clients.map(client => (
-              <option key={client.id} value={client.id}>{client.name}</option>
-            ))}
-          </select>
         </div>
       </div>
 
-      {/* Cola de Documentos */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-800">
-            Cola de Documentos ({filteredDocuments.length})
-          </h3>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">
-              {filteredDocuments.filter(d => d.corruption_detected).length} corruptos detectados
-            </span>
-          </div>
+      {/* Tabla Operativa */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sel</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documento</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Cola #</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Análisis IA</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Integridad</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Reintentos</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {clientGroups.map((client) => (
+                <ClientRow
+                  key={client.client_id}
+                  client={client}
+                  isExpanded={expandedClients.has(client.client_id)}
+                  onToggle={() => toggleClientExpansion(client.client_id)}
+                  onConnectObralia={handleConnectObralia}
+                  onStatusChange={handleStatusChange}
+                  onDrop={handleFileDrop}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredDocuments.map((document) => (
-            <DocumentQueueCard
-              key={document.id}
-              document={document}
-              onStatusChange={handleStatusChange}
-              onPriorityChange={handlePriorityChange}
-              onNotesUpdate={handleNotesUpdate}
-              onRetry={handleRetry}
-              onRemove={handleRemove}
-            />
-          ))}
-        </div>
-
-        {filteredDocuments.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-800 mb-2">Cola vacía</h3>
-            <p className="text-gray-600">
-              {searchTerm ? 'No se encontraron documentos con esos criterios' : 'No hay documentos en la cola manual'}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Información de Ayuda */}
@@ -1061,17 +1113,29 @@ export default function ManualManagement() {
         <div className="flex items-start">
           <Info className="h-6 w-6 text-blue-600 mr-3 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-800 mb-2">Gestión Manual de Documentos</h4>
+            <h4 className="font-semibold text-blue-800 mb-2">Gestión Manual Operativa</h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Los documentos se añaden automáticamente a la cola cuando falla la API de Obralia</li>
-              <li>• La IA analiza la integridad y detecta archivos corruptos automáticamente</li>
-              <li>• Los documentos se procesan en orden de prioridad y posición en cola</li>
-              <li>• Las credenciales de Obralia de cada cliente se muestran para facilitar la subida manual</li>
-              <li>• Se mantiene un registro completo de todas las operaciones manuales</li>
+              <li>• <strong>Drag & Drop:</strong> Arrastra archivos directamente sobre las filas de proyectos</li>
+              <li>• <strong>Conexión Directa:</strong> Conecta automáticamente con las credenciales del cliente</li>
+              <li>• <strong>Procesamiento por Lotes:</strong> Selecciona múltiples documentos para subida masiva</li>
+              <li>• <strong>IA Integrada:</strong> Detecta automáticamente archivos corruptos y prioriza</li>
+              <li>• <strong>Organización Jerárquica:</strong> Cliente → Empresa → Proyecto → Documentos</li>
             </ul>
           </div>
         </div>
       </div>
+
+      {/* Modal de Conexión Obralia */}
+      {showObraliaModal && selectedClient && (
+        <ObraliaConnectionModal
+          isOpen={showObraliaModal}
+          onClose={() => setShowObraliaModal(false)}
+          clientCredentials={selectedClient.obralia_credentials}
+          clientName={selectedClient.client_name}
+          documentsToUpload={selectedDocuments}
+          onUploadComplete={handleUploadComplete}
+        />
+      )}
     </div>
   );
 }
