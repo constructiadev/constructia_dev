@@ -267,6 +267,10 @@ export default function Subscription() {
       // Obtener datos del cliente
       const clientData = await getCurrentClientData(user?.id || '');
       
+      if (!clientData) {
+        throw new Error('No se pudieron obtener los datos del cliente');
+      }
+      
       // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       
