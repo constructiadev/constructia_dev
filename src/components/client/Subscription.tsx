@@ -82,9 +82,11 @@ export default function Subscription() {
   // Cargar datos del cliente al montar el componente
   useEffect(() => {
     const loadClientData = async () => {
+      let data = null;
+      
       if (user?.id) {
         try {
-          const data = await getCurrentClientData(user.id);
+          data = await getCurrentClientData(user.id);
           
           // Si no hay datos del cliente, usar datos simulados para desarrollo
           if (!data) {
