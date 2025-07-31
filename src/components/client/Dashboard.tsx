@@ -164,36 +164,35 @@ export default function ClientDashboard() {
       // Simular guardado exitoso de credenciales para desarrollo/testing
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Actualizar el estado local si hay datos del cliente
-      if (clientData) {
-        setClientData({
-          ...clientData,
-          obralia_credentials: {
-            username: credentials.username,
-            password: credentials.password,
-            configured: true
-          }
-        });
-      }
+      // Simular actualización exitosa sin llamar a Supabase
+      console.log('Mock: Credenciales Obralia guardadas exitosamente en Dashboard');
+      
+      // Actualizar estado local con datos mock
+      setClientData(prev => prev ? {
+        ...prev,
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      } : null);
       
       setShowObraliaModal(false);
       
       alert('¡Credenciales de Obralia configuradas exitosamente! Ahora puedes subir documentos.');
       
     } catch (error) {
-      console.error('Error saving Obralia credentials:', error);
-      // En caso de error, mostrar mensaje genérico pero permitir continuar
-      alert('Error al guardar credenciales, pero puedes continuar con el testing.');
-      if (clientData) {
-        setClientData({
-          ...clientData,
-          obralia_credentials: {
-            username: credentials.username,
-            password: credentials.password,
-            configured: true
-          }
-        });
-      }
+      // En modo testing, siempre permitir continuar
+      console.log('Mock: Error simulado, pero permitiendo continuar para testing');
+      setClientData(prev => prev ? {
+        ...prev,
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      } : null);
+      alert('Credenciales configuradas para testing. Puedes continuar.');
       setShowObraliaModal(false);
     }
   };

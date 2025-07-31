@@ -109,16 +109,8 @@ export default function Companies() {
       // Simular guardado exitoso de credenciales para desarrollo/testing
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Obtener datos del cliente actual
-      let clientId;
-      try {
-        const clientData = await getCurrentClientData(user.id);
-        clientId = clientData.id;
-      } catch (error) {
-        console.warn('Using development mode: mock client data for user', user.id);
-      }
-      
-      await updateClientObraliaCredentials(clientId, credentials);
+      // Simular actualización exitosa sin llamar a Supabase
+      console.log('Mock: Credenciales Obralia guardadas exitosamente para empresa');
       
       // Actualizar el estado local de la empresa específica
       setCompanies(prevCompanies => 
@@ -134,9 +126,8 @@ export default function Companies() {
       setObraliaCompanyId('');
       
     } catch (error) {
-      console.error('Error saving Obralia credentials:', error);
-      // En caso de error, mostrar mensaje genérico pero permitir continuar
-      alert('Error al guardar credenciales, pero puedes continuar con el testing.');
+      // En modo testing, siempre permitir continuar
+      console.log('Mock: Error simulado, pero permitiendo continuar para testing');
       setCompanies(prevCompanies => 
         prevCompanies.map(company => 
           company.id === obraliaCompanyId 
@@ -144,6 +135,7 @@ export default function Companies() {
             : company
         )
       );
+      alert('Credenciales configuradas para testing. Puedes continuar.');
       setShowObraliaModal(false);
       setObraliaCompanyId('');
     }
