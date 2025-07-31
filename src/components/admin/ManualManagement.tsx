@@ -301,7 +301,7 @@ function ObraliaConnectionModal({
                 <span className="text-xs text-gray-500">{doc.classification}</span>
               </div>
             ))}
-          </div>
+          </React.Fragment>
         </div>
 
         {/* Upload Progress */}
