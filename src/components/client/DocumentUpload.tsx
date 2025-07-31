@@ -71,15 +71,23 @@ export default function DocumentUpload() {
 
   const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
     try {
+      // Verificar que tenemos un usuario válido
+      if (!user?.id) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Obtener datos del cliente
+      const clientData = await getCurrentClientData(user.id);
+      
+      // Verificar que existe el cliente en la base de datos
+      if (!clientData || !clientData.id) {
+        throw new Error('No se encontró el registro del cliente en la base de datos. Por favor, contacta con soporte técnico.');
+      }
+
       // Simular guardado exitoso de credenciales para desarrollo/testing
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      let clientId = user?.id;
-      if (!clientId) {
-        console.warn('Using development mode: mock client data for user', user.id);
-      }
-      
-      await updateClientObraliaCredentials(clientId, credentials);
+      await updateClientObraliaCredentials(clientData.id, credentials);
       setObraliaConfigured(true);
       setShowObraliaModal(false);
       
@@ -87,10 +95,7 @@ export default function DocumentUpload() {
       
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
-      // En caso de error, mostrar mensaje genérico pero permitir continuar
-      alert('Error al guardar credenciales, pero puedes continuar con el testing.');
-      setObraliaConfigured(true);
-      setShowObraliaModal(false);
+      throw error;
     }
   };
 
