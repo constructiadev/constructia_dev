@@ -382,8 +382,8 @@ function ClientRow({ client, isExpanded, onToggle, onConnectObralia, onStatusCha
     
     setSelectedDocuments(prev => 
       prev.includes(documentId) 
-        ? prev.filter(id => id !== documentId)
-        : [...prev, documentId]
+        </div>
+      </React.Fragment>
     );
     
     // Log after state update (will show in next render)
