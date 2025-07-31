@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import SEPAMandateForm from './SEPAMandateForm';
 import PaymentMethodSelector from './PaymentMethodSelector';
 import { 
