@@ -57,7 +57,7 @@ export default function DocumentUpload() {
       
       try {
         const clientData = await getCurrentClientData(user.id);
-        const isConfigured = clientData.obralia_credentials?.configured || false;
+        const isConfigured = clientData?.obralia_credentials?.configured || false;
         setObraliaConfigured(isConfigured);
       } catch (error) {
         console.error('Error checking Obralia config:', error);
