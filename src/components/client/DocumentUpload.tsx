@@ -74,11 +74,12 @@ export default function DocumentUpload() {
       // Simular guardado exitoso de credenciales para desarrollo/testing
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (!user?.id) {
-        console.warn('Using development mode: mock client data for user', user?.id);
+      let clientId = user?.id;
+      if (!clientId) {
+        console.warn('Using development mode: mock client data for user', user.id);
       }
       
-      await updateClientObraliaCredentials(user?.id, credentials);
+      await updateClientObraliaCredentials(clientId, credentials);
       setObraliaConfigured(true);
       setShowObraliaModal(false);
       
