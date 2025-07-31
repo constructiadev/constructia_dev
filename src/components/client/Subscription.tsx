@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getCurrentClientData, createReceipt, sendReceiptByEmail } from '../../lib/supabase';
+import { Client as ClientData } from '../../types';
 import SEPAMandateForm from './SEPAMandateForm';
 import PaymentMethodSelector from './PaymentMethodSelector';
 import ReceiptGenerator from '../common/ReceiptGenerator';
@@ -48,6 +50,7 @@ interface PaymentHistory {
 export default function Subscription() {
   const [currentPlan] = useState('professional');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [clientData, setClientData] = useState<ClientData | null>(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [selectedTokenPackage, setSelectedTokenPackage] = useState('');
@@ -58,6 +61,23 @@ export default function Subscription() {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const { user } = useAuth();
+
+  // Cargar datos del cliente al montar el componente
+  useEffect(() => {
+    const loadClientData = async () => {
+      if (user?.id) {
+        try {
+          const data = await getCurrentClientData(user.id);
+          setClientData(data);
+        } catch (error) {
+          console.error('Error loading client data:', error);
+          setClientData(null);
+        }
+      }
+    };
+
+    loadClientData();
+  }, [user?.id]);
 
   // Plan actual del cliente
   const currentSubscription = {
@@ -261,16 +281,15 @@ export default function Subscription() {
   const purchaseTokens = async () => {
     const selectedPackage = tokenPackages.find(p => p.id === selectedTokenPackage);
     if (!selectedPackage) return;
+
+    // Verificar que tenemos datos del cliente
+    if (!clientData) {
+      alert('No se pudieron cargar los datos del cliente. Por favor, recarga la página e intenta nuevamente.');
+      return;
+    }
     
     setLoading(true);
     try {
-      // Obtener datos del cliente
-      const clientData = await getCurrentClientData(user?.id || '');
-      
-      if (!clientData) {
-        throw new Error('No se pudieron obtener los datos del cliente');
-      }
-      
       // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -325,12 +344,15 @@ export default function Subscription() {
   const purchaseStorage = async () => {
     const selectedPackage = storagePackages.find(p => p.id === selectedStoragePackage);
     if (!selectedPackage) return;
+
+    // Verificar que tenemos datos del cliente
+    if (!clientData) {
+      alert('No se pudieron cargar los datos del cliente. Por favor, recarga la página e intenta nuevamente.');
+      return;
+    }
     
     setLoading(true);
     try {
-      // Obtener datos del cliente
-      const clientData = await getCurrentClientData(user?.id || '');
-      
       // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -396,7 +418,10 @@ export default function Subscription() {
       // Crear recibo para cambio de plan
       const createPlanChangeReceipt = async () => {
         try {
-          const clientData = await getCurrentClientData(user?.id || '');
+          if (!clientData) {
+            alert('No se pudieron cargar los datos del cliente. Por favor, recarga la página e intenta nuevamente.');
+            return;
+          }
           
           const receiptData = {
             clientId: clientData.id,
