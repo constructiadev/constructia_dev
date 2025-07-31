@@ -138,56 +138,6 @@ export const updateClientObraliaCredentials = async (
 // Helper para obtener datos del cliente actual
 export const getCurrentClientData = async (userId: string) => {
   try {
-    // Handle development users with mock data
-    if (userId === 'dev-client-001') {
-      return {
-        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        user_id: 'dev-client-001',
-        client_id: 'CLI-001',
-        company_name: 'Empresa de Prueba S.L.',
-        contact_name: 'Cliente de Prueba',
-        email: 'cliente@test.com',
-        phone: '+34 600 000 000',
-        address: 'Calle Falsa 123, Madrid',
-        subscription_plan: 'professional',
-        subscription_status: 'active',
-        storage_used: 1048576,
-        storage_limit: 5368709120,
-        documents_processed: 25,
-        tokens_available: 750,
-        obralia_credentials: {
-          configured: false
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-    }
-
-    if (userId === 'dev-admin-001') {
-      return {
-        id: 'b1c2d3e4-f5a6-7890-1234-567890abcdef',
-        user_id: 'dev-admin-001',
-        client_id: 'ADM-001',
-        company_name: 'Constructia Admin',
-        contact_name: 'Administrador',
-        email: 'admin@constructia.com',
-        phone: '+34 900 000 000',
-        address: 'Oficina Central, Madrid',
-        subscription_plan: 'enterprise',
-        subscription_status: 'active',
-        storage_used: 0,
-        storage_limit: 10737418240,
-        documents_processed: 0,
-        tokens_available: 1000,
-        obralia_credentials: {
-          configured: true,
-          username: 'admin_obralia',
-          password: 'admin_pass'
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-    }
 
     const { data, error } = await supabase
       .from('clients')

@@ -11,9 +11,15 @@ const DEV_USERS = {
     role: 'admin' as const,
     password: 'superadmin123'
   },
-  'cliente@test.com': {
-    id: 'dev-client-001', 
-    email: 'cliente@test.com',
+  'juan@construccionesgarcia.com': {
+    id: 'client-garcia-001', 
+    email: 'juan@construccionesgarcia.com',
+    role: 'client' as const,
+    password: 'password123'
+  },
+  'maria@obrasnorte.es': {
+    id: 'client-norte-001', 
+    email: 'maria@obrasnorte.es',
     role: 'client' as const,
     password: 'password123'
   }

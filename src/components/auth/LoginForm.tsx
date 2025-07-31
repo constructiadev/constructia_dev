@@ -9,7 +9,7 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ isAdmin = false }: LoginFormProps) {
-  const [email, setEmail] = useState(isAdmin ? 'admin@constructia.com' : 'cliente@test.com');
+  const [email, setEmail] = useState(isAdmin ? 'admin@constructia.com' : 'juan@construccionesgarcia.com');
   const [password, setPassword] = useState(isAdmin ? 'superadmin123' : 'password123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,7 +63,7 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
               <p className="font-semibold text-yellow-800">Credenciales de prueba:</p>
               <p className="text-yellow-700">
-                {isAdmin ? 'admin@constructia.com / superadmin123' : 'cliente@test.com / password123'}
+                {isAdmin ? 'admin@constructia.com / superadmin123' : 'juan@construccionesgarcia.com / password123'}
               </p>
             </div>
           </div>
