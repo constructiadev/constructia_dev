@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { getCurrentClientData, createReceipt, sendReceiptByEmail } from '../../lib/supabase';
 import SEPAMandateForm from './SEPAMandateForm';
 import PaymentMethodSelector from './PaymentMethodSelector';
+import ReceiptGenerator from '../common/ReceiptGenerator';
 import { 
   CreditCard, 
   Package, 
