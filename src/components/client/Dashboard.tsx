@@ -136,6 +136,13 @@ export default function ClientDashboard() {
     
     try {
       const data = await getCurrentClientData(user.id);
+      
+      if (!data) {
+        setClientData(null);
+        setShowObraliaModal(false);
+        return;
+      }
+      
       setClientData(data);
       
       // Verificar si necesita configurar credenciales de Obralia

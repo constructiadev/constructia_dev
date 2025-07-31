@@ -143,7 +143,7 @@ export const getCurrentClientData = async (userId: string) => {
       .from('clients')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;
