@@ -111,6 +111,11 @@ export default function Companies() {
 
     try {
       const clientData = await getCurrentClientData(user.id);
+      
+      if (!clientData || !clientData.id) {
+        throw new Error('No se pudo identificar los datos del cliente. Por favor, recarga la página e intenta nuevamente.');
+      }
+      
       await updateClientObraliaCredentials(clientData.id, credentials);
       
       // Actualizar el estado local de la empresa específica
