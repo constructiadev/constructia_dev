@@ -133,7 +133,7 @@ export default function Companies() {
       
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
-      throw new Error('Error al guardar las credenciales. Intenta nuevamente.');
+      throw error;
     }
   };
 
