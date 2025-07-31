@@ -6,19 +6,19 @@ import { authService } from '../lib/auth';
 // Development mode fallback users
 const DEV_USERS = {
   'admin@constructia.com': {
-    id: 'dev-admin-001',
+    id: '00000000-0000-0000-0000-000000000001',
     email: 'admin@constructia.com',
     role: 'admin' as const,
     password: 'superadmin123'
   },
   'juan@construccionesgarcia.com': {
-    id: 'client-garcia-001', 
+    id: '00000000-0000-0000-0000-000000000002',
     email: 'juan@construccionesgarcia.com',
     role: 'client' as const,
     password: 'password123'
   },
   'maria@obrasnorte.es': {
-    id: 'client-norte-001', 
+    id: '00000000-0000-0000-0000-000000000003',
     email: 'maria@obrasnorte.es',
     role: 'client' as const,
     password: 'password123'
