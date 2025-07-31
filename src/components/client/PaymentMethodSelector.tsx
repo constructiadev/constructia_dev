@@ -12,6 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import { usePaymentGateways } from '../../context/PaymentGatewayContext';
+import { useAuth } from '../../context/AuthContext';
 import SEPAMandateForm from './SEPAMandateForm';
 
 interface PaymentMethodSelectorProps {
@@ -28,6 +29,7 @@ export default function PaymentMethodSelector({
   selectedGatewayId 
 }: PaymentMethodSelectorProps) {
   const { getActiveGatewaysForCurrency, calculateCommission } = usePaymentGateways();
+  const { user } = useAuth();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
   const [showSEPAForm, setShowSEPAForm] = useState(false);
   const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<any>(null);
