@@ -100,6 +100,11 @@ export const updateClientObraliaCredentials = async (
   credentials: { username: string; password: string }
 ) => {
   try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
     console.log('Updating Obralia credentials for client:', clientId);
     console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
 
@@ -113,20 +118,19 @@ export const updateClientObraliaCredentials = async (
         }
       })
       .eq('id', clientId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Supabase error details:', error);
       throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
     }
 
-    if (!data) {
+    if (!data || data.length === 0) {
       throw new Error('No data returned from update operation. Client may not exist.');
     }
 
     console.log('Successfully updated Obralia credentials');
-    return data;
+    return data[0];
   } catch (error) {
     console.error('Error updating Obralia credentials:', error);
     throw error;
