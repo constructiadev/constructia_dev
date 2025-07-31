@@ -62,6 +62,40 @@ export default function Subscription() {
   const [tokensAvailable, setTokensAvailable] = useState(450);
   const [storageUsed, setStorageUsed] = useState(850);
   const [storageLimit, setStorageLimit] = useState(1000);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([
+    {
+      id: '1',
+      date: '2024-01-27',
+      amount: 149,
+      description: 'Plan Profesional - Enero 2024',
+      status: 'paid',
+      invoice_url: '#'
+    },
+    {
+      id: '2',
+      date: '2023-12-27',
+      amount: 149,
+      description: 'Plan Profesional - Diciembre 2023',
+      status: 'paid',
+      invoice_url: '#'
+    },
+    {
+      id: '3',
+      date: '2023-11-27',
+      amount: 149,
+      description: 'Plan Profesional - Noviembre 2023',
+      status: 'paid',
+      invoice_url: '#'
+    },
+    {
+      id: '4',
+      date: '2023-10-27',
+      amount: 149,
+      description: 'Plan Profesional - Octubre 2023',
+      status: 'paid',
+      invoice_url: '#'
+    }
+  ]);
   const { user } = useAuth();
 
   // Auto-seleccionar el paquete popular cuando se abre el modal
@@ -301,42 +335,6 @@ export default function Subscription() {
     }
   ];
 
-  // Historial de pagos
-  const paymentHistory: PaymentHistory[] = [
-    {
-      id: '1',
-      date: '2024-01-27',
-      amount: 149,
-      description: 'Plan Profesional - Enero 2024',
-      status: 'paid',
-      invoice_url: '#'
-    },
-    {
-      id: '2',
-      date: '2023-12-27',
-      amount: 149,
-      description: 'Plan Profesional - Diciembre 2023',
-      status: 'paid',
-      invoice_url: '#'
-    },
-    {
-      id: '3',
-      date: '2023-11-27',
-      amount: 149,
-      description: 'Plan Profesional - Noviembre 2023',
-      status: 'paid',
-      invoice_url: '#'
-    },
-    {
-      id: '4',
-      date: '2023-10-27',
-      amount: 149,
-      description: 'Plan Profesional - Octubre 2023',
-      status: 'paid',
-      invoice_url: '#'
-    }
-  ];
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -423,6 +421,17 @@ export default function Subscription() {
       // Actualizar tokens disponibles localmente
       setTokensAvailable(prev => prev + selectedPackage.tokens);
       
+      // Agregar al historial de pagos
+      const newPayment: PaymentHistory = {
+        id: `payment_${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        amount: selectedPackage.price,
+        description: `Compra de Tokens - ${selectedPackage.name}`,
+        status: 'paid',
+        invoice_url: '#'
+      };
+      setPaymentHistory(prev => [newPayment, ...prev]);
+      
       setShowTokenModal(false);
       setSelectedTokenPackage('');
       
@@ -504,6 +513,17 @@ export default function Subscription() {
       console.log(`Agregando ${storageValue}GB (${additionalStorage}MB) al límite actual de ${storageLimit}MB`);
       setStorageLimit(prev => prev + additionalStorage);
       
+      // Agregar al historial de pagos
+      const newPayment: PaymentHistory = {
+        id: `payment_${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        amount: selectedPackage.price,
+        description: `Ampliación de Almacenamiento - ${selectedPackage.name}`,
+        status: 'paid',
+        invoice_url: '#'
+      };
+      setPaymentHistory(prev => [newPayment, ...prev]);
+      
       setShowStorageModal(false);
       setSelectedStoragePackage('');
       
@@ -581,6 +601,17 @@ export default function Subscription() {
           
           // Simular envío de email
           console.log(`Recibo ${receipt.receipt_number} enviado a ${clientData.email}`);
+          
+          // Agregar al historial de pagos
+          const newPayment: PaymentHistory = {
+            id: `payment_${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            amount: selectedPlan.price,
+            description: `Cambio a Plan ${selectedPlan.name} - ${new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`,
+            status: 'paid',
+            invoice_url: '#'
+          };
+          setPaymentHistory(prev => [newPayment, ...prev]);
           
           setSelectedReceipt(receipt);
           setShowReceiptModal(true);
