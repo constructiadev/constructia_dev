@@ -29,7 +29,7 @@ export default function PaymentMethodSelector({
   selectedGatewayId 
 }: PaymentMethodSelectorProps) {
   const { getActiveGatewaysForCurrency, calculateCommission } = usePaymentGateways();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
   const [showSEPAForm, setShowSEPAForm] = useState(false);
   const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<any>(null);
@@ -81,7 +81,8 @@ export default function PaymentMethodSelector({
     try {
       // Obtener datos del cliente actual
       if (!user?.id) {
-        throw new Error('Usuario no identificado');
+        logout();
+        return;
       }
       
       const clientData = await getCurrentClientData(user.id);
