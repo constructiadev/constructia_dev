@@ -266,9 +266,39 @@ export default function PaymentMethodSelector({
                   </div>
                 </div>
 
+                {/* Botón de selección */}
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      if (!isAvailable) return;
+                      
+                      if (gateway.type === 'sepa') {
+                        handleSEPASelection(gateway);
+                      } else {
+                        onSelect(gateway.id);
+                      }
+                    }}
+                    disabled={!isAvailable}
+                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
+                      isSelected
+                        ? 'bg-green-600 text-white'
+                        : isAvailable
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {gateway.type === 'sepa' 
+                      ? 'Firmar Mandato SEPA' 
+                      : isSelected 
+                      ? '✓ Método Seleccionado'
+                      : 'Seleccionar Método'
+                    }
+                  </button>
+                </div>
+
                 {/* Nota especial para SEPA */}
                 {gateway.type === 'sepa' && (
-                  <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
                     <strong>Nota:</strong> Requiere firma de mandato SEPA. El servicio comenzará una vez firmado el mandato.
                   </div>
                 )}
