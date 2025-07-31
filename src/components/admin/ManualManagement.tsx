@@ -361,23 +361,41 @@ function ClientRow({ client, isExpanded, onToggle, onConnectObralia, onStatusCha
   const corruptedDocuments = allDocuments.filter(doc => doc.corruption_detected);
 
   const handleSelectAll = () => {
+    console.log('handleSelectAll called');
+    console.log('Current selectedDocuments:', selectedDocuments);
+    console.log('Pending documents:', pendingDocuments);
+    
     if (selectedDocuments.length === pendingDocuments.length) {
+      console.log('Deselecting all documents');
       setSelectedDocuments([]);
     } else {
+      console.log('Selecting all pending documents');
       setSelectedDocuments(pendingDocuments.map(d => d.id));
     }
   };
 
   const handleDocumentSelect = (documentId: string) => {
+    console.log('DocumentRow handleDocumentSelect called with:', documentId);
+    console.log('Current isSelected:', isSelected);
+    console.log('handleDocumentSelect called with documentId:', documentId);
+    console.log('Current selectedDocuments before update:', selectedDocuments);
+    
     setSelectedDocuments(prev => 
       prev.includes(documentId) 
         ? prev.filter(id => id !== documentId)
         : [...prev, documentId]
     );
+    
+    // Log after state update (will show in next render)
+    setTimeout(() => {
+      console.log('selectedDocuments after update:', selectedDocuments);
+    }, 100);
   };
 
   const getSelectedDocuments = () => {
-    return allDocuments.filter(doc => selectedDocuments.includes(doc.id));
+    const selected = allDocuments.filter(doc => selectedDocuments.includes(doc.id));
+    console.log('getSelectedDocuments called, returning:', selected);
+    return selected;
   };
 
   return (
@@ -442,6 +460,7 @@ function ClientRow({ client, isExpanded, onToggle, onConnectObralia, onStatusCha
                   disabled={selectedDocuments.length === 0}
                   className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm disabled:opacity-50 flex items-center"
                 >
+                  {console.log('Rendering Conectar Obralia button, selectedDocuments.length:', selectedDocuments.length)}
                   <ExternalLink className="h-3 w-3 mr-1" />
                   Conectar Obralia ({selectedDocuments.length})
                 </button>
@@ -869,6 +888,11 @@ export default function ManualManagement() {
   };
 
   const handleConnectObralia = (client: ClientGroup, documents: ManualDocument[]) => {
+    console.log('handleConnectObralia called');
+    console.log('Client:', client.client_name);
+    console.log('Documents received:', documents);
+    console.log('Documents count:', documents.length);
+    
     setSelectedClient(client);
     setSelectedDocuments(documents);
     setShowObraliaModal(true);
