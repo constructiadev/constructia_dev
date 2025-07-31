@@ -339,7 +339,7 @@ function ReceiptContent({ receiptData }: { receiptData: ReceiptData }) {
           <div className="flex items-center mb-4">
             <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mr-4">
               <img 
-                src="/Logo ConstructIA.png" 
+                src="/ChatGPT Image 31 jul 2025, 12_39_17.png" 
                 alt="ConstructIA Logo" 
                 className="w-8 h-8 object-contain"
                 onError={(e) => {

@@ -20,7 +20,7 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
   return (
     <div className="flex items-center space-x-2">
       <img 
-        src="/Logo ConstructIA.png" 
+        src="/ChatGPT Image 31 jul 2025, 12_39_17.png" 
         alt="ConstructIA Logo" 
         className={`${
           size === 'sm' ? 'h-8 w-8' : 
