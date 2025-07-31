@@ -10,6 +10,7 @@ import {
   Settings,
   CreditCard,
   LogOut,
+  Receipt,
   User,
   Bell,
   Search

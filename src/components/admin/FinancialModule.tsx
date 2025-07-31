@@ -28,6 +28,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { callGeminiAI } from '../../lib/supabase';
 import PaymentGatewayModal from './PaymentGatewayModal';
 import SEPAMandatesManagement from './SEPAMandatesManagement';
+import ReceiptManagement from './ReceiptManagement';
 
 interface FinancialKPICardProps {
   title: string;

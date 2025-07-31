@@ -51,6 +51,10 @@ export default function Subscription() {
   const [selectedStoragePackage, setSelectedStoragePackage] = useState('');
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const { user } = useAuth();
 
   // Plan actual del cliente
   const currentSubscription = {

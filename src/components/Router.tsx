@@ -141,6 +141,7 @@ export default function Router() {
           <Route path="projects" element={<Projects />} />
           <Route path="upload" element={<DocumentUpload />} />
           <Route path="documents" element={<Documents />} />
+          <Route path="receipts" element={<ReceiptHistory />} />
           <Route path="metrics" element={<Metrics />} />
           <Route path="subscription" element={<Subscription />} />
           <Route path="settings" element={<Settings />} />
