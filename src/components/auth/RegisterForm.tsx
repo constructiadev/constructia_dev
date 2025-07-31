@@ -108,6 +108,7 @@ export default function RegisterForm() {
   const [aiAssistance, setAiAssistance] = useState('');
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
+  const [serverError, setServerError] = useState('');
 
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
@@ -197,6 +198,7 @@ export default function RegisterForm() {
 
   const handlePaymentMethodSelected = async (gatewayId: string) => {
     setShowPaymentSelector(false);
+    setServerError('');
     
     // Simular procesamiento de pago
     setLoading(true);
@@ -217,7 +219,7 @@ export default function RegisterForm() {
       navigate('/client/dashboard');
       
     } catch (error: any) {
-      alert('Error en el registro: ' + error.message);
+      setServerError(error.message);
     } finally {
       setLoading(false);
     }
@@ -561,6 +563,18 @@ export default function RegisterForm() {
 
           {/* Form Content */}
           <form onSubmit={handleSubmit(onSubmit)} className="p-8">
+            {serverError && (
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mr-3" />
+                  <div>
+                    <h4 className="font-semibold text-red-800">Error en el registro</h4>
+                    <p className="text-sm text-red-700 mt-1">{serverError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
