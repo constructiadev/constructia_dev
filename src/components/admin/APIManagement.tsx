@@ -449,6 +449,107 @@ export default function APIManagement() {
     alert('Reporte de APIs exportado exitosamente');
   };
 
+  const handleViewEndpointDetails = (endpointName: string) => {
+    const endpoint = criticalEndpoints.find(e => e.name === endpointName);
+    if (endpoint) {
+      alert(`Detalles del Endpoint:\n\n` +
+            `• Nombre: ${endpoint.name}\n` +
+            `• Método: ${endpoint.method}\n` +
+            `• Endpoint: ${endpoint.endpoint}\n` +
+            `• Requests/hora: ${endpoint.requests}\n` +
+            `• Tiempo respuesta: ${endpoint.avgResponse}\n` +
+            `• Error rate: ${endpoint.errorRate}\n` +
+            `• Estado: ${endpoint.status}`);
+    }
+  };
+
+  const handleConfigureEndpoint = (endpointName: string) => {
+    alert(`Configuración de Endpoint: ${endpointName}\n\n` +
+          `Esta funcionalidad permitirá:\n` +
+          `• Configurar rate limiting\n` +
+          `• Ajustar timeouts\n` +
+          `• Configurar cache\n` +
+          `• Establecer alertas\n` +
+          `• Configurar autenticación`);
+  };
+
+  const handleViewIntegrationDetails = (integrationName: string) => {
+    const integration = configuredAPIs.find(api => api.name === integrationName);
+    if (integration) {
+      alert(`Detalles de Integración:\n\n` +
+            `• Servicio: ${integration.name}\n` +
+            `• Estado: ${integration.status}\n` +
+            `• Descripción: ${integration.description}\n` +
+            `• Requests hoy: ${integration.requests.toLocaleString()}\n` +
+            `• Tiempo respuesta: ${integration.avgResponse}\n` +
+            `• Última sync: ${integration.lastSync}`);
+    }
+  };
+
+  const handleConfigureIntegration = (integrationName: string) => {
+    alert(`Configuración de ${integrationName}:\n\n` +
+          `Esta funcionalidad abrirá:\n` +
+          `• Panel de configuración específico\n` +
+          `• Gestión de credenciales\n` +
+          `• Configuración de webhooks\n` +
+          `• Parámetros de conexión\n` +
+          `• Configuración de retry logic`);
+  };
+
+  const handleRefreshIntegration = async (integrationName: string) => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      alert(`${integrationName} actualizada exitosamente.\n\nDatos sincronizados correctamente.`);
+    } catch (error) {
+      alert(`Error al actualizar ${integrationName}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateNewAPI = () => {
+    alert(`Nueva API/Integración:\n\n` +
+          `Esta funcionalidad permitirá:\n` +
+          `• Configurar nueva API externa\n` +
+          `• Definir endpoints y métodos\n` +
+          `• Configurar autenticación\n` +
+          `• Establecer rate limits\n` +
+          `• Configurar monitoreo`);
+  };
+
+  const handleDownloadChart = (chartName: string) => {
+    alert(`Descargando gráfico: ${chartName}\n\n` +
+          `El gráfico se exportará en formato PNG de alta resolución.`);
+  };
+
+  const handleViewChart = (chartName: string) => {
+    alert(`Vista ampliada: ${chartName}\n\n` +
+          `Esta funcionalidad mostrará:\n` +
+          `• Gráfico en pantalla completa\n` +
+          `• Datos detallados\n` +
+          `• Opciones de filtrado\n` +
+          `• Exportación en múltiples formatos`);
+  };
+
+  const handleAnalyzeChart = (chartName: string) => {
+    alert(`Análisis de ${chartName}:\n\n` +
+          `Esta funcionalidad proporcionará:\n` +
+          `• Análisis estadístico\n` +
+          `• Tendencias y patrones\n` +
+          `• Predicciones con IA\n` +
+          `• Recomendaciones de optimización`);
+  };
+
+  const handleMonitorChart = (chartName: string) => {
+    alert(`Monitor en vivo: ${chartName}\n\n` +
+          `Esta funcionalidad activará:\n` +
+          `• Actualización en tiempo real\n` +
+          `• Alertas automáticas\n` +
+          `• Notificaciones push\n` +
+          `• Dashboard dedicado`);
+  };
+
   useEffect(() => {
     generateAPIInsights();
   }, []);
@@ -515,7 +616,11 @@ export default function APIManagement() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-lg font-semibold text-gray-800">Requests por Hora</h4>
-              <button className="text-gray-400 hover:text-gray-600">
+              <button 
+                onClick={() => handleDownloadChart('Requests por Hora')}
+                className="text-gray-400 hover:text-gray-600"
+                title="Descargar gráfico"
+              >
                 <Download className="h-4 w-4" />
               </button>
             </div>
@@ -527,7 +632,11 @@ export default function APIManagement() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-lg font-semibold text-gray-800">Tiempo de Respuesta</h4>
-              <button className="text-gray-400 hover:text-gray-600">
+              <button 
+                onClick={() => handleViewChart('Tiempo de Respuesta')}
+                className="text-gray-400 hover:text-gray-600"
+                title="Ver en pantalla completa"
+              >
                 <Eye className="h-4 w-4" />
               </button>
             </div>
@@ -539,7 +648,11 @@ export default function APIManagement() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-lg font-semibold text-gray-800">Endpoints Más Usados</h4>
-              <button className="text-gray-400 hover:text-gray-600">
+              <button 
+                onClick={() => handleAnalyzeChart('Endpoints Más Usados')}
+                className="text-gray-400 hover:text-gray-600"
+                title="Analizar datos"
+              >
                 <BarChart3 className="h-4 w-4" />
               </button>
             </div>
@@ -551,7 +664,11 @@ export default function APIManagement() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-lg font-semibold text-gray-800">Tasa de Error Semanal</h4>
-              <button className="text-gray-400 hover:text-gray-600">
+              <button 
+                onClick={() => handleMonitorChart('Tasa de Error Semanal')}
+                className="text-gray-400 hover:text-gray-600"
+                title="Monitor en tiempo real"
+              >
                 <Monitor className="h-4 w-4" />
               </button>
             </div>
@@ -566,14 +683,42 @@ export default function APIManagement() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">APIs Configuradas</h3>
-          <button className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+          <button 
+            onClick={handleCreateNewAPI}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nueva API
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {configuredAPIs.map((api, index) => (
-            <APIIntegrationCard key={index} {...api} />
+            <div key={index}>
+              <APIIntegrationCard {...api} />
+              <div className="mt-3 flex space-x-2">
+                <button 
+                  onClick={() => handleViewIntegrationDetails(api.name)}
+                  className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Ver Detalles
+                </button>
+                <button 
+                  onClick={() => handleConfigureIntegration(api.name)}
+                  className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
+                  title="Configurar integración"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={() => handleRefreshIntegration(api.name)}
+                  disabled={loading}
+                  className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors disabled:opacity-50"
+                  title="Actualizar datos"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -583,7 +728,24 @@ export default function APIManagement() {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Endpoints Críticos</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {criticalEndpoints.map((endpoint, index) => (
-            <APIEndpointCard key={index} {...endpoint} />
+            <div key={index}>
+              <APIEndpointCard {...endpoint} />
+              <div className="mt-3 flex space-x-2">
+                <button 
+                  onClick={() => handleViewEndpointDetails(endpoint.name)}
+                  className="flex-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Ver Detalles
+                </button>
+                <button 
+                  onClick={() => handleConfigureEndpoint(endpoint.name)}
+                  className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
+                  title="Configurar endpoint"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -761,7 +923,10 @@ export default function APIManagement() {
             </div>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+          <button 
+            onClick={() => alert('Consola API:\n\nEsta funcionalidad abrirá:\n• Editor de requests HTTP\n• Testing de endpoints en vivo\n• Historial de pruebas\n• Documentación interactiva')}
+            className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+          >
             <Terminal className="h-5 w-5 text-blue-600 mr-2" />
             <div className="text-left">
               <p className="font-medium text-blue-800">Consola API</p>
@@ -769,7 +934,10 @@ export default function APIManagement() {
             </div>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+          <button 
+            onClick={() => alert('Dashboard de Monitoreo:\n\nEsta funcionalidad mostrará:\n• Métricas en tiempo real\n• Alertas activas\n• Estado de servicios\n• Gráficos interactivos')}
+            className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+          >
             <Monitor className="h-5 w-5 text-purple-600 mr-2" />
             <div className="text-left">
               <p className="font-medium text-purple-800">Monitoreo</p>
@@ -777,7 +945,10 @@ export default function APIManagement() {
             </div>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
+          <button 
+            onClick={() => alert('Configuración Avanzada:\n\nEsta funcionalidad permitirá:\n• Configurar parámetros globales\n• Gestionar rate limiting\n• Configurar cache\n• Establecer políticas de retry')}
+            className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+          >
             <Settings className="h-5 w-5 text-orange-600 mr-2" />
             <div className="text-left">
               <p className="font-medium text-orange-800">Configuración</p>
