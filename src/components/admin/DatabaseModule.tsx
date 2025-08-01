@@ -130,11 +130,17 @@ function TableStatsCard({ tableName, records, size, lastUpdate, growth, icon: Ic
       </div>
       
       <div className="flex space-x-2 mt-4">
-        <button className="flex-1 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium">
+        <button 
+          onClick={() => handleViewTable(tableName)}
+          className="flex-1 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium"
+        >
           <Eye className="h-3 w-3 inline mr-1" />
           Ver
         </button>
-        <button className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors">
+        <button 
+          onClick={() => handleAnalyzeTable(tableName)}
+          className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
+        >
           <BarChart3 className="h-3 w-3" />
         </button>
       </div>
@@ -358,6 +364,17 @@ export default function DatabaseModule() {
     alert('Reporte de base de datos exportado exitosamente');
   };
 
+  const handleViewTable = (tableName: string) => {
+    alert(`Vista de tabla: ${tableName}\n\nEsta funcionalidad mostraría:\n• Estructura de la tabla\n• Primeros 100 registros\n• Índices y relaciones\n• Estadísticas detalladas`);
+  };
+
+  const handleAnalyzeTable = (tableName: string) => {
+    alert(`Análisis de tabla: ${tableName}\n\nEsta funcionalidad proporcionaría:\n• Análisis de rendimiento\n• Consultas más lentas\n• Uso de índices\n• Recomendaciones de optimización`);
+  };
+
+  const handleNewQuery = () => {
+    alert('Nueva Consulta SQL\n\nEsta funcionalidad abriría:\n• Editor SQL con sintaxis highlighting\n• Autocompletado de tablas y campos\n• Historial de consultas\n• Exportación de resultados');
+  };
   const SimulationModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
@@ -554,6 +571,10 @@ export default function DatabaseModule() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Inspector de Tablas</h3>
           <button className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+          <button 
+            onClick={handleNewQuery}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nueva Consulta
           </button>
