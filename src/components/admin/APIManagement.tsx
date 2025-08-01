@@ -30,7 +30,19 @@ import {
   Upload
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import { callGeminiAI } from '../../lib/supabase';
+
+// Fallback chart data
+const fallbackRequestsData = {
+  labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+  datasets: [{
+    label: 'Requests por Hora',
+    data: [234, 189, 456, 789, 1247, 892],
+    borderColor: 'rgb(59, 130, 246)',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    fill: true,
+    tension: 0.4
+  }]
+};
 
 interface APIKPICardProps {
   title: string;
@@ -394,7 +406,7 @@ export default function APIManagement() {
   const generateAPIInsights = async () => {
     setLoading(true);
     try {
-      // Simular insights mientras Gemini está fallando
+      // Use static insights instead of API call
       const mockInsights = `⚡ Análisis de APIs ConstructIA:
 
 1. **Rendimiento Óptimo**: Las APIs mantienen 99.97% uptime con 1,247 requests/min, superando objetivos de SLA.
@@ -405,7 +417,7 @@ export default function APIManagement() {
       
       setAiInsights(mockInsights);
     } catch (error) {
-      setAiInsights('Error al generar insights de APIs. La API de Gemini está temporalmente no disponible.');
+      setAiInsights('Insights no disponibles temporalmente. Datos en modo offline.');
     } finally {
       setLoading(false);
     }

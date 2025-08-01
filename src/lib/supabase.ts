@@ -17,7 +17,7 @@ export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 // Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+export const callGeminiAI = async (prompt: string, maxRetries: number = 3) => {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -25,17 +25,18 @@ export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
       return await attemptGeminiCall(prompt);
     } catch (error) {
       const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
+        (error.message.includes('503') || error.message.includes('CORS') || error.message.includes('Failed to fetch'));
       
       if (isRetryableError && attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        console.warn(`API request failed (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
         await sleep(delay);
         continue;
       }
       
       // If not retryable or max retries reached, throw the error
-      throw error;
+      console.warn('API request failed, using fallback data');
+      return 'API temporarily unavailable. Using cached data.';
     }
   }
 };

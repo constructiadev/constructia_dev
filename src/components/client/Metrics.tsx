@@ -19,6 +19,19 @@ import {
   getClientProjects
 } from '../../lib/supabase';
 
+// Fallback chart data in case of API errors
+const fallbackChartData = {
+  labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+  datasets: [{
+    label: 'Documentos Procesados',
+    data: [12, 19, 3, 5, 2, 3],
+    borderColor: 'rgb(59, 130, 246)',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    fill: true,
+    tension: 0.4
+  }]
+};
+
 interface MetricsData {
   totalDocuments: number;
   documentsThisMonth: number;
@@ -125,7 +138,18 @@ export default function Metrics() {
 
     } catch (err) {
       console.error('Error loading metrics:', err);
-      setError(err instanceof Error ? err.message : 'Error al cargar métricas');
+      // Use fallback data instead of showing error
+      setMetrics({
+        totalDocuments: 0,
+        documentsThisMonth: 0,
+        avgConfidence: 0,
+        processingTime: 0,
+        successRate: 0,
+        documentsByType: {},
+        documentsByStatus: {},
+        monthlyProgress: [0, 0, 0, 0, 0, 0]
+      });
+      setError('Datos no disponibles temporalmente');
     } finally {
       setLoading(false);
     }
