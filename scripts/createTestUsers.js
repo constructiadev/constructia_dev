@@ -17,7 +17,7 @@ export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 // Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+export const callGeminiAI = async (prompt, maxRetries = 5) => {
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -40,7 +40,7 @@ export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
   }
 };
 
-const attemptGeminiCall = async (prompt: string) => {
+const attemptGeminiCall = async (prompt) => {
   try {
     if (!GEMINI_API_KEY) {
       throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
@@ -97,8 +97,8 @@ const attemptGeminiCall = async (prompt: string) => {
 
 // Helper para actualizar credenciales de Obralia del cliente
 export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
+  clientId, 
+  credentials
 ) => {
   try {
     if (!clientId) {
@@ -133,7 +133,7 @@ export const updateClientObraliaCredentials = async (
 };
 
 // Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
+export const getCurrentClientData = async (userId) => {
   try {
     if (!userId) {
       throw new Error('User ID is required');
@@ -157,7 +157,7 @@ export const getCurrentClientData = async (userId: string) => {
 };
 
 // Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
+export const getClientProjects = async (clientId) => {
   try {
     if (!clientId) {
       throw new Error('Client ID is required');
@@ -184,7 +184,7 @@ export const getClientProjects = async (clientId: string) => {
 };
 
 // Helper para obtener empresas del cliente
-export const getClientCompanies = async (clientId: string) => {
+export const getClientCompanies = async (clientId) => {
   try {
     if (!clientId) {
       throw new Error('Client ID is required');
@@ -208,7 +208,7 @@ export const getClientCompanies = async (clientId: string) => {
 };
 
 // Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
+export const getClientDocuments = async (clientId) => {
   try {
     if (!clientId) {
       throw new Error('Client ID is required');
@@ -282,7 +282,7 @@ export const getAuditLogs = async () => {
 };
 
 // Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
+export const saveSEPAMandate = async (mandateData) => {
   try {
     const { data, error } = await supabase
       .from('sepa_mandates')
@@ -302,7 +302,7 @@ export const saveSEPAMandate = async (mandateData: any) => {
 };
 
 // Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
+export const getClientSEPAMandates = async (clientId) => {
   try {
     if (!clientId) {
       throw new Error('Client ID is required');
@@ -333,7 +333,7 @@ export const generateReceiptNumber = () => {
 };
 
 // Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+export const calculateTaxes = (amount, taxRate = 21) => {
   const baseAmount = amount / (1 + taxRate / 100);
   const taxAmount = amount - baseAmount;
   
@@ -345,16 +345,7 @@ export const calculateTaxes = (amount: number, taxRate: number = 21) => {
 };
 
 // Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
+export const createReceipt = async (receiptData) => {
   try {
     const receiptNumber = generateReceiptNumber();
     const taxes = calculateTaxes(receiptData.amount);
@@ -394,7 +385,7 @@ export const createReceipt = async (receiptData: {
 };
 
 // Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
+export const getClientReceipts = async (clientId) => {
   try {
     if (!clientId) {
       throw new Error('Client ID is required');
@@ -594,7 +585,7 @@ export const getSystemSettings = async () => {
 };
 
 // Helper para actualizar configuración del sistema
-export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+export const updateSystemSetting = async (key, value, description) => {
   try {
     const { data, error } = await supabase
       .from('system_settings')
@@ -731,7 +722,7 @@ export const calculateDynamicKPIs = async () => {
 };
 
 // Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+export const sendReceiptByEmail = async (receiptId, clientEmail) => {
   try {
     // Simular envío de email
     await new Promise(resolve => setTimeout(resolve, 2000));
