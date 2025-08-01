@@ -99,7 +99,6 @@ export interface AuditLog {
   client_id?: string;
   action: string;
   resource: string;
-  resource: string;
   details: any;
   ip_address: string;
   user_agent: string;
@@ -120,7 +119,6 @@ export interface Payment {
   stripe_payment_intent_id?: string;
   description: string;
   created_at: string;
-  updated_at: string;
   updated_at: string;
 }
 

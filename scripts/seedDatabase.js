@@ -42,7 +42,7 @@ const mockClients = [
   {
     id: '11111111-1111-1111-1111-111111111111',
     user_id: '00000000-0000-0000-0000-000000000002',
-    client_id: '2024-REC-0001',
+    client_id: 'CLI-GARCIA001',
     company_name: 'Construcciones García S.L.',
     contact_name: 'Juan García Martínez',
     email: 'juan@construccionesgarcia.com',
@@ -60,12 +60,12 @@ const mockClients = [
       configured: true
     },
     last_activity: new Date().toISOString(),
-    monthly_revenue: 149
+    monthly_revenue: 149.00
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
     user_id: '00000000-0000-0000-0000-000000000003',
-    client_id: '2024-REC-0002',
+    client_id: 'CLI-OBRAS002',
     company_name: 'Obras Públicas del Norte S.A.',
     contact_name: 'María López Fernández',
     email: 'maria@obrasnorte.es',
@@ -83,12 +83,12 @@ const mockClients = [
       configured: true
     },
     last_activity: new Date().toISOString(),
-    monthly_revenue: 299
+    monthly_revenue: 299.00
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
     user_id: '00000000-0000-0000-0000-000000000004',
-    client_id: '2024-REC-0003',
+    client_id: 'CLI-LOPEZ003',
     company_name: 'Reformas Integrales López',
     contact_name: 'Carlos López Ruiz',
     email: 'carlos@reformaslopez.com',
@@ -105,8 +105,8 @@ const mockClients = [
       password: '',
       configured: false
     },
-    last_activity: new Date().toISOString(),
-    monthly_revenue: 59
+    last_activity: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    monthly_revenue: 59.00
   }
 ];
 
@@ -163,7 +163,7 @@ const mockProjects = [
     progress: 65,
     start_date: '2024-01-15',
     end_date: '2024-12-20',
-    budget: 2500000,
+    budget: 2500000.00,
     location: 'Madrid Centro',
     company_name: 'Construcciones García S.L.',
     documents_count: 87,
@@ -179,7 +179,7 @@ const mockProjects = [
     progress: 30,
     start_date: '2024-03-01',
     end_date: '2024-08-15',
-    budget: 450000,
+    budget: 450000.00,
     location: 'Distrito Norte',
     company_name: 'Construcciones García S.L.',
     documents_count: 34,
@@ -195,7 +195,7 @@ const mockProjects = [
     progress: 100,
     start_date: '2023-06-01',
     end_date: '2024-01-30',
-    budget: 1800000,
+    budget: 1800000.00,
     location: 'Autopista A-7',
     company_name: 'Obras Públicas del Norte S.A.',
     documents_count: 156,
@@ -254,7 +254,7 @@ const mockDocuments = [
     processing_attempts: 1,
     project_name: 'Reforma Oficinas Norte',
     company_name: 'Construcciones García S.L.',
-    processed_at: new Date().toISOString()
+    processed_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   }
 ];
 
@@ -284,6 +284,20 @@ const mockAuditLogs = [
     user_email: 'juan@construccionesgarcia.com',
     client_name: 'Construcciones García S.L.',
     status: 'success'
+  },
+  {
+    id: '33333333-3333-3333-3333-333333333333',
+    user_id: '00000000-0000-0000-0000-000000000003',
+    client_id: '22222222-2222-2222-2222-222222222222',
+    action: 'PAYMENT_COMPLETED',
+    resource: 'PAYMENTS',
+    details: { message: 'Pago de suscripción procesado exitosamente', amount: 299.00 },
+    ip_address: '192.168.1.102',
+    user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
+    user_role: 'client',
+    user_email: 'maria@obrasnorte.es',
+    client_name: 'Obras Públicas del Norte S.A.',
+    status: 'success'
   }
 ];
 
@@ -295,7 +309,7 @@ const mockReceipts = [
     amount: 149.00,
     base_amount: 123.14,
     tax_amount: 25.86,
-    tax_rate: 21,
+    tax_rate: 21.00,
     currency: 'EUR',
     payment_method: 'Tarjeta de Crédito',
     gateway_name: 'Stripe',
@@ -339,7 +353,7 @@ const mockReceipts = [
     amount: 299.00,
     base_amount: 247.11,
     tax_amount: 51.89,
-    tax_rate: 21,
+    tax_rate: 21.00,
     currency: 'EUR',
     payment_method: 'Transferencia SEPA',
     gateway_name: 'SEPA',
@@ -428,27 +442,15 @@ const mockPaymentGateways = [
     type: 'stripe',
     status: 'active',
     commission_type: 'mixed',
-    commission_percentage: 2.9,
+    commission_percentage: 2.90,
     commission_fixed: 0.30,
-    commission_periods: [
-      {
-        start_date: '2024-01-01',
-        end_date: '2024-12-31',
-        percentage: 2.9,
-        fixed: 0.30
-      }
-    ],
     api_key: 'pk_live_...',
     secret_key: 'sk_live_...',
     webhook_url: 'https://api.constructia.com/webhooks/stripe',
     supported_currencies: ['EUR', 'USD'],
-    min_amount: 1,
-    max_amount: 10000,
-    description: 'Pasarela principal para tarjetas de crédito',
-    logo_base64: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzEwYjk4MSIvPgo8cGF0aCBkPSJNOCAxMmg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-    transactions: 156,
-    volume: '€21,450',
-    color: 'bg-blue-600'
+    min_amount: 1.00,
+    max_amount: 10000.00,
+    description: 'Pasarela principal para tarjetas de crédito'
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
@@ -456,24 +458,12 @@ const mockPaymentGateways = [
     type: 'paypal',
     status: 'active',
     commission_type: 'mixed',
-    commission_percentage: 3.4,
+    commission_percentage: 3.40,
     commission_fixed: 0.35,
-    commission_periods: [
-      {
-        start_date: '2024-01-01',
-        end_date: '2024-12-31',
-        percentage: 3.4,
-        fixed: 0.35
-      }
-    ],
     supported_currencies: ['EUR', 'USD'],
-    min_amount: 1,
-    max_amount: 5000,
-    description: 'Pagos con cuenta PayPal',
-    logo_base64: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzEwYjk4MSIvPgo8cGF0aCBkPSJNOCAxMmg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-    transactions: 89,
-    volume: '€13,200',
-    color: 'bg-blue-500'
+    min_amount: 1.00,
+    max_amount: 5000.00,
+    description: 'Pagos con cuenta PayPal'
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
@@ -482,21 +472,10 @@ const mockPaymentGateways = [
     status: 'active',
     commission_type: 'fixed',
     commission_fixed: 0.50,
-    commission_periods: [
-      {
-        start_date: '2024-01-01',
-        end_date: '2024-12-31',
-        fixed: 0.50
-      }
-    ],
     supported_currencies: ['EUR'],
-    min_amount: 10,
-    max_amount: 50000,
-    description: 'Transferencias bancarias SEPA',
-    logo_base64: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzEwYjk4MSIvPgo8cGF0aCBkPSJNOCAxMmg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-    transactions: 34,
-    volume: '€8,900',
-    color: 'bg-green-600'
+    min_amount: 10.00,
+    max_amount: 50000.00,
+    description: 'Transferencias bancarias SEPA'
   }
 ];
 
@@ -553,7 +532,7 @@ const mockSystemSettings = [
   },
   {
     key: 'smtp_port',
-    value: { text: '587' },
+    value: { number: 587 },
     description: 'Puerto SMTP'
   },
   {
@@ -562,13 +541,13 @@ const mockSystemSettings = [
     description: 'Usuario SMTP'
   },
   {
-    key: 'log_retention',
-    value: { text: '90' },
+    key: 'log_retention_days',
+    value: { number: 90 },
     description: 'Días de retención de logs'
   },
   {
-    key: 'session_timeout',
-    value: { text: '30' },
+    key: 'session_timeout_minutes',
+    value: { number: 30 },
     description: 'Minutos de timeout de sesión'
   }
 ];
@@ -586,6 +565,7 @@ const mockProcessingQueue = [
     confidence: 92,
     obralia_section: 'Certificados y Permisos',
     obralia_status: 'pending',
+    error_message: null,
     event_timestamp: new Date().toISOString()
   },
   {
@@ -595,12 +575,13 @@ const mockProcessingQueue = [
     filename: 'factura_materiales_B.pdf',
     client_name: 'Obras Públicas del Norte S.A.',
     status: 'obralia_validated',
-    progress: 90,
+    progress: 100,
     classification: 'Factura',
     confidence: 88,
     obralia_section: 'Facturación',
     obralia_status: 'validated',
-    event_timestamp: new Date().toISOString()
+    error_message: null,
+    event_timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString()
   }
 ];
 
@@ -795,7 +776,7 @@ const mockApiEndpoints = [
     endpoint_path: '/api/documents/classify',
     requests_per_hour: 456,
     avg_response_time_ms: 234,
-    error_rate: 0.2,
+    error_rate: 0.20,
     status: 'healthy',
     description: 'Endpoint para clasificación de documentos con IA'
   },
@@ -806,7 +787,7 @@ const mockApiEndpoints = [
     endpoint_path: '/api/obralia/upload',
     requests_per_hour: 89,
     avg_response_time_ms: 567,
-    error_rate: 1.2,
+    error_rate: 1.20,
     status: 'slow',
     description: 'Endpoint para subida automática a Obralia/Nalanda'
   },
@@ -817,7 +798,7 @@ const mockApiEndpoints = [
     endpoint_path: '/api/payments/process',
     requests_per_hour: 156,
     avg_response_time_ms: 123,
-    error_rate: 0.1,
+    error_rate: 0.10,
     status: 'healthy',
     description: 'Endpoint para procesamiento de pagos'
   }
@@ -832,7 +813,11 @@ const mockApiIntegrations = [
     requests_today: 8947,
     avg_response_time_ms: 234,
     last_sync: new Date().toISOString(),
-    config_details: { api_key_configured: true, model: 'gemini-pro' }
+    config_details: { 
+      api_key_configured: true, 
+      model: 'gemini-pro',
+      rate_limit: 50000
+    }
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
@@ -841,8 +826,12 @@ const mockApiIntegrations = [
     description: 'Integración con la plataforma Obralia/Nalanda',
     requests_today: 234,
     avg_response_time_ms: 567,
-    last_sync: new Date().toISOString(),
-    config_details: { api_key_configured: false, webhook_configured: true }
+    last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    config_details: { 
+      api_key_configured: false, 
+      webhook_configured: true,
+      timeout: 30000
+    }
   },
   {
     id: '33333333-3333-3333-3333-333333333333',
@@ -852,7 +841,11 @@ const mockApiIntegrations = [
     requests_today: 15678,
     avg_response_time_ms: 89,
     last_sync: new Date().toISOString(),
-    config_details: { connection_pool: 'active', ssl: true }
+    config_details: { 
+      connection_pool: 'active', 
+      ssl: true,
+      max_connections: 200
+    }
   },
   {
     id: '44444444-4444-4444-4444-444444444444',
@@ -861,8 +854,12 @@ const mockApiIntegrations = [
     description: 'Procesamiento de pagos',
     requests_today: 156,
     avg_response_time_ms: 234,
-    last_sync: new Date().toISOString(),
-    config_details: { webhook_configured: true, live_mode: true }
+    last_sync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    config_details: { 
+      webhook_configured: true, 
+      live_mode: true,
+      api_version: '2023-10-16'
+    }
   }
 ];
 
@@ -950,7 +947,6 @@ async function seedDatabase() {
     
     console.log('✅ Conexión a Supabase establecida correctamente\n');
     
-    // Preguntar si limpiar datos existentes
     console.log('⚠️ ADVERTENCIA: Este proceso insertará datos de prueba en tu base de datos.');
     console.log('Si ya tienes datos importantes, considera hacer un backup primero.\n');
     
@@ -996,7 +992,7 @@ async function seedDatabase() {
       console.log('• 3 empresas asociadas a los clientes');
       console.log('• 3 proyectos con datos realistas');
       console.log('• 2 documentos de ejemplo');
-      console.log('• 2 logs de auditoría');
+      console.log('• 3 logs de auditoría');
       console.log('• 2 recibos de ejemplo');
       console.log('• 4 KPIs principales del sistema');
       console.log('• 3 pasarelas de pago configuradas');
@@ -1032,8 +1028,8 @@ async function cleanAllData() {
     'token_packages',
     'backups',
     'processing_queue',
-    'kpis',
     'payment_gateways',
+    'kpis',
     'receipts',
     'audit_logs',
     'documents',
