@@ -1,39 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
-import path from 'path';
 
-// Read environment variables from .env file
-const envPath = path.resolve('.env');
-let supabaseUrl = '';
-let supabaseServiceKey = '';
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  const envLines = envContent.split('\n');
-  
-  for (const line of envLines) {
-    if (line.startsWith('VITE_SUPABASE_URL=')) {
-      supabaseUrl = line.split('=')[1]?.trim() || '';
-    }
-    if (line.startsWith('SUPABASE_SERVICE_ROLE_KEY=')) {
-      supabaseServiceKey = line.split('=')[1]?.trim() || '';
-    }
-  }
-}
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Missing required environment variables in .env file:');
-  console.error('- VITE_SUPABASE_URL');
-  console.error('- SUPABASE_SERVICE_ROLE_KEY');
-  console.error('\nPlease add these to your .env file');
-  process.exit(1);
-}
-
-// Create Supabase client with service role key for admin operations
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
   }
 });
 
@@ -769,128 +744,3 @@ export const sendReceiptByEmail = async (receiptId: string, clientEmail: string)
     throw error;
   }
 };
-
-const testUsers = [
-  {
-    email: 'admin@constructia.com',
-    password: 'superadmin123',
-    role: 'admin'
-  },
-  {
-    email: 'juan@construccionesgarcia.com',
-    password: 'password123',
-    role: 'client',
-    clientData: {
-      company_name: 'Construcciones García S.L.',
-      contact_name: 'Juan García',
-      phone: '+34 666 123 456',
-      address: 'Calle Mayor 123, 28001 Madrid',
-      tax_id: 'B12345678',
-      subscription_plan: 'professional',
-      subscription_status: 'active',
-      storage_limit: 10737418240, // 10GB
-      storage_used: 2147483648,   // 2GB
-      obralia_credentials: {
-        username: '',
-        password: '',
-        configured: false
-      }
-    }
-  }
-];
-
-async function createTestUsers() {
-  console.log('🚀 Creating test users...\n');
-
-  for (const testUser of testUsers) {
-    console.log(`👤 Creating user: ${testUser.email}`);
-    
-    try {
-      // 1. Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: testUser.email,
-        password: testUser.password,
-        email_confirm: true
-      });
-
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          console.log(`   ⚠️  User already exists: ${testUser.email}`);
-          
-          // Get existing user
-          const { data: existingUsers } = await supabase.auth.admin.listUsers();
-          const existingUser = existingUsers.users.find(u => u.email === testUser.email);
-          
-          if (existingUser) {
-            await createUserProfile(existingUser.id, testUser);
-          }
-          continue;
-        } else {
-          throw authError;
-        }
-      }
-
-      if (authData.user) {
-        console.log(`   ✅ Auth user created: ${authData.user.id}`);
-        await createUserProfile(authData.user.id, testUser);
-      }
-
-    } catch (error) {
-      console.error(`   ❌ Error creating user ${testUser.email}:`, error.message);
-    }
-  }
-}
-
-async function createUserProfile(userId, testUser) {
-  try {
-    // 2. Create user profile
-    const { error: userError } = await supabase
-      .from('users')
-      .upsert({
-        id: userId,
-        email: testUser.email,
-        role: testUser.role
-      }, {
-        onConflict: 'id'
-      });
-
-    if (userError) {
-      console.log(`   ⚠️  User profile might already exist: ${userError.message}`);
-    } else {
-      console.log(`   ✅ User profile created`);
-    }
-
-    // 3. Create client record if it's a client user
-    if (testUser.role === 'client' && testUser.clientData) {
-      const clientId = `CLI-${userId.substring(0, 8).toUpperCase()}`;
-      
-      const { error: clientError } = await supabase
-        .from('clients')
-        .upsert({
-          user_id: userId,
-          client_id: clientId,
-          ...testUser.clientData
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (clientError) {
-        console.log(`   ⚠️  Client profile might already exist: ${clientError.message}`);
-      } else {
-        console.log(`   ✅ Client profile created: ${clientId}`);
-      }
-    }
-
-    console.log('');
-  } catch (error) {
-    console.error(`   ❌ Error creating profile:`, error.message);
-  }
-}
-
-// Run the script
-createTestUsers().catch(console.error).finally(() => {
-  console.log('\n✨ You can now login with:');
-  console.log('👤 Admin: admin@constructia.com / superadmin123');
-  console.log('👤 Client: juan@construccionesgarcia.com / password123');
-  process.exit(0);
-});
