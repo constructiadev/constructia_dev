@@ -14,7 +14,7 @@
     "react-dom": "^18.3.1",
     "@supabase/supabase-js": "^2.39.3",
     "lucide-react": "^0.263.1",
-    "react-router-dom": "^6.21.3"
+    "react-router-dom": "^6.21.3",
     "dotenv": "^16.3.1",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
