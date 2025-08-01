@@ -1,492 +1,246 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { getClientProjects, getCurrentClientData } from '../../lib/supabase';
+import { Building2, Calendar, MapPin, Users, TrendingUp, Clock, CheckCircle, Pause, Play } from 'lucide-react';
 
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  progress: number;
+  start_date: string;
+  end_date?: string;
+  budget: number;
+  location: string;
+  companies: { name: string };
+  documents: any[];
+}
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
+const Projects: React.FC = () => {
+  const { user } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [clientData, setClientData] = useState<any>(null);
 
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      
-      // If not retryable or max retries reached, throw the error
-      throw error;
-    }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user) return;
       
       try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
+        const [clientInfo, projectsData] = await Promise.all([
+          getCurrentClientData(user.id),
+          getCurrentClientData(user.id).then(client => getClientProjects(client.id))
+        ]);
+        
+        setClientData(clientInfo);
+        setProjects(projectsData);
+      } catch (error) {
+        console.error('Error loading projects:', error);
+      } finally {
+        setLoading(false);
       }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    // Validar que clientId no sea null o undefined
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    console.log('Updating Obralia credentials for client:', clientId);
-    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      console.error('Supabase error details:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    console.log('Successfully updated Obralia credentials');
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
-  try {
-    // Datos mock para testing - siempre devolver datos válidos
-    const mockClientData = {
-      id: `mock-client-${userId}`,
-      client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
-      user_id: userId,
-      company_name: 'Construcciones García S.L.',
-      contact_name: 'Juan García Martínez',
-      email: 'juan@construccionesgarcia.com',
-      phone: '+34 91 123 45 67',
-      address: 'Calle Mayor 123, 28001 Madrid',
-      subscription_plan: 'professional',
-      subscription_status: 'active',
-      storage_used: 850,
-      storage_limit: 1000,
-      documents_processed: 127,
-      tokens_available: 450,
-      obralia_credentials: {
-        username: '',
-        password: '',
-        configured: false
-      },
-      created_at: '2024-01-15T00:00:00Z',
-      updated_at: new Date().toISOString()
     };
 
-    // Intentar obtener datos reales, pero usar mock como fallback
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', userId);
+    loadData();
+  }, [user]);
 
-      if (error || !data || data.length === 0) {
-        console.log('Using mock client data for testing');
-        return mockClientData;
-      }
-      
-      return data[0];
-    } catch (supabaseError) {
-      console.log('Supabase error, using mock client data for testing');
-      return mockClientData;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active': return <Play className="w-4 h-4 text-green-500" />;
+      case 'completed': return <CheckCircle className="w-4 h-4 text-blue-500" />;
+      case 'paused': return <Pause className="w-4 h-4 text-yellow-500" />;
+      case 'planning': return <Clock className="w-4 h-4 text-gray-500" />;
+      default: return <Clock className="w-4 h-4 text-gray-500" />;
     }
-  } catch (error) {
-    console.log('Error getting client data, using mock data for testing');
-    // Siempre devolver datos mock en caso de error para permitir testing
-    return {
-      id: `mock-client-${userId}`,
-      client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
-      user_id: userId,
-      company_name: 'Construcciones García S.L.',
-      contact_name: 'Juan García Martínez',
-      email: 'juan@construccionesgarcia.com',
-      phone: '+34 91 123 45 67',
-      address: 'Calle Mayor 123, 28001 Madrid',
-      subscription_plan: 'professional',
-      subscription_status: 'active',
-      storage_used: 850,
-      storage_limit: 1000,
-      documents_processed: 127,
-      tokens_available: 450,
-      obralia_credentials: {
-        username: '',
-        password: '',
-        configured: false
-      },
-      created_at: '2024-01-15T00:00:00Z',
-      updated_at: new Date().toISOString()
-    };
-  }
-};
-
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
-  try {
-    // Datos mock para testing
-    const mockProjects = [
-      {
-        id: '1',
-        name: 'Edificio Residencial Centro',
-        description: 'Construcción de edificio residencial de 8 plantas con 32 viviendas',
-        status: 'active',
-        progress: 65,
-        start_date: '2024-01-15',
-        end_date: '2024-12-20',
-        budget: 2500000,
-        team_members: 12,
-        location: 'Madrid Centro',
-        created_at: '2024-01-10',
-        companies: { name: 'Construcciones García S.L.' },
-        documents: new Array(87)
-      },
-      {
-        id: '2',
-        name: 'Reforma Oficinas Norte',
-        description: 'Reforma integral de oficinas corporativas',
-        status: 'active',
-        progress: 30,
-        start_date: '2024-03-01',
-        end_date: '2024-08-15',
-        budget: 450000,
-        team_members: 6,
-        location: 'Distrito Norte',
-        created_at: '2024-02-20',
-        companies: { name: 'Construcciones García S.L.' },
-        documents: new Array(34)
-      },
-      {
-        id: '3',
-        name: 'Puente Industrial A-7',
-        description: 'Construcción de puente para acceso industrial',
-        status: 'completed',
-        progress: 100,
-        start_date: '2023-06-01',
-        end_date: '2024-01-30',
-        budget: 1800000,
-        team_members: 18,
-        location: 'Autopista A-7',
-        created_at: '2023-05-15',
-        companies: { name: 'Obras Públicas del Norte S.A.' },
-        documents: new Array(156)
-      },
-      {
-        id: '4',
-        name: 'Centro Comercial Valencia',
-        description: 'Construcción de centro comercial de 3 plantas',
-        status: 'planning',
-        progress: 5,
-        start_date: '2024-06-01',
-        end_date: '2025-03-15',
-        budget: 3200000,
-        team_members: 4,
-        location: 'Valencia Este',
-        created_at: '2024-01-25',
-        companies: { name: 'Reformas Integrales López' },
-        documents: new Array(12)
-      },
-      {
-        id: '5',
-        name: 'Rehabilitación Edificio Histórico',
-        description: 'Rehabilitación de edificio histórico del siglo XVIII',
-        status: 'paused',
-        progress: 45,
-        start_date: '2023-09-01',
-        budget: 890000,
-        team_members: 8,
-        location: 'Casco Histórico',
-        created_at: '2023-08-10',
-        companies: { name: 'Reformas Integrales López' },
-        documents: new Array(78)
-      }
-    ];
-
-    // Intentar obtener datos reales, pero usar mock como fallback
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          companies(name),
-          documents(id)
-        `)
-        .eq('client_id', clientId);
-
-      if (error || !data || data.length === 0) {
-        console.log('Using mock projects data for testing');
-        return mockProjects;
-      }
-      
-      return data;
-    } catch (supabaseError) {
-      console.log('Supabase error, using mock projects data for testing');
-      return mockProjects;
-    }
-  } catch (error) {
-    console.log('Error getting projects data, using mock data for testing');
-    // Siempre devolver datos mock en caso de error para permitir testing
-    return [
-      {
-        id: '1',
-        name: 'Edificio Residencial Centro',
-        description: 'Construcción de edificio residencial de 8 plantas con 32 viviendas',
-        status: 'active',
-        progress: 65,
-        start_date: '2024-01-15',
-        end_date: '2024-12-20',
-        budget: 2500000,
-        team_members: 12,
-        location: 'Madrid Centro',
-        created_at: '2024-01-10',
-        companies: { name: 'Construcciones García S.L.' },
-        documents: new Array(87)
-      }
-    ];
-  }
-};
-
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
-
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
-
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
   };
-};
 
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
-    
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'paused': return 'bg-yellow-100 text-yellow-800';
+      case 'planning': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(amount);
+  };
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Proyectos</h1>
+          <p className="text-gray-600">Gestiona y supervisa todos tus proyectos de construcción</p>
+        </div>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+          Nuevo Proyecto
+        </button>
+      </div>
+
+      {/* Estadísticas rápidas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <Building2 className="w-8 h-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Proyectos</p>
+              <p className="text-2xl font-bold text-gray-900">{projects.length}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <Play className="w-8 h-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Activos</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {projects.filter(p => p.status === 'active').length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <CheckCircle className="w-8 h-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Completados</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {projects.filter(p => p.status === 'completed').length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <TrendingUp className="w-8 h-8 text-purple-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Progreso Promedio</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {Math.round(projects.reduce((acc, p) => acc + p.progress, 0) / projects.length || 0)}%
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de proyectos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {projects.map((project) => (
+          <div key={project.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{project.name}</h3>
+                  <p className="text-sm text-gray-600">{project.description}</p>
+                </div>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
+                  {getStatusIcon(project.status)}
+                  <span className="ml-1 capitalize">{project.status}</span>
+                </span>
+              </div>
+
+              {/* Progreso */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Progreso</span>
+                  <span className="text-sm text-gray-600">{project.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${project.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Información del proyecto */}
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  <span>{project.companies?.name}</span>
+                </div>
+                
+                <div className="flex items-center text-sm text-gray-600">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  <span>{project.location}</span>
+                </div>
+                
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  <span>
+                    {formatDate(project.start_date)}
+                    {project.end_date && ` - ${formatDate(project.end_date)}`}
+                  </span>
+                </div>
+                
+                <div className="flex items-center text-sm text-gray-600">
+                  <Users className="w-4 h-4 mr-2" />
+                  <span>{project.documents?.length || 0} documentos</span>
+                </div>
+              </div>
+
+              {/* Presupuesto */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Presupuesto</span>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {formatCurrency(project.budget)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="mt-4 flex space-x-2">
+                <button className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-100 transition-colors">
+                  Ver Detalles
+                </button>
+                <button className="flex-1 bg-gray-50 text-gray-600 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors">
+                  Documentos
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {projects.length === 0 && (
+        <div className="text-center py-12">
+          <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay proyectos</h3>
+          <p className="text-gray-600 mb-4">Comienza creando tu primer proyecto</p>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            Crear Proyecto
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
 
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
-  try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // En producción aquí iría la integración con servicio de email
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
-  } catch (error) {
-    console.error('Error sending receipt email:', error);
-    throw error;
-  }
-};
+export default Projects;
