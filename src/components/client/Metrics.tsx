@@ -12,25 +12,11 @@ import {
   Target,
   Activity
 } from 'lucide-react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { 
   getCurrentClientData,
   getClientDocuments,
   getClientProjects
 } from '../../lib/supabase';
-
-// Fallback chart data in case of API errors
-const fallbackChartData = {
-  labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-  datasets: [{
-    label: 'Documentos Procesados',
-    data: [12, 19, 3, 5, 2, 3],
-    borderColor: 'rgb(59, 130, 246)',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    fill: true,
-    tension: 0.4
-  }]
-};
 
 interface MetricsData {
   totalDocuments: number;
@@ -138,7 +124,6 @@ export default function Metrics() {
 
     } catch (err) {
       console.error('Error loading metrics:', err);
-      // Use fallback data instead of showing error
       setMetrics({
         totalDocuments: 0,
         documentsThisMonth: 0,
@@ -153,61 +138,6 @@ export default function Metrics() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Datos para gráficos
-  const monthlyData = {
-    labels: ['Hace 5 meses', 'Hace 4 meses', 'Hace 3 meses', 'Hace 2 meses', 'Mes pasado', 'Este mes'],
-    datasets: [{
-      label: 'Documentos Procesados',
-      data: metrics.monthlyProgress,
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  };
-
-  const typeData = {
-    labels: Object.keys(metrics.documentsByType),
-    datasets: [{
-      data: Object.values(metrics.documentsByType),
-      backgroundColor: [
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-        'rgba(139, 92, 246, 0.8)',
-        'rgba(236, 72, 153, 0.8)'
-      ],
-      borderWidth: 0
-    }]
-  };
-
-  const statusData = {
-    labels: Object.keys(metrics.documentsByStatus).map(status => {
-      switch (status) {
-        case 'completed': return 'Completado';
-        case 'uploaded_to_obralia': return 'Subido a Obralia';
-        case 'processing': return 'Procesando';
-        case 'classified': return 'Clasificado';
-        case 'pending': return 'Pendiente';
-        case 'error': return 'Error';
-        default: return status;
-      }
-    }),
-    datasets: [{
-      label: 'Documentos por Estado',
-      data: Object.values(metrics.documentsByStatus),
-      backgroundColor: [
-        'rgba(16, 185, 129, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(156, 163, 175, 0.8)',
-        'rgba(239, 68, 68, 0.8)'
-      ],
-      borderWidth: 0
-    }]
   };
 
   if (loading) {
@@ -310,26 +240,104 @@ export default function Metrics() {
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Simple Charts with CSS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Progreso Mensual</h3>
-          <div className="h-64">
-            <Line data={monthlyData} options={{ responsive: true, maintainAspectRatio: false }} />
+          <div className="space-y-3">
+            {metrics.monthlyProgress.map((value, index) => {
+              const maxValue = Math.max(...metrics.monthlyProgress, 1);
+              const percentage = (value / maxValue) * 100;
+              const months = ['Hace 5 meses', 'Hace 4 meses', 'Hace 3 meses', 'Hace 2 meses', 'Mes pasado', 'Este mes'];
+              
+              return (
+                <div key={index} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 w-24">{months[index]}</span>
+                  <div className="flex-1 mx-4">
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div 
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 w-8">{value}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Documentos por Tipo</h3>
-          <div className="h-64">
-            <Doughnut data={typeData} options={{ responsive: true, maintainAspectRatio: false }} />
+          <div className="space-y-3">
+            {Object.entries(metrics.documentsByType).map(([type, count], index) => {
+              const total = Object.values(metrics.documentsByType).reduce((sum, val) => sum + val, 0);
+              const percentage = total > 0 ? (count / total) * 100 : 0;
+              const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500', 'bg-pink-500'];
+              
+              return (
+                <div key={type} className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className={`w-3 h-3 rounded-full mr-3 ${colors[index % colors.length]}`}></div>
+                    <span className="text-sm text-gray-600">{type || 'Sin clasificar'}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${colors[index % colors.length]}`}
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 w-8">{count}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado de Documentos</h3>
-          <div className="h-64">
-            <Bar data={statusData} options={{ responsive: true, maintainAspectRatio: false }} />
+          <div className="space-y-3">
+            {Object.entries(metrics.documentsByStatus).map(([status, count], index) => {
+              const total = Object.values(metrics.documentsByStatus).reduce((sum, val) => sum + val, 0);
+              const percentage = total > 0 ? (count / total) * 100 : 0;
+              const statusColors = {
+                'completed': 'bg-green-500',
+                'uploaded_to_obralia': 'bg-blue-500',
+                'processing': 'bg-yellow-500',
+                'classified': 'bg-purple-500',
+                'pending': 'bg-gray-500',
+                'error': 'bg-red-500'
+              };
+              const statusLabels = {
+                'completed': 'Completado',
+                'uploaded_to_obralia': 'Subido a Obralia',
+                'processing': 'Procesando',
+                'classified': 'Clasificado',
+                'pending': 'Pendiente',
+                'error': 'Error'
+              };
+              
+              return (
+                <div key={status} className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className={`w-3 h-3 rounded-full mr-3 ${statusColors[status as keyof typeof statusColors] || 'bg-gray-500'}`}></div>
+                    <span className="text-sm text-gray-600">{statusLabels[status as keyof typeof statusLabels] || status}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${statusColors[status as keyof typeof statusColors] || 'bg-gray-500'}`}
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 w-8">{count}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
