@@ -1,744 +1,362 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState } from 'react';
+import { User, Mail, Lock, Building, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
-
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      
-      // If not retryable or max retries reached, throw the error
-      throw error;
-    }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
-      
-      try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    // Validar que clientId no sea null o undefined
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    console.log('Updating Obralia credentials for client:', clientId);
-    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      console.error('Supabase error details:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    console.log('Successfully updated Obralia credentials');
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching client data:', error);
-      throw error;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error getting client data:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        companies!inner(name),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener empresas del cliente
-export const getClientCompanies = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('companies')
-      .select(`
-        *,
-        projects(count),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching companies:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        projects!inner(name),
-        companies!inner(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los clientes (admin)
-export const getAllClients = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        users!inner(email, role)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching all clients:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener logs de auditoría
-export const getAuditLogs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        *,
-        users!inner(email, role),
-        clients(company_name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching audit logs:', error);
-  }
+interface RegisterFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  companyName: string;
+  contactName: string;
+  phone: string;
+  address: string;
 }
 
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
+const RegisterForm: React.FC = () => {
+  const [formData, setFormData] = useState<RegisterFormData>({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    companyName: '',
+    contactName: '',
+    phone: '',
+    address: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
-
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
-
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
-};
 
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
+  const validateForm = (): string | null => {
+    if (!formData.email || !formData.password || !formData.companyName || !formData.contactName) {
+      return 'Por favor, completa todos los campos obligatorios';
+    }
     
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
+    if (formData.password.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres';
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      return 'Las contraseñas no coinciden';
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      return 'Por favor, introduce un email válido';
+    }
+    
+    return null;
+  };
 
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
+  const generateClientId = () => {
+    return `CLI-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  };
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
-  }
-};
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener KPIs del sistema
-export const getKPIs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('kpis')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching KPIs:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todas las pasarelas de pago
-export const getAllPaymentGateways = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payment_gateways')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching payment gateways:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener eventos fiscales
-export const getFiscalEvents = async () => {
-  try {
-    // Como no existe la tabla fiscal_events, simularemos datos
-    return [
-      {
-        id: '1',
-        title: 'Declaración IVA Q4 2024',
-        event_date: '2025-01-30',
-        amount_estimate: 5670.00,
-        status: 'upcoming',
-        description: 'Estimado: €5,670'
-      },
-      {
-        id: '2',
-        title: 'Retenciones IRPF',
-        event_date: '2025-02-15',
-        amount_estimate: 2340.00,
-        status: 'upcoming',
-        description: 'Estimado: €2,340'
+    try {
+      // Validar formulario
+      const validationError = validateForm();
+      if (validationError) {
+        setError(validationError);
+        return;
       }
-    ];
-  } catch (error) {
-    console.error('Error fetching fiscal events:', error);
-    throw error;
-  }
-};
 
-// Helper para obtener planes de suscripción
-export const getSubscriptionPlans = async () => {
-  try {
-    // Como no existe la tabla subscription_plans, retornamos datos estáticos
-    return [
-      {
-        id: 'basic',
-        name: 'Básico',
-        price_monthly: 59.00,
-        price_yearly: 590.00,
-        features: [
-          'Hasta 100 documentos/mes',
-          '500MB de almacenamiento',
-          'Clasificación IA básica',
-          'Integración Obralia',
-          'Soporte por email'
-        ],
-        storage_mb: 500,
-        tokens_per_month: 500,
-        documents_per_month: '100/mes',
-        support_level: 'Email',
-        popular: false
-      },
-      {
-        id: 'professional',
-        name: 'Profesional',
-        price_monthly: 149.00,
-        price_yearly: 1490.00,
-        features: [
-          'Hasta 500 documentos/mes',
-          '1GB de almacenamiento',
-          'IA avanzada con 95% precisión',
-          'Integración Obralia completa',
-          'Dashboard personalizado',
-          'Soporte prioritario'
-        ],
-        storage_mb: 1024,
-        tokens_per_month: 1000,
-        documents_per_month: '500/mes',
-        support_level: 'Prioritario',
-        popular: true
-      },
-      {
-        id: 'enterprise',
-        name: 'Empresarial',
-        price_monthly: 299.00,
-        price_yearly: 2990.00,
-        features: [
-          'Documentos ilimitados',
-          '5GB de almacenamiento',
-          'IA premium con análisis predictivo',
-          'API personalizada',
-          'Múltiples usuarios',
-          'Soporte 24/7'
-        ],
-        storage_mb: 5120,
-        tokens_per_month: 5000,
-        documents_per_month: 'Ilimitados',
-        support_level: '24/7',
-        popular: false
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching subscription plans:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener integraciones de API
-export const getAPIIntegrations = async () => {
-  try {
-    // Como no existe la tabla api_integrations, simularemos datos
-    return [
-      {
-        id: '1',
-        name: 'Gemini AI',
-        status: 'connected',
-        description: 'Integración con la API de Gemini para IA',
-        requests_today: 8947,
-        avg_response_time_ms: 234,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          api_key_configured: true, 
-          model: 'gemini-pro',
-          rate_limit: 50000
+      // 1. Crear usuario en Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
-      },
-      {
-        id: '2',
-        name: 'Obralia/Nalanda',
-        status: 'warning',
-        description: 'Integración con la plataforma Obralia/Nalanda',
-        requests_today: 234,
-        avg_response_time_ms: 567,
-        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        config_details: { 
-          api_key_configured: false, 
-          webhook_configured: true,
-          timeout: 30000
-        }
+      });
+
+      if (authError) {
+        throw new Error(`Error de autenticación: ${authError.message}`);
       }
-    ];
-  } catch (error) {
-    console.error('Error fetching API integrations:', error);
-    throw error;
+
+      if (!authData.user) {
+        throw new Error('No se pudo crear el usuario');
+      }
+
+      // 2. Crear registro en la tabla users
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: formData.email,
+          role: 'client'
+        });
+
+      if (userError) {
+        console.error('Error creating user record:', userError);
+        throw new Error(`Error al crear el perfil de usuario: ${userError.message}`);
+      }
+
+      // 3. Crear registro del cliente
+      const clientId = generateClientId();
+      const { error: clientError } = await supabase
+        .from('clients')
+        .insert({
+          user_id: authData.user.id,
+          client_id: clientId,
+          company_name: formData.companyName,
+          contact_name: formData.contactName,
+          email: formData.email,
+          phone: formData.phone || '',
+          address: formData.address || '',
+          subscription_plan: 'basic',
+          subscription_status: 'active',
+          storage_used: 0,
+          storage_limit: 524288000, // 500MB
+          documents_processed: 0,
+          tokens_available: 500,
+          obralia_credentials: { configured: false }
+        });
+
+      if (clientError) {
+        console.error('Error creating client record:', clientError);
+        throw new Error(`Error al crear el perfil del cliente: ${clientError.message}`);
+      }
+
+      setSuccess(true);
+      
+      // Redirigir después de un breve delay
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error instanceof Error ? error.message : 'Error desconocido durante el registro');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Registro Exitoso!</h2>
+          <p className="text-gray-600 mb-4">
+            Tu cuenta ha sido creada correctamente. Serás redirigido al login en unos segundos.
+          </p>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+      </div>
+    );
   }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Crear Cuenta</h1>
+          <p className="text-gray-600">Únete a ConstructIA y digitaliza tu empresa</p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email *
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="tu@empresa.com"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Contraseña */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              Contraseña *
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="Mínimo 6 caracteres"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Confirmar Contraseña */}
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              Confirmar Contraseña *
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="Repite tu contraseña"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Nombre de la Empresa */}
+          <div>
+            <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-2">
+              Nombre de la Empresa *
+            </label>
+            <div className="relative">
+              <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                id="companyName"
+                name="companyName"
+                value={formData.companyName}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="Constructora ABC S.L."
+                required
+              />
+            </div>
+          </div>
+
+          {/* Nombre de Contacto */}
+          <div>
+            <label htmlFor="contactName" className="block text-sm font-medium text-gray-700 mb-2">
+              Nombre de Contacto *
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                id="contactName"
+                name="contactName"
+                value={formData.contactName}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="Juan Pérez"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Teléfono */}
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="+34 600 000 000"
+              />
+            </div>
+          </div>
+
+          {/* Dirección */}
+          <div>
+            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+              Dirección
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+              <textarea
+                id="address"
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                rows={3}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
+                placeholder="Calle Principal 123, 28001 Madrid"
+              />
+            </div>
+          </div>
+
+          {/* Botón de Registro */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Creando cuenta...</span>
+              </>
+            ) : (
+              <>
+                <User className="w-5 h-5" />
+                <span>Crear Cuenta</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-gray-600">
+            ¿Ya tienes cuenta?{' '}
+            <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+              Inicia sesión
+            </a>
+          </p>
+        </div>
+
+        <div className="mt-6 text-xs text-gray-500 text-center">
+          Al registrarte, aceptas nuestros{' '}
+          <a href="/terms" className="text-blue-600 hover:underline">
+            Términos de Servicio
+          </a>{' '}
+          y{' '}
+          <a href="/privacy" className="text-blue-600 hover:underline">
+            Política de Privacidad
+          </a>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Helper para obtener cola de procesamiento manual
-export const getManualProcessingQueue = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('manual_document_queue')
-      .select(`
-        *,
-        documents(filename, original_name),
-        clients(company_name),
-        companies(name),
-        projects(name)
-      `)
-      .order('queue_position', { ascending: true });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching manual processing queue:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener configuraciones del sistema
-export const getSystemSettings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('*')
-      .order('key', { ascending: true });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching system settings:', error);
-    throw error;
-  }
-};
-
-// Helper para actualizar configuración del sistema
-export const updateSystemSetting = async (key: string, value: any, description?: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .upsert({
-        key,
-        value,
-        description: description || `Configuración para ${key}`,
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error updating system setting:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de ingresos
-export const getRevenueStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('amount, payment_date, gateway_name, status')
-      .eq('status', 'paid')
-      .order('payment_date', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching revenue stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de clientes
-export const getClientStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching client stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de documentos
-export const getDocumentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('document_type, upload_status, classification_confidence, created_at, file_size')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching document stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de pagos
-export const getPaymentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('amount, payment_method, payment_status, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching payment stats:', error);
-    throw error;
-  }
-};
-
-// Helper para calcular KPIs dinámicamente
-export const calculateDynamicKPIs = async () => {
-  try {
-    const [clients, documents, receipts] = await Promise.all([
-      getClientStats(),
-      getDocumentStats(),
-      getAllReceipts()
-    ]);
-
-    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
-    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
-    const documentsThisMonth = documents.filter(d => {
-      const docDate = new Date(d.created_at);
-      const now = new Date();
-      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
-    }).length;
-    
-    const avgConfidence = documents.length > 0 
-      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
-      : 0;
-
-    return {
-      activeClients,
-      totalRevenue,
-      documentsThisMonth,
-      avgConfidence: Math.round(avgConfidence * 10) / 10,
-      totalDocuments: documents.length,
-      totalClients: clients.length
-    };
-  } catch (error) {
-    console.error('Error calculating dynamic KPIs:', error);
-    throw error;
-  }
-};
-
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
-  try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // En producción aquí iría la integración con servicio de email
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
-  } catch (error) {
-    console.error('Error sending receipt email:', error);
-    throw error;
-  }
-};
+export default RegisterForm;
