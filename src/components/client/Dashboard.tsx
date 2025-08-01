@@ -257,6 +257,8 @@ export const getAuditLogs = async () => {
     return data;
   } catch (error) {
     console.error('Error fetching audit logs:', error);
+  }
+}
 
 // Helper para guardar mandato SEPA
 export const saveSEPAMandate = async (mandateData: any) => {
