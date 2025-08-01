@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed": "node scripts/seedDatabase.js"
+    "seed": "node scripts/seedDatabase.js",
+    "seed:clean": "node scripts/seedDatabase.js --clean"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.0",
