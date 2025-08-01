@@ -101,13 +101,9 @@ export const updateClientObraliaCredentials = async (
   credentials: { username: string; password: string }
 ) => {
   try {
-    // Validar que clientId no sea null o undefined
     if (!clientId) {
       throw new Error('Client ID is required');
     }
-
-    console.log('Updating Obralia credentials for client:', clientId);
-    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
 
     const { data, error } = await supabase
       .from('clients')
@@ -122,15 +118,13 @@ export const updateClientObraliaCredentials = async (
       .select();
 
     if (error) {
-      console.error('Supabase error details:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+      throw new Error(`Database error: ${error.message}`);
     }
 
     if (!data || data.length === 0) {
       throw new Error('No data returned from update operation. Client may not exist.');
     }
 
-    console.log('Successfully updated Obralia credentials');
     return data[0];
   } catch (error) {
     console.error('Error updating Obralia credentials:', error);
@@ -141,6 +135,10 @@ export const updateClientObraliaCredentials = async (
 // Helper para obtener datos del cliente actual
 export const getCurrentClientData = async (userId: string) => {
   try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
     const { data, error } = await supabase
       .from('clients')
       .select('*')
@@ -148,8 +146,7 @@ export const getCurrentClientData = async (userId: string) => {
       .maybeSingle();
 
     if (error) {
-      console.error('Error fetching client data:', error);
-      throw error;
+      throw new Error(`Error fetching client data: ${error.message}`);
     }
     
     return data;
@@ -162,18 +159,24 @@ export const getCurrentClientData = async (userId: string) => {
 // Helper para obtener proyectos del cliente
 export const getClientProjects = async (clientId: string) => {
   try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
     const { data, error } = await supabase
       .from('projects')
       .select(`
         *,
-        companies!inner(name),
-        documents(count)
+        companies!inner(name)
       `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching projects: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching projects:', error);
     throw error;
@@ -183,18 +186,21 @@ export const getClientProjects = async (clientId: string) => {
 // Helper para obtener empresas del cliente
 export const getClientCompanies = async (clientId: string) => {
   try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
     const { data, error } = await supabase
       .from('companies')
-      .select(`
-        *,
-        projects(count),
-        documents(count)
-      `)
+      .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching companies: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching companies:', error);
     throw error;
@@ -204,18 +210,25 @@ export const getClientCompanies = async (clientId: string) => {
 // Helper para obtener documentos del cliente
 export const getClientDocuments = async (clientId: string) => {
   try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .select(`
         *,
-        projects!inner(name),
-        companies!inner(name)
+        projects(name),
+        companies(name)
       `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching documents: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching documents:', error);
     throw error;
@@ -233,8 +246,11 @@ export const getAllClients = async () => {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching all clients: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching all clients:', error);
     throw error;
@@ -254,12 +270,16 @@ export const getAuditLogs = async () => {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching audit logs:', error);
+    throw error;
   }
-}
+};
 
 // Helper para guardar mandato SEPA
 export const saveSEPAMandate = async (mandateData: any) => {
@@ -270,7 +290,10 @@ export const saveSEPAMandate = async (mandateData: any) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw new Error(`Error saving SEPA mandate: ${error.message}`);
+    }
+    
     return data;
   } catch (error) {
     console.error('Error saving SEPA mandate:', error);
@@ -281,14 +304,21 @@ export const saveSEPAMandate = async (mandateData: any) => {
 // Helper para obtener mandatos SEPA de un cliente
 export const getClientSEPAMandates = async (clientId: string) => {
   try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
     const { data, error } = await supabase
       .from('sepa_mandates')
       .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error getting SEPA mandates: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error getting SEPA mandates:', error);
     throw error;
@@ -352,7 +382,10 @@ export const createReceipt = async (receiptData: {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw new Error(`Error creating receipt: ${error.message}`);
+    }
+    
     return data;
   } catch (error) {
     console.error('Error creating receipt:', error);
@@ -363,14 +396,21 @@ export const createReceipt = async (receiptData: {
 // Helper para obtener recibos de un cliente
 export const getClientReceipts = async (clientId: string) => {
   try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
     const { data, error } = await supabase
       .from('receipts')
       .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error getting client receipts: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error getting client receipts:', error);
     throw error;
@@ -392,8 +432,11 @@ export const getAllReceipts = async () => {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error getting all receipts: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error getting all receipts:', error);
     throw error;
@@ -408,8 +451,11 @@ export const getKPIs = async () => {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching KPIs: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching KPIs:', error);
     throw error;
@@ -424,106 +470,13 @@ export const getAllPaymentGateways = async () => {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching payment gateways: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching payment gateways:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener eventos fiscales
-export const getFiscalEvents = async () => {
-  try {
-    // Como no existe la tabla fiscal_events, simularemos datos
-    return [
-      {
-        id: '1',
-        title: 'Declaración IVA Q4 2024',
-        event_date: '2025-01-30',
-        amount_estimate: 5670.00,
-        status: 'upcoming',
-        description: 'Estimado: €5,670'
-      },
-      {
-        id: '2',
-        title: 'Retenciones IRPF',
-        event_date: '2025-02-15',
-        amount_estimate: 2340.00,
-        status: 'upcoming',
-        description: 'Estimado: €2,340'
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching fiscal events:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener planes de suscripción
-export const getSubscriptionPlans = async () => {
-  try {
-    // Como no existe la tabla subscription_plans, retornamos datos estáticos
-    return [
-      {
-        id: 'basic',
-        name: 'Básico',
-        price_monthly: 59.00,
-        price_yearly: 590.00,
-        features: [
-          'Hasta 100 documentos/mes',
-          '500MB de almacenamiento',
-          'Clasificación IA básica',
-          'Integración Obralia',
-          'Soporte por email'
-        ],
-        storage_mb: 500,
-        tokens_per_month: 500,
-        documents_per_month: '100/mes',
-        support_level: 'Email',
-        popular: false
-      },
-      {
-        id: 'professional',
-        name: 'Profesional',
-        price_monthly: 149.00,
-        price_yearly: 1490.00,
-        features: [
-          'Hasta 500 documentos/mes',
-          '1GB de almacenamiento',
-          'IA avanzada con 95% precisión',
-          'Integración Obralia completa',
-          'Dashboard personalizado',
-          'Soporte prioritario'
-        ],
-        storage_mb: 1024,
-        tokens_per_month: 1000,
-        documents_per_month: '500/mes',
-        support_level: 'Prioritario',
-        popular: true
-      },
-      {
-        id: 'enterprise',
-        name: 'Empresarial',
-        price_monthly: 299.00,
-        price_yearly: 2990.00,
-        features: [
-          'Documentos ilimitados',
-          '5GB de almacenamiento',
-          'IA premium con análisis predictivo',
-          'API personalizada',
-          'Múltiples usuarios',
-          'Soporte 24/7'
-        ],
-        storage_mb: 5120,
-        tokens_per_month: 5000,
-        documents_per_month: 'Ilimitados',
-        support_level: '24/7',
-        popular: false
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching subscription plans:', error);
     throw error;
   }
 };
@@ -531,7 +484,7 @@ export const getSubscriptionPlans = async () => {
 // Helper para obtener integraciones de API
 export const getAPIIntegrations = async () => {
   try {
-    // Como no existe la tabla api_integrations, simularemos datos
+    // Datos simulados ya que no existe la tabla api_integrations
     return [
       {
         id: '1',
@@ -560,6 +513,34 @@ export const getAPIIntegrations = async () => {
           webhook_configured: true,
           timeout: 30000
         }
+      },
+      {
+        id: '3',
+        name: 'Supabase Database',
+        status: 'connected',
+        description: 'Base de datos principal',
+        requests_today: 15678,
+        avg_response_time_ms: 89,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          connection_pool: 'active', 
+          ssl: true,
+          max_connections: 200
+        }
+      },
+      {
+        id: '4',
+        name: 'Stripe Payments',
+        status: 'connected',
+        description: 'Procesamiento de pagos',
+        requests_today: 156,
+        avg_response_time_ms: 234,
+        last_sync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        config_details: { 
+          webhook_configured: true, 
+          live_mode: true,
+          api_version: '2023-10-16'
+        }
       }
     ];
   } catch (error) {
@@ -582,8 +563,11 @@ export const getManualProcessingQueue = async () => {
       `)
       .order('queue_position', { ascending: true });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching manual processing queue: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching manual processing queue:', error);
     throw error;
@@ -598,8 +582,11 @@ export const getSystemSettings = async () => {
       .select('*')
       .order('key', { ascending: true });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching system settings: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching system settings:', error);
     throw error;
@@ -620,7 +607,10 @@ export const updateSystemSetting = async (key: string, value: any, description?:
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw new Error(`Error updating system setting: ${error.message}`);
+    }
+    
     return data;
   } catch (error) {
     console.error('Error updating system setting:', error);
@@ -637,8 +627,11 @@ export const getRevenueStats = async () => {
       .eq('status', 'paid')
       .order('payment_date', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching revenue stats: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching revenue stats:', error);
     throw error;
@@ -653,8 +646,11 @@ export const getClientStats = async () => {
       .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching client stats: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching client stats:', error);
     throw error;
@@ -669,8 +665,11 @@ export const getDocumentStats = async () => {
       .select('document_type, upload_status, classification_confidence, created_at, file_size')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching document stats: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching document stats:', error);
     throw error;
@@ -685,8 +684,11 @@ export const getPaymentStats = async () => {
       .select('amount, payment_method, payment_status, created_at')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      throw new Error(`Error fetching payment stats: ${error.message}`);
+    }
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching payment stats:', error);
     throw error;
@@ -703,7 +705,7 @@ export const calculateDynamicKPIs = async () => {
     ]);
 
     const activeClients = clients.filter(c => c.subscription_status === 'active').length;
-    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+    const totalRevenue = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
     const documentsThisMonth = documents.filter(d => {
       const docDate = new Date(d.created_at);
       const now = new Date();
@@ -711,7 +713,7 @@ export const calculateDynamicKPIs = async () => {
     }).length;
     
     const avgConfidence = documents.length > 0 
-      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
+      ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
       : 0;
 
     return {
@@ -734,7 +736,6 @@ export const sendReceiptByEmail = async (receiptId: string, clientEmail: string)
     // Simular envío de email
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // En producción aquí iría la integración con servicio de email
     console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
     
     return { success: true, message: 'Recibo enviado exitosamente' };

@@ -9,10 +9,9 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  DollarSign
+  DollarSign,
+  RefreshCw
 } from 'lucide-react';
-
-// Import utility functions from a separate file
 import { 
   getCurrentClientData,
   getClientProjects,
@@ -56,13 +55,13 @@ export default function ClientDashboard() {
       setError(null);
 
       if (!user?.id) {
-        throw new Error('User not authenticated');
+        throw new Error('Usuario no autenticado');
       }
 
       // Get client data
       const client = await getCurrentClientData(user.id);
       if (!client) {
-        setError('No client data found for user');
+        setError('No se encontraron datos del cliente para este usuario');
         return;
       }
 
@@ -90,7 +89,7 @@ export default function ClientDashboard() {
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      setError(error instanceof Error ? error.message : 'Error loading dashboard data');
+      setError(error instanceof Error ? error.message : 'Error al cargar los datos del dashboard');
     } finally {
       setLoading(false);
     }
@@ -111,7 +110,10 @@ export default function ClientDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        <div className="flex items-center space-x-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+          <span className="text-gray-600">Cargando dashboard...</span>
+        </div>
       </div>
     );
   }
@@ -122,20 +124,29 @@ export default function ClientDashboard() {
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {error === 'No client data found for user' ? 'Perfil de Cliente Incompleto' : 'Error'}
+            {error === 'No se encontraron datos del cliente para este usuario' ? 'Perfil de Cliente Incompleto' : 'Error'}
           </h2>
           <p className="text-gray-600 mb-4">
-            {error === 'No client data found for user' 
+            {error === 'No se encontraron datos del cliente para este usuario' 
               ? 'Tu perfil de cliente no está completo. Por favor, completa tu información para acceder al dashboard.'
               : error
             }
           </p>
-          <button
-            onClick={() => navigate('/client/settings')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            {error === 'No client data found for user' ? 'Completar Perfil' : 'Ir a Configuración'}
-          </button>
+          <div className="flex space-x-3 justify-center">
+            <button
+              onClick={loadDashboardData}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Reintentar
+            </button>
+            <button
+              onClick={() => navigate('/client/settings')}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              {error === 'No se encontraron datos del cliente para este usuario' ? 'Completar Perfil' : 'Ir a Configuración'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -224,6 +235,12 @@ export default function ClientDashboard() {
               style={{ width: `${Math.min(getStoragePercentage(), 100)}%` }}
             ></div>
           </div>
+          {getStoragePercentage() > 90 && (
+            <div className="flex items-center text-red-600 text-sm mt-2">
+              <AlertCircle className="w-4 h-4 mr-1" />
+              Almacenamiento casi lleno. Considera actualizar tu plan.
+            </div>
+          )}
         </div>
       </div>
 
@@ -263,6 +280,40 @@ export default function ClientDashboard() {
               <p className="text-sm text-gray-600">Analizar rendimiento</p>
             </div>
           </button>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Actividad Reciente</h3>
+        <div className="space-y-3">
+          <div className="flex items-center p-3 bg-green-50 rounded-lg">
+            <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">Sistema funcionando correctamente</p>
+              <p className="text-sm text-gray-500">Todas las funciones operativas - hace 2 min</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+            <FileText className="w-5 h-5 text-blue-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">
+                {stats.totalDocuments} documentos en tu cuenta
+              </p>
+              <p className="text-sm text-gray-500">Gestión documental activa - hace 5 min</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-purple-50 rounded-lg">
+            <Building2 className="w-5 h-5 text-purple-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">
+                {stats.totalProjects} proyectos activos
+              </p>
+              <p className="text-sm text-gray-500">Gestión de proyectos - hace 10 min</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

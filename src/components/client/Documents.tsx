@@ -1,745 +1,439 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { 
+  FileText, 
+  Search, 
+  Filter, 
+  Eye, 
+  Download, 
+  Calendar,
+  Building2,
+  FolderOpen,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  RefreshCw
+} from 'lucide-react';
+import { 
+  getCurrentClientData,
+  getClientDocuments
+} from '../../lib/supabase';
 
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
-
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      
-      // If not retryable or max retries reached, throw the error
-      throw error;
-    }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
-      
-      try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    // Validar que clientId no sea null o undefined
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    console.log('Updating Obralia credentials for client:', clientId);
-    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      console.error('Supabase error details:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    console.log('Successfully updated Obralia credentials');
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching client data:', error);
-      throw error;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error getting client data:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        companies!inner(name),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener empresas del cliente
-export const getClientCompanies = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('companies')
-      .select(`
-        *,
-        projects(count),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching companies:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        projects!inner(name),
-        companies!inner(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los clientes (admin)
-export const getAllClients = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        users!inner(email, role)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching all clients:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener logs de auditoría
-export const getAuditLogs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        *,
-        users!inner(email, role),
-        clients(company_name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching audit logs:', error);
-  }
+interface Document {
+  id: string;
+  filename: string;
+  original_name: string;
+  file_size: number;
+  file_type: string;
+  document_type: string;
+  classification_confidence: number;
+  upload_status: string;
+  obralia_status: string;
+  security_scan_status: string;
+  created_at: string;
+  projects?: { name: string };
+  companies?: { name: string };
 }
 
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
+export default function Documents() {
+  const { user } = useAuth();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
+  useEffect(() => {
+    if (user) {
+      loadDocuments();
+    }
+  }, [user]);
 
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
+  useEffect(() => {
+    filterDocuments();
+  }, [documents, searchTerm, statusFilter, typeFilter]);
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
+  const loadDocuments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
+      if (!user?.id) {
+        throw new Error('Usuario no autenticado');
+      }
 
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
+      const clientData = await getCurrentClientData(user.id);
+      if (!clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+
+      const documentsData = await getClientDocuments(clientData.id);
+      setDocuments(documentsData || []);
+    } catch (err) {
+      console.error('Error loading documents:', err);
+      setError(err instanceof Error ? err.message : 'Error al cargar documentos');
+    } finally {
+      setLoading(false);
+    }
   };
-};
 
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
-    
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
+  const filterDocuments = () => {
+    let filtered = documents;
 
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
+    if (searchTerm) {
+      filtered = filtered.filter(doc =>
+        doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.document_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.projects?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.companies?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(doc => doc.upload_status === statusFilter);
+    }
+
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(doc => doc.document_type === typeFilter);
+    }
+
+    setFilteredDocuments(filtered);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+      case 'uploaded_to_obralia':
+        return 'text-green-600 bg-green-100';
+      case 'processing':
+      case 'classified':
+        return 'text-blue-600 bg-blue-100';
+      case 'pending':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'error':
+        return 'text-red-600 bg-red-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+      case 'uploaded_to_obralia':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'processing':
+      case 'classified':
+        return <Clock className="w-4 h-4 animate-spin" />;
+      case 'pending':
+        return <Clock className="w-4 h-4" />;
+      case 'error':
+        return <AlertCircle className="w-4 h-4" />;
+      default:
+        return <FileText className="w-4 h-4" />;
+    }
+  };
+
+  const uniqueTypes = [...new Set(documents.map(doc => doc.document_type))];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="text-gray-600">Cargando documentos...</span>
+        </div>
+      </div>
+    );
   }
-};
 
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+          <span className="text-red-700">Error: {error}</span>
+        </div>
+        <button 
+          onClick={loadDocuments}
+          className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
   }
-};
 
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
+          <p className="text-gray-600">Gestiona todos tus documentos procesados</p>
+        </div>
+        <button 
+          onClick={loadDocuments}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Actualizar
+        </button>
+      </div>
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <FileText className="w-8 h-8 text-blue-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Documentos</p>
+              <p className="text-2xl font-bold text-gray-900">{documents.length}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Completados</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {documents.filter(d => d.upload_status === 'completed' || d.upload_status === 'uploaded_to_obralia').length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <Clock className="w-8 h-8 text-yellow-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">En Proceso</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {documents.filter(d => d.upload_status === 'processing' || d.upload_status === 'classified').length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Con Errores</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {documents.filter(d => d.upload_status === 'error').length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar documentos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="completed">Completado</option>
+              <option value="uploaded_to_obralia">Subido a Obralia</option>
+              <option value="processing">Procesando</option>
+              <option value="classified">Clasificado</option>
+              <option value="pending">Pendiente</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+          
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+            >
+              <option value="all">Todos los tipos</option>
+              {uniqueTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Documents Table */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Documento
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Proyecto
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Confianza IA
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredDocuments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center space-y-2">
+                      <FileText className="w-8 h-8 text-gray-400" />
+                      <span className="text-gray-500">
+                        {documents.length === 0 
+                          ? 'No hay documentos disponibles'
+                          : 'No se encontraron documentos con los filtros aplicados'
+                        }
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredDocuments.map((document) => (
+                  <tr key={document.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <FileText className="w-5 h-5 text-gray-400 mr-3" />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {document.original_name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {formatFileSize(document.file_size)} • {document.file_type}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {document.document_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <FolderOpen className="w-4 h-4 text-gray-400 mr-2" />
+                        <div>
+                          <div className="text-sm text-gray-900">
+                            {document.projects?.name || 'Sin proyecto'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {document.companies?.name || 'Sin empresa'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(document.upload_status)}`}>
+                        {getStatusIcon(document.upload_status)}
+                        <span className="ml-1 capitalize">{document.upload_status}</span>
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm text-gray-900">
+                          {document.classification_confidence}%
+                        </div>
+                        <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              document.classification_confidence >= 90 ? 'bg-green-500' :
+                              document.classification_confidence >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${document.classification_confidence}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Calendar className="w-4 h-4 mr-1" />
+                        {formatDate(document.created_at)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          title="Ver detalles"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                          title="Descargar"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  function formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
-};
-
-// Helper para obtener KPIs del sistema
-export const getKPIs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('kpis')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching KPIs:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todas las pasarelas de pago
-export const getAllPaymentGateways = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payment_gateways')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching payment gateways:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener eventos fiscales
-export const getFiscalEvents = async () => {
-  try {
-    // Como no existe la tabla fiscal_events, simularemos datos
-    return [
-      {
-        id: '1',
-        title: 'Declaración IVA Q4 2024',
-        event_date: '2025-01-30',
-        amount_estimate: 5670.00,
-        status: 'upcoming',
-        description: 'Estimado: €5,670'
-      },
-      {
-        id: '2',
-        title: 'Retenciones IRPF',
-        event_date: '2025-02-15',
-        amount_estimate: 2340.00,
-        status: 'upcoming',
-        description: 'Estimado: €2,340'
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching fiscal events:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener planes de suscripción
-export const getSubscriptionPlans = async () => {
-  try {
-    // Como no existe la tabla subscription_plans, retornamos datos estáticos
-    return [
-      {
-        id: 'basic',
-        name: 'Básico',
-        price_monthly: 59.00,
-        price_yearly: 590.00,
-        features: [
-          'Hasta 100 documentos/mes',
-          '500MB de almacenamiento',
-          'Clasificación IA básica',
-          'Integración Obralia',
-          'Soporte por email'
-        ],
-        storage_mb: 500,
-        tokens_per_month: 500,
-        documents_per_month: '100/mes',
-        support_level: 'Email',
-        popular: false
-      },
-      {
-        id: 'professional',
-        name: 'Profesional',
-        price_monthly: 149.00,
-        price_yearly: 1490.00,
-        features: [
-          'Hasta 500 documentos/mes',
-          '1GB de almacenamiento',
-          'IA avanzada con 95% precisión',
-          'Integración Obralia completa',
-          'Dashboard personalizado',
-          'Soporte prioritario'
-        ],
-        storage_mb: 1024,
-        tokens_per_month: 1000,
-        documents_per_month: '500/mes',
-        support_level: 'Prioritario',
-        popular: true
-      },
-      {
-        id: 'enterprise',
-        name: 'Empresarial',
-        price_monthly: 299.00,
-        price_yearly: 2990.00,
-        features: [
-          'Documentos ilimitados',
-          '5GB de almacenamiento',
-          'IA premium con análisis predictivo',
-          'API personalizada',
-          'Múltiples usuarios',
-          'Soporte 24/7'
-        ],
-        storage_mb: 5120,
-        tokens_per_month: 5000,
-        documents_per_month: 'Ilimitados',
-        support_level: '24/7',
-        popular: false
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching subscription plans:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener integraciones de API
-export const getAPIIntegrations = async () => {
-  try {
-    // Como no existe la tabla api_integrations, simularemos datos
-    return [
-      {
-        id: '1',
-        name: 'Gemini AI',
-        status: 'connected',
-        description: 'Integración con la API de Gemini para IA',
-        requests_today: 8947,
-        avg_response_time_ms: 234,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          api_key_configured: true, 
-          model: 'gemini-pro',
-          rate_limit: 50000
-        }
-      },
-      {
-        id: '2',
-        name: 'Obralia/Nalanda',
-        status: 'warning',
-        description: 'Integración con la plataforma Obralia/Nalanda',
-        requests_today: 234,
-        avg_response_time_ms: 567,
-        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        config_details: { 
-          api_key_configured: false, 
-          webhook_configured: true,
-          timeout: 30000
-        }
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching API integrations:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener cola de procesamiento manual
-export const getManualProcessingQueue = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('manual_document_queue')
-      .select(`
-        *,
-        documents(filename, original_name),
-        clients(company_name),
-        companies(name),
-        projects(name)
-      `)
-      .order('queue_position', { ascending: true });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching manual processing queue:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener configuraciones del sistema
-export const getSystemSettings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('*')
-      .order('key', { ascending: true });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching system settings:', error);
-    throw error;
-  }
-};
-
-// Helper para actualizar configuración del sistema
-export const updateSystemSetting = async (key: string, value: any, description?: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .upsert({
-        key,
-        value,
-        description: description || `Configuración para ${key}`,
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error updating system setting:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de ingresos
-export const getRevenueStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('amount, payment_date, gateway_name, status')
-      .eq('status', 'paid')
-      .order('payment_date', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching revenue stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de clientes
-export const getClientStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching client stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de documentos
-export const getDocumentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('document_type, upload_status, classification_confidence, created_at, file_size')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching document stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de pagos
-export const getPaymentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('amount, payment_method, payment_status, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching payment stats:', error);
-    throw error;
-  }
-};
-
-// Helper para calcular KPIs dinámicamente
-export const calculateDynamicKPIs = async () => {
-  try {
-    const [clients, documents, receipts] = await Promise.all([
-      getClientStats(),
-      getDocumentStats(),
-      getAllReceipts()
-    ]);
-
-    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
-    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
-    const documentsThisMonth = documents.filter(d => {
-      const docDate = new Date(d.created_at);
-      const now = new Date();
-      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
-    }).length;
-    
-    const avgConfidence = documents.length > 0 
-      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
-      : 0;
-
-    return {
-      activeClients,
-      totalRevenue,
-      documentsThisMonth,
-      avgConfidence: Math.round(avgConfidence * 10) / 10,
-      totalDocuments: documents.length,
-      totalClients: clients.length
-    };
-  } catch (error) {
-    console.error('Error calculating dynamic KPIs:', error);
-    throw error;
-  }
-};
-
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
-  try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // En producción aquí iría la integración con servicio de email
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
-  } catch (error) {
-    console.error('Error sending receipt email:', error);
-    throw error;
-  }
-};
+}
