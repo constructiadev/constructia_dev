@@ -144,7 +144,7 @@ export const getCurrentClientData = async (userId: string) => {
       .from('clients')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching client data:', error);
