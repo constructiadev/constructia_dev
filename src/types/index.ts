@@ -44,9 +44,15 @@ export interface Company {
 export interface Project {
   id: string;
   company_id: string;
+  client_id: string;
   name: string;
   description: string;
-  status: 'active' | 'completed' | 'paused';
+  status: 'planning' | 'active' | 'paused' | 'completed';
+  progress: number;
+  start_date?: string;
+  end_date?: string;
+  budget?: number;
+  location?: string;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +84,7 @@ export interface AuditLog {
   user_id: string;
   client_id?: string;
   action: string;
+  resource: string;
   details: any;
   ip_address: string;
   user_agent: string;
@@ -94,6 +101,7 @@ export interface Payment {
   stripe_payment_intent_id?: string;
   description: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Subscription {
@@ -109,11 +117,85 @@ export interface Subscription {
 }
 
 export interface KPI {
+  id: string;
   name: string;
   value: number | string;
   change: number;
   trend: 'up' | 'down' | 'stable';
   period: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  category?: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Nueva interfaz para mandatos SEPA (basada en datos mock)
+export interface SEPAMandate {
+  id: string;
+  mandate_id: string;
+  client_id: string;
+  deudor_nombre: string;
+  deudor_direccion: string;
+  deudor_codigo_postal: string;
+  deudor_ciudad: string;
+  deudor_pais: string;
+  deudor_identificacion: string;
+  iban: string;
+  bic: string;
+  banco_nombre: string;
+  tipo_pago: 'recurrente' | 'unico';
+  amount: number;
+  currency: string;
+  description: string;
+  fecha_firma: string;
+  ip_address: string;
+  user_agent: string;
+  session_id: string;
+  status: 'active' | 'cancelled' | 'expired';
+  created_at: string;
+}
+
+// Nueva interfaz para recibos (basada en datos mock)
+export interface Receipt {
+  id: string;
+  receipt_number: string;
+  client_id: string;
+  amount: number;
+  base_amount: number;
+  tax_amount: number;
+  tax_rate: number;
+  currency: string;
+  payment_method: string;
+  gateway_name: string;
+  description: string;
+  payment_date: string;
+  status: 'paid' | 'pending' | 'failed' | 'refunded';
+  transaction_id: string;
+  invoice_items: any;
+  client_details: any;
+  company_details: any;
+  created_at: string;
+  updated_at: string;
+}
+
+// Nueva interfaz para pasarelas de pago (basada en datos mock)
+export interface PaymentGateway {
+  id: string;
+  name: string;
+  type: 'stripe' | 'paypal' | 'sepa' | 'bizum' | 'custom';
+  status: 'active' | 'inactive' | 'warning';
+  commission_type: 'percentage' | 'fixed' | 'mixed';
+  commission_percentage?: number;
+  commission_fixed?: number;
+  api_key?: string;
+  secret_key?: string;
+  webhook_url?: string;
+  supported_currencies: string[];
+  min_amount?: number;
+  max_amount?: number;
+  description: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SystemSettings {
