@@ -144,7 +144,33 @@ export const getCurrentClientData = async (userId: string) => {
       .from('clients')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
     if (error) throw error;
     return data;
   } catch (error) {
@@ -231,9 +257,8 @@ export const getAuditLogs = async () => {
     return data;
   } catch (error) {
     console.error('Error fetching audit logs:', error);
-    throw error;
   }
-};
+}
 
 // Helper para guardar mandato SEPA
 export const saveSEPAMandate = async (mandateData: any) => {
@@ -667,23 +692,37 @@ export const getPaymentStats = async () => {
   }
 };
 
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
   try {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        companies!inner(name),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
 
-    if (error) throw error;
-    return data;
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
   } catch (error) {
-    console.error('Error fetching projects:', error);
+    console.error('Error calculating dynamic KPIs:', error);
     throw error;
   }
 };
@@ -703,3 +742,5 @@ export const sendReceiptByEmail = async (receiptId: string, clientEmail: string)
     throw error;
   }
 };
+
+export default Router;
