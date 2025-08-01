@@ -258,59 +258,6 @@ export const getAuditLogs = async () => {
   } catch (error) {
     console.error('Error fetching audit logs:', error);
 
-      const logsData = await getAuditLogs();
-      
-      // Transformar datos para el formato esperado
-      const transformedLogs = logsData.map((log: any) => ({
-        id: log.id,
-        user_id: log.user_id,
-        client_id: log.client_id,
-        action: log.action,
-        resource: log.resource,
-        details: typeof log.details === 'object' ? log.details.message || JSON.stringify(log.details) : log.details,
-        ip_address: log.ip_address || '127.0.0.1',
-        user_agent: log.user_agent || 'Unknown',
-        user_role: log.users?.role || 'unknown',
-        user_email: log.users?.email || 'unknown@example.com',
-        client_name: log.clients?.company_name || null,
-        status: 'success', // Por defecto, se puede mejorar con lógica adicional
-        created_at: log.created_at
-      }));
-      
-      setAuditLogs(transformedLogs);
-      setFilteredLogs(transformedLogs);
-    } catch (error) {
-      console.error('Error loading audit logs:', error);
-      setError('Error al cargar los logs de auditoría');
-    } finally {
-      setDataLoading(false);
-    }
-  };
-
-  if (dataLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <AlertTriangle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-red-800 mb-2">Error al cargar logs</h3>
-        <p className="text-red-700 mb-4">{error}</p>
-        <button
-          onClick={loadAuditLogs}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
-  }
-
 // Helper para guardar mandato SEPA
 export const saveSEPAMandate = async (mandateData: any) => {
   try {
