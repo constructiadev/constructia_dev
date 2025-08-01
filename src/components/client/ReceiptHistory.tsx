@@ -1,398 +1,416 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Mail, 
-  Eye,
-  Search,
-  Filter,
-  Calendar,
-  Euro,
-  CheckCircle,
-  Clock,
-  AlertTriangle
-} from 'lucide-react';
-import ReceiptGenerator from '../common/ReceiptGenerator';
+import { createClient } from '@supabase/supabase-js';
 
-interface Receipt {
-  id: string;
-  receipt_number: string;
-  client_id: string;
-  client_name: string;
-  client_email: string;
-  client_address: string;
-  client_tax_id: string;
-  amount: number;
-  gross_amount: number;
-  commission: number;
-  currency: string;
-  payment_method: string;
-  gateway_name: string;
-  description: string;
-  payment_date: string;
-  status: 'paid' | 'pending' | 'failed';
-  transaction_id: string;
-  invoice_items: {
-    description: string;
-    quantity: number;
-    unit_price: number;
-    total: number;
-  }[];
-  tax_details: {
-    base: number;
-    iva_rate: number;
-    iva_amount: number;
-    total: number;
-  };
-  company_details: {
-    name: string;
-    address: string;
-    tax_id: string;
-    phone: string;
-    email: string;
-    website: string;
-  };
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export default function ReceiptHistory() {
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-  // Datos simulados de recibos
-  const mockReceipts: Receipt[] = [
-    {
-      id: '1',
-      receipt_number: 'REC-2024-001',
-      client_id: 'CLI-001',
-      client_name: 'Construcciones García S.L.',
-      client_email: 'juan@construccionesgarcia.com',
-      client_address: 'Calle Mayor 123, 28001 Madrid',
-      client_tax_id: 'B12345678',
-      amount: 149.00,
-      gross_amount: 153.32,
-      commission: 4.32,
-      currency: 'EUR',
-      payment_method: 'Tarjeta de Crédito',
-      gateway_name: 'Stripe',
-      description: 'Suscripción Plan Profesional - Enero 2024',
-      payment_date: '2024-01-27T10:30:00Z',
-      status: 'paid',
-      transaction_id: 'txn_1234567890',
-      invoice_items: [
-        {
-          description: 'Plan Profesional ConstructIA - Enero 2024',
-          quantity: 1,
-          unit_price: 123.14,
-          total: 123.14
-        }
-      ],
-      tax_details: {
-        base: 123.14,
-        iva_rate: 21,
-        iva_amount: 25.86,
-        total: 149.00
-      },
-      company_details: {
-        name: 'ConstructIA S.L.',
-        address: 'Calle Innovación 123, 28001 Madrid, España',
-        tax_id: 'B87654321',
-        phone: '+34 91 000 00 00',
-        email: 'facturacion@constructia.com',
-        website: 'www.constructia.com'
-      }
-    },
-    {
-      id: '2',
-      receipt_number: 'REC-2023-012',
-      client_id: 'CLI-001',
-      client_name: 'Construcciones García S.L.',
-      client_email: 'juan@construccionesgarcia.com',
-      client_address: 'Calle Mayor 123, 28001 Madrid',
-      client_tax_id: 'B12345678',
-      amount: 149.00,
-      gross_amount: 153.32,
-      commission: 4.32,
-      currency: 'EUR',
-      payment_method: 'Tarjeta de Crédito',
-      gateway_name: 'Stripe',
-      description: 'Suscripción Plan Profesional - Diciembre 2023',
-      payment_date: '2023-12-27T10:30:00Z',
-      status: 'paid',
-      transaction_id: 'txn_0987654321',
-      invoice_items: [
-        {
-          description: 'Plan Profesional ConstructIA - Diciembre 2023',
-          quantity: 1,
-          unit_price: 123.14,
-          total: 123.14
-        }
-      ],
-      tax_details: {
-        base: 123.14,
-        iva_rate: 21,
-        iva_amount: 25.86,
-        total: 149.00
-      },
-      company_details: {
-        name: 'ConstructIA S.L.',
-        address: 'Calle Innovación 123, 28001 Madrid, España',
-        tax_id: 'B87654321',
-        phone: '+34 91 000 00 00',
-        email: 'facturacion@constructia.com',
-        website: 'www.constructia.com'
-      }
-    },
-    {
-      id: '3',
-      receipt_number: 'REC-2024-002',
-      client_id: 'CLI-001',
-      client_name: 'Construcciones García S.L.',
-      client_email: 'juan@construccionesgarcia.com',
-      client_address: 'Calle Mayor 123, 28001 Madrid',
-      client_tax_id: 'B12345678',
-      amount: 79.00,
-      gross_amount: 81.29,
-      commission: 2.29,
-      currency: 'EUR',
-      payment_method: 'PayPal',
-      gateway_name: 'PayPal',
-      description: 'Compra de Tokens - Paquete Profesional',
-      payment_date: '2024-01-15T14:20:00Z',
-      status: 'paid',
-      transaction_id: 'txn_tokens_001',
-      invoice_items: [
-        {
-          description: 'Paquete de 1500 Tokens IA',
-          quantity: 1,
-          unit_price: 65.29,
-          total: 65.29
-        }
-      ],
-      tax_details: {
-        base: 65.29,
-        iva_rate: 21,
-        iva_amount: 13.71,
-        total: 79.00
-      },
-      company_details: {
-        name: 'ConstructIA S.L.',
-        address: 'Calle Innovación 123, 28001 Madrid, España',
-        tax_id: 'B87654321',
-        phone: '+34 91 000 00 00',
-        email: 'facturacion@constructia.com',
-        website: 'www.constructia.com'
-      }
-    }
-  ];
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  useEffect(() => {
-    setReceipts(mockReceipts);
-    setFilteredReceipts(mockReceipts);
-  }, []);
-
-  useEffect(() => {
-    let filtered = receipts.filter(receipt => {
-      const matchesSearch = receipt.receipt_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           receipt.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           receipt.payment_method.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = filterStatus === 'all' || receipt.status === filterStatus;
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await attemptGeminiCall(prompt);
+    } catch (error) {
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
       
-      return matchesSearch && matchesStatus;
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      
+      // If not retryable or max retries reached, throw the error
+      throw error;
+    }
+  }
+};
+
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
     });
 
-    setFilteredReceipts(filtered);
-  }, [receipts, searchTerm, filterStatus]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
-  };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'paid': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'failed': return <AlertTriangle className="h-4 w-4 text-red-600" />;
-      default: return <Clock className="h-4 w-4 text-gray-600" />;
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
     }
-  };
+    throw error;
+  }
+};
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(amount);
-  };
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
 
-  const handleViewReceipt = (receipt: Receipt) => {
-    setSelectedReceipt(receipt);
-    setShowReceiptModal(true);
-  };
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Mis Recibos</h2>
-          <p className="text-gray-600">Historial completo de pagos y recibos</p>
-        </div>
-        <div className="text-sm text-gray-600">
-          <span className="font-medium">{filteredReceipts.length}</span> recibos
-        </div>
-      </div>
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
 
-      {/* Filtros y Búsqueda */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-64">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por número, descripción o método de pago..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="paid">Pagado</option>
-            <option value="pending">Pendiente</option>
-            <option value="failed">Fallido</option>
-          </select>
-        </div>
-      </div>
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
 
-      {/* Lista de Recibos */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recibo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método de Pago</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredReceipts.map((receipt) => (
-                <tr key={receipt.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-600 mr-3" />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{receipt.receipt_number}</div>
-                        <div className="text-sm text-gray-500">{receipt.transaction_id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{receipt.description}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{receipt.gateway_name}</div>
-                    <div className="text-sm text-gray-500">{receipt.payment_method}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{formatCurrency(receipt.amount)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {getStatusIcon(receipt.status)}
-                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(receipt.status)}`}>
-                        {receipt.status === 'paid' ? 'Pagado' : receipt.status === 'pending' ? 'Pendiente' : 'Fallido'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {new Date(receipt.payment_date).toLocaleDateString('es-ES')}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleViewReceipt(receipt)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Ver recibo"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="text-green-600 hover:text-green-900"
-                        title="Descargar PDF"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="text-purple-600 hover:text-purple-900"
-                        title="Reenviar por email"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    console.log('Successfully updated Obralia credentials');
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
 
-      {filteredReceipts.length === 0 && (
-        <div className="text-center py-12">
-          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-800 mb-2">No se encontraron recibos</h3>
-          <p className="text-gray-600">
-            {searchTerm ? 'Intenta con otros términos de búsqueda' : 'No hay recibos disponibles'}
-          </p>
-        </div>
-      )}
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-      {/* Modal de Recibo */}
-      {showReceiptModal && selectedReceipt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
-            <ReceiptGenerator
-              receiptData={selectedReceipt}
-              onEmailSent={() => {
-                alert('Recibo reenviado exitosamente');
-                setShowReceiptModal(false);
-              }}
-              showActions={true}
-            />
-            <div className="p-4 border-t border-gray-200 text-center">
-              <button
-                onClick={() => setShowReceiptModal(false)}
-                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+  }
 }
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // En producción aquí iría la integración con servicio de email
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};

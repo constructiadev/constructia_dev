@@ -1,497 +1,416 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { 
-  Upload, 
-  FileText, 
-  X, 
-  CheckCircle, 
-  AlertCircle,
-  Brain,
-  Loader,
-  Eye,
-  Settings,
-  Globe,
-  Clock
-} from 'lucide-react';
-import { callGeminiAI } from '../../lib/supabase';
-import ObraliaCredentialsModal from './ObraliaCredentialsModal';
-import { useAuth } from '../../context/AuthContext';
-import { getCurrentClientData, updateClientObraliaCredentials } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-interface UploadedFile {
-  id: string;
-  file: File;
-  status: 'uploading' | 'analyzing' | 'classified' | 'pending_obralia' | 'uploading_obralia' | 'obralia_validated' | 'completed' | 'error';
-  classification?: string;
-  confidence?: number;
-  obralia_section?: string;
-  obralia_status?: 'pending' | 'uploaded' | 'validated' | 'rejected';
-  error_message?: string;
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export default function DocumentUpload() {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState('');
-  const [selectedProject, setSelectedProject] = useState('');
-  const [showObraliaModal, setShowObraliaModal] = useState(false);
-  const [obraliaConfigured, setObraliaConfigured] = useState(false);
-  const { user } = useAuth();
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-  // Datos simulados
-  const companies = [
-    { id: '1', name: 'Construcciones García S.L.' },
-    { id: '2', name: 'Obras Públicas del Norte S.A.' },
-    { id: '3', name: 'Reformas Integrales López' }
-  ];
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  const projects = [
-    { id: '1', name: 'Edificio Residencial Centro', company_id: '1' },
-    { id: '2', name: 'Reforma Oficinas Norte', company_id: '1' },
-    { id: '3', name: 'Puente Industrial A-7', company_id: '2' },
-    { id: '4', name: 'Centro Comercial Valencia', company_id: '3' }
-  ];
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await attemptGeminiCall(prompt);
+    } catch (error) {
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
+      
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      
+      // If not retryable or max retries reached, throw the error
+      throw error;
+    }
+  }
+};
 
-  // Verificar configuración de Obralia al cargar
-  useEffect(() => {
-    const checkObraliaConfig = async () => {
-      if (!user?.id) return;
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
       
       try {
-        const clientData = await getCurrentClientData(user.id);
-        const isConfigured = clientData?.obralia_credentials?.configured || false;
-        setObraliaConfigured(isConfigured);
-      } catch (error) {
-        console.error('Error checking Obralia config:', error);
-        setObraliaConfigured(false);
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
       }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
+
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    console.log('Successfully updated Obralia credentials');
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+  }
+}
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
     };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    checkObraliaConfig();
-  }, [user?.id]);
-
-  const handleSaveObraliaCredentials = async (credentials: { username: string; password: string }) => {
-    try {
-      // Simular guardado exitoso de credenciales para desarrollo/testing
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simular actualización exitosa sin llamar a Supabase
-      console.log('Mock: Credenciales Obralia guardadas exitosamente');
-      
-      setObraliaConfigured(true);
-      setShowObraliaModal(false);
-      
-      alert('¡Credenciales de Obralia configuradas exitosamente! Ahora puedes subir documentos.');
-      
-    } catch (error) {
-      // En modo testing, siempre permitir continuar
-      console.log('Mock: Error simulado, pero permitiendo continuar para testing');
-      setObraliaConfigured(true);
-      setShowObraliaModal(false);
-      alert('Credenciales configuradas para testing. Puedes continuar.');
-    }
-  };
-
-  const filteredProjects = projects.filter(p => p.company_id === selectedCompany);
-
-  const classifyDocument = async (file: File): Promise<{ classification: string; confidence: number; obralia_section: string }> => {
-    const prompt = `Analiza este documento de construcción y clasifícalo:
-    Nombre del archivo: ${file.name}
-    Tipo: ${file.type}
+    // En producción aquí iría la integración con servicio de email
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
     
-    Clasifica en una de estas categorías:
-    - Factura
-    - Certificado
-    - DNI/Identificación
-    - Contrato
-    - Seguro
-    - Plano/Técnico
-    - Otro
-    
-    Indica también la sección de Obralia donde debería subirse:
-    - Documentación Administrativa
-    - Certificados y Permisos
-    - Facturación
-    - Personal
-    - Técnica
-    
-    Responde en formato: "Clasificación: [tipo] | Confianza: [0-100]% | Sección Obralia: [sección]"`;
-
-    try {
-      const response = await callGeminiAI(prompt);
-      
-      // Parsear respuesta (simulado)
-      const classification = response.includes('Factura') ? 'Factura' : 
-                           response.includes('Certificado') ? 'Certificado' :
-                           response.includes('DNI') ? 'DNI/Identificación' :
-                           response.includes('Contrato') ? 'Contrato' : 'Documento';
-      
-      const confidence = Math.floor(Math.random() * 20) + 80; // 80-100%
-      const obralia_section = 'Documentación Administrativa';
-      
-      return { classification, confidence, obralia_section };
-    } catch (error) {
-      throw new Error('Error al clasificar documento');
-    }
-  };
-
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const newFiles: UploadedFile[] = acceptedFiles.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      status: 'uploading'
-    }));
-
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-
-    // Procesar cada archivo
-    for (const fileData of newFiles) {
-      try {
-        // Simular subida
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, status: 'analyzing' } : f
-        ));
-
-        // Clasificar con IA
-        const { classification, confidence, obralia_section } = await classifyDocument(fileData.file);
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { 
-            ...f, 
-            status: 'classified',
-            classification,
-            confidence,
-            obralia_section
-          } : f
-        ));
-
-      } catch (error) {
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { 
-            ...f, 
-            status: 'error',
-            error_message: 'Error al procesar el archivo'
-          } : f
-        ));
-      }
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/*': ['.png', '.jpg', '.jpeg'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
-    },
-    maxSize: 10 * 1024 * 1024 // 10MB
-  });
-
-  const removeFile = (fileId: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-  };
-
-  const processToObralia = async () => {
-    const classifiedFiles = uploadedFiles.filter(f => f.status === 'classified');
-    
-    for (const fileData of classifiedFiles) {
-      try {
-        // Actualizar estado a pending_obralia
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, status: 'pending_obralia' } : f
-        ));
-
-        // Simular procesamiento asíncrono
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, status: 'uploading_obralia' } : f
-        ));
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { 
-            ...f, 
-            status: 'obralia_validated',
-            obralia_status: 'validated'
-          } : f
-        ));
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, status: 'completed' } : f
-        ));
-
-      } catch (error) {
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { 
-            ...f, 
-            status: 'error',
-            error_message: 'Error al procesar con Obralia'
-          } : f
-        ));
-      }
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'uploading':
-        return <Loader className="h-4 w-4 text-blue-600 animate-spin" />;
-      case 'analyzing':
-        return <Brain className="h-4 w-4 text-purple-600 animate-pulse" />;
-      case 'classified':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'pending_obralia':
-        return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'uploading_obralia':
-        return <Upload className="h-4 w-4 text-blue-600 animate-pulse" />;
-      case 'obralia_validated':
-        return <CheckCircle className="h-4 w-4 text-emerald-600" />;
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-600" />;
-      default:
-        return null;
-    }
-  };
-
-  const getStatusText = (file: UploadedFile) => {
-    switch (file.status) {
-      case 'uploading':
-        return 'Subiendo...';
-      case 'analyzing':
-        return 'Analizando con IA...';
-      case 'classified':
-        return `${file.classification} (${file.confidence}% confianza)`;
-      case 'pending_obralia':
-        return 'Esperando subida a Obralia...';
-      case 'uploading_obralia':
-        return 'Subiendo a Obralia...';
-      case 'obralia_validated':
-        return 'Validado en Obralia';
-      case 'completed':
-        return 'Proceso completado';
-      case 'error':
-        return file.error_message || 'Error';
-      default:
-        return '';
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Subir Documentos</h2>
-        <p className="text-gray-600">Arrastra y suelta tus documentos para procesarlos automáticamente</p>
-      </div>
-
-      {/* Selección de Empresa y Proyecto */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Destino de los Documentos</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Empresa
-            </label>
-            <select
-              value={selectedCompany}
-              onChange={(e) => {
-                setSelectedCompany(e.target.value);
-                setSelectedProject('');
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="">Selecciona una empresa</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proyecto
-            </label>
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              disabled={!selectedCompany}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
-            >
-              <option value="">Selecciona un proyecto</option>
-              {filteredProjects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Zona de Subida */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        {/* Verificación de credenciales Obralia */}
-        <div className={`mb-6 p-4 rounded-lg border ${
-          obraliaConfigured 
-            ? 'bg-green-50 border-green-200' 
-            : 'bg-red-50 border-red-200'
-        }`}>
-          <div className="flex items-start">
-            {obraliaConfigured ? (
-              <CheckCircle className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
-            )}
-            <div>
-              <h4 className={`font-semibold ${
-                obraliaConfigured ? 'text-green-800' : 'text-red-800'
-              }`}>
-                {obraliaConfigured ? 'Credenciales Obralia Configuradas' : 'Credenciales Obralia Requeridas'}
-              </h4>
-              <p className={`text-sm mt-1 ${
-                obraliaConfigured ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {obraliaConfigured 
-                  ? 'Tus credenciales están configuradas correctamente. Puedes subir documentos.'
-                  : 'Para poder subir documentos, necesitas configurar tus credenciales de Obralia/Nalanda.'
-                }
-              </p>
-              {!obraliaConfigured && (
-                <button
-                  onClick={() => setShowObraliaModal(true)}
-                  className="mt-3 flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Configurar Credenciales
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-            isDragActive 
-              ? 'border-green-500 bg-green-50' 
-              : obraliaConfigured
-              ? 'border-gray-300 hover:border-green-400 hover:bg-green-50 cursor-pointer'
-              : 'border-gray-300 hover:border-red-400 hover:bg-red-50 opacity-50 cursor-not-allowed'
-          }`}
-        >
-          <input {...getInputProps()} disabled={!obraliaConfigured} />
-          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          {isDragActive ? (
-            <p className="text-green-600 font-medium">Suelta los archivos aquí...</p>
-          ) : obraliaConfigured ? (
-            <div>
-              <p className="text-gray-700 font-medium mb-2">
-                Arrastra y suelta tus archivos aquí, o haz clic para seleccionar
-              </p>
-              <p className="text-sm text-gray-500">
-                Soporta PDF, DOC, DOCX, JPG, PNG (máx. 10MB por archivo)
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-red-600 font-medium mb-2">
-                Subida deshabilitada - Configura credenciales Obralia primero
-              </p>
-              <p className="text-sm text-gray-500">
-                Haz clic en "Configurar Credenciales" para habilitar la subida
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Lista de Archivos Subidos */}
-      {uploadedFiles.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Archivos Procesados</h3>
-          <div className="space-y-3">
-            {uploadedFiles.map((fileData) => (
-              <div key={fileData.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center flex-1">
-                  <FileText className="h-8 w-8 text-blue-600 mr-3" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">{fileData.file.name}</p>
-                    <div className="flex items-center mt-1">
-                      {getStatusIcon(fileData.status)}
-                      <span className="text-sm text-gray-600 ml-2">
-                        {getStatusText(fileData)}
-                      </span>
-                    </div>
-                    {fileData.obralia_section && (
-                      <p className="text-xs text-purple-600 mt-1">
-                        → Destino Obralia: {fileData.obralia_section}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  {fileData.status === 'classified' && (
-                    <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => removeFile(fileData.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {uploadedFiles.some(f => f.status === 'classified') && (
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <button 
-                onClick={processToObralia}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-              >
-                Procesar y Subir a Obralia ({uploadedFiles.filter(f => f.status === 'classified').length} documentos)
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal de Credenciales Obralia */}
-      <ObraliaCredentialsModal
-        isOpen={showObraliaModal}
-        onSave={handleSaveObraliaCredentials}
-        clientName={user?.email || 'Cliente'}
-      />
-
-      {/* Información de Ayuda */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-        <div className="flex items-start">
-          <Brain className="h-6 w-6 text-blue-600 mr-3 mt-0.5" />
-          <div>
-            <h4 className="font-semibold text-blue-800 mb-2">Procesamiento Inteligente con IA</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Los documentos se clasifican automáticamente usando Gemini AI</li>
-              <li>• Se detecta el tipo de documento y su destino en Obralia</li>
-              <li>• Los archivos se suben automáticamente tras la validación</li>
-              <li>• Se mantiene un registro completo de todas las operaciones</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
