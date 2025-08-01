@@ -31,6 +31,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Función para verificar si el usuario existe en la base de datos
+  const checkUserExists = async (email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, role')
+        .eq('email', email)
+        .single();
+      
+      return { exists: !error && data, userData: data };
+    } catch (error) {
+      return { exists: false, userData: null };
+    }
+  };
+
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
@@ -90,36 +105,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) throw error;
-    return data;
+    try {
+      // Primero verificar si el usuario existe en nuestra base de datos
+      const { exists, userData } = await checkUserExists(email);
+      
+      if (!exists) {
+        throw new Error('Usuario no encontrado. Por favor, regístrate primero.');
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Credenciales incorrectas. Verifica tu email y contraseña.');
+        }
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const loginAdmin = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) throw error;
+    try {
+      // Verificar si el usuario existe y es admin
+      const { exists, userData } = await checkUserExists(email);
+      
+      if (!exists) {
+        throw new Error('Usuario administrador no encontrado.');
+      }
+      
+      if (userData?.role !== 'admin') {
+        throw new Error('Acceso no autorizado. Solo administradores pueden acceder.');
+      }
 
-    // Verificar que es admin
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', data.user?.id)
-      .single();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Credenciales incorrectas. Verifica tu email y contraseña.');
+        }
+        throw error;
+      }
 
-    if (profile?.role !== 'admin') {
-      await supabase.auth.signOut();
-      throw new Error('Acceso no autorizado');
+      return data;
+    } catch (error) {
+      console.error('Admin login error:', error);
+      throw error;
     }
-
-    return data;
   };
 
   const register = async (email: string, password: string, clientData: any) => {
@@ -137,21 +179,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('El usuario ya está registrado. Por favor, inicia sesión.');
         }
         
-        if (error.message.includes('Database error saving new user')) {
-          const { data: retryData, error: retryError } = await supabase.auth.signUp({
-            email,
-            password
-          });
-          
-          if (retryError) throw retryError;
-          
-          if (retryData.user) {
-            await createClientRecord(retryData.user.id, email, clientData);
-          }
-          
-          return retryData;
-        }
         throw error;
+      }
+      
+      // Si el usuario se creó correctamente, crear el registro del cliente
+      if (data.user) {
+        await createClientRecord(data.user.id, email, clientData);
       }
       
       return data;
@@ -163,6 +196,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createClientRecord = async (userId: string, email: string, clientData: any) => {
     try {
+      // Primero crear el registro en users
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: email,
+          role: 'client'
+        });
+      
+      if (userError) {
+        console.error('Error creating user record:', userError);
+      }
+
+      // Luego crear el registro del cliente
       const { error } = await supabase
         .from('clients')
         .insert({

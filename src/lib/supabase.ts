@@ -12,90 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 3) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        (error.message.includes('503') || error.message.includes('CORS') || error.message.includes('Failed to fetch'));
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`API request failed (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      
-      // If not retryable or max retries reached, throw the error
-      console.warn('API request failed, using fallback data');
-      return 'API temporarily unavailable. Using cached data.';
-    }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
-      
-      try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-
 // Helper para actualizar credenciales de Obralia del cliente
 export const updateClientObraliaCredentials = async (
   clientId: string, 
@@ -482,41 +398,13 @@ export const getAllPaymentGateways = async () => {
   }
 };
 
-// Helper para obtener integraciones de API
+// Helper para obtener integraciones de API (datos estáticos)
 export const getAPIIntegrations = async () => {
   try {
-    // Datos simulados ya que no existe la tabla api_integrations
+    // Datos simulados sin llamadas externas
     return [
       {
         id: '1',
-        name: 'Gemini AI',
-        status: 'connected',
-        description: 'Integración con la API de Gemini para IA',
-        requests_today: 8947,
-        avg_response_time_ms: 234,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          api_key_configured: true, 
-          model: 'gemini-pro',
-          rate_limit: 50000
-        }
-      },
-      {
-        id: '2',
-        name: 'Obralia/Nalanda',
-        status: 'warning',
-        description: 'Integración con la plataforma Obralia/Nalanda',
-        requests_today: 234,
-        avg_response_time_ms: 567,
-        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        config_details: { 
-          api_key_configured: false, 
-          webhook_configured: true,
-          timeout: 30000
-        }
-      },
-      {
-        id: '3',
         name: 'Supabase Database',
         status: 'connected',
         description: 'Base de datos principal',
@@ -530,17 +418,31 @@ export const getAPIIntegrations = async () => {
         }
       },
       {
-        id: '4',
-        name: 'Stripe Payments',
+        id: '2',
+        name: 'Sistema de Archivos',
         status: 'connected',
-        description: 'Procesamiento de pagos',
-        requests_today: 156,
-        avg_response_time_ms: 234,
-        last_sync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        description: 'Almacenamiento local de documentos',
+        requests_today: 234,
+        avg_response_time_ms: 45,
+        last_sync: new Date().toISOString(),
         config_details: { 
-          webhook_configured: true, 
-          live_mode: true,
-          api_version: '2023-10-16'
+          storage_configured: true, 
+          encryption: true,
+          backup_enabled: true
+        }
+      },
+      {
+        id: '3',
+        name: 'Procesamiento Local',
+        status: 'connected',
+        description: 'Clasificación de documentos local',
+        requests_today: 456,
+        avg_response_time_ms: 123,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          local_processing: true, 
+          cache_enabled: true,
+          queue_size: 10
         }
       }
     ];
@@ -734,8 +636,8 @@ export const calculateDynamicKPIs = async () => {
 // Helper para simular envío de email
 export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
   try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Simular envío de email sin llamadas externas
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
     

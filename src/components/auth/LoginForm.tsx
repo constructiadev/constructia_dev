@@ -30,8 +30,12 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
         navigate('/client/dashboard');
       }
     } catch (error) {
-      console.error('Error en handleSubmit:', error);
-      setError(error instanceof Error ? error.message : 'Error de autenticación');
+      console.error('Login error:', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Error de autenticación. Por favor, inténtalo de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
