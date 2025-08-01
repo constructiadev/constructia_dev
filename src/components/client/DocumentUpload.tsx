@@ -1,476 +1,746 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle, Clock, X } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { 
-  supabase, 
-  getCurrentClientData, 
-  getClientProjects, 
-  getClientCompanies,
-  callGeminiAI 
-} from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-interface Company {
-  id: string;
-  name: string;
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-interface Project {
-  id: string;
-  name: string;
-  companies: { name: string };
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-interface UploadedFile {
-  id: string;
-  file: File;
-  status: 'uploading' | 'classifying' | 'uploading_to_obralia' | 'completed' | 'error';
-  progress: number;
-  classification?: string;
-  confidence?: number;
-  error?: string;
-}
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-const DocumentUpload: React.FC = () => {
-  const { user } = useAuth();
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string>('');
-  const [selectedProject, setSelectedProject] = useState<string>('');
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [clientData, setClientData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      loadInitialData();
-    }
-  }, [user]);
-
-  const loadInitialData = async () => {
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      setLoading(true);
-      
-      // Obtener datos del cliente
-      const client = await getCurrentClientData(user!.id);
-      setClientData(client);
-      
-      // Obtener empresas y proyectos
-      const [companiesData, projectsData] = await Promise.all([
-        getClientCompanies(client.id),
-        getClientProjects(client.id)
-      ]);
-      
-      setCompanies(companiesData || []);
-      setProjects(projectsData || []);
+      return await attemptGeminiCall(prompt);
     } catch (error) {
-      console.error('Error loading initial data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    handleFiles(files);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      handleFiles(files);
-    }
-  };
-
-  const handleFiles = (files: File[]) => {
-    if (!selectedCompany || !selectedProject) {
-      alert('Por favor selecciona una empresa y un proyecto antes de subir archivos.');
-      return;
-    }
-
-    const newFiles: UploadedFile[] = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      status: 'uploading',
-      progress: 0
-    }));
-
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-
-    // Procesar cada archivo
-    newFiles.forEach(uploadedFile => {
-      processFile(uploadedFile);
-    });
-  };
-
-  const processFile = async (uploadedFile: UploadedFile) => {
-    try {
-      // Simular progreso de subida
-      updateFileStatus(uploadedFile.id, 'uploading', 30);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Subir archivo a Supabase Storage
-      const fileName = `${Date.now()}_${uploadedFile.file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, uploadedFile.file);
-
-      if (uploadError) throw uploadError;
-
-      updateFileStatus(uploadedFile.id, 'classifying', 60);
-
-      // Clasificar documento con IA
-      const classification = await classifyDocument(uploadedFile.file);
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
       
-      updateFileStatus(uploadedFile.id, 'uploading_to_obralia', 80);
-
-      // Crear registro en la base de datos
-      const { data: documentData, error: dbError } = await supabase
-        .from('documents')
-        .insert({
-          client_id: clientData.id,
-          project_id: selectedProject,
-          filename: fileName,
-          original_name: uploadedFile.file.name,
-          file_size: uploadedFile.file.size,
-          file_type: uploadedFile.file.type,
-          document_type: classification.type,
-          classification_confidence: classification.confidence,
-          ai_metadata: classification.metadata,
-          upload_status: 'classified'
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      // Procesar a Obralia (simulado)
-      await processToObralia(documentData.id);
-
-      updateFileStatus(uploadedFile.id, 'completed', 100, classification);
-
-    } catch (error) {
-      console.error('Error processing file:', error);
-      updateFileStatus(uploadedFile.id, 'error', 0, undefined, error instanceof Error ? error.message : 'Error desconocido');
-    }
-  };
-
-  const classifyDocument = async (file: File): Promise<{ type: string; confidence: number; metadata: any }> => {
-    try {
-      const prompt = `
-        Analiza el nombre del archivo "${file.name}" y clasifícalo según estos tipos de documentos de construcción:
-        - Proyecto Básico
-        - Proyecto de Ejecución
-        - Estudio de Seguridad y Salud
-        - Plan de Seguridad y Salud
-        - Dirección de Obra
-        - Dirección de Ejecución
-        - Coordinación de Seguridad y Salud
-        - Libro del Edificio
-        - Certificado Final de Obra
-        - Licencia de Obras
-        - Otro
-
-        Responde SOLO con un JSON en este formato:
-        {
-          "type": "tipo_de_documento",
-          "confidence": numero_entre_0_y_100,
-          "metadata": {
-            "keywords": ["palabra1", "palabra2"],
-            "category": "categoria"
-          }
-        }
-      `;
-
-      const response = await callGeminiAI(prompt);
-      
-      try {
-        const parsed = JSON.parse(response);
-        return {
-          type: parsed.type || 'Otro',
-          confidence: parsed.confidence || 50,
-          metadata: parsed.metadata || {}
-        };
-      } catch (parseError) {
-        // Si no se puede parsear, usar clasificación por defecto
-        return {
-          type: 'Otro',
-          confidence: 30,
-          metadata: { keywords: [], category: 'unknown' }
-        };
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
       }
-    } catch (error) {
-      console.error('Error classifying document:', error);
-      return {
-        type: 'Otro',
-        confidence: 0,
-        metadata: { error: 'Classification failed' }
-      };
-    }
-  };
-
-  const processToObralia = async (documentId: string) => {
-    try {
-      // Verificar credenciales de Obralia
-      if (!clientData?.obralia_credentials?.configured) {
-        throw new Error('Credenciales de Obralia no configuradas');
-      }
-
-      // Llamar a la función Edge para procesar el documento
-      const { data, error } = await supabase.functions.invoke('process-document', {
-        body: { 
-          documentId,
-          obraliaCredentials: clientData.obralia_credentials
-        }
-      });
-
-      if (error) throw error;
-
-      return data;
-    } catch (error) {
-      console.error('Error processing to Obralia:', error);
+      
+      // If not retryable or max retries reached, throw the error
       throw error;
     }
-  };
-
-  const updateFileStatus = (
-    fileId: string, 
-    status: UploadedFile['status'], 
-    progress: number, 
-    classification?: { type: string; confidence: number; metadata: any },
-    error?: string
-  ) => {
-    setUploadedFiles(prev => prev.map(file => 
-      file.id === fileId 
-        ? { 
-            ...file, 
-            status, 
-            progress,
-            classification: classification?.type,
-            confidence: classification?.confidence,
-            error 
-          }
-        : file
-    ));
-  };
-
-  const removeFile = (fileId: string) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
-  };
-
-  const getStatusIcon = (status: UploadedFile['status']) => {
-    switch (status) {
-      case 'uploading':
-      case 'classifying':
-      case 'uploading_to_obralia':
-        return <Clock className="w-4 h-4 text-blue-500 animate-spin" />;
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <FileText className="w-4 h-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusText = (status: UploadedFile['status']) => {
-    switch (status) {
-      case 'uploading':
-        return 'Subiendo archivo...';
-      case 'classifying':
-        return 'Clasificando documento...';
-      case 'uploading_to_obralia':
-        return 'Enviando a Obralia...';
-      case 'completed':
-        return 'Completado';
-      case 'error':
-        return 'Error';
-      default:
-        return 'Pendiente';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
   }
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Subir Documentos</h2>
-        
-        {/* Selectores de empresa y proyecto */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Empresa
-            </label>
-            <select
-              value={selectedCompany}
-              onChange={(e) => setSelectedCompany(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Seleccionar empresa...</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proyecto
-            </label>
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Seleccionar proyecto...</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name} - {project.companies?.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Zona de arrastrar y soltar */}
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            isDragging
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-lg font-medium text-gray-900 mb-2">
-            Arrastra archivos aquí o haz clic para seleccionar
-          </p>
-          <p className="text-sm text-gray-500 mb-4">
-            Formatos soportados: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG
-          </p>
-          <input
-            type="file"
-            multiple
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="file-upload"
-          />
-          <label
-            htmlFor="file-upload"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
-          >
-            Seleccionar archivos
-          </label>
-        </div>
-
-        {/* Lista de archivos subidos */}
-        {uploadedFiles.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Archivos en proceso</h3>
-            <div className="space-y-3">
-              {uploadedFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3 flex-1">
-                    {getStatusIcon(file.status)}
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        {file.file.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {getStatusText(file.status)}
-                        {file.classification && (
-                          <span className="ml-2 text-blue-600">
-                            • {file.classification} ({file.confidence}% confianza)
-                          </span>
-                        )}
-                      </p>
-                      {file.error && (
-                        <p className="text-xs text-red-600 mt-1">{file.error}</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    {file.status !== 'completed' && file.status !== 'error' && (
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${file.progress}%` }}
-                        ></div>
-                      </div>
-                    )}
-                    
-                    <button
-                      onClick={() => removeFile(file.id)}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Información de almacenamiento */}
-        {clientData && (
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-900">
-                  Almacenamiento utilizado
-                </p>
-                <p className="text-xs text-blue-700">
-                  {(clientData.storage_used / (1024 * 1024)).toFixed(2)} MB de{' '}
-                  {(clientData.storage_limit / (1024 * 1024)).toFixed(0)} MB
-                </p>
-              </div>
-              <div className="w-32 bg-blue-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full"
-                  style={{
-                    width: `${Math.min(
-                      (clientData.storage_used / clientData.storage_limit) * 100,
-                      100
-                    )}%`
-                  }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 };
 
-export default DocumentUpload;
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
+
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Error fetching client data: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching projects: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching companies: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects(name),
+        companies(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching documents: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching all clients: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    throw error;
+  }
+};
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error saving SEPA mandate: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error getting SEPA mandates: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error creating receipt: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error getting client receipts: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error getting all receipts: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener KPIs del sistema
+export const getKPIs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kpis')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching KPIs: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todas las pasarelas de pago
+export const getAllPaymentGateways = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payment_gateways')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching payment gateways: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching payment gateways:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener integraciones de API
+export const getAPIIntegrations = async () => {
+  try {
+    // Datos simulados ya que no existe la tabla api_integrations
+    return [
+      {
+        id: '1',
+        name: 'Gemini AI',
+        status: 'connected',
+        description: 'Integración con la API de Gemini para IA',
+        requests_today: 8947,
+        avg_response_time_ms: 234,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          api_key_configured: true, 
+          model: 'gemini-pro',
+          rate_limit: 50000
+        }
+      },
+      {
+        id: '2',
+        name: 'Obralia/Nalanda',
+        status: 'warning',
+        description: 'Integración con la plataforma Obralia/Nalanda',
+        requests_today: 234,
+        avg_response_time_ms: 567,
+        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        config_details: { 
+          api_key_configured: false, 
+          webhook_configured: true,
+          timeout: 30000
+        }
+      },
+      {
+        id: '3',
+        name: 'Supabase Database',
+        status: 'connected',
+        description: 'Base de datos principal',
+        requests_today: 15678,
+        avg_response_time_ms: 89,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          connection_pool: 'active', 
+          ssl: true,
+          max_connections: 200
+        }
+      },
+      {
+        id: '4',
+        name: 'Stripe Payments',
+        status: 'connected',
+        description: 'Procesamiento de pagos',
+        requests_today: 156,
+        avg_response_time_ms: 234,
+        last_sync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        config_details: { 
+          webhook_configured: true, 
+          live_mode: true,
+          api_version: '2023-10-16'
+        }
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener cola de procesamiento manual
+export const getManualProcessingQueue = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('manual_document_queue')
+      .select(`
+        *,
+        documents(filename, original_name),
+        clients(company_name),
+        companies(name),
+        projects(name)
+      `)
+      .order('queue_position', { ascending: true });
+
+    if (error) {
+      throw new Error(`Error fetching manual processing queue: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching manual processing queue:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) {
+      throw new Error(`Error fetching system settings: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+// Helper para actualizar configuración del sistema
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Configuración para ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error updating system setting: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, payment_date, gateway_name, status')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching revenue stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de clientes
+export const getClientStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching client stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching client stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de documentos
+export const getDocumentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('document_type, upload_status, classification_confidence, created_at, file_size')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching document stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching document stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de pagos
+export const getPaymentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('amount, payment_method, payment_status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching payment stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    throw error;
+  }
+};
+
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
+  try {
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
+
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
+  } catch (error) {
+    console.error('Error calculating dynamic KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
