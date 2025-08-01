@@ -1,746 +1,352 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building } from 'lucide-react';
 
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+interface SubscriptionData {
+  id: string;
+  plan: string;
+  status: string;
+  current_period_start: string;
+  current_period_end: string;
+  stripe_subscription_id?: string;
+}
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
+interface ClientData {
+  id: string;
+  company_name: string;
+  subscription_plan: string;
+  subscription_status: string;
+  storage_used: number;
+  storage_limit: number;
+  tokens_available: number;
+}
 
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+export default function Subscription() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [clientData, setClientData] = useState<ClientData | null>(null);
+  const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  useEffect(() => {
+    if (user) {
+      loadSubscriptionData();
+    }
+  }, [user]);
+
+  const loadSubscriptionData = async () => {
     try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
+      setLoading(true);
+      setError(null);
+
+      // Get client data
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (clientError) throw clientError;
+      setClientData(client);
+
+      // Get subscription data
+      const { data: subscription, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('client_id', client.id)
+        .single();
+
+      if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+        throw subscriptionError;
       }
       
-      // If not retryable or max retries reached, throw the error
-      throw error;
+      setSubscriptionData(subscription);
+    } catch (err) {
+      console.error('Error loading subscription data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading subscription data');
+    } finally {
+      setLoading(false);
     }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
-      
-      try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      throw new Error(`Database error: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
-  try {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Error fetching client data: ${error.message}`);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error getting client data:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        companies!inner(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching projects: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener empresas del cliente
-export const getClientCompanies = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching companies: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching companies:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        projects(name),
-        companies(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching documents: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los clientes (admin)
-export const getAllClients = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        users!inner(email, role)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching all clients: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching all clients:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener logs de auditoría
-export const getAuditLogs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        *,
-        users!inner(email, role),
-        clients(company_name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) {
-      throw new Error(`Error fetching audit logs: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching audit logs:', error);
-    throw error;
-  }
-};
-
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Error saving SEPA mandate: ${error.message}`);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error getting SEPA mandates: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
-
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
-
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
   };
-};
 
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
-    
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
-
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Error creating receipt: ${error.message}`);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'text-green-600 bg-green-100';
+      case 'cancelled':
+        return 'text-red-600 bg-red-100';
+      case 'past_due':
+        return 'text-yellow-600 bg-yellow-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
     }
-    
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
-  }
-};
+  };
 
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
+  const getPlanColor = (plan: string) => {
+    switch (plan) {
+      case 'basic':
+        return 'text-blue-600 bg-blue-100';
+      case 'professional':
+        return 'text-purple-600 bg-purple-100';
+      case 'enterprise':
+        return 'text-indigo-600 bg-indigo-100';
+      case 'custom':
+        return 'text-orange-600 bg-orange-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
     }
+  };
 
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
-    if (error) {
-      throw new Error(`Error getting client receipts: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
+  const getStoragePercentage = () => {
+    if (!clientData || clientData.storage_limit === 0) return 0;
+    return Math.round((clientData.storage_used / clientData.storage_limit) * 100);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
   }
-};
 
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error getting all receipts: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+          </div>
+        </div>
+      </div>
+    );
   }
-};
 
-// Helper para obtener KPIs del sistema
-export const getKPIs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('kpis')
-      .select('*')
-      .order('created_at', { ascending: false });
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
+        <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+          Actualizar Plan
+        </button>
+      </div>
 
-    if (error) {
-      throw new Error(`Error fetching KPIs: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching KPIs:', error);
-    throw error;
-  }
-};
+      {/* Current Plan */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Plan Actual</h2>
+          <div className="flex items-center space-x-2">
+            <Building className="h-5 w-5 text-gray-400" />
+            <span className="text-sm text-gray-600">{clientData?.company_name}</span>
+          </div>
+        </div>
 
-// Helper para obtener todas las pasarelas de pago
-export const getAllPaymentGateways = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payment_gateways')
-      .select('*')
-      .order('created_at', { ascending: false });
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <div className="flex items-center space-x-3 mb-3">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPlanColor(clientData?.subscription_plan || '')}`}>
+                {clientData?.subscription_plan?.toUpperCase()}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(clientData?.subscription_status || '')}`}>
+                {clientData?.subscription_status === 'active' ? 'Activo' : 
+                 clientData?.subscription_status === 'cancelled' ? 'Cancelado' : 
+                 clientData?.subscription_status === 'suspended' ? 'Suspendido' : 'Desconocido'}
+              </span>
+            </div>
 
-    if (error) {
-      throw new Error(`Error fetching payment gateways: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching payment gateways:', error);
-    throw error;
-  }
-};
+            {subscriptionData && (
+              <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Inicio: {new Date(subscriptionData.current_period_start).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Renovación: {new Date(subscriptionData.current_period_end).toLocaleDateString()}</span>
+                </div>
+              </div>
+            )}
+          </div>
 
-// Helper para obtener integraciones de API
-export const getAPIIntegrations = async () => {
-  try {
-    // Datos simulados ya que no existe la tabla api_integrations
-    return [
-      {
-        id: '1',
-        name: 'Gemini AI',
-        status: 'connected',
-        description: 'Integración con la API de Gemini para IA',
-        requests_today: 8947,
-        avg_response_time_ms: 234,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          api_key_configured: true, 
-          model: 'gemini-pro',
-          rate_limit: 50000
-        }
-      },
-      {
-        id: '2',
-        name: 'Obralia/Nalanda',
-        status: 'warning',
-        description: 'Integración con la plataforma Obralia/Nalanda',
-        requests_today: 234,
-        avg_response_time_ms: 567,
-        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        config_details: { 
-          api_key_configured: false, 
-          webhook_configured: true,
-          timeout: 30000
-        }
-      },
-      {
-        id: '3',
-        name: 'Supabase Database',
-        status: 'connected',
-        description: 'Base de datos principal',
-        requests_today: 15678,
-        avg_response_time_ms: 89,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          connection_pool: 'active', 
-          ssl: true,
-          max_connections: 200
-        }
-      },
-      {
-        id: '4',
-        name: 'Stripe Payments',
-        status: 'connected',
-        description: 'Procesamiento de pagos',
-        requests_today: 156,
-        avg_response_time_ms: 234,
-        last_sync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-        config_details: { 
-          webhook_configured: true, 
-          live_mode: true,
-          api_version: '2023-10-16'
-        }
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching API integrations:', error);
-    throw error;
-  }
-};
+          <div>
+            <h3 className="font-medium text-gray-900 mb-3">Uso de Recursos</h3>
+            <div className="space-y-3">
+              {/* Storage Usage */}
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Almacenamiento</span>
+                  <span className="text-gray-900">
+                    {formatBytes(clientData?.storage_used || 0)} / {formatBytes(clientData?.storage_limit || 0)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(getStoragePercentage(), 100)}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs text-gray-500">{getStoragePercentage()}% utilizado</span>
+              </div>
 
-// Helper para obtener cola de procesamiento manual
-export const getManualProcessingQueue = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('manual_document_queue')
-      .select(`
-        *,
-        documents(filename, original_name),
-        clients(company_name),
-        companies(name),
-        projects(name)
-      `)
-      .order('queue_position', { ascending: true });
+              {/* Tokens Available */}
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Tokens Disponibles</span>
+                  <span className="text-gray-900">{clientData?.tokens_available || 0}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min((clientData?.tokens_available || 0) / 1000 * 100, 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    if (error) {
-      throw new Error(`Error fetching manual processing queue: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching manual processing queue:', error);
-    throw error;
-  }
-};
+      {/* Plan Features */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Características del Plan</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center p-4 border border-gray-200 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-2">Básico</h3>
+            <div className="text-2xl font-bold text-blue-600 mb-2">€29/mes</div>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• 500 MB almacenamiento</li>
+              <li>• 500 tokens IA</li>
+              <li>• 1 proyecto</li>
+              <li>• Soporte email</li>
+            </ul>
+          </div>
 
-// Helper para obtener configuraciones del sistema
-export const getSystemSettings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('*')
-      .order('key', { ascending: true });
+          <div className="text-center p-4 border-2 border-green-500 rounded-lg bg-green-50">
+            <h3 className="font-medium text-gray-900 mb-2">Profesional</h3>
+            <div className="text-2xl font-bold text-green-600 mb-2">€79/mes</div>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• 5 GB almacenamiento</li>
+              <li>• 2000 tokens IA</li>
+              <li>• 10 proyectos</li>
+              <li>• Soporte prioritario</li>
+            </ul>
+            <div className="mt-3">
+              <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">Plan Actual</span>
+            </div>
+          </div>
 
-    if (error) {
-      throw new Error(`Error fetching system settings: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching system settings:', error);
-    throw error;
-  }
-};
+          <div className="text-center p-4 border border-gray-200 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-2">Enterprise</h3>
+            <div className="text-2xl font-bold text-purple-600 mb-2">€199/mes</div>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• 50 GB almacenamiento</li>
+              <li>• 10000 tokens IA</li>
+              <li>• Proyectos ilimitados</li>
+              <li>• Soporte 24/7</li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
-// Helper para actualizar configuración del sistema
-export const updateSystemSetting = async (key: string, value: any, description?: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .upsert({
-        key,
-        value,
-        description: description || `Configuración para ${key}`,
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+      {/* Billing History */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Historial de Facturación</h2>
+        
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <div className="font-medium text-gray-900">Plan Profesional - Enero 2025</div>
+                <div className="text-sm text-gray-600">Pagado el 1 de enero, 2025</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-medium text-gray-900">€79.00</div>
+              <div className="text-sm text-green-600">Pagado</div>
+            </div>
+          </div>
 
-    if (error) {
-      throw new Error(`Error updating system setting: ${error.message}`);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error updating system setting:', error);
-    throw error;
-  }
-};
+          <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <div className="font-medium text-gray-900">Plan Profesional - Diciembre 2024</div>
+                <div className="text-sm text-gray-600">Pagado el 1 de diciembre, 2024</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-medium text-gray-900">€79.00</div>
+              <div className="text-sm text-green-600">Pagado</div>
+            </div>
+          </div>
 
-// Helper para obtener estadísticas de ingresos
-export const getRevenueStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('amount, payment_date, gateway_name, status')
-      .eq('status', 'paid')
-      .order('payment_date', { ascending: false });
+          <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <Clock className="h-5 w-5 text-yellow-600" />
+              <div>
+                <div className="font-medium text-gray-900">Plan Profesional - Febrero 2025</div>
+                <div className="text-sm text-gray-600">Próximo pago el 1 de febrero, 2025</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-medium text-gray-900">€79.00</div>
+              <div className="text-sm text-yellow-600">Pendiente</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    if (error) {
-      throw new Error(`Error fetching revenue stats: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching revenue stats:', error);
-    throw error;
-  }
-};
+      {/* Payment Method */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Método de Pago</h2>
+          <button className="text-green-600 hover:text-green-700 font-medium">
+            Actualizar
+          </button>
+        </div>
 
-// Helper para obtener estadísticas de clientes
-export const getClientStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
-      .order('created_at', { ascending: false });
+        <div className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
+          <CreditCard className="h-8 w-8 text-gray-400" />
+          <div>
+            <div className="font-medium text-gray-900">•••• •••• •••• 4242</div>
+            <div className="text-sm text-gray-600">Visa que expira 12/26</div>
+          </div>
+        </div>
+      </div>
 
-    if (error) {
-      throw new Error(`Error fetching client stats: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching client stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de documentos
-export const getDocumentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('document_type, upload_status, classification_confidence, created_at, file_size')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching document stats: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching document stats:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener estadísticas de pagos
-export const getPaymentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('amount, payment_method, payment_status, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching payment stats: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching payment stats:', error);
-    throw error;
-  }
-};
-
-// Helper para calcular KPIs dinámicamente
-export const calculateDynamicKPIs = async () => {
-  try {
-    const [clients, documents, receipts] = await Promise.all([
-      getClientStats(),
-      getDocumentStats(),
-      getAllReceipts()
-    ]);
-
-    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
-    const totalRevenue = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
-    const documentsThisMonth = documents.filter(d => {
-      const docDate = new Date(d.created_at);
-      const now = new Date();
-      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
-    }).length;
-    
-    const avgConfidence = documents.length > 0 
-      ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
-      : 0;
-
-    return {
-      activeClients,
-      totalRevenue,
-      documentsThisMonth,
-      avgConfidence: Math.round(avgConfidence * 10) / 10,
-      totalDocuments: documents.length,
-      totalClients: clients.length
-    };
-  } catch (error) {
-    console.error('Error calculating dynamic KPIs:', error);
-    throw error;
-  }
-};
-
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
-  try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
-  } catch (error) {
-    console.error('Error sending receipt email:', error);
-    throw error;
-  }
-};
+      {/* Actions */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones</h2>
+        
+        <div className="space-y-3">
+          <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <div className="font-medium text-gray-900">Descargar Facturas</div>
+            <div className="text-sm text-gray-600">Obtener todas las facturas en PDF</div>
+          </button>
+          
+          <button className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <div className="font-medium text-gray-900">Cambiar Plan</div>
+            <div className="text-sm text-gray-600">Actualizar o degradar tu suscripción</div>
+          </button>
+          
+          <button className="w-full text-left p-3 border border-red-200 rounded-lg hover:bg-red-50 transition-colors text-red-600">
+            <div className="font-medium">Cancelar Suscripción</div>
+            <div className="text-sm">Cancelar tu suscripción actual</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
