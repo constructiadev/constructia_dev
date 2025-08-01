@@ -200,11 +200,17 @@ function BackupCard({ name, date, size, type, status, icon: Icon }: BackupCardPr
       </div>
       
       <div className="flex space-x-2 mt-3">
-        <button className="flex-1 px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors text-sm font-medium">
+        <button 
+          onClick={() => handleDownloadBackup(name)}
+          className="flex-1 px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors text-sm font-medium"
+        >
           <Download className="h-3 w-3 inline mr-1" />
           Descargar
         </button>
-        <button className="px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors">
+        <button 
+          onClick={() => handleRestoreBackup(name)}
+          className="px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors"
+        >
           <RotateCcw className="h-3 w-3" />
         </button>
       </div>
@@ -376,6 +382,24 @@ export default function DatabaseModule() {
 
   const handleNewQuery = () => {
     alert('Nueva Consulta SQL\n\nEsta funcionalidad abriría:\n• Editor SQL con sintaxis highlighting\n• Autocompletado de tablas y campos\n• Historial de consultas\n• Exportación de resultados');
+  };
+
+  const handleRestoreBackup = (backupName: string) => {
+    if (confirm(`¿Estás seguro de que quieres restaurar el backup ${backupName}? Esta acción sobrescribirá los datos actuales.`)) {
+      alert(`Iniciando restauración del backup ${backupName}...\n\nEsta funcionalidad restauraría la base de datos al estado del backup seleccionado.`);
+    }
+  };
+
+  const handleDownloadBackup = (backupName: string) => {
+    alert(`Descargando backup ${backupName}...\n\nEn producción, esto iniciaría la descarga del archivo de backup.`);
+  };
+
+  const handleViewTableDetails = (tableName: string) => {
+    alert(`Vista detallada de tabla: ${tableName}\n\nEsta funcionalidad mostraría:\n• Estructura completa de la tabla\n• Primeros 100 registros\n• Índices y claves foráneas\n• Estadísticas de uso\n• Consultas frecuentes`);
+  };
+
+  const handleAnalyzeTablePerformance = (tableName: string) => {
+    alert(`Análisis de rendimiento: ${tableName}\n\nEsta funcionalidad proporcionaría:\n• Consultas más lentas en esta tabla\n• Uso de índices\n• Fragmentación de datos\n• Recomendaciones de optimización\n• Estadísticas de acceso`);
   };
   
   const SimulationModal = () => (
@@ -583,7 +607,7 @@ export default function DatabaseModule() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {tableStats.map((table, index) => (
-            <TableStatsCard key={index} {...table} onViewTable={handleViewTable} onAnalyzeTable={handleAnalyzeTable} />
+            <TableStatsCard key={index} {...table} onViewTable={handleViewTableDetails} onAnalyzeTable={handleAnalyzeTablePerformance} />
           ))}
         </div>
       </div>
@@ -775,12 +799,10 @@ export default function DatabaseModule() {
             onClick={exportDatabaseReport}
             className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
           >
-            <div className="flex items-center">
-              <Download className="h-5 w-5 text-green-600 mr-2" />
-              <div className="text-left">
-                <p className="font-medium text-green-800">Exportar Reporte</p>
-                <p className="text-xs text-green-600">Análisis completo</p>
-              </div>
+            <Download className="h-5 w-5 text-green-600 mr-2" />
+            <div className="text-left">
+              <p className="font-medium text-green-800">Exportar Reporte</p>
+              <p className="text-xs text-green-600">Análisis completo</p>
             </div>
           </button>
           
@@ -788,12 +810,10 @@ export default function DatabaseModule() {
             onClick={() => alert('Consola SQL: Esta funcionalidad abrirá una interfaz para ejecutar consultas SQL directamente en la base de datos.')}
             className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
           >
-            <div className="flex items-center">
-              <Terminal className="h-5 w-5 text-blue-600 mr-2" />
-              <div className="text-left">
-                <p className="font-medium text-blue-800">Consola SQL</p>
-                <p className="text-xs text-blue-600">Ejecutar consultas</p>
-              </div>
+            <Terminal className="h-5 w-5 text-blue-600 mr-2" />
+            <div className="text-left">
+              <p className="font-medium text-blue-800">Consola SQL</p>
+              <p className="text-xs text-blue-600">Ejecutar consultas</p>
             </div>
           </button>
           
@@ -801,12 +821,10 @@ export default function DatabaseModule() {
             onClick={() => alert('Monitoreo: Abriendo dashboard de métricas en tiempo real de la base de datos.')}
             className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
           >
-            <div className="flex items-center">
-              <Monitor className="h-5 w-5 text-purple-600 mr-2" />
-              <div className="text-left">
-                <p className="font-medium text-purple-800">Monitoreo</p>
-                <p className="text-xs text-purple-600">Métricas en vivo</p>
-              </div>
+            <Monitor className="h-5 w-5 text-purple-600 mr-2" />
+            <div className="text-left">
+              <p className="font-medium text-purple-800">Monitoreo</p>
+              <p className="text-xs text-purple-600">Métricas en vivo</p>
             </div>
           </button>
           
@@ -814,12 +832,10 @@ export default function DatabaseModule() {
             onClick={() => alert('Configuración: Accediendo a parámetros avanzados de la base de datos (timeouts, conexiones, cache, etc.).')}
             className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
           >
-            <div className="flex items-center">
-              <Settings className="h-5 w-5 text-orange-600 mr-2" />
-              <div className="text-left">
-                <p className="font-medium text-orange-800">Configuración</p>
-                <p className="text-xs text-orange-600">Parámetros avanzados</p>
-              </div>
+            <Settings className="h-5 w-5 text-orange-600 mr-2" />
+            <div className="text-left">
+              <p className="font-medium text-orange-800">Configuración</p>
+              <p className="text-xs text-orange-600">Parámetros avanzados</p>
             </div>
           </button>
         </div>
