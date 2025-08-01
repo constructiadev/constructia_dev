@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Configuración de Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -198,168 +197,6 @@ export const getAuditLogs = async () => {
   }
 };
 
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Error saving SEPA mandate: ${error.message}`);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error getting SEPA mandates: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
-
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
-
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
-  };
-};
-
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
-    
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
-
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Error creating receipt: ${error.message}`);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error getting client receipts: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error getting all receipts: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
-  }
-};
-
 // Helper para obtener KPIs del sistema
 export const getKPIs = async () => {
   try {
@@ -394,60 +231,6 @@ export const getAllPaymentGateways = async () => {
     return data || [];
   } catch (error) {
     console.error('Error fetching payment gateways:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener integraciones de API (datos estáticos)
-export const getAPIIntegrations = async () => {
-  try {
-    // Datos simulados sin llamadas externas
-    return [
-      {
-        id: '1',
-        name: 'Supabase Database',
-        status: 'connected',
-        description: 'Base de datos principal',
-        requests_today: 15678,
-        avg_response_time_ms: 89,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          connection_pool: 'active', 
-          ssl: true,
-          max_connections: 200
-        }
-      },
-      {
-        id: '2',
-        name: 'Sistema de Archivos',
-        status: 'connected',
-        description: 'Almacenamiento local de documentos',
-        requests_today: 234,
-        avg_response_time_ms: 45,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          storage_configured: true, 
-          encryption: true,
-          backup_enabled: true
-        }
-      },
-      {
-        id: '3',
-        name: 'Procesamiento Local',
-        status: 'connected',
-        description: 'Clasificación de documentos local',
-        requests_today: 456,
-        avg_response_time_ms: 123,
-        last_sync: new Date().toISOString(),
-        config_details: { 
-          local_processing: true, 
-          cache_enabled: true,
-          queue_size: 10
-        }
-      }
-    ];
-  } catch (error) {
-    console.error('Error fetching API integrations:', error);
     throw error;
   }
 };
@@ -521,22 +304,28 @@ export const updateSystemSetting = async (key: string, value: any, description?:
   }
 };
 
-// Helper para obtener estadísticas de ingresos
-export const getRevenueStats = async () => {
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
   try {
     const { data, error } = await supabase
       .from('receipts')
-      .select('amount, payment_date, gateway_name, status')
-      .eq('status', 'paid')
-      .order('payment_date', { ascending: false });
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Error fetching revenue stats: ${error.message}`);
+      throw new Error(`Error getting all receipts: ${error.message}`);
     }
     
     return data || [];
   } catch (error) {
-    console.error('Error fetching revenue stats:', error);
+    console.error('Error getting all receipts:', error);
     throw error;
   }
 };
@@ -579,25 +368,6 @@ export const getDocumentStats = async () => {
   }
 };
 
-// Helper para obtener estadísticas de pagos
-export const getPaymentStats = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('amount, payment_method, payment_status, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching payment stats: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching payment stats:', error);
-    throw error;
-  }
-};
-
 // Helper para calcular KPIs dinámicamente
 export const calculateDynamicKPIs = async () => {
   try {
@@ -633,17 +403,41 @@ export const calculateDynamicKPIs = async () => {
   }
 };
 
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+// Helper para obtener integraciones de API (datos locales)
+export const getAPIIntegrations = async () => {
   try {
-    // Simular envío de email sin llamadas externas
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
+    return [
+      {
+        id: '1',
+        name: 'Supabase Database',
+        status: 'connected',
+        description: 'Base de datos principal',
+        requests_today: 15678,
+        avg_response_time_ms: 89,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          connection_pool: 'active', 
+          ssl: true,
+          max_connections: 200
+        }
+      },
+      {
+        id: '2',
+        name: 'Sistema de Archivos',
+        status: 'connected',
+        description: 'Almacenamiento local de documentos',
+        requests_today: 234,
+        avg_response_time_ms: 45,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          storage_configured: true, 
+          encryption: true,
+          backup_enabled: true
+        }
+      }
+    ];
   } catch (error) {
-    console.error('Error sending receipt email:', error);
+    console.error('Error fetching API integrations:', error);
     throw error;
   }
 };

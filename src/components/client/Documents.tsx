@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, getClientDocuments, getCurrentClientData } from '../../lib/supabase';
 
 interface Document {
   id: string;
@@ -20,7 +20,7 @@ interface Document {
 }
 
 const Documents: React.FC = () => {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,31 +28,23 @@ const Documents: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    if (userProfile?.id) {
+    if (user?.id) {
       loadDocuments();
     }
-  }, [userProfile]);
+  }, [user]);
 
   const loadDocuments = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('documents')
-        .select(`
-          *,
-          projects(name),
-          companies(name)
-        `)
-        .eq('client_id', userProfile?.id)
-        .order('created_at', { ascending: false });
-
-      if (fetchError) {
-        throw new Error(`Error loading documents: ${fetchError.message}`);
+      const clientData = await getCurrentClientData(user!.id);
+      if (!clientData) {
+        throw new Error('No se encontraron datos del cliente');
       }
 
-      setDocuments(data || []);
+      const data = await getClientDocuments(clientData.id);
+      setDocuments(data);
     } catch (err) {
       console.error('Error loading documents:', err);
       setError(err instanceof Error ? err.message : 'Error loading documents');
