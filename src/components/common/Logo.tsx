@@ -19,15 +19,13 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
 
   return (
     <div className="flex items-center space-x-2">
-      <img 
-        src="/ChatGPT Image 31 jul 2025, 12_39_17.png" 
-        alt="ConstructIA Logo" 
-        className={`${
-          size === 'sm' ? 'h-8 w-8' : 
-          size === 'md' ? 'h-10 w-10' : 
-          'h-12 w-12'
-        } object-contain`}
-      />
+      <div className={`${
+        size === 'sm' ? 'h-8 w-8' : 
+        size === 'md' ? 'h-10 w-10' : 
+        'h-12 w-12'
+      } bg-green-600 rounded-lg flex items-center justify-center`}>
+        <span className="text-white font-bold text-lg">C</span>
+      </div>
       <div className={`font-bold ${sizeClasses[size]} ${colorClasses[variant]}`}>
         <span style={{ fontFamily: 'Century Gothic, sans-serif' }}>
           Construct<span className="text-green-600">IA</span>
