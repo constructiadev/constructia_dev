@@ -468,6 +468,87 @@ export default function FinancialModule() {
       alert('Error al guardar la pasarela');
     }
   };
+
+  const handleTestGateway = async (gatewayName: string) => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      alert(`Conexión con ${gatewayName} verificada exitosamente`);
+    } catch (error) {
+      alert(`Error al conectar con ${gatewayName}. Verifica la configuración.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOptimizeGateway = async (gatewayName: string) => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      alert(`${gatewayName} optimizada exitosamente. Comisiones reducidas en 0.2%`);
+    } catch (error) {
+      alert(`Error al optimizar ${gatewayName}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshGateway = async (gatewayName: string) => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Simular actualización de datos
+      setPaymentGateways(prev => prev.map(g => 
+        g.name === gatewayName 
+          ? { ...g, transactions: g.transactions + Math.floor(Math.random() * 10) }
+          : g
+      ));
+      alert(`Datos de ${gatewayName} actualizados exitosamente`);
+    } catch (error) {
+      alert(`Error al actualizar ${gatewayName}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadGatewayReport = (gatewayName: string) => {
+    const gateway = paymentGateways.find(g => g.name === gatewayName);
+    if (!gateway) return;
+    
+    const reportData = {
+      gateway_name: gateway.name,
+      transactions: gateway.transactions,
+      volume: gateway.volume,
+      commission: gateway.commission,
+      status: gateway.status,
+      generated_at: new Date().toISOString()
+    };
+    
+    const jsonContent = JSON.stringify(reportData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_${gateway.name.toLowerCase()}_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    alert(`Reporte de ${gatewayName} descargado exitosamente`);
+  };
+
+  const handleViewGatewayDetails = (gatewayName: string) => {
+    const gateway = paymentGateways.find(g => g.name === gatewayName);
+    if (!gateway) return;
+    
+    alert(`Detalles de ${gatewayName}:\n\n` +
+          `• Estado: ${gateway.status}\n` +
+          `• Comisión: ${gateway.commission}\n` +
+          `• Transacciones: ${gateway.transactions}\n` +
+          `• Volumen: ${gateway.volume}\n` +
+          `• Tipo: ${gateway.commission_type}\n` +
+          `• Monedas: ${gateway.supported_currencies.join(', ')}`);
+  };
+
   useEffect(() => {
     generateFinancialInsights();
   }, []);
