@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import { 
   CreditCard, 
   DollarSign, 
@@ -29,12 +26,6 @@ interface PaymentGateway {
   commission_type: 'percentage' | 'fixed' | 'mixed';
   commission_percentage?: number;
   commission_fixed?: number;
-  commission_periods: {
-    start_date: string;
-    end_date: string;
-    percentage?: number;
-    fixed?: number;
-  }[];
   api_key?: string;
   secret_key?: string;
   webhook_url?: string;
@@ -42,7 +33,6 @@ interface PaymentGateway {
   min_amount?: number;
   max_amount?: number;
   description: string;
-  logo_base64?: string;
   created_at: string;
   updated_at: string;
 }
@@ -55,27 +45,6 @@ interface PaymentGatewayModalProps {
   mode: 'create' | 'edit' | 'view';
 }
 
-const schema = yup.object({
-  name: yup.string().required('El nombre es obligatorio'),
-  type: yup.string().required('El tipo es obligatorio'),
-  commission_type: yup.string().required('El tipo de comisión es obligatorio'),
-  commission_percentage: yup.number().when('commission_type', {
-    is: (val: string) => val === 'percentage' || val === 'mixed',
-    then: (schema) => schema.required('El porcentaje es obligatorio').min(0).max(100),
-    otherwise: (schema) => schema.notRequired()
-  }),
-  commission_fixed: yup.number().when('commission_type', {
-    is: (val: string) => val === 'fixed' || val === 'mixed',
-    then: (schema) => schema.required('La comisión fija es obligatoria').min(0),
-    otherwise: (schema) => schema.notRequired()
-  }),
-  description: yup.string().required('La descripción es obligatoria'),
-  supported_currencies: yup.array().min(1, 'Debe seleccionar al menos una moneda')
-});
-
-// Logo base64 de ConstructIA
-const CONSTRUCTIA_LOGO_BASE64 = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzEwYjk4MSIvPgo8cGF0aCBkPSJNOCAxMmg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6bTYgMGg0djhoLTR2LTh6IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K";
-
 export default function PaymentGatewayModal({ 
   isOpen, 
   onClose, 
@@ -84,47 +53,25 @@ export default function PaymentGatewayModal({
   mode 
 }: PaymentGatewayModalProps) {
   const [showSecrets, setShowSecrets] = useState(false);
-  const [commissionPeriods, setCommissionPeriods] = useState(
-    gateway?.commission_periods || [
-      {
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        percentage: 2.9,
-        fixed: 0.30
-      }
-    ]
-  );
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(
     gateway?.supported_currencies || ['EUR']
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setValue
-  } = useForm<Partial<PaymentGateway>>({
-    resolver: yupResolver(schema),
-    defaultValues: {
-      name: gateway?.name || '',
-      type: gateway?.type || 'stripe',
-      status: gateway?.status || 'active',
-      commission_type: gateway?.commission_type || 'mixed',
-      commission_percentage: gateway?.commission_percentage || 2.9,
-      commission_fixed: gateway?.commission_fixed || 0.30,
-      description: gateway?.description || '',
-      api_key: gateway?.api_key || '',
-      secret_key: gateway?.secret_key || '',
-      webhook_url: gateway?.webhook_url || '',
-      min_amount: gateway?.min_amount || 1,
-      max_amount: gateway?.max_amount || 10000,
-      supported_currencies: gateway?.supported_currencies || ['EUR']
-    }
+  const [formData, setFormData] = useState({
+    name: gateway?.name || '',
+    type: gateway?.type || 'stripe',
+    status: gateway?.status || 'active',
+    commission_type: gateway?.commission_type || 'mixed',
+    commission_percentage: gateway?.commission_percentage || 2.9,
+    commission_fixed: gateway?.commission_fixed || 0.30,
+    description: gateway?.description || '',
+    api_key: gateway?.api_key || '',
+    secret_key: gateway?.secret_key || '',
+    webhook_url: gateway?.webhook_url || '',
+    min_amount: gateway?.min_amount || 1,
+    max_amount: gateway?.max_amount || 10000
   });
-
-  const watchedCommissionType = watch('commission_type');
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   const currencies = [
     { code: 'EUR', name: 'Euro', symbol: '€' },
@@ -140,26 +87,22 @@ export default function PaymentGatewayModal({
     { value: 'bizum', label: 'Bizum', icon: Smartphone, color: 'bg-orange-600' }
   ];
 
-  const addCommissionPeriod = () => {
-    setCommissionPeriods([
-      ...commissionPeriods,
-      {
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        percentage: 2.9,
-        fixed: 0.30
-      }
-    ]);
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.name) newErrors.name = 'El nombre es obligatorio';
+    if (!formData.description) newErrors.description = 'La descripción es obligatoria';
+    if (selectedCurrencies.length === 0) newErrors.currencies = 'Debe seleccionar al menos una moneda';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const removeCommissionPeriod = (index: number) => {
-    setCommissionPeriods(commissionPeriods.filter((_, i) => i !== index));
-  };
-
-  const updateCommissionPeriod = (index: number, field: string, value: any) => {
-    const updated = [...commissionPeriods];
-    updated[index] = { ...updated[index], [field]: value };
-    setCommissionPeriods(updated);
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   const toggleCurrency = (currencyCode: string) => {
@@ -167,17 +110,21 @@ export default function PaymentGatewayModal({
       ? selectedCurrencies.filter(c => c !== currencyCode)
       : [...selectedCurrencies, currencyCode];
     setSelectedCurrencies(updated);
-    setValue('supported_currencies', updated);
+    if (errors.currencies) {
+      setErrors(prev => ({ ...prev, currencies: '' }));
+    }
   };
 
-  const onSubmit = async (data: Partial<PaymentGateway>) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
     setIsSubmitting(true);
     try {
       const gatewayData = {
-        ...data,
-        commission_periods: commissionPeriods,
+        ...formData,
         supported_currencies: selectedCurrencies,
-        logo_base64: CONSTRUCTIA_LOGO_BASE64,
         updated_at: new Date().toISOString()
       };
 
@@ -232,7 +179,7 @@ export default function PaymentGatewayModal({
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+        <form onSubmit={onSubmit} className="p-6 space-y-6">
           {/* Información Básica */}
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="font-semibold text-gray-800 mb-4">Información Básica</h3>
@@ -242,14 +189,15 @@ export default function PaymentGatewayModal({
                   Nombre de la Pasarela *
                 </label>
                 <input
-                  {...register('name')}
                   type="text"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
                   disabled={isReadOnly}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   placeholder="Ej: Stripe Principal"
                 />
                 {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
                 )}
               </div>
 
@@ -258,7 +206,8 @@ export default function PaymentGatewayModal({
                   Tipo de Pasarela *
                 </label>
                 <select
-                  {...register('type')}
+                  value={formData.type}
+                  onChange={(e) => handleInputChange('type', e.target.value)}
                   disabled={isReadOnly}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                 >
@@ -269,36 +218,6 @@ export default function PaymentGatewayModal({
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Estado
-                </label>
-                <select
-                  {...register('status')}
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                >
-                  <option value="active">Activo</option>
-                  <option value="inactive">Inactivo</option>
-                  <option value="warning">Advertencia</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Comisión *
-                </label>
-                <select
-                  {...register('commission_type')}
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                >
-                  <option value="percentage">Solo Porcentaje</option>
-                  <option value="fixed">Solo Fijo</option>
-                  <option value="mixed">Mixto (% + Fijo)</option>
-                </select>
-              </div>
             </div>
 
             <div className="mt-4">
@@ -306,259 +225,16 @@ export default function PaymentGatewayModal({
                 Descripción *
               </label>
               <textarea
-                {...register('description')}
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
                 disabled={isReadOnly}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                 placeholder="Descripción de la pasarela de pago..."
               />
               {errors.description && (
-                <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+                <p className="mt-1 text-sm text-red-600">{errors.description}</p>
               )}
-            </div>
-          </div>
-
-          {/* Configuración de Comisiones */}
-          <div className="bg-blue-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-4">Configuración de Comisiones</h3>
-            
-            {/* Comisión Base */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {(watchedCommissionType === 'percentage' || watchedCommissionType === 'mixed') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Porcentaje Base (%) *
-                  </label>
-                  <div className="relative">
-                    <input
-                      {...register('commission_percentage')}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      disabled={isReadOnly}
-                      className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                      placeholder="2.9"
-                    />
-                    <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  </div>
-                  {errors.commission_percentage && (
-                    <p className="mt-1 text-sm text-red-600">{errors.commission_percentage.message}</p>
-                  )}
-                </div>
-              )}
-
-              {(watchedCommissionType === 'fixed' || watchedCommissionType === 'mixed') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Comisión Fija (€) *
-                  </label>
-                  <div className="relative">
-                    <input
-                      {...register('commission_fixed')}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      disabled={isReadOnly}
-                      className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                      placeholder="0.30"
-                    />
-                    <Euro className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  </div>
-                  {errors.commission_fixed && (
-                    <p className="mt-1 text-sm text-red-600">{errors.commission_fixed.message}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Períodos de Comisión */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-gray-700">Períodos de Comisión Especiales</h4>
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    onClick={addCommissionPeriod}
-                    className="flex items-center px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-                  >
-                    <Calendar className="h-3 w-3 mr-1" />
-                    Añadir Período
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                {commissionPeriods.map((period, index) => (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h5 className="font-medium text-gray-700">Período {index + 1}</h5>
-                      {!isReadOnly && commissionPeriods.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeCommissionPeriod(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Fecha Inicio
-                        </label>
-                        <input
-                          type="date"
-                          value={period.start_date}
-                          onChange={(e) => updateCommissionPeriod(index, 'start_date', e.target.value)}
-                          disabled={isReadOnly}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Fecha Fin
-                        </label>
-                        <input
-                          type="date"
-                          value={period.end_date}
-                          onChange={(e) => updateCommissionPeriod(index, 'end_date', e.target.value)}
-                          disabled={isReadOnly}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                        />
-                      </div>
-
-                      {(watchedCommissionType === 'percentage' || watchedCommissionType === 'mixed') && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Porcentaje (%)
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            value={period.percentage || ''}
-                            onChange={(e) => updateCommissionPeriod(index, 'percentage', parseFloat(e.target.value))}
-                            disabled={isReadOnly}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                            placeholder="2.9"
-                          />
-                        </div>
-                      )}
-
-                      {(watchedCommissionType === 'fixed' || watchedCommissionType === 'mixed') && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            Fijo (€)
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={period.fixed || ''}
-                            onChange={(e) => updateCommissionPeriod(index, 'fixed', parseFloat(e.target.value))}
-                            disabled={isReadOnly}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                            placeholder="0.30"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Configuración Técnica */}
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800">Configuración Técnica</h3>
-              {!isReadOnly && (
-                <button
-                  type="button"
-                  onClick={() => setShowSecrets(!showSecrets)}
-                  className="flex items-center text-sm text-gray-600 hover:text-gray-800"
-                >
-                  {showSecrets ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                  {showSecrets ? 'Ocultar' : 'Mostrar'} Credenciales
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  API Key
-                </label>
-                <input
-                  {...register('api_key')}
-                  type={showSecrets ? 'text' : 'password'}
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  placeholder="pk_live_..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Secret Key
-                </label>
-                <input
-                  {...register('secret_key')}
-                  type={showSecrets ? 'text' : 'password'}
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  placeholder="sk_live_..."
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Webhook URL
-                </label>
-                <input
-                  {...register('webhook_url')}
-                  type="url"
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  placeholder="https://api.constructia.com/webhooks/stripe"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monto Mínimo (€)
-                </label>
-                <input
-                  {...register('min_amount')}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  placeholder="1.00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monto Máximo (€)
-                </label>
-                <input
-                  {...register('max_amount')}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  placeholder="10000.00"
-                />
-              </div>
             </div>
           </div>
 
@@ -592,28 +268,9 @@ export default function PaymentGatewayModal({
                 </label>
               ))}
             </div>
-            {errors.supported_currencies && (
-              <p className="mt-2 text-sm text-red-600">{errors.supported_currencies.message}</p>
+            {errors.currencies && (
+              <p className="mt-2 text-sm text-red-600">{errors.currencies}</p>
             )}
-          </div>
-
-          {/* Logo Preview */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-4">Logo de la Pasarela</h3>
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-                <img 
-                  src={CONSTRUCTIA_LOGO_BASE64} 
-                  alt="ConstructIA Logo" 
-                  className="w-12 h-12"
-                />
-              </div>
-              <div>
-                <p className="font-medium text-gray-800">Logo ConstructIA</p>
-                <p className="text-sm text-gray-600">Se usará automáticamente en todas las pasarelas</p>
-                <p className="text-xs text-gray-500">Formato: SVG Base64 optimizado</p>
-              </div>
-            </div>
           </div>
 
           {/* Footer */}
