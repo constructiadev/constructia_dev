@@ -375,6 +375,7 @@ export default function DatabaseModule() {
   const handleNewQuery = () => {
     alert('Nueva Consulta SQL\n\nEsta funcionalidad abriría:\n• Editor SQL con sintaxis highlighting\n• Autocompletado de tablas y campos\n• Historial de consultas\n• Exportación de resultados');
   };
+  
   const SimulationModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
@@ -570,7 +571,6 @@ export default function DatabaseModule() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Inspector de Tablas</h3>
-          <button className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
           <button 
             onClick={handleNewQuery}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
