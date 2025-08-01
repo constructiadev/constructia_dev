@@ -1,445 +1,744 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Users, 
-  FileText, 
-  CreditCard, 
-  Activity,
-  TrendingUp,
-  Database,
-  Shield,
-  Zap,
-  Server,
-  Brain,
-  Building2,
-  Globe,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  BarChart3,
-  Download,
-  RefreshCw,
-  Settings,
-  Eye
-} from 'lucide-react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
-import { callGeminiAI } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-interface AdminKPICardProps {
-  title: string;
-  value: string | number;
-  change: number;
-  trend: 'up' | 'down' | 'stable';
-  icon: React.ElementType;
-  color: string;
-  description?: string;
-  period?: string;
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-function AdminKPICard({ title, value, change, trend, icon: Icon, color, description, period = 'mensual' }: AdminKPICardProps) {
-  const trendColor = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600';
-  const trendSymbol = trend === 'up' ? '+' : trend === 'down' ? '-' : '';
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
-        </div>
-        <div className="text-right">
-          <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600`}>
-            {period}
-          </span>
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        <div className="flex items-center justify-between mt-2">
-          <p className={`text-sm font-medium ${trendColor}`}>
-            {trendSymbol}{Math.abs(change)}% vs {period} anterior
-          </p>
-        </div>
-        {description && (
-          <p className="text-xs text-gray-500 mt-1">{description}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface SystemStatusCardProps {
-  title: string;
-  status: 'operational' | 'warning' | 'error';
-  description: string;
-  icon: React.ElementType;
-  lastUpdate?: string;
-}
-
-function SystemStatusCard({ title, status, description, icon: Icon, lastUpdate }: SystemStatusCardProps) {
-  const statusColors = {
-    operational: 'bg-green-100 text-green-800 border-green-200',
-    warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    error: 'bg-red-100 text-red-800 border-red-200'
-  };
-
-  const statusIcons = {
-    operational: CheckCircle,
-    warning: AlertTriangle,
-    error: AlertTriangle
-  };
-
-  const StatusIcon = statusIcons[status];
-
-  return (
-    <div className={`border rounded-xl p-6 ${statusColors[status]}`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center">
-          <Icon className="h-6 w-6 mr-3" />
-          <h4 className="font-semibold">{title}</h4>
-        </div>
-        <StatusIcon className="h-5 w-5" />
-      </div>
-      <p className="text-sm mb-2">{description}</p>
-      {lastUpdate && (
-        <p className="text-xs opacity-75">Última actualización: {lastUpdate}</p>
-      )}
-    </div>
-  );
-}
-
-export default function AdminDashboard() {
-  const [aiInsights, setAiInsights] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('monthly');
-  const navigate = useNavigate();
-
-  // KPIs Principales del Administrador
-  const adminKPIs = [
-    { title: 'Clientes Activos', value: '247', change: 12.5, trend: 'up' as const, icon: Users, color: 'bg-blue-500', description: 'Total de clientes con suscripción activa', period: 'mensual' },
-    { title: 'Ingresos Mensuales', value: '€47,850', change: 18.3, trend: 'up' as const, icon: CreditCard, color: 'bg-emerald-500', description: 'Ingresos recurrentes del mes', period: 'mensual' },
-    { title: 'Documentos Procesados', value: '12,456', change: 8.2, trend: 'up' as const, icon: FileText, color: 'bg-green-500', description: 'Total de documentos procesados con IA', period: 'mensual' },
-    { title: 'Tiempo Promedio IA', value: '2.3s', change: -5.1, trend: 'up' as const, icon: Brain, color: 'bg-purple-500', description: 'Tiempo de respuesta de Gemini AI', period: 'tiempo real' },
-    { title: 'Tasa de Conversión', value: '73.4%', change: 4.2, trend: 'up' as const, icon: TrendingUp, color: 'bg-orange-500', description: 'Visitantes que se convierten en clientes', period: 'mensual' },
-    { title: 'Uptime Sistema', value: '99.97%', change: 0.1, trend: 'stable' as const, icon: Server, color: 'bg-indigo-500', description: 'Disponibilidad del sistema', period: 'mensual' },
-    { title: 'APIs Activas', value: '12', change: 0, trend: 'stable' as const, icon: Zap, color: 'bg-cyan-500', description: 'Integraciones funcionando correctamente', period: 'tiempo real' },
-    { title: 'Almacenamiento Total', value: '2.4TB', change: 15.7, trend: 'up' as const, icon: Database, color: 'bg-gray-500', description: 'Espacio utilizado por todos los clientes', period: 'mensual' }
-  ];
-
-  // Estados del Sistema
-  const systemStatus = [
-    {
-      title: 'Servidores Principales',
-      status: 'operational' as const,
-      description: 'Todos los servidores funcionando correctamente',
-      icon: Server,
-      lastUpdate: 'hace 2 minutos'
-    },
-    {
-      title: 'Base de Datos',
-      status: 'operational' as const,
-      description: 'Supabase operativo con 99.97% uptime',
-      icon: Database,
-      lastUpdate: 'hace 1 minuto'
-    },
-    {
-      title: 'Gemini AI',
-      status: 'warning' as const,
-      description: 'Servicio temporalmente sobrecargado',
-      icon: Brain,
-      lastUpdate: 'hace 5 minutos'
-    },
-    {
-      title: 'Integraciones',
-      status: 'operational' as const,
-      description: 'Stripe, Obralia y APIs funcionando',
-      icon: Globe,
-      lastUpdate: 'hace 3 minutos'
-    }
-  ];
-
-  // Datos para gráficos
-  const revenueData = {
-    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-    datasets: [{
-      label: 'Ingresos (€)',
-      data: [28400, 31200, 35800, 39200, 43100, 47850],
-      borderColor: 'rgb(34, 197, 94)',
-      backgroundColor: 'rgba(34, 197, 94, 0.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  };
-
-  const clientsGrowthData = {
-    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'],
-    datasets: [{
-      label: 'Nuevos Clientes',
-      data: [3, 5, 8, 4, 7, 6, 9],
-      backgroundColor: 'rgba(59, 130, 246, 0.8)',
-      borderColor: 'rgb(59, 130, 246)',
-      borderWidth: 1
-    }]
-  };
-
-  const subscriptionPlansData = {
-    labels: ['Básico', 'Profesional', 'Empresarial', 'Personalizado'],
-    datasets: [{
-      data: [89, 134, 67, 23],
-      backgroundColor: [
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(34, 197, 94, 0.8)',
-        'rgba(168, 85, 247, 0.8)',
-        'rgba(245, 158, 11, 0.8)'
-      ],
-      borderWidth: 0
-    }]
-  };
-
-  const generateAIInsights = async () => {
-    setLoading(true);
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // Simular insights mientras Gemini está fallando
-      const mockInsights = `📊 Análisis del Sistema ConstructIA:
-
-1. **Crecimiento Sostenido**: Los ingresos han aumentado un 18.3% este mes, principalmente impulsados por nuevas suscripciones profesionales.
-
-2. **Optimización IA**: El tiempo de respuesta de Gemini AI ha mejorado un 5.1%, pero actualmente experimenta sobrecarga temporal.
-
-3. **Retención Excelente**: La tasa de conversión del 73.4% indica una propuesta de valor sólida y experiencia de usuario optimizada.`;
-      
-      setAiInsights(mockInsights);
+      return await attemptGeminiCall(prompt);
     } catch (error) {
-      setAiInsights('Error al generar insights. La API de Gemini está temporalmente no disponible.');
-    } finally {
-      setLoading(false);
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
+      
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      
+      // If not retryable or max retries reached, throw the error
+      throw error;
     }
-  };
+  }
+};
 
-  useEffect(() => {
-    generateAIInsights();
-  }, []);
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
 
-  return (
-    <div className="space-y-8">
-      {/* Header con IA Insights */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Dashboard Ejecutivo</h2>
-            <p className="text-green-100 mt-1">Panel de control integral con análisis IA</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="bg-white/20 text-white border border-white/30 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="daily" className="text-gray-800">Diario</option>
-              <option value="weekly" className="text-gray-800">Semanal</option>
-              <option value="monthly" className="text-gray-800">Mensual</option>
-              <option value="yearly" className="text-gray-800">Anual</option>
-            </select>
-            <button 
-              onClick={generateAIInsights}
-              disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center"
-            >
-              <Brain className="h-4 w-4 mr-2" />
-              {loading ? 'Analizando...' : 'Actualizar IA'}
-            </button>
-          </div>
-        </div>
-        
-        {aiInsights && (
-          <div className="mt-4 bg-white/10 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">🤖 Insights Ejecutivos IA:</h3>
-            <div className="text-sm text-white/90 whitespace-pre-line">{aiInsights}</div>
-          </div>
-        )}
-      </div>
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
 
-      {/* KPIs Principales */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Métricas Principales</h3>
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4 text-gray-400" />
-            <span className="text-sm text-gray-600">Actualización automática</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {adminKPIs.map((kpi, index) => (
-            <AdminKPICard key={index} {...kpi} />
-          ))}
-        </div>
-      </div>
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
 
-      {/* Estado del Sistema */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Estado del Sistema</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {systemStatus.map((status, index) => (
-            <SystemStatusCard key={index} {...status} />
-          ))}
-        </div>
-      </div>
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
 
-      {/* Gráficos de Análisis */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Análisis Visual</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">Evolución de Ingresos</h4>
-              <Download className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-            </div>
-            <div className="h-64">
-              <Line data={revenueData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">Nuevos Clientes</h4>
-              <Eye className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-            </div>
-            <div className="h-64">
-              <Bar data={clientsGrowthData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">Distribución de Planes</h4>
-              <BarChart3 className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-            </div>
-            <div className="h-64">
-              <Doughnut data={subscriptionPlansData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-        </div>
-      </div>
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
 
-      {/* Actividad Reciente */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-800">Actividad Reciente del Sistema</h3>
-          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-            Ver todo
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          <div className="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="bg-green-100 p-2 rounded-full mr-4">
-              <Users className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-green-800">Nuevo cliente registrado</p>
-              <p className="text-sm text-green-600">Construcciones Martínez S.L. - Plan Profesional</p>
-            </div>
-            <span className="text-xs text-green-600">hace 5 min</span>
-          </div>
-          
-          <div className="flex items-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="bg-blue-100 p-2 rounded-full mr-4">
-              <FileText className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-blue-800">Lote de documentos procesado</p>
-              <p className="text-sm text-blue-600">45 documentos clasificados con IA</p>
-            </div>
-            <span className="text-xs text-blue-600">hace 12 min</span>
-          </div>
-          
-          <div className="flex items-center p-4 bg-purple-50 border border-purple-200 rounded-lg">
-            <div className="bg-purple-100 p-2 rounded-full mr-4">
-              <CreditCard className="h-4 w-4 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-purple-800">Pago procesado exitosamente</p>
-              <p className="text-sm text-purple-600">€149 - Suscripción mensual renovada</p>
-            </div>
-            <span className="text-xs text-purple-600">hace 18 min</span>
-          </div>
-          
-          <div className="flex items-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="bg-yellow-100 p-2 rounded-full mr-4">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-yellow-800">Advertencia del sistema</p>
-              <p className="text-sm text-yellow-600">API de Gemini experimentando latencia alta</p>
-            </div>
-            <span className="text-xs text-yellow-600">hace 25 min</span>
-          </div>
-        </div>
-      </div>
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
 
-      {/* Acciones Rápidas */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={() => navigate('/admin/clients')}
-            className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-          >
-            <Users className="h-5 w-5 text-blue-600 mr-2" />
-            <span className="font-medium text-blue-800">Gestionar Clientes</span>
-          </button>
-          
-          <button 
-            onClick={() => navigate('/admin/financial')}
-            className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-          >
-            <CreditCard className="h-5 w-5 text-green-600 mr-2" />
-            <span className="font-medium text-green-800">Ver Finanzas</span>
-          </button>
-          
-          <button 
-            onClick={() => navigate('/admin/ai')}
-            className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-          >
-            <Brain className="h-5 w-5 text-purple-600 mr-2" />
-            <span className="font-medium text-purple-800">Configurar IA</span>
-          </button>
-          
-          <button 
-            onClick={() => navigate('/admin/settings')}
-            className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
-          >
-            <Settings className="h-5 w-5 text-orange-600 mr-2" />
-            <span className="font-medium text-orange-800">Configuración</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    console.log('Successfully updated Obralia credentials');
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+  }
 }
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener KPIs del sistema
+export const getKPIs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kpis')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todas las pasarelas de pago
+export const getAllPaymentGateways = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payment_gateways')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment gateways:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener eventos fiscales
+export const getFiscalEvents = async () => {
+  try {
+    // Como no existe la tabla fiscal_events, simularemos datos
+    return [
+      {
+        id: '1',
+        title: 'Declaración IVA Q4 2024',
+        event_date: '2025-01-30',
+        amount_estimate: 5670.00,
+        status: 'upcoming',
+        description: 'Estimado: €5,670'
+      },
+      {
+        id: '2',
+        title: 'Retenciones IRPF',
+        event_date: '2025-02-15',
+        amount_estimate: 2340.00,
+        status: 'upcoming',
+        description: 'Estimado: €2,340'
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching fiscal events:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener planes de suscripción
+export const getSubscriptionPlans = async () => {
+  try {
+    // Como no existe la tabla subscription_plans, retornamos datos estáticos
+    return [
+      {
+        id: 'basic',
+        name: 'Básico',
+        price_monthly: 59.00,
+        price_yearly: 590.00,
+        features: [
+          'Hasta 100 documentos/mes',
+          '500MB de almacenamiento',
+          'Clasificación IA básica',
+          'Integración Obralia',
+          'Soporte por email'
+        ],
+        storage_mb: 500,
+        tokens_per_month: 500,
+        documents_per_month: '100/mes',
+        support_level: 'Email',
+        popular: false
+      },
+      {
+        id: 'professional',
+        name: 'Profesional',
+        price_monthly: 149.00,
+        price_yearly: 1490.00,
+        features: [
+          'Hasta 500 documentos/mes',
+          '1GB de almacenamiento',
+          'IA avanzada con 95% precisión',
+          'Integración Obralia completa',
+          'Dashboard personalizado',
+          'Soporte prioritario'
+        ],
+        storage_mb: 1024,
+        tokens_per_month: 1000,
+        documents_per_month: '500/mes',
+        support_level: 'Prioritario',
+        popular: true
+      },
+      {
+        id: 'enterprise',
+        name: 'Empresarial',
+        price_monthly: 299.00,
+        price_yearly: 2990.00,
+        features: [
+          'Documentos ilimitados',
+          '5GB de almacenamiento',
+          'IA premium con análisis predictivo',
+          'API personalizada',
+          'Múltiples usuarios',
+          'Soporte 24/7'
+        ],
+        storage_mb: 5120,
+        tokens_per_month: 5000,
+        documents_per_month: 'Ilimitados',
+        support_level: '24/7',
+        popular: false
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener integraciones de API
+export const getAPIIntegrations = async () => {
+  try {
+    // Como no existe la tabla api_integrations, simularemos datos
+    return [
+      {
+        id: '1',
+        name: 'Gemini AI',
+        status: 'connected',
+        description: 'Integración con la API de Gemini para IA',
+        requests_today: 8947,
+        avg_response_time_ms: 234,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          api_key_configured: true, 
+          model: 'gemini-pro',
+          rate_limit: 50000
+        }
+      },
+      {
+        id: '2',
+        name: 'Obralia/Nalanda',
+        status: 'warning',
+        description: 'Integración con la plataforma Obralia/Nalanda',
+        requests_today: 234,
+        avg_response_time_ms: 567,
+        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        config_details: { 
+          api_key_configured: false, 
+          webhook_configured: true,
+          timeout: 30000
+        }
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener cola de procesamiento manual
+export const getManualProcessingQueue = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('manual_document_queue')
+      .select(`
+        *,
+        documents(filename, original_name),
+        clients(company_name),
+        companies(name),
+        projects(name)
+      `)
+      .order('queue_position', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching manual processing queue:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+// Helper para actualizar configuración del sistema
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Configuración para ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, payment_date, gateway_name, status')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de clientes
+export const getClientStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching client stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de documentos
+export const getDocumentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('document_type, upload_status, classification_confidence, created_at, file_size')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching document stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de pagos
+export const getPaymentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('amount, payment_method, payment_status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    throw error;
+  }
+};
+
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
+  try {
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
+
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
+  } catch (error) {
+    console.error('Error calculating dynamic KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // En producción aquí iría la integración con servicio de email
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
