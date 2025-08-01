@@ -1,416 +1,407 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, RefreshCw, Calendar, User, FileText, Settings, Database, CreditCard, Shield, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { getAuditLogs } from '../../lib/supabase';
 
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
-
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      
-      // If not retryable or max retries reached, throw the error
-      throw error;
-    }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
-      
-      try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    // Validar que clientId no sea null o undefined
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    console.log('Updating Obralia credentials for client:', clientId);
-    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      console.error('Supabase error details:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    console.log('Successfully updated Obralia credentials');
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching client data:', error);
-      throw error;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error getting client data:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        companies!inner(name),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener empresas del cliente
-export const getClientCompanies = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('companies')
-      .select(`
-        *,
-        projects(count),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching companies:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        projects!inner(name),
-        companies!inner(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los clientes (admin)
-export const getAllClients = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        users!inner(email, role)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching all clients:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener logs de auditoría
-export const getAuditLogs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        *,
-        users!inner(email, role),
-        clients(company_name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching audit logs:', error);
-  }
+interface AuditLog {
+  id: string;
+  action: string;
+  resource: string;
+  details: any;
+  ip_address: string;
+  user_agent: string;
+  created_at: string;
+  users: {
+    email: string;
+    role: string;
+  };
+  clients?: {
+    company_name: string;
+  };
 }
 
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
+const AuditModule: React.FC = () => {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [actionFilter, setActionFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
-
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
-
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
+  const loadAuditLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getAuditLogs();
+      setLogs(data || []);
+      setFilteredLogs(data || []);
+    } catch (err) {
+      console.error('Error loading audit logs:', err);
+      setError(err instanceof Error ? err.message : 'Error loading audit logs');
+    } finally {
+      setLoading(false);
+    }
   };
-};
 
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
-    
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
+  useEffect(() => {
+    loadAuditLogs();
+  }, []);
 
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
+  useEffect(() => {
+    let filtered = logs;
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
+    // Filtro por búsqueda
+    if (searchTerm) {
+      filtered = filtered.filter(log =>
+        log.users?.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.resource.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.clients?.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtro por acción
+    if (actionFilter !== 'all') {
+      filtered = filtered.filter(log => log.action === actionFilter);
+    }
+
+    // Filtro por fecha
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const filterDate = new Date();
+      
+      switch (dateFilter) {
+        case 'today':
+          filterDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          filterDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          filterDate.setMonth(now.getMonth() - 1);
+          break;
+      }
+      
+      filtered = filtered.filter(log => new Date(log.created_at) >= filterDate);
+    }
+
+    setFilteredLogs(filtered);
+  }, [logs, searchTerm, actionFilter, dateFilter]);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getActionIcon = (action: string) => {
+    switch (action.toLowerCase()) {
+      case 'login':
+      case 'logout':
+        return <User className="w-4 h-4" />;
+      case 'create':
+      case 'upload':
+        return <FileText className="w-4 h-4" />;
+      case 'update':
+      case 'edit':
+        return <Settings className="w-4 h-4" />;
+      case 'delete':
+        return <XCircle className="w-4 h-4" />;
+      case 'payment':
+        return <CreditCard className="w-4 h-4" />;
+      case 'security':
+        return <Shield className="w-4 h-4" />;
+      default:
+        return <Database className="w-4 h-4" />;
+    }
+  };
+
+  const getActionColor = (action: string) => {
+    switch (action.toLowerCase()) {
+      case 'login':
+        return 'text-green-600 bg-green-50';
+      case 'logout':
+        return 'text-blue-600 bg-blue-50';
+      case 'create':
+      case 'upload':
+        return 'text-emerald-600 bg-emerald-50';
+      case 'update':
+      case 'edit':
+        return 'text-amber-600 bg-amber-50';
+      case 'delete':
+        return 'text-red-600 bg-red-50';
+      case 'payment':
+        return 'text-purple-600 bg-purple-50';
+      case 'security':
+        return 'text-orange-600 bg-orange-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const uniqueActions = [...new Set(logs.map(log => log.action))];
+
+  const stats = {
+    total: logs.length,
+    today: logs.filter(log => {
+      const today = new Date();
+      const logDate = new Date(log.created_at);
+      return logDate.toDateString() === today.toDateString();
+    }).length,
+    thisWeek: logs.filter(log => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(log.created_at) >= weekAgo;
+    }).length,
+    errors: logs.filter(log => 
+      log.action.toLowerCase().includes('error') || 
+      log.action.toLowerCase().includes('fail')
+    ).length
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-gray-600">Cargando logs de auditoría...</span>
+          </div>
+        </div>
+      </div>
+    );
   }
-};
 
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <span className="text-red-800 font-medium">Error al cargar logs</span>
+          </div>
+          <p className="text-red-700 mt-2">{error}</p>
+          <button
+            onClick={loadAuditLogs}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
   }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Auditoría del Sistema</h1>
+          <p className="text-gray-600 mt-1">Registro completo de actividades del sistema</p>
+        </div>
+        <button
+          onClick={loadAuditLogs}
+          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>Actualizar</span>
+        </button>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Database className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Total de Logs</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.total}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <Calendar className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Hoy</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.today}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-purple-50 rounded-lg">
+              <Clock className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Esta Semana</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.thisWeek}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-red-50 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Errores</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.errors}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Búsqueda */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar por usuario, acción o recurso..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Filtro por acción */}
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <select
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+            >
+              <option value="all">Todas las acciones</option>
+              {uniqueActions.map(action => (
+                <option key={action} value={action}>{action}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro por fecha */}
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+            >
+              <option value="all">Todas las fechas</option>
+              <option value="today">Hoy</option>
+              <option value="week">Última semana</option>
+              <option value="month">Último mes</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabla de logs */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuario
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acción
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Recurso
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  IP
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center space-y-2">
+                      <Database className="w-8 h-8 text-gray-400" />
+                      <span className="text-gray-500">No hay logs de auditoría disponibles</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <div className={`p-1 rounded-full ${log.users?.role === 'admin' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                          <User className={`w-3 h-3 ${log.users?.role === 'admin' ? 'text-purple-600' : 'text-blue-600'}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{log.users?.email}</p>
+                          <p className="text-xs text-gray-500 capitalize">{log.users?.role}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
+                        {getActionIcon(log.action)}
+                        <span className="capitalize">{log.action}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900 capitalize">{log.resource}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">
+                        {log.clients?.company_name || '-'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{formatDate(log.created_at)}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-500 font-mono">{log.ip_address}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Información adicional */}
+      {filteredLogs.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="w-5 h-5 text-blue-600" />
+            <span className="text-blue-800 font-medium">
+              Mostrando {filteredLogs.length} de {logs.length} logs de auditoría
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
-  try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // En producción aquí iría la integración con servicio de email
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
-  } catch (error) {
-    console.error('Error sending receipt email:', error);
-    throw error;
-  }
-};
+export default AuditModule;
