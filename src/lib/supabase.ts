@@ -140,76 +140,123 @@ export const updateClientObraliaCredentials = async (
 // Helper para obtener datos del cliente actual
 export const getCurrentClientData = async (userId: string) => {
   try {
-    // Datos mock para testing - siempre devolver datos válidos
-    const mockClientData = {
-      id: `mock-client-${userId}`,
-      client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
-      user_id: userId,
-      company_name: 'Construcciones García S.L.',
-      contact_name: 'Juan García Martínez',
-      email: 'juan@construccionesgarcia.com',
-      phone: '+34 91 123 45 67',
-      address: 'Calle Mayor 123, 28001 Madrid',
-      subscription_plan: 'professional',
-      subscription_status: 'active',
-      storage_used: 850,
-      storage_limit: 1000,
-      documents_processed: 127,
-      tokens_available: 450,
-      obralia_credentials: {
-        username: '',
-        password: '',
-        configured: false
-      },
-      created_at: '2024-01-15T00:00:00Z',
-      updated_at: new Date().toISOString()
-    };
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-    // Intentar obtener datos reales, pero usar mock como fallback
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', userId);
-
-      if (error || !data || data.length === 0) {
-        console.log('Using mock client data for testing');
-        return mockClientData;
-      }
-      
-      return data[0];
-    } catch (supabaseError) {
-      console.log('Supabase error, using mock client data for testing');
-      return mockClientData;
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
     }
+    
+    return data;
   } catch (error) {
-    console.log('Error getting client data, using mock data for testing');
-    // Siempre devolver datos mock en caso de error para permitir testing
-    return {
-      id: `mock-client-${userId}`,
-      client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
-      user_id: userId,
-      company_name: 'Construcciones García S.L.',
-      contact_name: 'Juan García Martínez',
-      email: 'juan@construccionesgarcia.com',
-      phone: '+34 91 123 45 67',
-      address: 'Calle Mayor 123, 28001 Madrid',
-      subscription_plan: 'professional',
-      subscription_status: 'active',
-      storage_used: 850,
-      storage_limit: 1000,
-      documents_processed: 127,
-      tokens_available: 450,
-      obralia_credentials: {
-        username: '',
-        password: '',
-        configured: false
-      },
-      created_at: '2024-01-15T00:00:00Z',
-      updated_at: new Date().toISOString()
-    };
+    console.error('Error getting client data:', error);
+    throw error;
   }
 };
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
 
 // Helper para guardar mandato SEPA
 export const saveSEPAMandate = async (mandateData: any) => {
