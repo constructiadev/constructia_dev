@@ -722,13 +722,38 @@ export default function FinancialModule() {
                 volume={gateway.volume}
                 color={gateway.color}
               />
-              <button 
-                onClick={() => handleEditGateway(gateway.name)}
-                className="w-full mt-4 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Configurar
-              </button>
+              <div className="mt-4 space-y-2">
+                <button 
+                  onClick={() => handleEditGateway(gateway.name)}
+                  className="w-full px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configurar
+                </button>
+                <div className="grid grid-cols-3 gap-1">
+                  <button 
+                    onClick={() => handleViewGatewayDetails(gateway.name)}
+                    className="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded transition-colors text-xs"
+                    title="Ver detalles"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </button>
+                  <button 
+                    onClick={() => handleTestGateway(gateway.name)}
+                    className="px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded transition-colors text-xs"
+                    title="Probar conexión"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </button>
+                  <button 
+                    onClick={() => handleDownloadGatewayReport(gateway.name)}
+                    className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded transition-colors text-xs"
+                    title="Descargar reporte"
+                  >
+                    <Download className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
             </div>
           ))}
         </div>
