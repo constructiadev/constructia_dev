@@ -1,373 +1,745 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  FileText, 
-  Clock,
-  CheckCircle,
-  Brain,
-  HardDrive,
-  Zap,
-  Calendar,
-  Download,
-  Building2,
-  FolderOpen
-} from 'lucide-react';
-import { Line, Bar, Doughnut, Area } from 'react-chartjs-2';
-import { callGeminiAI } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-interface ClientKPICardProps {
-  title: string;
-  value: string | number;
-  change: number;
-  trend: 'up' | 'down' | 'stable';
-  icon: React.ElementType;
-  color: string;
-  description?: string;
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-function ClientKPICard({ title, value, change, trend, icon: Icon, color, description }: ClientKPICardProps) {
-  const trendColor = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600';
-  const trendSymbol = trend === 'up' ? '+' : trend === 'down' ? '-' : '';
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          <div className="flex items-center justify-between mt-2">
-            <p className={`text-sm font-medium ${trendColor}`}>
-              {trendSymbol}{Math.abs(change)}% vs mes anterior
-            </p>
-          </div>
-          {description && (
-            <p className="text-xs text-gray-500 mt-1">{description}</p>
-          )}
-        </div>
-        <div className={`p-3 rounded-lg ${color} ml-4`}>
-          <Icon className="h-6 w-6 text-white" />
-        </div>
-      </div>
-    </div>
-  );
-}
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-export default function Metrics() {
-  const [aiInsights, setAiInsights] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('monthly');
-
-  // KPIs del Cliente
-  const clientKPIs = [
-    { title: 'Documentos Procesados', value: '127', change: 15.2, trend: 'up' as const, icon: FileText, color: 'bg-blue-500', description: 'Total este mes' },
-    { title: 'Proyectos Activos', value: '3', change: 0, trend: 'stable' as const, icon: FolderOpen, color: 'bg-green-500', description: 'En desarrollo' },
-    { title: 'Precisión IA Promedio', value: '94.7%', change: 2.1, trend: 'up' as const, icon: Brain, color: 'bg-purple-500', description: 'Confianza clasificación' },
-    { title: 'Tiempo Procesamiento', value: '2.1s', change: -8.3, trend: 'up' as const, icon: Clock, color: 'bg-orange-500', description: 'Promedio por documento' },
-    { title: 'Almacenamiento Usado', value: '850MB', change: 12.5, trend: 'up' as const, icon: HardDrive, color: 'bg-indigo-500', description: 'De 1GB disponible' },
-    { title: 'Tasa de Éxito', value: '96.8%', change: 1.2, trend: 'up' as const, icon: CheckCircle, color: 'bg-emerald-500', description: 'Documentos validados' },
-    { title: 'Tokens Disponibles', value: '450', change: -15.6, trend: 'down' as const, icon: Zap, color: 'bg-yellow-500', description: 'Para procesamiento IA' },
-    { title: 'Subidas a Obralia', value: '89', change: 18.7, trend: 'up' as const, icon: TrendingUp, color: 'bg-cyan-500', description: 'Exitosas este mes' }
-  ];
-
-  // Datos para gráficos
-  const documentsEvolutionData = {
-    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-    datasets: [{
-      label: 'Documentos Procesados',
-      data: [45, 67, 89, 103, 115, 127],
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  };
-
-  const documentTypesData = {
-    labels: ['Certificados', 'Facturas', 'DNI/ID', 'Contratos', 'Seguros', 'Otros'],
-    datasets: [{
-      data: [32, 28, 18, 15, 8, 4],
-      backgroundColor: [
-        'rgba(34, 197, 94, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(168, 85, 247, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
-        'rgba(156, 163, 175, 0.8)'
-      ],
-      borderWidth: 0
-    }]
-  };
-
-  const processingTimeData = {
-    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'],
-    datasets: [{
-      label: 'Tiempo Promedio (segundos)',
-      data: [2.3, 1.9, 2.1, 2.4, 1.8, 2.2, 2.0],
-      backgroundColor: 'rgba(245, 158, 11, 0.8)',
-      borderColor: 'rgb(245, 158, 11)',
-      borderWidth: 1
-    }]
-  };
-
-  const storageUsageData = {
-    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-    datasets: [{
-      label: 'Almacenamiento (MB)',
-      data: [234, 345, 456, 567, 678, 850],
-      borderColor: 'rgb(99, 102, 241)',
-      backgroundColor: 'rgba(99, 102, 241, 0.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  };
-
-  const generateClientInsights = async () => {
-    setLoading(true);
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const prompt = `Como analista de datos de ConstructIA, analiza estas métricas del cliente:
-      - 127 documentos procesados (+15.2%)
-      - 3 proyectos activos
-      - 94.7% precisión IA promedio (+2.1%)
-      - 2.1s tiempo procesamiento (-8.3%)
-      - 850MB almacenamiento usado (+12.5%)
-      - 96.8% tasa de éxito (+1.2%)
-      - 450 tokens disponibles (-15.6%)
-      - 89 subidas exitosas a Obralia (+18.7%)
-      
-      Genera 3 insights personalizados y recomendaciones para optimizar su uso de la plataforma (máximo 150 palabras).`;
-      
-      const insights = await callGeminiAI(prompt);
-      setAiInsights(insights);
+      return await attemptGeminiCall(prompt);
     } catch (error) {
-      setAiInsights('Error al generar insights personalizados. Intenta nuevamente.');
-    } finally {
-      setLoading(false);
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
+      
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      
+      // If not retryable or max retries reached, throw the error
+      throw error;
     }
-  };
+  }
+};
 
-  useEffect(() => {
-    generateClientInsights();
-  }, []);
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
 
-  return (
-    <div className="space-y-8">
-      {/* Header con IA Personalizada */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Mis Métricas</h2>
-            <p className="text-blue-100 mt-1">Análisis personalizado de tu actividad con IA</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="bg-white/20 text-white border border-white/30 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="weekly" className="text-gray-800">Semanal</option>
-              <option value="monthly" className="text-gray-800">Mensual</option>
-              <option value="quarterly" className="text-gray-800">Trimestral</option>
-              <option value="yearly" className="text-gray-800">Anual</option>
-            </select>
-            <button 
-              onClick={generateClientInsights}
-              disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center"
-            >
-              <Brain className="h-4 w-4 mr-2" />
-              {loading ? 'Analizando...' : 'Actualizar IA'}
-            </button>
-          </div>
-        </div>
-        
-        {aiInsights && (
-          <div className="mt-4 bg-white/10 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">🎯 Insights Personalizados IA:</h3>
-            <p className="text-sm text-white/90">{aiInsights}</p>
-          </div>
-        )}
-      </div>
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
 
-      {/* KPIs Principales */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumen de Actividad</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {clientKPIs.map((kpi, index) => (
-            <ClientKPICard key={index} {...kpi} />
-          ))}
-        </div>
-      </div>
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
 
-      {/* Gráficos de Análisis */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Análisis Visual</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">Evolución de Documentos</h4>
-            <div className="h-64">
-              <Line data={documentsEvolutionData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">Tipos de Documentos</h4>
-            <div className="h-64">
-              <Doughnut data={documentTypesData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">Tiempo de Procesamiento</h4>
-            <div className="h-64">
-              <Bar data={processingTimeData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">Uso de Almacenamiento</h4>
-            <div className="h-64">
-              <Line data={storageUsageData} options={{ responsive: true, maintainAspectRatio: false }} />
-            </div>
-          </div>
-        </div>
-      </div>
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
 
-      {/* Resumen por Proyectos */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Actividad por Proyecto</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center">
-              <Building2 className="h-5 w-5 text-green-600 mr-3" />
-              <div>
-                <p className="font-medium text-gray-800">Edificio Residencial Centro</p>
-                <p className="text-sm text-gray-600">Construcciones García S.L.</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-gray-900">87 docs</p>
-              <p className="text-sm text-green-600">+12 este mes</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center">
-              <Building2 className="h-5 w-5 text-blue-600 mr-3" />
-              <div>
-                <p className="font-medium text-gray-800">Reforma Oficinas Norte</p>
-                <p className="text-sm text-gray-600">Construcciones García S.L.</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-gray-900">34 docs</p>
-              <p className="text-sm text-blue-600">+8 este mes</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center">
-              <Building2 className="h-5 w-5 text-purple-600 mr-3" />
-              <div>
-                <p className="font-medium text-gray-800">Centro Comercial Valencia</p>
-                <p className="text-sm text-gray-600">Reformas Integrales López</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-gray-900">6 docs</p>
-              <p className="text-sm text-purple-600">+6 este mes</p>
-            </div>
-          </div>
-        </div>
-      </div>
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
 
-      {/* Objetivos y Recomendaciones */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Objetivos del Mes</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Documentos procesados</span>
-                <span className="text-sm text-gray-600">127/150</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '85%' }}></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Precisión IA</span>
-                <span className="text-sm text-gray-600">94.7%/95%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{ width: '99%' }}></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Proyectos completados</span>
-                <span className="text-sm text-gray-600">1/2</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full" style={{ width: '50%' }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Recomendaciones</h3>
-          <div className="space-y-3">
-            <div className="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-green-800">Excelente precisión IA</p>
-                <p className="text-xs text-green-700">Tu tasa de clasificación está por encima del promedio</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <Zap className="h-5 w-5 text-yellow-600 mr-3 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800">Tokens bajos</p>
-                <p className="text-xs text-yellow-700">Considera adquirir más tokens para el próximo mes</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <TrendingUp className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-800">Crecimiento constante</p>
-                <p className="text-xs text-blue-700">Tu actividad ha aumentado un 15% este mes</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
 
-      {/* Acciones Rápidas */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-            <Download className="h-5 w-5 text-blue-600 mr-2" />
-            <span className="font-medium text-blue-800">Exportar Métricas</span>
-          </button>
-          
-          <button className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-            <BarChart3 className="h-5 w-5 text-green-600 mr-2" />
-            <span className="font-medium text-green-800">Reporte Mensual</span>
-          </button>
-          
-          <button className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-            <Calendar className="h-5 w-5 text-purple-600 mr-2" />
-            <span className="font-medium text-purple-800">Programar Análisis</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    console.log('Successfully updated Obralia credentials');
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+  }
 }
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener KPIs del sistema
+export const getKPIs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kpis')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todas las pasarelas de pago
+export const getAllPaymentGateways = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payment_gateways')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment gateways:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener eventos fiscales
+export const getFiscalEvents = async () => {
+  try {
+    // Como no existe la tabla fiscal_events, simularemos datos
+    return [
+      {
+        id: '1',
+        title: 'Declaración IVA Q4 2024',
+        event_date: '2025-01-30',
+        amount_estimate: 5670.00,
+        status: 'upcoming',
+        description: 'Estimado: €5,670'
+      },
+      {
+        id: '2',
+        title: 'Retenciones IRPF',
+        event_date: '2025-02-15',
+        amount_estimate: 2340.00,
+        status: 'upcoming',
+        description: 'Estimado: €2,340'
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching fiscal events:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener planes de suscripción
+export const getSubscriptionPlans = async () => {
+  try {
+    // Como no existe la tabla subscription_plans, retornamos datos estáticos
+    return [
+      {
+        id: 'basic',
+        name: 'Básico',
+        price_monthly: 59.00,
+        price_yearly: 590.00,
+        features: [
+          'Hasta 100 documentos/mes',
+          '500MB de almacenamiento',
+          'Clasificación IA básica',
+          'Integración Obralia',
+          'Soporte por email'
+        ],
+        storage_mb: 500,
+        tokens_per_month: 500,
+        documents_per_month: '100/mes',
+        support_level: 'Email',
+        popular: false
+      },
+      {
+        id: 'professional',
+        name: 'Profesional',
+        price_monthly: 149.00,
+        price_yearly: 1490.00,
+        features: [
+          'Hasta 500 documentos/mes',
+          '1GB de almacenamiento',
+          'IA avanzada con 95% precisión',
+          'Integración Obralia completa',
+          'Dashboard personalizado',
+          'Soporte prioritario'
+        ],
+        storage_mb: 1024,
+        tokens_per_month: 1000,
+        documents_per_month: '500/mes',
+        support_level: 'Prioritario',
+        popular: true
+      },
+      {
+        id: 'enterprise',
+        name: 'Empresarial',
+        price_monthly: 299.00,
+        price_yearly: 2990.00,
+        features: [
+          'Documentos ilimitados',
+          '5GB de almacenamiento',
+          'IA premium con análisis predictivo',
+          'API personalizada',
+          'Múltiples usuarios',
+          'Soporte 24/7'
+        ],
+        storage_mb: 5120,
+        tokens_per_month: 5000,
+        documents_per_month: 'Ilimitados',
+        support_level: '24/7',
+        popular: false
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener integraciones de API
+export const getAPIIntegrations = async () => {
+  try {
+    // Como no existe la tabla api_integrations, simularemos datos
+    return [
+      {
+        id: '1',
+        name: 'Gemini AI',
+        status: 'connected',
+        description: 'Integración con la API de Gemini para IA',
+        requests_today: 8947,
+        avg_response_time_ms: 234,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          api_key_configured: true, 
+          model: 'gemini-pro',
+          rate_limit: 50000
+        }
+      },
+      {
+        id: '2',
+        name: 'Obralia/Nalanda',
+        status: 'warning',
+        description: 'Integración con la plataforma Obralia/Nalanda',
+        requests_today: 234,
+        avg_response_time_ms: 567,
+        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        config_details: { 
+          api_key_configured: false, 
+          webhook_configured: true,
+          timeout: 30000
+        }
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener cola de procesamiento manual
+export const getManualProcessingQueue = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('manual_document_queue')
+      .select(`
+        *,
+        documents(filename, original_name),
+        clients(company_name),
+        companies(name),
+        projects(name)
+      `)
+      .order('queue_position', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching manual processing queue:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+// Helper para actualizar configuración del sistema
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Configuración para ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, payment_date, gateway_name, status')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de clientes
+export const getClientStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching client stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de documentos
+export const getDocumentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('document_type, upload_status, classification_confidence, created_at, file_size')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching document stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de pagos
+export const getPaymentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('amount, payment_method, payment_status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    throw error;
+  }
+};
+
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
+  try {
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
+
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
+  } catch (error) {
+    console.error('Error calculating dynamic KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // En producción aquí iría la integración con servicio de email
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
