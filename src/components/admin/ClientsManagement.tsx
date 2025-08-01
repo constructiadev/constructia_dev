@@ -247,6 +247,65 @@ export default function ClientsManagement() {
     }
   };
 
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client);
+    setShowModal(true);
+  };
+
+  const handleDeleteClient = (clientId: string, clientName: string) => {
+    if (confirm(`¿Estás seguro de que quieres eliminar el cliente "${clientName}"? Esta acción no se puede deshacer.`)) {
+      setClients(prev => prev.filter(client => client.id !== clientId));
+      setFilteredClients(prev => prev.filter(client => client.id !== clientId));
+      alert(`Cliente "${clientName}" eliminado exitosamente`);
+    }
+  };
+
+  const handleViewClientDetails = (client: Client) => {
+    setSelectedClient(client);
+    setShowModal(true);
+  };
+
+  const handleExportClients = () => {
+    const csvContent = [
+      ['ID Cliente', 'Empresa', 'Contacto', 'Email', 'Plan', 'Estado', 'Ingresos', 'Documentos', 'Almacenamiento'].join(','),
+      ...filteredClients.map(client => [
+        client.client_id,
+        `"${client.company_name}"`,
+        `"${client.contact_name}"`,
+        client.email,
+        client.subscription_plan,
+        client.subscription_status,
+        client.monthly_revenue,
+        client.documents_processed,
+        `${client.storage_used}/${client.storage_limit}MB`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clientes_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    alert(`Datos de ${filteredClients.length} clientes exportados exitosamente`);
+  };
+
+  const handleSaveClientChanges = () => {
+    if (!selectedClient) return;
+    
+    // Simular guardado de cambios
+    alert(`Cambios guardados exitosamente para ${selectedClient.company_name}`);
+    setShowModal(false);
+    setSelectedClient(null);
+  };
+
+  const handleNewClient = () => {
+    setSelectedClient(null);
+    setShowModal(true);
+  };
+
   const getPlanColor = (plan: string) => {
     switch (plan) {
       case 'basic': return 'bg-blue-100 text-blue-800';
@@ -488,8 +547,11 @@ export default function ClientsManagement() {
           >
             Cancelar
           </button>
-          <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
-            Guardar Cambios
+          <button 
+            onClick={handleSaveClientChanges}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            {selectedClient ? 'Guardar Cambios' : 'Crear Cliente'}
           </button>
         </div>
       </div>
@@ -508,7 +570,7 @@ export default function ClientsManagement() {
           <div className="flex items-center space-x-2">
             <Brain className="h-8 w-8" />
             <button
-              onClick={() => setShowModal(true)}
+              onClick={handleNewClient}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -599,7 +661,7 @@ export default function ClientsManagement() {
 
           <button className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
             <Download className="h-4 w-4 mr-2" />
-            Exportar
+            <span onClick={handleExportClients}>Exportar</span>
           </button>
         </div>
       </div>
@@ -696,17 +758,25 @@ export default function ClientsManagement() {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => {
-                            setSelectedClient(client);
-                            setShowModal(true);
+                            handleViewClientDetails(client);
                           }}
                           className="text-blue-600 hover:text-blue-900"
+                          title="Ver detalles del cliente"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button className="text-green-600 hover:text-green-900">
+                        <button 
+                          onClick={() => handleEditClient(client)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Editar cliente"
+                        >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button className="text-red-600 hover:text-red-900">
+                        <button 
+                          onClick={() => handleDeleteClient(client.id, client.company_name)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Eliminar cliente"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
