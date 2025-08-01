@@ -1,464 +1,323 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import { 
+  DollarSign, 
+  TrendingUp, 
+  CreditCard, 
+  Receipt, 
+  AlertCircle,
+  Calendar,
+  BarChart3,
+  PieChart,
+  Users,
+  Building
+} from 'lucide-react';
+import { 
+  getAllReceipts, 
+  getAllPaymentGateways, 
+  getAllClients,
+  getKPIs,
+  calculateDynamicKPIs 
+} from '../../lib/supabase';
 
-// Configuración de Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
-});
-
-// Configuración de la API de Gemini
-export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Helper para llamadas a Gemini AI
-export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGeminiCall(prompt);
-    } catch (error) {
-      const isRetryableError = error instanceof Error && 
-        error.message.includes('503');
-      
-      if (isRetryableError && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      
-      // If not retryable or max retries reached, throw the error
-      throw error;
-    }
-  }
-};
-
-const attemptGeminiCall = async (prompt: string) => {
-  try {
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Gemini AI Error (${response.status})`;
-      
-      try {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.message) {
-          errorMessage += `: ${errorData.error.message}`;
-        } else if (errorData.message) {
-          errorMessage += `: ${errorData.message}`;
-        } else if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        }
-      } catch (parseError) {
-        // If we can't parse the error response, use status text or generic message
-        if (response.statusText) {
-          errorMessage += `: ${response.statusText}`;
-        } else {
-          errorMessage += ': Unknown error occurred';
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    // Use warn for transient 503 errors, error for others
-    if (error instanceof Error && error.message.includes('503')) {
-      console.warn('Gemini AI temporarily overloaded:', error.message);
-    }
-    throw error;
-  }
-};
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    // Validar que clientId no sea null o undefined
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    console.log('Updating Obralia credentials for client:', clientId);
-    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      console.error('Supabase error details:', error);
-      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    console.log('Successfully updated Obralia credentials');
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener datos del cliente actual
-export const getCurrentClientData = async (userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching client data:', error);
-      throw error;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error getting client data:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener proyectos del cliente
-export const getClientProjects = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        companies!inner(name),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener empresas del cliente
-export const getClientCompanies = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('companies')
-      .select(`
-        *,
-        projects(count),
-        documents(count)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching companies:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        projects!inner(name),
-        companies!inner(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los clientes (admin)
-export const getAllClients = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        users!inner(email, role)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching all clients:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener logs de auditoría
-export const getAuditLogs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        *,
-        users!inner(email, role),
-        clients(company_name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error fetching audit logs:', error);
-  }
+interface FinancialKPIs {
+  totalRevenue: number;
+  monthlyRevenue: number;
+  averageTransactionValue: number;
+  totalTransactions: number;
+  activeClients: number;
+  conversionRate: number;
 }
 
-// Helper para guardar mandato SEPA
-export const saveSEPAMandate = async (mandateData: any) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .insert(mandateData)
-      .select()
-      .single();
+const FinancialModule: React.FC = () => {
+  const [kpis, setKpis] = useState<FinancialKPIs>({
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    averageTransactionValue: 0,
+    totalTransactions: 0,
+    activeClients: 0,
+    conversionRate: 0
+  });
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [gateways, setGateways] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error saving SEPA mandate:', error);
-    throw error;
-  }
-};
+  useEffect(() => {
+    loadFinancialData();
+  }, []);
 
-// Helper para obtener mandatos SEPA de un cliente
-export const getClientSEPAMandates = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('sepa_mandates')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
+  const loadFinancialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting SEPA mandates:', error);
-    throw error;
-  }
-};
+      const [receiptsData, gatewaysData, clientsData, dynamicKPIs] = await Promise.all([
+        getAllReceipts(),
+        getAllPaymentGateways(),
+        getAllClients(),
+        calculateDynamicKPIs()
+      ]);
 
-// Helper para generar número de recibo único
-export const generateReceiptNumber = () => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-6);
-  return `REC-${year}-${timestamp}`;
-};
+      setReceipts(receiptsData || []);
+      setGateways(gatewaysData || []);
 
-// Helper para calcular impuestos (21% IVA)
-export const calculateTaxes = (amount: number, taxRate: number = 21) => {
-  const baseAmount = amount / (1 + taxRate / 100);
-  const taxAmount = amount - baseAmount;
-  
-  return {
-    baseAmount: Math.round(baseAmount * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    totalAmount: amount
+      // Calcular KPIs financieros
+      const totalRevenue = receiptsData?.reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0) || 0;
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const monthlyRevenue = receiptsData?.filter(receipt => {
+        const receiptDate = new Date(receipt.created_at);
+        return receiptDate.getMonth() === currentMonth && receiptDate.getFullYear() === currentYear;
+      }).reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0) || 0;
+
+      const totalTransactions = receiptsData?.length || 0;
+      const averageTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+      const activeClients = clientsData?.filter(client => client.subscription_status === 'active').length || 0;
+      const conversionRate = clientsData?.length > 0 ? (activeClients / clientsData.length) * 100 : 0;
+
+      setKpis({
+        totalRevenue,
+        monthlyRevenue,
+        averageTransactionValue,
+        totalTransactions,
+        activeClients,
+        conversionRate
+      });
+
+    } catch (err) {
+      console.error('Error loading financial data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading financial data');
+    } finally {
+      setLoading(false);
+    }
   };
-};
 
-// Helper para crear recibo
-export const createReceipt = async (receiptData: {
-  clientId: string;
-  amount: number;
-  paymentMethod: string;
-  gatewayName: string;
-  description: string;
-  transactionId: string;
-  invoiceItems: any[];
-  clientDetails: any;
-}) => {
-  try {
-    const receiptNumber = generateReceiptNumber();
-    const taxes = calculateTaxes(receiptData.amount);
-    
-    const receipt = {
-      receipt_number: receiptNumber,
-      client_id: receiptData.clientId,
-      amount: receiptData.amount,
-      base_amount: taxes.baseAmount,
-      tax_amount: taxes.taxAmount,
-      tax_rate: 21,
-      currency: 'EUR',
-      payment_method: receiptData.paymentMethod,
-      gateway_name: receiptData.gatewayName,
-      description: receiptData.description,
-      transaction_id: receiptData.transactionId,
-      invoice_items: receiptData.invoiceItems,
-      client_details: receiptData.clientDetails,
-      status: 'paid'
-    };
-
-    const { data, error } = await supabase
-      .from('receipts')
-      .insert(receipt)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error creating receipt:', error);
-    throw error;
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white p-6 rounded-lg shadow-sm border">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
-};
 
-// Helper para obtener recibos de un cliente
-export const getClientReceipts = async (clientId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting client receipts:', error);
-    throw error;
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+            <span className="text-red-700">Error: {error}</span>
+          </div>
+          <button 
+            onClick={loadFinancialData}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
   }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Módulo Financiero</h1>
+        <button 
+          onClick={loadFinancialData}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Actualizar Datos
+        </button>
+      </div>
+
+      {/* KPIs Principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Ingresos Totales</p>
+              <p className="text-2xl font-bold text-gray-900">€{kpis.totalRevenue.toFixed(2)}</p>
+            </div>
+            <DollarSign className="w-8 h-8 text-green-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Ingresos Mensuales</p>
+              <p className="text-2xl font-bold text-gray-900">€{kpis.monthlyRevenue.toFixed(2)}</p>
+            </div>
+            <Calendar className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Valor Promedio</p>
+              <p className="text-2xl font-bold text-gray-900">€{kpis.averageTransactionValue.toFixed(2)}</p>
+            </div>
+            <TrendingUp className="w-8 h-8 text-purple-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Transacciones</p>
+              <p className="text-2xl font-bold text-gray-900">{kpis.totalTransactions}</p>
+            </div>
+            <Receipt className="w-8 h-8 text-orange-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Clientes Activos</p>
+              <p className="text-2xl font-bold text-gray-900">{kpis.activeClients}</p>
+            </div>
+            <Users className="w-8 h-8 text-indigo-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Tasa de Conversión</p>
+              <p className="text-2xl font-bold text-gray-900">{kpis.conversionRate.toFixed(1)}%</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-teal-600" />
+          </div>
+        </div>
+      </div>
+
+      {/* Pasarelas de Pago */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <CreditCard className="w-5 h-5 mr-2" />
+            Pasarelas de Pago
+          </h2>
+        </div>
+        <div className="p-6">
+          {gateways.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No hay pasarelas de pago configuradas</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {gateways.map((gateway) => (
+                <div key={gateway.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-gray-900">{gateway.name}</h3>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      gateway.status === 'active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {gateway.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">Tipo: {gateway.type}</p>
+                  <p className="text-sm text-gray-600">
+                    Comisión: {gateway.commission_type === 'percentage' 
+                      ? `${gateway.commission_percentage}%` 
+                      : `€${gateway.commission_fixed}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Transacciones Recientes */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Receipt className="w-5 h-5 mr-2" />
+            Transacciones Recientes
+          </h2>
+        </div>
+        <div className="p-6">
+          {receipts.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No hay transacciones registradas</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Recibo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cantidad
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Método
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {receipts.slice(0, 10).map((receipt) => (
+                    <tr key={receipt.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {receipt.receipt_number}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {receipt.clients?.company_name || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        €{parseFloat(receipt.amount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {receipt.payment_method}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(receipt.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          receipt.status === 'paid' 
+                            ? 'bg-green-100 text-green-800' 
+                            : receipt.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {receipt.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Helper para obtener todos los recibos (admin)
-export const getAllReceipts = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select(`
-        *,
-        clients!inner(
-          company_name,
-          contact_name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting all receipts:', error);
-    throw error;
-  }
-};
-
-// Helper para simular envío de email
-export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
-  try {
-    // Simular envío de email
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // En producción aquí iría la integración con servicio de email
-    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
-    
-    return { success: true, message: 'Recibo enviado exitosamente' };
-  } catch (error) {
-    console.error('Error sending receipt email:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todas las pasarelas de pago
-export const getAllPaymentGateways = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('payment_gateways')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching payment gateways:', error);
-    return [];
-  }
-};
-
-// Helper para obtener KPIs
-export const getKPIs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('kpis')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching KPIs:', error);
-    return [];
-  }
-};
-
-// Helper para obtener eventos fiscales
-export const getFiscalEvents = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('fiscal_events')
-      .select('*')
-      .order('date', { ascending: true });
-
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching fiscal events:', error);
-    return [];
-  }
-};
+export default FinancialModule;
