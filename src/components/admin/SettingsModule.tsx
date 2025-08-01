@@ -1,1043 +1,744 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Settings, 
-  Brain, 
-  Download, 
-  Upload, 
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle,
-  Save,
-  BarChart3,
-  HardDrive,
-  Activity,
-  Shield,
-  Clock,
-  Zap,
-  FileText,
-  Play,
-  Pause,
-  RotateCcw,
-  Server,
-  Cpu,
-  Eye,
-  Trash2,
-  Plus,
-  Monitor,
-  Terminal,
-  Code,
-  Layers,
-  Archive,
-  Globe,
-  Mail,
-  Phone,
-  MapPin,
-  Building2,
-  User,
-  Key,
-  Lock,
-  Database,
-  CreditCard,
-  Euro,
-  Percent
-} from 'lucide-react';
-import { callGeminiAI } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-interface SettingsKPICardProps {
-  title: string;
-  value: string | number;
-  status: 'good' | 'warning' | 'error';
-  icon: React.ElementType;
-  color: string;
-  description?: string;
-  period?: string;
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-function SettingsKPICard({ title, value, status, icon: Icon, color, description, period = 'tiempo real' }: SettingsKPICardProps) {
-  const statusColors = {
-    good: 'text-green-600',
-    warning: 'text-yellow-600',
-    error: 'text-red-600'
-  };
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-  const statusIcons = {
-    good: CheckCircle,
-    warning: AlertTriangle,
-    error: AlertTriangle
-  };
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  const StatusIcon = statusIcons[status];
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
-        </div>
-        <div className="flex items-center space-x-2">
-          <StatusIcon className={`h-4 w-4 ${statusColors[status]}`} />
-          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-            {period}
-          </span>
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        {description && (
-          <p className="text-xs text-gray-500 mt-1">{description}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface SystemConfigCardProps {
-  title: string;
-  description: string;
-  status: 'configured' | 'pending' | 'error';
-  icon: React.ElementType;
-  color: string;
-  onConfigure: () => void;
-  onTest: () => void;
-  onReset: () => void;
-}
-
-function SystemConfigCard({ title, description, status, icon: Icon, color, onConfigure, onTest, onReset }: SystemConfigCardProps) {
-  const statusColors = {
-    configured: 'bg-green-100 text-green-800 border-green-200',
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    error: 'bg-red-100 text-red-800 border-red-200'
-  };
-
-  const statusText = {
-    configured: 'Configurado',
-    pending: 'Pendiente',
-    error: 'Error'
-  };
-
-  return (
-    <div className={`border rounded-xl p-6 ${statusColors[status]} hover:shadow-md transition-shadow`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <div className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center mr-3`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h4 className="font-semibold">{title}</h4>
-            <p className="text-sm opacity-75">{description}</p>
-          </div>
-        </div>
-        <span className="text-xs font-medium">
-          {statusText[status]}
-        </span>
-      </div>
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await attemptGeminiCall(prompt);
+    } catch (error) {
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
       
-      <div className="flex space-x-2 mt-4">
-        <button 
-          onClick={onConfigure}
-          className="flex-1 px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors text-sm font-medium"
-        >
-          <Settings className="h-3 w-3 inline mr-1" />
-          Configurar
-        </button>
-        <button 
-          onClick={onTest}
-          className="px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors"
-          title="Probar configuración"
-        >
-          <RefreshCw className="h-3 w-3" />
-        </button>
-        <button 
-          onClick={onReset}
-          className="px-3 py-2 bg-white/50 hover:bg-white/75 rounded-lg transition-colors"
-          title="Resetear configuración"
-        >
-          <RotateCcw className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export default function SettingsModule() {
-  const [aiInsights, setAiInsights] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('general');
-  const [systemSettings, setSystemSettings] = useState({
-    company_name: 'ConstructIA S.L.',
-    company_address: 'Calle Innovación 123, 28001 Madrid, España',
-    company_phone: '+34 91 000 00 00',
-    company_email: 'contacto@constructia.com',
-    company_tax_id: 'B87654321',
-    company_website: 'www.constructia.com',
-    smtp_host: 'smtp.gmail.com',
-    smtp_port: '587',
-    smtp_user: 'noreply@constructia.com',
-    smtp_password: '••••••••',
-    gemini_api_key: 'AIzaSyBeCWidKQl7beufEFlraRTQJUmGH-1lD-o',
-    stripe_secret_key: 'sk_live_••••••••',
-    obralia_api_url: 'https://api.obralia.com/v2',
-    backup_frequency: 'daily',
-    log_retention: '90',
-    max_file_size: '10',
-    session_timeout: '30'
-  });
-
-  // KPIs de Configuración
-  const settingsKPIs = [
-    { title: 'Configuraciones', value: '24/28', status: 'warning' as const, icon: Settings, color: 'bg-blue-500', description: '4 configuraciones pendientes', period: 'estado actual' },
-    { title: 'APIs Configuradas', value: '12/15', status: 'warning' as const, icon: Globe, color: 'bg-green-500', description: '3 APIs sin configurar', period: 'estado actual' },
-    { title: 'Seguridad', value: '98%', status: 'good' as const, icon: Shield, color: 'bg-purple-500', description: 'Configuración de seguridad', period: 'evaluación' },
-    { title: 'Rendimiento', value: '94%', status: 'good' as const, icon: Zap, color: 'bg-orange-500', description: 'Optimización del sistema', period: 'evaluación' },
-    { title: 'Backups', value: 'Activo', status: 'good' as const, icon: Archive, color: 'bg-indigo-500', description: 'Backup automático diario', period: 'estado actual' },
-    { title: 'Monitoreo', value: 'Activo', status: 'good' as const, icon: Monitor, color: 'bg-cyan-500', description: 'Alertas configuradas', period: 'estado actual' }
-  ];
-
-  // Configuraciones del sistema
-  const systemConfigurations = [
-    {
-      title: 'Gemini AI',
-      description: 'Configuración de la API de inteligencia artificial',
-      status: 'configured' as const,
-      icon: Brain,
-      color: 'bg-purple-600'
-    },
-    {
-      title: 'Stripe Payments',
-      description: 'Configuración de procesamiento de pagos',
-      status: 'configured' as const,
-      icon: CreditCard,
-      color: 'bg-blue-600'
-    },
-    {
-      title: 'Obralia/Nalanda',
-      description: 'Integración con sistema de documentos',
-      status: 'pending' as const,
-      icon: Globe,
-      color: 'bg-orange-600'
-    },
-    {
-      title: 'SMTP Email',
-      description: 'Configuración de servidor de correo',
-      status: 'configured' as const,
-      icon: Mail,
-      color: 'bg-green-600'
-    },
-    {
-      title: 'Base de Datos',
-      description: 'Configuración de Supabase',
-      status: 'configured' as const,
-      icon: Database,
-      color: 'bg-indigo-600'
-    },
-    {
-      title: 'Seguridad SSL',
-      description: 'Certificados y encriptación',
-      status: 'error' as const,
-      icon: Lock,
-      color: 'bg-red-600'
-    }
-  ];
-
-  const tabs = [
-    { id: 'general', name: 'General', icon: Settings },
-    { id: 'company', name: 'Empresa', icon: Building2 },
-    { id: 'apis', name: 'APIs', icon: Globe },
-    { id: 'security', name: 'Seguridad', icon: Shield },
-    { id: 'system', name: 'Sistema', icon: Server },
-    { id: 'backup', name: 'Backup', icon: Archive }
-  ];
-
-  const generateSettingsInsights = async () => {
-    setLoading(true);
-    try {
-      // Simular insights mientras Gemini está fallando
-      const mockInsights = `⚙️ Análisis de Configuración ConstructIA:
-
-1. **Estado General Bueno**: 24/28 configuraciones completadas (85.7%), sistema operativo con rendimiento óptimo.
-
-2. **Pendientes Críticos**: 3 APIs sin configurar y certificado SSL requiere renovación inmediata.
-
-3. **Recomendaciones**: Completar configuración de Obralia, renovar SSL y activar 2FA para administradores.`;
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
       
-      setAiInsights(mockInsights);
-    } catch (error) {
-      setAiInsights('Error al generar insights de configuración. La API de Gemini está temporalmente no disponible.');
-    } finally {
-      setLoading(false);
+      // If not retryable or max retries reached, throw the error
+      throw error;
     }
-  };
+  }
+};
 
-  const handleSaveGeneralSettings = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Configuración general guardada exitosamente');
-    } catch (error) {
-      alert('Error al guardar la configuración general');
-    } finally {
-      setLoading(false);
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
     }
-  };
 
-  const handleSaveCompanySettings = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert('Información de la empresa actualizada exitosamente');
-    } catch (error) {
-      alert('Error al actualizar la información de la empresa');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
 
-  const handleSaveAPISettings = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Configuración de APIs guardada exitosamente');
-    } catch (error) {
-      alert('Error al guardar la configuración de APIs');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveSecuritySettings = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Configuración de seguridad actualizada exitosamente');
-    } catch (error) {
-      alert('Error al actualizar la configuración de seguridad');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveSystemSettings = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Configuración del sistema guardada exitosamente');
-    } catch (error) {
-      alert('Error al guardar la configuración del sistema');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveBackupSettings = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert('Configuración de backup actualizada exitosamente');
-    } catch (error) {
-      alert('Error al actualizar la configuración de backup');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfigureService = async (serviceName: string) => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert(`Configuración de ${serviceName} actualizada exitosamente.\n\nParámetros optimizados para mejor rendimiento.`);
-    } catch (error) {
-      alert(`Error al configurar ${serviceName}.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTestService = async (serviceName: string) => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert(`Conexión con ${serviceName} verificada exitosamente.\n\nTodos los parámetros funcionan correctamente.`);
-    } catch (error) {
-      alert(`Error al probar ${serviceName}. Verifica la configuración.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetService = async (serviceName: string) => {
-    if (confirm(`¿Estás seguro de que quieres resetear la configuración de ${serviceName}? Esta acción restaurará los valores por defecto.`)) {
-      setLoading(true);
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        alert(`Configuración de ${serviceName} reseteada exitosamente.\n\nValores por defecto restaurados.`);
-      } catch (error) {
-        alert(`Error al resetear ${serviceName}.`);
-      } finally {
-        setLoading(false);
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
       }
+      
+      throw new Error(errorMessage);
     }
-  };
 
-  const handleExportSettings = () => {
-    const settingsData = {
-      timestamp: new Date().toISOString(),
-      system_settings: systemSettings,
-      configurations: systemConfigurations.map(config => ({
-        name: config.title,
-        status: config.status
-      })),
-      kpis: settingsKPIs.map(kpi => ({
-        title: kpi.title,
-        value: kpi.value,
-        status: kpi.status
-      }))
-    };
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
+
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    console.log('Successfully updated Obralia credentials');
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
+    }
     
-    const jsonContent = JSON.stringify(settingsData, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `system_settings_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    
-    alert('Configuración del sistema exportada exitosamente');
-  };
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
 
-  const handleImportSettings = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const settings = JSON.parse(e.target?.result as string);
-            alert(`Configuración importada exitosamente:\n\n• ${Object.keys(settings.system_settings || {}).length} configuraciones del sistema\n• ${settings.configurations?.length || 0} servicios configurados\n• Timestamp: ${settings.timestamp || 'No disponible'}`);
-          } catch (error) {
-            alert('Error al importar configuración. Archivo JSON inválido.');
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  };
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-  const handleResetAllSettings = () => {
-    if (confirm('¿Estás seguro de que quieres resetear TODA la configuración del sistema? Esta acción no se puede deshacer y restaurará todos los valores por defecto.')) {
-      if (confirm('CONFIRMACIÓN FINAL: Esta acción reseteará completamente el sistema. ¿Continuar?')) {
-        alert('Reseteo completo del sistema iniciado.\n\nEsta acción tomaría varios minutos en producción y requeriría reinicio del sistema.');
-      }
-    }
-  };
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
 
-  const handleOptimizeSystem = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      alert('Sistema optimizado exitosamente:\n\n• Cache limpiado\n• Base de datos optimizada\n• Configuraciones validadas\n• Rendimiento mejorado al 96%');
-    } catch (error) {
-      alert('Error al optimizar el sistema.');
-    } finally {
-      setLoading(false);
-    }
-  };
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-  const handleValidateConfiguration = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      alert('Validación de configuración completada:\n\n✅ 24 configuraciones válidas\n⚠️ 4 configuraciones pendientes\n❌ 0 configuraciones con errores\n\nSistema listo para producción.');
-    } catch (error) {
-      alert('Error al validar la configuración.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
 
-  const handleBackupConfiguration = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Backup de configuración creado exitosamente:\n\n• Archivo: config_backup_' + new Date().toISOString().split('T')[0] + '.json\n• Tamaño: 2.3MB\n• Ubicación: /backups/config/\n• Estado: Completado');
-    } catch (error) {
-      alert('Error al crear backup de configuración.');
-    } finally {
-      setLoading(false);
-    }
-  };
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-  const handleRestoreConfiguration = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file && confirm(`¿Estás seguro de que quieres restaurar la configuración desde ${file.name}? Esta acción sobrescribirá la configuración actual.`)) {
-        alert(`Restauración de configuración iniciada desde ${file.name}.\n\nEsta acción tomaría varios minutos en producción.`);
-      }
-    };
-    input.click();
-  };
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
 
-  const handleUpdateSystemValue = (key: string, value: string) => {
-    setSystemSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
 
-  useEffect(() => {
-    generateSettingsInsights();
-  }, []);
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
 
-  return (
-    <div className="space-y-8">
-      {/* Header con IA */}
-      <div className="bg-gradient-to-r from-gray-600 to-slate-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Configuración del Sistema</h2>
-            <p className="text-gray-100 mt-1">Gestión integral de configuraciones con análisis IA</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={generateSettingsInsights}
-              disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center"
-            >
-              <Brain className="h-4 w-4 mr-2" />
-              {loading ? 'Analizando...' : 'Actualizar IA'}
-            </button>
-          </div>
-        </div>
-        
-        {aiInsights && (
-          <div className="mt-4 bg-white/10 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">⚙️ Insights de Configuración IA:</h3>
-            <div className="text-sm text-white/90 whitespace-pre-line">{aiInsights}</div>
-          </div>
-        )}
-      </div>
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-      {/* KPIs de Configuración */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Estado de Configuraciones</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-          {settingsKPIs.map((kpi, index) => (
-            <SettingsKPICard key={index} {...kpi} />
-          ))}
-        </div>
-      </div>
-
-      {/* Configuraciones del Sistema */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Servicios del Sistema</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {systemConfigurations.map((config, index) => (
-            <SystemConfigCard 
-              key={index} 
-              {...config} 
-              onConfigure={() => handleConfigureService(config.title)}
-              onTest={() => handleTestService(config.title)}
-              onReset={() => handleResetService(config.title)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Tabs de Configuración */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-gray-500 text-gray-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.name}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-6">
-          {/* Tab: General */}
-          {activeTab === 'general' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">Configuración General</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tamaño máximo de archivo (MB)
-                  </label>
-                  <input
-                    type="number"
-                    value={systemSettings.max_file_size}
-                    onChange={(e) => handleUpdateSystemValue('max_file_size', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Timeout de sesión (minutos)
-                  </label>
-                  <input
-                    type="number"
-                    value={systemSettings.session_timeout}
-                    onChange={(e) => handleUpdateSystemValue('session_timeout', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Retención de logs (días)
-                  </label>
-                  <input
-                    type="number"
-                    value={systemSettings.log_retention}
-                    onChange={(e) => handleUpdateSystemValue('log_retention', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Frecuencia de backup
-                  </label>
-                  <select
-                    value={systemSettings.backup_frequency}
-                    onChange={(e) => handleUpdateSystemValue('backup_frequency', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  >
-                    <option value="hourly">Cada hora</option>
-                    <option value="daily">Diario</option>
-                    <option value="weekly">Semanal</option>
-                  </select>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSaveGeneralSettings}
-                disabled={loading}
-                className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Guardando...' : 'Guardar Configuración General'}
-              </button>
-            </div>
-          )}
-
-          {/* Tab: Empresa */}
-          {activeTab === 'company' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">Información de la Empresa</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre de la Empresa
-                  </label>
-                  <input
-                    type="text"
-                    value={systemSettings.company_name}
-                    onChange={(e) => handleUpdateSystemValue('company_name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CIF/NIF
-                  </label>
-                  <input
-                    type="text"
-                    value={systemSettings.company_tax_id}
-                    onChange={(e) => handleUpdateSystemValue('company_tax_id', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    value={systemSettings.company_address}
-                    onChange={(e) => handleUpdateSystemValue('company_address', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    value={systemSettings.company_phone}
-                    onChange={(e) => handleUpdateSystemValue('company_phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={systemSettings.company_email}
-                    onChange={(e) => handleUpdateSystemValue('company_email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sitio Web
-                  </label>
-                  <input
-                    type="url"
-                    value={systemSettings.company_website}
-                    onChange={(e) => handleUpdateSystemValue('company_website', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSaveCompanySettings}
-                disabled={loading}
-                className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Guardando...' : 'Guardar Información de Empresa'}
-              </button>
-            </div>
-          )}
-
-          {/* Tab: APIs */}
-          {activeTab === 'apis' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">Configuración de APIs</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gemini AI API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={systemSettings.gemini_api_key}
-                    onChange={(e) => handleUpdateSystemValue('gemini_api_key', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Stripe Secret Key
-                  </label>
-                  <input
-                    type="password"
-                    value={systemSettings.stripe_secret_key}
-                    onChange={(e) => handleUpdateSystemValue('stripe_secret_key', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Obralia API URL
-                  </label>
-                  <input
-                    type="url"
-                    value={systemSettings.obralia_api_url}
-                    onChange={(e) => handleUpdateSystemValue('obralia_api_url', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSaveAPISettings}
-                disabled={loading}
-                className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Guardando...' : 'Guardar Configuración de APIs'}
-              </button>
-            </div>
-          )}
-
-          {/* Tab: Seguridad */}
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">Configuración de Seguridad</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-800">Autenticación de dos factores (2FA)</p>
-                    <p className="text-sm text-gray-600">Requerido para administradores</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600"></div>
-                  </label>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-800">Encriptación de datos</p>
-                    <p className="text-sm text-gray-600">AES-256 para datos sensibles</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600"></div>
-                  </label>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-800">Logs de auditoría</p>
-                    <p className="text-sm text-gray-600">Registro completo de actividades</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600"></div>
-                  </label>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSaveSecuritySettings}
-                disabled={loading}
-                className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Guardando...' : 'Guardar Configuración de Seguridad'}
-              </button>
-            </div>
-          )}
-
-          {/* Tab: Sistema */}
-          {activeTab === 'system' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">Configuración del Sistema</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Servidor SMTP
-                  </label>
-                  <input
-                    type="text"
-                    value={systemSettings.smtp_host}
-                    onChange={(e) => handleUpdateSystemValue('smtp_host', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Puerto SMTP
-                  </label>
-                  <input
-                    type="number"
-                    value={systemSettings.smtp_port}
-                    onChange={(e) => handleUpdateSystemValue('smtp_port', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Usuario SMTP
-                  </label>
-                  <input
-                    type="email"
-                    value={systemSettings.smtp_user}
-                    onChange={(e) => handleUpdateSystemValue('smtp_user', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contraseña SMTP
-                  </label>
-                  <input
-                    type="password"
-                    value={systemSettings.smtp_password}
-                    onChange={(e) => handleUpdateSystemValue('smtp_password', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSaveSystemSettings}
-                disabled={loading}
-                className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Guardando...' : 'Guardar Configuración del Sistema'}
-              </button>
-            </div>
-          )}
-
-          {/* Tab: Backup */}
-          {activeTab === 'backup' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">Configuración de Backup</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-6 bg-green-50 rounded-lg border border-green-200">
-                  <Archive className="h-8 w-8 text-green-600 mx-auto mb-3" />
-                  <h4 className="font-semibold text-green-800 mb-2">Último Backup</h4>
-                  <p className="text-2xl font-bold text-green-600 mb-1">2h ago</p>
-                  <p className="text-sm text-green-700">Backup automático exitoso</p>
-                </div>
-                
-                <div className="text-center p-6 bg-blue-50 rounded-lg border border-blue-200">
-                  <HardDrive className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-                  <h4 className="font-semibold text-blue-800 mb-2">Tamaño Total</h4>
-                  <p className="text-2xl font-bold text-blue-600 mb-1">2.4TB</p>
-                  <p className="text-sm text-blue-700">Datos respaldados</p>
-                </div>
-                
-                <div className="text-center p-6 bg-purple-50 rounded-lg border border-purple-200">
-                  <Clock className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-                  <h4 className="font-semibold text-purple-800 mb-2">Frecuencia</h4>
-                  <p className="text-2xl font-bold text-purple-600 mb-1">Diario</p>
-                  <p className="text-sm text-purple-700">Backup automático</p>
-                </div>
-              </div>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={handleBackupConfiguration}
-                  disabled={loading}
-                  className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <Archive className="h-4 w-4 mr-2" />
-                  {loading ? 'Creando...' : 'Crear Backup Manual'}
-                </button>
-                
-                <button
-                  onClick={handleRestoreConfiguration}
-                  className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Restaurar Configuración
-                </button>
-                
-                <button
-                  onClick={handleSaveBackupSettings}
-                  disabled={loading}
-                  className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {loading ? 'Guardando...' : 'Guardar Configuración'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Acciones del Sistema */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Acciones del Sistema</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={handleExportSettings}
-            className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-          >
-            <Download className="h-5 w-5 text-green-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-green-800">Exportar Config</p>
-              <p className="text-xs text-green-600">Backup completo</p>
-            </div>
-          </button>
-          
-          <button 
-            onClick={handleImportSettings}
-            className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-          >
-            <Upload className="h-5 w-5 text-blue-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-blue-800">Importar Config</p>
-              <p className="text-xs text-blue-600">Desde archivo JSON</p>
-            </div>
-          </button>
-          
-          <button 
-            onClick={handleOptimizeSystem}
-            disabled={loading}
-            className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <Zap className="h-5 w-5 text-purple-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-purple-800">
-                {loading ? 'Optimizando...' : 'Optimizar Sistema'}
-              </p>
-              <p className="text-xs text-purple-600">Mejorar rendimiento</p>
-            </div>
-          </button>
-          
-          <button 
-            onClick={handleValidateConfiguration}
-            disabled={loading}
-            className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <CheckCircle className="h-5 w-5 text-orange-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-orange-800">
-                {loading ? 'Validando...' : 'Validar Config'}
-              </p>
-              <p className="text-xs text-orange-600">Verificar integridad</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Zona de Peligro */}
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-red-800 mb-4">⚠️ Zona de Peligro</h3>
-        <div className="space-y-4">
-          <div className="bg-white border border-red-200 rounded-lg p-4">
-            <h4 className="font-semibold text-red-800 mb-2">Resetear Configuración Completa</h4>
-            <p className="text-sm text-red-700 mb-4">
-              Esta acción restaurará TODA la configuración del sistema a los valores por defecto. 
-              No se puede deshacer.
-            </p>
-            <button
-              onClick={handleResetAllSettings}
-              className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-            >
-              Resetear Todo el Sistema
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+  }
 }
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener KPIs del sistema
+export const getKPIs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kpis')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todas las pasarelas de pago
+export const getAllPaymentGateways = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payment_gateways')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment gateways:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener eventos fiscales
+export const getFiscalEvents = async () => {
+  try {
+    // Como no existe la tabla fiscal_events, simularemos datos
+    return [
+      {
+        id: '1',
+        title: 'Declaración IVA Q4 2024',
+        event_date: '2025-01-30',
+        amount_estimate: 5670.00,
+        status: 'upcoming',
+        description: 'Estimado: €5,670'
+      },
+      {
+        id: '2',
+        title: 'Retenciones IRPF',
+        event_date: '2025-02-15',
+        amount_estimate: 2340.00,
+        status: 'upcoming',
+        description: 'Estimado: €2,340'
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching fiscal events:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener planes de suscripción
+export const getSubscriptionPlans = async () => {
+  try {
+    // Como no existe la tabla subscription_plans, retornamos datos estáticos
+    return [
+      {
+        id: 'basic',
+        name: 'Básico',
+        price_monthly: 59.00,
+        price_yearly: 590.00,
+        features: [
+          'Hasta 100 documentos/mes',
+          '500MB de almacenamiento',
+          'Clasificación IA básica',
+          'Integración Obralia',
+          'Soporte por email'
+        ],
+        storage_mb: 500,
+        tokens_per_month: 500,
+        documents_per_month: '100/mes',
+        support_level: 'Email',
+        popular: false
+      },
+      {
+        id: 'professional',
+        name: 'Profesional',
+        price_monthly: 149.00,
+        price_yearly: 1490.00,
+        features: [
+          'Hasta 500 documentos/mes',
+          '1GB de almacenamiento',
+          'IA avanzada con 95% precisión',
+          'Integración Obralia completa',
+          'Dashboard personalizado',
+          'Soporte prioritario'
+        ],
+        storage_mb: 1024,
+        tokens_per_month: 1000,
+        documents_per_month: '500/mes',
+        support_level: 'Prioritario',
+        popular: true
+      },
+      {
+        id: 'enterprise',
+        name: 'Empresarial',
+        price_monthly: 299.00,
+        price_yearly: 2990.00,
+        features: [
+          'Documentos ilimitados',
+          '5GB de almacenamiento',
+          'IA premium con análisis predictivo',
+          'API personalizada',
+          'Múltiples usuarios',
+          'Soporte 24/7'
+        ],
+        storage_mb: 5120,
+        tokens_per_month: 5000,
+        documents_per_month: 'Ilimitados',
+        support_level: '24/7',
+        popular: false
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener integraciones de API
+export const getAPIIntegrations = async () => {
+  try {
+    // Como no existe la tabla api_integrations, simularemos datos
+    return [
+      {
+        id: '1',
+        name: 'Gemini AI',
+        status: 'connected',
+        description: 'Integración con la API de Gemini para IA',
+        requests_today: 8947,
+        avg_response_time_ms: 234,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          api_key_configured: true, 
+          model: 'gemini-pro',
+          rate_limit: 50000
+        }
+      },
+      {
+        id: '2',
+        name: 'Obralia/Nalanda',
+        status: 'warning',
+        description: 'Integración con la plataforma Obralia/Nalanda',
+        requests_today: 234,
+        avg_response_time_ms: 567,
+        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        config_details: { 
+          api_key_configured: false, 
+          webhook_configured: true,
+          timeout: 30000
+        }
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener cola de procesamiento manual
+export const getManualProcessingQueue = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('manual_document_queue')
+      .select(`
+        *,
+        documents(filename, original_name),
+        clients(company_name),
+        companies(name),
+        projects(name)
+      `)
+      .order('queue_position', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching manual processing queue:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+// Helper para actualizar configuración del sistema
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Configuración para ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, payment_date, gateway_name, status')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de clientes
+export const getClientStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching client stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de documentos
+export const getDocumentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('document_type, upload_status, classification_confidence, created_at, file_size')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching document stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de pagos
+export const getPaymentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('amount, payment_method, payment_status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    throw error;
+  }
+};
+
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
+  try {
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
+
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
+  } catch (error) {
+    console.error('Error calculating dynamic KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // En producción aquí iría la integración con servicio de email
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
