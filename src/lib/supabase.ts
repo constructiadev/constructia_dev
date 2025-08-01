@@ -94,6 +94,7 @@ const attemptGeminiCall = async (prompt: string) => {
     throw error;
   }
 };
+
 // Helper para actualizar credenciales de Obralia del cliente
 export const updateClientObraliaCredentials = async (
   clientId: string, 
