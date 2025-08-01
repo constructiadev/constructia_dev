@@ -752,34 +752,51 @@ export default function DatabaseModule() {
             onClick={exportDatabaseReport}
             className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
           >
-            <Download className="h-5 w-5 text-green-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-green-800">Exportar Reporte</p>
-              <p className="text-xs text-green-600">Análisis completo</p>
+            <div className="flex items-center">
+              <Download className="h-5 w-5 text-green-600 mr-2" />
+              <div className="text-left">
+                <p className="font-medium text-green-800">Exportar Reporte</p>
+                <p className="text-xs text-green-600">Análisis completo</p>
+              </div>
             </div>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-            <Terminal className="h-5 w-5 text-blue-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-blue-800">Consola SQL</p>
-              <p className="text-xs text-blue-600">Ejecutar consultas</p>
+          <button 
+            onClick={() => alert('Consola SQL: Esta funcionalidad abrirá una interfaz para ejecutar consultas SQL directamente en la base de datos.')}
+            className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+          >
+            <div className="flex items-center">
+              <Terminal className="h-5 w-5 text-blue-600 mr-2" />
+              <div className="text-left">
+                <p className="font-medium text-blue-800">Consola SQL</p>
+                <p className="text-xs text-blue-600">Ejecutar consultas</p>
+              </div>
             </div>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-            <Monitor className="h-5 w-5 text-purple-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-purple-800">Monitoreo</p>
-              <p className="text-xs text-purple-600">Métricas en vivo</p>
+          <button 
+            onClick={() => alert('Monitoreo: Abriendo dashboard de métricas en tiempo real de la base de datos.')}
+            className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+          >
+            <div className="flex items-center">
+              <Monitor className="h-5 w-5 text-purple-600 mr-2" />
+              <div className="text-left">
+                <p className="font-medium text-purple-800">Monitoreo</p>
+                <p className="text-xs text-purple-600">Métricas en vivo</p>
+              </div>
             </div>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
-            <Settings className="h-5 w-5 text-orange-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-orange-800">Configuración</p>
-              <p className="text-xs text-orange-600">Parámetros avanzados</p>
+          <button 
+            onClick={() => alert('Configuración: Accediendo a parámetros avanzados de la base de datos (timeouts, conexiones, cache, etc.).')}
+            className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+          >
+            <div className="flex items-center">
+              <Settings className="h-5 w-5 text-orange-600 mr-2" />
+              <div className="text-left">
+                <p className="font-medium text-orange-800">Configuración</p>
+                <p className="text-xs text-orange-600">Parámetros avanzados</p>
+              </div>
             </div>
           </button>
         </div>
