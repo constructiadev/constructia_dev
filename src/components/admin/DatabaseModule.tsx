@@ -89,9 +89,11 @@ interface TableStatsCardProps {
   growth: number;
   icon: React.ElementType;
   color: string;
+  onViewTable: (tableName: string) => void;
+  onAnalyzeTable: (tableName: string) => void;
 }
 
-function TableStatsCard({ tableName, records, size, lastUpdate, growth, icon: Icon, color }: TableStatsCardProps) {
+function TableStatsCard({ tableName, records, size, lastUpdate, growth, icon: Icon, color, onViewTable, onAnalyzeTable }: TableStatsCardProps) {
   const growthColor = growth > 0 ? 'text-green-600' : growth < 0 ? 'text-red-600' : 'text-gray-600';
   const growthSymbol = growth > 0 ? '+' : '';
 
@@ -131,14 +133,14 @@ function TableStatsCard({ tableName, records, size, lastUpdate, growth, icon: Ic
       
       <div className="flex space-x-2 mt-4">
         <button 
-          onClick={() => handleViewTable(tableName)}
+          onClick={() => onViewTable(tableName)}
           className="flex-1 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium"
         >
           <Eye className="h-3 w-3 inline mr-1" />
           Ver
         </button>
         <button 
-          onClick={() => handleAnalyzeTable(tableName)}
+          onClick={() => onAnalyzeTable(tableName)}
           className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
         >
           <BarChart3 className="h-3 w-3" />
@@ -581,7 +583,7 @@ export default function DatabaseModule() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {tableStats.map((table, index) => (
-            <TableStatsCard key={index} {...table} />
+            <TableStatsCard key={index} {...table} onViewTable={handleViewTable} onAnalyzeTable={handleAnalyzeTable} />
           ))}
         </div>
       </div>
