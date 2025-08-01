@@ -1,152 +1,746 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Building2, Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import Logo from '../common/Logo';
+import { createClient } from '@supabase/supabase-js';
 
-interface LoginFormProps {
-  isAdmin?: boolean;
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export default function LoginForm({ isAdmin = false }: LoginFormProps) {
-  const [email, setEmail] = useState(isAdmin ? 'admin@constructia.com' : 'juan@construccionesgarcia.com');
-  const [password, setPassword] = useState(isAdmin ? 'superadmin123' : 'password123');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-  const { login } = useAuth();
-  const navigate = useNavigate();
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    console.log('handleSubmit llamado con:', { email, password, isAdmin });
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // Siempre usar el AuthContext para manejar el login
-      console.log('Llamando a login desde AuthContext');
-      await login(email, password, isAdmin);
-      console.log('Login completado, navegando...');
+      return await attemptGeminiCall(prompt);
+    } catch (error) {
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
       
-      // Pequeño delay para asegurar que el estado se actualice
-      setTimeout(() => {
-        navigate(isAdmin ? '/admin' : '/client/dashboard');
-        console.log('Navegación ejecutada a:', isAdmin ? '/admin' : '/client/dashboard');
-      }, 100);
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
       
-    } catch (error: any) {
-      console.error('Error en handleSubmit:', error);
-      setError(error.message || 'Error al iniciar sesión');
-    } finally {
-      console.log('handleSubmit finalizado, loading:', false);
-      setLoading(false);
+      // If not retryable or max retries reached, throw the error
+      throw error;
     }
+  }
+};
+
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+    }
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
+
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Error fetching client data: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching projects: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching companies: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects(name),
+        companies(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching documents: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching all clients: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    throw error;
+  }
+};
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error saving SEPA mandate: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error getting SEPA mandates: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
   };
+};
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <Logo size="lg" />
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">
-              {isAdmin ? 'Panel de Administración' : 'Acceso de Cliente'}
-            </h2>
-            <p className="text-gray-600 mt-2">
-              {isAdmin ? 'SuperAdministrador' : 'Ingresa a tu cuenta'}
-            </p>
-            
-            {/* Credenciales de prueba */}
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
-              <p className="font-semibold text-yellow-800">Credenciales de prueba:</p>
-              <p className="text-yellow-700">
-                {isAdmin ? 'admin@constructia.com / superadmin123' : 'juan@construccionesgarcia.com / password123'}
-              </p>
-            </div>
-          </div>
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
-            )}
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Correo Electrónico
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                  placeholder="tu@email.com"
-                  required
-                />
-              </div>
-            </div>
+    if (error) {
+      throw new Error(`Error creating receipt: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-            </button>
-          </form>
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-          {/* Footer */}
-          {!isAdmin && (
-            <div className="mt-6 text-center">
-              <p className="text-gray-600 text-sm">
-                ¿No tienes cuenta?{' '}
-                <Link to="/register" className="text-green-600 hover:text-green-700 font-medium">
-                  Regístrate aquí
-                </Link>
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+    if (error) {
+      throw new Error(`Error getting client receipts: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error getting all receipts: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener KPIs del sistema
+export const getKPIs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kpis')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching KPIs: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todas las pasarelas de pago
+export const getAllPaymentGateways = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payment_gateways')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching payment gateways: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching payment gateways:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener integraciones de API
+export const getAPIIntegrations = async () => {
+  try {
+    // Datos simulados ya que no existe la tabla api_integrations
+    return [
+      {
+        id: '1',
+        name: 'Gemini AI',
+        status: 'connected',
+        description: 'Integración con la API de Gemini para IA',
+        requests_today: 8947,
+        avg_response_time_ms: 234,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          api_key_configured: true, 
+          model: 'gemini-pro',
+          rate_limit: 50000
+        }
+      },
+      {
+        id: '2',
+        name: 'Obralia/Nalanda',
+        status: 'warning',
+        description: 'Integración con la plataforma Obralia/Nalanda',
+        requests_today: 234,
+        avg_response_time_ms: 567,
+        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        config_details: { 
+          api_key_configured: false, 
+          webhook_configured: true,
+          timeout: 30000
+        }
+      },
+      {
+        id: '3',
+        name: 'Supabase Database',
+        status: 'connected',
+        description: 'Base de datos principal',
+        requests_today: 15678,
+        avg_response_time_ms: 89,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          connection_pool: 'active', 
+          ssl: true,
+          max_connections: 200
+        }
+      },
+      {
+        id: '4',
+        name: 'Stripe Payments',
+        status: 'connected',
+        description: 'Procesamiento de pagos',
+        requests_today: 156,
+        avg_response_time_ms: 234,
+        last_sync: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        config_details: { 
+          webhook_configured: true, 
+          live_mode: true,
+          api_version: '2023-10-16'
+        }
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener cola de procesamiento manual
+export const getManualProcessingQueue = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('manual_document_queue')
+      .select(`
+        *,
+        documents(filename, original_name),
+        clients(company_name),
+        companies(name),
+        projects(name)
+      `)
+      .order('queue_position', { ascending: true });
+
+    if (error) {
+      throw new Error(`Error fetching manual processing queue: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching manual processing queue:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) {
+      throw new Error(`Error fetching system settings: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+// Helper para actualizar configuración del sistema
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Configuración para ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error updating system setting: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, payment_date, gateway_name, status')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching revenue stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de clientes
+export const getClientStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching client stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching client stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de documentos
+export const getDocumentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('document_type, upload_status, classification_confidence, created_at, file_size')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching document stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching document stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de pagos
+export const getPaymentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('amount, payment_method, payment_status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching payment stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    throw error;
+  }
+};
+
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
+  try {
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
+
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
+  } catch (error) {
+    console.error('Error calculating dynamic KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
