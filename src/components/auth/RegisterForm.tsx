@@ -1,722 +1,744 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import { 
-  Building2, 
-  Eye, 
-  EyeOff, 
-  Lock, 
-  Mail, 
-  User, 
-  Phone, 
-  MapPin,
-  CheckCircle,
-  Brain,
-  Shield,
-  Zap,
-  ArrowRight,
-  AlertTriangle,
-  CreditCard
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { callGeminiAI } from '../../lib/supabase';
-import Logo from '../common/Logo';
-import PaymentMethodSelector from '../client/PaymentMethodSelector';
+import { createClient } from '@supabase/supabase-js';
 
-interface RegisterFormData {
-  company_name: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  password: string;
-  confirm_password: string;
-  selected_plan: string;
-  accepts_terms: boolean;
-  accepts_privacy: boolean;
-  accepts_marketing: boolean;
-}
+// Configuración de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const schema = yup.object({
-  company_name: yup.string().required('El nombre de la empresa es obligatorio'),
-  contact_name: yup.string().required('El nombre de contacto es obligatorio'),
-  email: yup.string().email('Email inválido').required('El email es obligatorio'),
-  phone: yup.string().required('El teléfono es obligatorio'),
-  address: yup.string().required('La dirección es obligatoria'),
-  password: yup.string().min(8, 'La contraseña debe tener al menos 8 caracteres').required('La contraseña es obligatoria'),
-  confirm_password: yup.string().oneOf([yup.ref('password')], 'Las contraseñas no coinciden').required('Confirma tu contraseña'),
-  selected_plan: yup.string().required('Selecciona un plan'),
-  accepts_terms: yup.boolean().oneOf([true], 'Debes aceptar los términos y condiciones'),
-  accepts_privacy: yup.boolean().oneOf([true], 'Debes aceptar la política de privacidad'),
-  accepts_marketing: yup.boolean()
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
 });
 
-const plans = [
-  {
-    id: 'basic',
-    name: 'Básico',
-    price: 59,
-    period: 'mes',
-    features: [
-      'Hasta 100 documentos/mes',
-      '500MB de almacenamiento',
-      'Clasificación IA básica',
-      'Integración Obralia',
-      'Soporte por email'
-    ],
-    popular: false
-  },
-  {
-    id: 'professional',
-    name: 'Profesional',
-    price: 149,
-    period: 'mes',
-    features: [
-      'Hasta 500 documentos/mes',
-      '1GB de almacenamiento',
-      'IA avanzada con 95% precisión',
-      'Integración Obralia completa',
-      'Dashboard personalizado',
-      'Soporte prioritario'
-    ],
-    popular: true
-  },
-  {
-    id: 'enterprise',
-    name: 'Empresarial',
-    price: 299,
-    period: 'mes',
-    features: [
-      'Documentos ilimitados',
-      '5GB de almacenamiento',
-      'IA premium con análisis predictivo',
-      'API personalizada',
-      'Múltiples usuarios',
-      'Soporte 24/7'
-    ],
-    popular: false
-  }
-];
+// Configuración de la API de Gemini
+export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-export default function RegisterForm() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [aiAssistance, setAiAssistance] = useState('');
-  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
-  const [serverError, setServerError] = useState('');
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
-
-  const { register: registerUser } = useAuth();
-  const navigate = useNavigate();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setValue,
-    trigger
-  } = useForm<RegisterFormData>({
-    resolver: yupResolver(schema),
-    defaultValues: {
-      selected_plan: 'professional',
-      accepts_terms: false,
-      accepts_privacy: false,
-      accepts_marketing: false
-    }
-  });
-
-  const watchedValues = watch();
-
-  // IA Asistente para acompañar al usuario
-  const generateAIAssistance = async (step: number) => {
-    setLoading(true);
+// Helper para llamadas a Gemini AI
+export const callGeminiAI = async (prompt: string, maxRetries: number = 5) => {
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      let prompt = '';
-      switch (step) {
-        case 1:
-          prompt = `Como asistente IA de ConstructIA, ayuda al usuario en el registro. Genera un mensaje de bienvenida cálido y explica brevemente los beneficios de registrarse (máximo 80 palabras).`;
-          break;
-        case 2:
-          prompt = `El usuario está seleccionando un plan. Explica brevemente las diferencias entre los planes y recomienda el plan Profesional para empresas medianas (máximo 100 palabras).`;
-          break;
-        case 3:
-          prompt = `El usuario está en el paso de pago. Tranquilízalo sobre la seguridad del proceso y explica que puede cancelar en cualquier momento (máximo 80 palabras).`;
-          break;
-        default:
-          prompt = `Genera un mensaje de ánimo para completar el registro en ConstructIA (máximo 60 palabras).`;
+      return await attemptGeminiCall(prompt);
+    } catch (error) {
+      const isRetryableError = error instanceof Error && 
+        error.message.includes('503');
+      
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.warn(`Gemini AI overloaded (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
       }
       
-      const assistance = await callGeminiAI(prompt);
-      setAiAssistance(assistance);
-    } catch (error) {
-      setAiAssistance('¡Hola! Estoy aquí para ayudarte en tu registro. Si tienes alguna duda, no dudes en contactarnos.');
-    } finally {
-      setLoading(false);
+      // If not retryable or max retries reached, throw the error
+      throw error;
     }
-  };
+  }
+};
 
-  React.useEffect(() => {
-    generateAIAssistance(currentStep);
-  }, [currentStep]);
-
-  const nextStep = async () => {
-    const fieldsToValidate = getFieldsForStep(currentStep);
-    const isValid = await trigger(fieldsToValidate);
-    
-    if (isValid) {
-      setCurrentStep(currentStep + 1);
+const attemptGeminiCall = async (prompt: string) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
     }
-  };
 
-  const prevStep = () => {
-    setCurrentStep(currentStep - 1);
-  };
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    });
 
-  const getFieldsForStep = (step: number): (keyof RegisterFormData)[] => {
-    switch (step) {
-      case 1:
-        return ['company_name', 'contact_name', 'email', 'phone', 'address'];
-      case 2:
-        return ['selected_plan'];
-      case 3:
-        return ['password', 'confirm_password', 'accepts_terms', 'accepts_privacy'];
-      default:
-        return [];
-    }
-  };
-
-  const handlePlanSelect = (planId: string) => {
-    setValue('selected_plan', planId);
-    const plan = plans.find(p => p.id === planId);
-    setSelectedPlan(plan || null);
-  };
-
-  const handlePaymentMethodSelected = async (gatewayId: string) => {
-    setShowPaymentSelector(false);
-    setServerError('');
-    
-    // Simular procesamiento de pago
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!response.ok) {
+      let errorMessage = `Gemini AI Error (${response.status})`;
       
-      // Registrar usuario
-      await registerUser(watchedValues.email, watchedValues.password, {
-        company_name: watchedValues.company_name,
-        contact_name: watchedValues.contact_name,
-        phone: watchedValues.phone,
-        address: watchedValues.address,
-        selected_plan: watchedValues.selected_plan,
-        payment_gateway: gatewayId
-      });
+      try {
+        const errorData = await response.json();
+        if (errorData.error && errorData.error.message) {
+          errorMessage += `: ${errorData.error.message}`;
+        } else if (errorData.message) {
+          errorMessage += `: ${errorData.message}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use status text or generic message
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        } else {
+          errorMessage += ': Unknown error occurred';
+        }
+      }
       
-      // Redirigir al dashboard del cliente
-      navigate('/client/dashboard');
-      
-    } catch (error: any) {
-      setServerError(error.message);
-    } finally {
-      setLoading(false);
+      throw new Error(errorMessage);
     }
-  };
 
-  const onSubmit = async (data: RegisterFormData) => {
-    console.log('onSubmit llamado con datos:', data);
-    
-    // Encontrar el plan seleccionado
-    const plan = plans.find(p => p.id === data.selected_plan);
-    if (!plan) {
-      console.error('Plan no encontrado:', data.selected_plan);
-      return;
+    const data = await response.json();
+    return data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    // Use warn for transient 503 errors, error for others
+    if (error instanceof Error && error.message.includes('503')) {
+      console.warn('Gemini AI temporarily overloaded:', error.message);
+    }
+    throw error;
+  }
+};
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (
+  clientId: string, 
+  credentials: { username: string; password: string }
+) => {
+  try {
+    // Validar que clientId no sea null o undefined
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    console.log('Updating Obralia credentials for client:', clientId);
+    console.log('Credentials data:', { username: credentials.username, password: '[HIDDEN]' });
+
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          username: credentials.username,
+          password: credentials.password,
+          configured: true
+        }
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      console.error('Supabase error details:', error);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from update operation. Client may not exist.');
+    }
+
+    console.log('Successfully updated Obralia credentials');
+    return data[0];
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener datos del cliente actual
+export const getCurrentClientData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching client data:', error);
+      throw error;
     }
     
-    console.log('Plan encontrado:', plan);
-    setSelectedPlan(plan);
-    setShowPaymentSelector(true);
-  };
+    return data;
+  } catch (error) {
+    console.error('Error getting client data:', error);
+    throw error;
+  }
+};
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Información de tu Empresa</h2>
-        <p className="text-gray-600 mt-2">Cuéntanos sobre tu empresa de construcción</p>
-      </div>
+// Helper para obtener proyectos del cliente
+export const getClientProjects = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        companies!inner(name),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre de la Empresa *
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-              <Building2 className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              {...register('company_name')}
-              type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="Construcciones García S.L."
-            />
-          </div>
-          {errors.company_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.company_name.message}</p>
-          )}
-        </div>
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    throw error;
+  }
+};
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre de Contacto *
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-              <User className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              {...register('contact_name')}
-              type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="Juan García"
-            />
-          </div>
-          {errors.contact_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.contact_name.message}</p>
-          )}
-        </div>
+// Helper para obtener empresas del cliente
+export const getClientCompanies = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('companies')
+      .select(`
+        *,
+        projects(count),
+        documents(count)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email Corporativo *
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-              <Mail className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              {...register('email')}
-              type="email"
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="juan@construccionesgarcia.com"
-            />
-          </div>
-          {errors.email && (
-            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-          )}
-        </div>
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    throw error;
+  }
+};
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Teléfono *
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-              <Phone className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              {...register('phone')}
-              type="tel"
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="+34 91 123 45 67"
-            />
-          </div>
-          {errors.phone && (
-            <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
-          )}
-        </div>
-      </div>
+// Helper para obtener documentos del cliente
+export const getClientDocuments = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        projects!inner(name),
+        companies!inner(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Dirección de la Empresa *
-        </label>
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-            <MapPin className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            {...register('address')}
-            type="text"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Calle Mayor 123, 28001 Madrid"
-          />
-        </div>
-        {errors.address && (
-          <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
-        )}
-      </div>
-    </div>
-  );
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
 
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Selecciona tu Plan</h2>
-        <p className="text-gray-600 mt-2">Elige el plan que mejor se adapte a tu empresa</p>
-      </div>
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        users!inner(email, role)
+      `)
+      .order('created_at', { ascending: false });
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {plans.map((plan) => (
-          <div
-            key={plan.id}
-            className={`relative border-2 rounded-xl p-6 cursor-pointer transition-all ${
-              watchedValues.selected_plan === plan.id
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-            onClick={() => handlePlanSelect(plan.id)}
-          >
-            {plan.popular && (
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-                  Más Popular
-                </span>
-              </div>
-            )}
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
+  }
+};
 
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
-              <div className="mt-2">
-                <span className="text-3xl font-bold text-gray-900">€{plan.price}</span>
-                <span className="text-gray-600">/{plan.period}</span>
-              </div>
-            </div>
+// Helper para obtener logs de auditoría
+export const getAuditLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        users!inner(email, role),
+        clients(company_name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-            <ul className="space-y-3 mb-6">
-              {plan.features.map((feature, index) => (
-                <li key={index} className="flex items-start">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">{feature}</span>
-                </li>
-              ))}
-            </ul>
-
-            {watchedValues.selected_plan === plan.id && (
-              <div className="absolute top-4 right-4">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {errors.selected_plan && (
-        <p className="text-sm text-red-600 text-center">{errors.selected_plan.message}</p>
-      )}
-    </div>
-  );
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Seguridad de tu Cuenta</h2>
-        <p className="text-gray-600 mt-2">Crea una contraseña segura para proteger tu cuenta</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Contraseña *
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-              <Lock className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              {...register('password')}
-              type={showPassword ? 'text' : 'password'}
-              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              {showPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400" />
-              ) : (
-                <Eye className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-          </div>
-          {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Confirmar Contraseña *
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-              <Lock className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              {...register('confirm_password')}
-              type={showConfirmPassword ? 'text' : 'password'}
-              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              {showConfirmPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400" />
-              ) : (
-                <Eye className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-          </div>
-          {errors.confirm_password && (
-            <p className="mt-1 text-sm text-red-600">{errors.confirm_password.message}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Términos y Condiciones */}
-      <div className="space-y-4">
-        <label className="flex items-start">
-          <input
-            {...register('accepts_terms')}
-            type="checkbox"
-            className="mt-1 mr-3"
-          />
-          <span className="text-sm text-gray-700">
-            Acepto los <a href="#" className="text-green-600 hover:text-green-700">términos y condiciones</a> de ConstructIA *
-          </span>
-        </label>
-        {errors.accepts_terms && (
-          <p className="text-sm text-red-600">{errors.accepts_terms.message}</p>
-        )}
-
-        <label className="flex items-start">
-          <input
-            {...register('accepts_privacy')}
-            type="checkbox"
-            className="mt-1 mr-3"
-          />
-          <span className="text-sm text-gray-700">
-            Acepto la <a href="#" className="text-green-600 hover:text-green-700">política de privacidad</a> *
-          </span>
-        </label>
-        {errors.accepts_privacy && (
-          <p className="text-sm text-red-600">{errors.accepts_privacy.message}</p>
-        )}
-
-        <label className="flex items-start">
-          <input
-            {...register('accepts_marketing')}
-            type="checkbox"
-            className="mt-1 mr-3"
-          />
-          <span className="text-sm text-gray-700">
-            Quiero recibir noticias y ofertas especiales de ConstructIA
-          </span>
-        </label>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <Logo variant="light" size="md" />
-                <h1 className="text-2xl font-bold mt-2">Registro en ConstructIA</h1>
-                <p className="text-green-100">Únete a la revolución de la gestión documental</p>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-green-100">Paso {currentStep} de 3</div>
-                <div className="w-32 bg-green-500 rounded-full h-2 mt-2">
-                  <div 
-                    className="bg-white h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(currentStep / 3) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Asistente IA */}
-          {aiAssistance && (
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
-              <div className="flex items-start">
-                <Brain className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                <div>
-                  <p className="text-sm text-blue-800">{aiAssistance}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Form Content */}
-          <form onSubmit={handleSubmit(onSubmit)} className="p-8">
-            {serverError && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mr-3" />
-                  <div>
-                    <h4 className="font-semibold text-red-800">Error en el registro</h4>
-                    <p className="text-sm text-red-700 mt-1">{serverError}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 1 && renderStep1()}
-            {currentStep === 2 && renderStep2()}
-            {currentStep === 3 && renderStep3()}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
-              <div>
-                {currentStep > 1 && (
-                  <button
-                    type="button"
-                    onClick={prevStep}
-                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    Anterior
-                  </button>
-                )}
-              </div>
-              
-              <div>
-                {currentStep < 3 ? (
-                  <button
-                    type="button"
-                    onClick={nextStep}
-                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors flex items-center"
-                  >
-                    Continuar
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center"
-                  >
-                    {loading ? 'Procesando...' : 'Completar Registro'}
-                    <CreditCard className="ml-2 h-5 w-5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
-
-          {/* Footer */}
-          <div className="bg-gray-50 px-8 py-4 text-center">
-            <p className="text-gray-600 text-sm">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-green-600 hover:text-green-700 font-medium">
-                Inicia sesión aquí
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* Beneficios Sidebar */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm text-center">
-            <Brain className="h-8 w-8 text-green-600 mx-auto mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">IA Avanzada</h3>
-            <p className="text-sm text-gray-600">Clasificación automática con 95% de precisión</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm text-center">
-            <Shield className="h-8 w-8 text-green-600 mx-auto mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">100% Seguro</h3>
-            <p className="text-sm text-gray-600">Encriptación de extremo a extremo</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm text-center">
-            <Zap className="h-8 w-8 text-green-600 mx-auto mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Súper Rápido</h3>
-            <p className="text-sm text-gray-600">Procesamiento en menos de 3 segundos</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Payment Method Selector Modal */}
-      {showPaymentSelector && selectedPlan && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Finalizar Registro - Plan {selectedPlan.name}
-                  </h3>
-                  <p className="text-gray-600">
-                    Selecciona tu método de pago para activar tu cuenta
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowPaymentSelector(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <PaymentMethodSelector
-                amount={selectedPlan.price}
-                currency="EUR"
-                onSelect={handlePaymentMethodSelected}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Recibo */}
-      {showReceiptModal && selectedReceipt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-200 bg-green-50">
-              <div className="flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-green-800">¡Registro Completado!</h3>
-                  <p className="text-green-700">Tu recibo ha sido enviado por email</p>
-                </div>
-              </div>
-            </div>
-            <ReceiptGenerator
-              receiptData={selectedReceipt}
-              onEmailSent={() => {
-                alert('Recibo reenviado exitosamente');
-              }}
-              showActions={true}
-            />
-            <div className="p-4 border-t border-gray-200 text-center">
-              <button
-                onClick={() => {
-                  setShowReceiptModal(false);
-                  navigate('/client/dashboard');
-                }}
-                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                Ir al Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+  }
 }
+
+// Helper para guardar mandato SEPA
+export const saveSEPAMandate = async (mandateData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .insert(mandateData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error saving SEPA mandate:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener mandatos SEPA de un cliente
+export const getClientSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting SEPA mandates:', error);
+    throw error;
+  }
+};
+
+// Helper para generar número de recibo único
+export const generateReceiptNumber = () => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now().toString().slice(-6);
+  return `REC-${year}-${timestamp}`;
+};
+
+// Helper para calcular impuestos (21% IVA)
+export const calculateTaxes = (amount: number, taxRate: number = 21) => {
+  const baseAmount = amount / (1 + taxRate / 100);
+  const taxAmount = amount - baseAmount;
+  
+  return {
+    baseAmount: Math.round(baseAmount * 100) / 100,
+    taxAmount: Math.round(taxAmount * 100) / 100,
+    totalAmount: amount
+  };
+};
+
+// Helper para crear recibo
+export const createReceipt = async (receiptData: {
+  clientId: string;
+  amount: number;
+  paymentMethod: string;
+  gatewayName: string;
+  description: string;
+  transactionId: string;
+  invoiceItems: any[];
+  clientDetails: any;
+}) => {
+  try {
+    const receiptNumber = generateReceiptNumber();
+    const taxes = calculateTaxes(receiptData.amount);
+    
+    const receipt = {
+      receipt_number: receiptNumber,
+      client_id: receiptData.clientId,
+      amount: receiptData.amount,
+      base_amount: taxes.baseAmount,
+      tax_amount: taxes.taxAmount,
+      tax_rate: 21,
+      currency: 'EUR',
+      payment_method: receiptData.paymentMethod,
+      gateway_name: receiptData.gatewayName,
+      description: receiptData.description,
+      transaction_id: receiptData.transactionId,
+      invoice_items: receiptData.invoiceItems,
+      client_details: receiptData.clientDetails,
+      status: 'paid'
+    };
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(receipt)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating receipt:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener recibos de un cliente
+export const getClientReceipts = async (clientId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting client receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todos los recibos (admin)
+export const getAllReceipts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        clients!inner(
+          company_name,
+          contact_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting all receipts:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener KPIs del sistema
+export const getKPIs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('kpis')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener todas las pasarelas de pago
+export const getAllPaymentGateways = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payment_gateways')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment gateways:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener eventos fiscales
+export const getFiscalEvents = async () => {
+  try {
+    // Como no existe la tabla fiscal_events, simularemos datos
+    return [
+      {
+        id: '1',
+        title: 'Declaración IVA Q4 2024',
+        event_date: '2025-01-30',
+        amount_estimate: 5670.00,
+        status: 'upcoming',
+        description: 'Estimado: €5,670'
+      },
+      {
+        id: '2',
+        title: 'Retenciones IRPF',
+        event_date: '2025-02-15',
+        amount_estimate: 2340.00,
+        status: 'upcoming',
+        description: 'Estimado: €2,340'
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching fiscal events:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener planes de suscripción
+export const getSubscriptionPlans = async () => {
+  try {
+    // Como no existe la tabla subscription_plans, retornamos datos estáticos
+    return [
+      {
+        id: 'basic',
+        name: 'Básico',
+        price_monthly: 59.00,
+        price_yearly: 590.00,
+        features: [
+          'Hasta 100 documentos/mes',
+          '500MB de almacenamiento',
+          'Clasificación IA básica',
+          'Integración Obralia',
+          'Soporte por email'
+        ],
+        storage_mb: 500,
+        tokens_per_month: 500,
+        documents_per_month: '100/mes',
+        support_level: 'Email',
+        popular: false
+      },
+      {
+        id: 'professional',
+        name: 'Profesional',
+        price_monthly: 149.00,
+        price_yearly: 1490.00,
+        features: [
+          'Hasta 500 documentos/mes',
+          '1GB de almacenamiento',
+          'IA avanzada con 95% precisión',
+          'Integración Obralia completa',
+          'Dashboard personalizado',
+          'Soporte prioritario'
+        ],
+        storage_mb: 1024,
+        tokens_per_month: 1000,
+        documents_per_month: '500/mes',
+        support_level: 'Prioritario',
+        popular: true
+      },
+      {
+        id: 'enterprise',
+        name: 'Empresarial',
+        price_monthly: 299.00,
+        price_yearly: 2990.00,
+        features: [
+          'Documentos ilimitados',
+          '5GB de almacenamiento',
+          'IA premium con análisis predictivo',
+          'API personalizada',
+          'Múltiples usuarios',
+          'Soporte 24/7'
+        ],
+        storage_mb: 5120,
+        tokens_per_month: 5000,
+        documents_per_month: 'Ilimitados',
+        support_level: '24/7',
+        popular: false
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching subscription plans:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener integraciones de API
+export const getAPIIntegrations = async () => {
+  try {
+    // Como no existe la tabla api_integrations, simularemos datos
+    return [
+      {
+        id: '1',
+        name: 'Gemini AI',
+        status: 'connected',
+        description: 'Integración con la API de Gemini para IA',
+        requests_today: 8947,
+        avg_response_time_ms: 234,
+        last_sync: new Date().toISOString(),
+        config_details: { 
+          api_key_configured: true, 
+          model: 'gemini-pro',
+          rate_limit: 50000
+        }
+      },
+      {
+        id: '2',
+        name: 'Obralia/Nalanda',
+        status: 'warning',
+        description: 'Integración con la plataforma Obralia/Nalanda',
+        requests_today: 234,
+        avg_response_time_ms: 567,
+        last_sync: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        config_details: { 
+          api_key_configured: false, 
+          webhook_configured: true,
+          timeout: 30000
+        }
+      }
+    ];
+  } catch (error) {
+    console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener cola de procesamiento manual
+export const getManualProcessingQueue = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('manual_document_queue')
+      .select(`
+        *,
+        documents(filename, original_name),
+        clients(company_name),
+        companies(name),
+        projects(name)
+      `)
+      .order('queue_position', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching manual processing queue:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    throw error;
+  }
+};
+
+// Helper para actualizar configuración del sistema
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Configuración para ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, payment_date, gateway_name, status')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de clientes
+export const getClientStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('subscription_plan, subscription_status, created_at, storage_used, storage_limit')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching client stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de documentos
+export const getDocumentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('document_type, upload_status, classification_confidence, created_at, file_size')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching document stats:', error);
+    throw error;
+  }
+};
+
+// Helper para obtener estadísticas de pagos
+export const getPaymentStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('amount, payment_method, payment_status, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    throw error;
+  }
+};
+
+// Helper para calcular KPIs dinámicamente
+export const calculateDynamicKPIs = async () => {
+  try {
+    const [clients, documents, receipts] = await Promise.all([
+      getClientStats(),
+      getDocumentStats(),
+      getAllReceipts()
+    ]);
+
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+    const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+    const documentsThisMonth = documents.filter(d => {
+      const docDate = new Date(d.created_at);
+      const now = new Date();
+      return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const avgConfidence = documents.length > 0 
+      ? documents.reduce((sum, d) => sum + d.classification_confidence, 0) / documents.length 
+      : 0;
+
+    return {
+      activeClients,
+      totalRevenue,
+      documentsThisMonth,
+      avgConfidence: Math.round(avgConfidence * 10) / 10,
+      totalDocuments: documents.length,
+      totalClients: clients.length
+    };
+  } catch (error) {
+    console.error('Error calculating dynamic KPIs:', error);
+    throw error;
+  }
+};
+
+// Helper para simular envío de email
+export const sendReceiptByEmail = async (receiptId: string, clientEmail: string) => {
+  try {
+    // Simular envío de email
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // En producción aquí iría la integración con servicio de email
+    console.log(`Recibo ${receiptId} enviado a ${clientEmail}`);
+    
+    return { success: true, message: 'Recibo enviado exitosamente' };
+  } catch (error) {
+    console.error('Error sending receipt email:', error);
+    throw error;
+  }
+};
