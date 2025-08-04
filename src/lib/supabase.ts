@@ -403,6 +403,26 @@ export const calculateDynamicKPIs = async () => {
   }
 };
 
+// Helper para obtener estadísticas de ingresos
+export const getRevenueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('amount, currency, payment_date, status, payment_method')
+      .eq('status', 'paid')
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching revenue stats: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching revenue stats:', error);
+    throw error;
+  }
+};
+
 // Helper para obtener integraciones de API (datos locales)
 export const getAPIIntegrations = async () => {
   try {
