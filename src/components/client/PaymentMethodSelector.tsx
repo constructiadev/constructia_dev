@@ -14,6 +14,7 @@ import {
 import { usePaymentGateways } from '../../context/PaymentGatewayContext';
 import { useAuth } from '../../context/AuthContext';
 import SEPAMandateForm from './SEPAMandateForm';
+import type { PaymentGateway } from '../../types';
 
 interface PaymentMethodSelectorProps {
   amount: number;
@@ -29,10 +30,10 @@ export default function PaymentMethodSelector({
   selectedGatewayId 
 }: PaymentMethodSelectorProps) {
   const { getActiveGatewaysForCurrency, calculateCommission } = usePaymentGateways();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
   const [showSEPAForm, setShowSEPAForm] = useState(false);
-  const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<any>(null);
+  const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<PaymentGateway | null>(null);
 
   const availableGateways = getActiveGatewaysForCurrency(currency);
 
@@ -66,13 +67,13 @@ export default function PaymentMethodSelector({
     return amount + commission;
   };
 
-  const isGatewayAvailable = (gateway: any) => {
+  const isGatewayAvailable = (gateway: PaymentGateway) => {
     return amount >= (gateway.min_amount || 0) && 
            amount <= (gateway.max_amount || Infinity) &&
            gateway.status === 'active';
   };
 
-  const handleSEPASelection = (gateway: any) => {
+  const handleSEPASelection = (gateway: PaymentGateway) => {
     setSelectedSEPAGateway(gateway);
     setShowSEPAForm(true);
   };
@@ -86,7 +87,9 @@ export default function PaymentMethodSelector({
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Procesar el pago con el gateway SEPA seleccionado
-      onSelect(selectedSEPAGateway.id);
+      if (selectedSEPAGateway) {
+        onSelect(selectedSEPAGateway.id);
+      }
       
     } catch (error) {
       console.error('Error al procesar mandato SEPA:', error);

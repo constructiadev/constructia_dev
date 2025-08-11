@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getAllPaymentGateways } from '../lib/supabase';
-import type { PaymentGateway } from '../../types';
+import type { PaymentGateway } from '../types';
 
 interface PaymentGatewayContextType {
   gateways: PaymentGateway[];
@@ -31,7 +31,6 @@ export const PaymentGatewayProvider: React.FC<PaymentGatewayProviderProps> = ({ 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading payment gateways');
       console.error('Error loading payment gateways:', err);
-      // Set empty array on error to prevent crashes
       setGateways([]);
     } finally {
       setLoading(false);
