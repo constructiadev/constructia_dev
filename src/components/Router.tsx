@@ -76,9 +76,7 @@ export default function Router() {
 
         {/* Admin routes */}
         <Route path="/admin" element={
-          <ProtectedRoute requiredRole="admin">
             <AdminLayout />
-          </ProtectedRoute>
         }>
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
