@@ -1,19 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getAllPaymentGateways } from '../lib/supabase';
-
-interface PaymentGateway {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  commission_type: string;
-  commission_percentage?: number;
-  commission_fixed?: number;
-  supported_currencies: string[];
-  min_amount?: number;
-  max_amount?: number;
-  description?: string;
-}
+import { getAllPaymentGateways } from '../../lib/supabase';
+import type { PaymentGateway } from '../../types';
 
 interface PaymentGatewayContextType {
   gateways: PaymentGateway[];
@@ -21,7 +8,7 @@ interface PaymentGatewayContextType {
   error: string | null;
   refreshGateways: () => Promise<void>;
   getActiveGatewaysForCurrency: (currency: string) => PaymentGateway[];
-  calculateCommission: (gateway: PaymentGateway, amount: number) => number;
+  calculateCommission: (gatewayId: string, amount: number) => number;
 }
 
 const PaymentGatewayContext = createContext<PaymentGatewayContextType | undefined>(undefined);
@@ -44,6 +31,8 @@ export const PaymentGatewayProvider: React.FC<PaymentGatewayProviderProps> = ({ 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading payment gateways');
       console.error('Error loading payment gateways:', err);
+      // Set empty array on error to prevent crashes
+      setGateways([]);
     } finally {
       setLoading(false);
     }
@@ -60,7 +49,10 @@ export const PaymentGatewayProvider: React.FC<PaymentGatewayProviderProps> = ({ 
     );
   };
 
-  const calculateCommission = (gateway: PaymentGateway, amount: number): number => {
+  const calculateCommission = (gatewayId: string, amount: number): number => {
+    const gateway = gateways.find(g => g.id === gatewayId);
+    if (!gateway) return 0;
+    
     switch (gateway.commission_type) {
       case 'percentage':
         return amount * (gateway.commission_percentage || 0) / 100;
