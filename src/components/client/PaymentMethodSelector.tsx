@@ -12,6 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { usePaymentGateways } from '../../context/PaymentGatewayContext';
 import SEPAMandateForm from './SEPAMandateForm';
 import type { PaymentGateway } from '../../types';
 
@@ -29,29 +30,10 @@ export default function PaymentMethodSelector({
   selectedGatewayId 
 }: PaymentMethodSelectorProps) {
   const { user } = useAuth();
+  const { gateways: availableGateways, loading, error } = usePaymentGateways();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
   const [showSEPAForm, setShowSEPAForm] = useState(false);
   const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<PaymentGateway | null>(null);
-
-  // Temporary mock data while PaymentGatewayContext is disabled
-  const availableGateways: PaymentGateway[] = [
-    {
-      id: '1',
-      name: 'Stripe',
-      type: 'stripe',
-      status: 'active',
-      commission_type: 'mixed',
-      commission_percentage: 2.9,
-      commission_fixed: 0.30,
-      supported_currencies: ['EUR', 'USD'],
-      min_amount: 1,
-      max_amount: 10000,
-      description: 'Pagos con tarjeta de crédito',
-      color: 'bg-blue-600',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-  ];
 
   const calculateCommission = (gatewayId: string, amount: number): number => {
     const gateway = availableGateways.find(g => g.id === gatewayId);
