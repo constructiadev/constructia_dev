@@ -75,9 +75,7 @@ export default function Router() {
         <Route path="/cookie-policy" element={<CookiePolicy />} />
 
         {/* Admin routes */}
-        <Route path="/admin" element={
-            <AdminLayout />
-        }>
+        <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />

@@ -13,7 +13,6 @@ import {
   Shield
 } from 'lucide-react';
 import Logo from '../common/Logo';
-import { useAuth } from '../../context/AuthContext';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -30,10 +29,8 @@ const navigation = [
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
 
   const handleLogout = async () => {
-    await logout();
     navigate('/');
   };
 
