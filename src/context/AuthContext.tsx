@@ -132,15 +132,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Verificar que es admin después del login
       if (data.user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', data.user.id)
+            .single();
 
-        if (profile?.role !== 'admin') {
+          if (profileError) {
+            console.error('Error fetching user profile:', profileError);
+            // Si no existe el perfil, crearlo como admin
+            const { error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: data.user.id,
+                email: email,
+                role: 'admin'
+              });
+            
+            if (insertError) {
+              console.error('Error creating admin profile:', insertError);
+              await supabase.auth.signOut();
+              throw new Error('Error al crear el perfil de administrador.');
+            }
+          } else if (profile?.role !== 'admin') {
+            await supabase.auth.signOut();
+            throw new Error('Acceso no autorizado. Solo administradores pueden acceder.');
+          }
+        } catch (profileError) {
+          console.error('Error in admin verification:', profileError);
           await supabase.auth.signOut();
-          throw new Error('Acceso no autorizado. Solo administradores pueden acceder.');
+          throw new Error('Error al verificar permisos de administrador.');
         }
       }
 
