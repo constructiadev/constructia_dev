@@ -74,9 +74,9 @@ export default function LandingPage() {
               </Link>
               <Link 
                 to="/admin" 
-                className="text-gray-500 hover:text-gray-700 transition-colors text-sm"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
               >
-                Panel Admin
+                🔧 Panel Admin (Dev)
               </Link>
               <Link 
                 to="/register" 
