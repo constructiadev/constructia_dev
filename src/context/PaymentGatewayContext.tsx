@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getAllPaymentGateways } from '../../lib/supabase';
+import { getAllPaymentGateways } from '../lib/supabase';
 import type { PaymentGateway } from '../../types';
 
 interface PaymentGatewayContextType {
