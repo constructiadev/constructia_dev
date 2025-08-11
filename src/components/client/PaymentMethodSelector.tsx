@@ -11,7 +11,6 @@ import {
   Clock,
   Info
 } from 'lucide-react';
-import { usePaymentGateways } from '../../context/PaymentGatewayContext';
 import { useAuth } from '../../context/AuthContext';
 import SEPAMandateForm from './SEPAMandateForm';
 import type { PaymentGateway } from '../../types';
@@ -29,13 +28,48 @@ export default function PaymentMethodSelector({
   onSelect, 
   selectedGatewayId 
 }: PaymentMethodSelectorProps) {
-  const { getActiveGatewaysForCurrency, calculateCommission } = usePaymentGateways();
   const { user } = useAuth();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
   const [showSEPAForm, setShowSEPAForm] = useState(false);
   const [selectedSEPAGateway, setSelectedSEPAGateway] = useState<PaymentGateway | null>(null);
 
-  const availableGateways = getActiveGatewaysForCurrency(currency);
+  // Temporary mock data while PaymentGatewayContext is disabled
+  const availableGateways: PaymentGateway[] = [
+    {
+      id: '1',
+      name: 'Stripe',
+      type: 'stripe',
+      status: 'active',
+      commission_type: 'mixed',
+      commission_percentage: 2.9,
+      commission_fixed: 0.30,
+      supported_currencies: ['EUR', 'USD'],
+      min_amount: 1,
+      max_amount: 10000,
+      description: 'Pagos con tarjeta de crédito',
+      color: 'bg-blue-600',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  ];
+
+  const calculateCommission = (gatewayId: string, amount: number): number => {
+    const gateway = availableGateways.find(g => g.id === gatewayId);
+    if (!gateway) return 0;
+    
+    switch (gateway.commission_type) {
+      case 'percentage':
+        return amount * (gateway.commission_percentage || 0) / 100;
+      case 'fixed':
+        return gateway.commission_fixed || 0;
+      case 'mixed':
+        const percentageCommission = amount * (gateway.commission_percentage || 0) / 100;
+        const fixedCommission = gateway.commission_fixed || 0;
+        return percentageCommission + fixedCommission;
+      default:
+        return 0;
+    }
+  };
 
   const getGatewayIcon = (type: string) => {
     switch (type) {
