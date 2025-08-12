@@ -1013,7 +1013,6 @@ export default function LandingPage() {
                 title="Panel de Administración"
               >
                 <Shield className="h-4 w-4 mr-1" />
-                Admin
               </Link>
             </div>
           </div>
