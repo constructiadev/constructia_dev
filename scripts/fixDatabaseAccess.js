@@ -31,16 +31,15 @@ async function fixDatabaseAccess() {
   try {
     // 1. Test basic connectivity
     console.log('1️⃣ Testing basic database connectivity...');
-    const { data: testData, error: testError } = await supabase
+    const { count, error: testError } = await supabase
       .from('users')
-      .select('count(*)')
-      .single();
+      .select('*', { count: 'exact', head: true });
 
     if (testError) {
       console.error('❌ Basic connectivity test failed:', testError.message);
       throw testError;
     }
-    console.log('✅ Database connectivity OK\n');
+    console.log(`✅ Database connectivity OK (${count} users found)\n`);
 
     // 2. Disable RLS on all tables using direct SQL
     console.log('2️⃣ Disabling RLS on all tables...');
