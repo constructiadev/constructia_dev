@@ -203,23 +203,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, password: string, clientData: any) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
+      
+      // Primero crear el usuario en auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password
       });
       
-      if (error) {
-        if (error.message.includes('User already registered')) {
+      if (authError) {
+        if (authError.message.includes('User already registered')) {
           throw new Error('El usuario ya está registrado. Por favor, inicia sesión.');
         }
-        throw error;
+        throw authError;
       }
       
-      if (data.user) {
-        await createClientRecord(data.user.id, email, clientData);
+      if (authData.user) {
+        await createClientRecord(authData.user.id, email, clientData);
+        
+        // Hacer login automático después del registro
+        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (loginError) {
+          console.warn('Auto-login after registration failed:', loginError);
+        }
       }
       
-      return data;
+      return authData;
     } catch (error) {
       console.error('Registration error:', error);
       throw error;

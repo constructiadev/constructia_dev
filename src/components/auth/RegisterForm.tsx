@@ -82,9 +82,9 @@ const RegisterForm: React.FC = () => {
 
       setSuccess(true);
       
-      // Redirigir después de un breve delay
+      // Redirigir al dashboard de cliente después del registro exitoso
       setTimeout(() => {
-        window.location.href = '/login';
+        navigate('/client/dashboard');
       }, 2000);
 
     } catch (error) {

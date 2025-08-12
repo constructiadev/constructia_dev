@@ -27,17 +27,8 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
         // La navegación se manejará automáticamente por el Router
       } else {
         await login(email, password);
-        // La navegación se manejará automáticamente por el Router
+        navigate('/client/dashboard');
       }
-      
-      // Redirigir después de un breve delay para permitir que el estado se actualice
-      setTimeout(() => {
-        if (isAdmin) {
-          navigate('/admin');
-        } else {
-          navigate('/client/dashboard');
-        }
-      }, 100);
     } catch (error) {
       console.error('Login error:', error);
       if (error instanceof Error) {

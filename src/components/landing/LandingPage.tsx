@@ -69,7 +69,7 @@ export default function LandingPage() {
             </nav>
             <div className="flex items-center space-x-3">
               <Link 
-                to="/client/dashboard" 
+                to="/login" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
                 Portal Clientes
