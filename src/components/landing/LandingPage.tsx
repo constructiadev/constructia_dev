@@ -1009,9 +1009,10 @@ export default function LandingPage() {
               </a>
               <Link 
                 to="/admin/login" 
-                className="text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-gray-500 hover:text-gray-700 transition-colors flex items-center"
                 title="Panel de Administración"
               >
+                <Shield className="h-4 w-4 mr-1" />
                 Admin
               </Link>
             </div>
