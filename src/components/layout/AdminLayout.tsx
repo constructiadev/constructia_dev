@@ -105,7 +105,7 @@ export default function AdminLayout() {
           <div className="flex items-center space-x-4">
             <Shield className="h-5 w-5 text-green-600" />
             <span className="text-sm font-medium text-gray-700">
-              Sistema Seguro
+              {user?.email}
             </span>
           </div>
         </div>
