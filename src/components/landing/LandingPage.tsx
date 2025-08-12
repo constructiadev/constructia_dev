@@ -70,12 +70,6 @@ export default function LandingPage() {
             <div className="flex items-center space-x-3">
               <Link 
                 to="/login" 
-                className="text-gray-700 hover:text-green-600 transition-colors font-medium"
-              >
-                Iniciar Sesión
-              </Link>
-              <Link 
-                to="/login" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
                 Portal Clientes
