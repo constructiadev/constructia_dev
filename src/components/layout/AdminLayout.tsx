@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -12,6 +13,7 @@ import {
   LogOut,
   Shield
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
 
 const navigation = [

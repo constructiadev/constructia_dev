@@ -120,10 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      // Esperar a que se cargue el perfil del usuario
-      if (data.user) {
-        await loadUserProfile(data.user.id);
-      }
+      // El perfil se cargará automáticamente por el listener de auth state change
       
       return data;
     } catch (error) {

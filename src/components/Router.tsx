@@ -55,6 +55,11 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
+  // Si el usuario está autenticado pero no tiene perfil cargado, redirigir al login
+  if (user && !loading && !userRole) {
+    console.log('User authenticated but no profile loaded, redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
   if (requiredRole && userRole !== requiredRole) {
     console.log(`User role ${userRole} doesn't match required role ${requiredRole}`);
     return <Navigate to={userRole === 'admin' ? '/admin' : '/client/dashboard'} replace />;
@@ -80,7 +85,11 @@ export default function Router() {
         <Route path="/cookie-policy" element={<CookiePolicy />} />
 
         {/* Admin routes */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminLayout />
+          </ProtectedRoute>
+        }>
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />

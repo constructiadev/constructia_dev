@@ -24,12 +24,10 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
     try {
       if (isAdmin) {
         await loginAdmin(email, password);
-        // Esperar un poco para que se cargue el perfil
-        setTimeout(() => navigate('/admin'), 100);
+        navigate('/admin');
       } else {
         await login(email, password);
-        // Esperar un poco para que se cargue el perfil
-        setTimeout(() => navigate('/client/dashboard'), 100);
+        navigate('/client/dashboard');
       }
     } catch (error) {
       console.error('Login error:', error);
