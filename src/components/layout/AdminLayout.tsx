@@ -55,7 +55,7 @@ export default function AdminLayout() {
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
         <div className="flex h-16 items-center justify-center border-b border-gray-200">
           <Logo size="md" />
-          <div className="ml-2 bg-red-100 px-2 py-1 rounded text-xs text-red-800 font-semibold">
+          <div className="ml-3 bg-red-100 px-2 py-1 rounded text-xs text-red-800 font-semibold">
             ADMIN
           </div>
         </div>

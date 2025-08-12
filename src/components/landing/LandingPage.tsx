@@ -73,10 +73,10 @@ export default function LandingPage() {
                 Iniciar Sesión
               </Link>
               <Link 
-                to="/admin" 
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                to="/login" 
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                🔧 Panel Admin (Dev)
+                Portal Clientes
               </Link>
               <Link 
                 to="/register" 
@@ -1004,7 +1004,7 @@ export default function LandingPage() {
                 className="text-gray-500 hover:text-gray-700 transition-colors"
                 title="Panel de Administración"
               >
-                <Shield className="h-5 w-5" />
+                Admin
               </Link>
             </div>
           </div>

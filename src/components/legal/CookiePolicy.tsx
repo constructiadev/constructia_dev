@@ -10,7 +10,7 @@ export default function CookiePolicy() {
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
-            <Logo size="md" />
+            <Logo size="md" variant="dark" />
             <Link 
               to="/landing" 
               className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"

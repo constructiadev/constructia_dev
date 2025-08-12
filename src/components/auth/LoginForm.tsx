@@ -157,8 +157,8 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
             Usar credenciales de prueba
           </button>
           {isAdmin && (
-            <button
-              type="button"
+        <div className="mb-6">
+          <Logo size="lg" />
               onClick={() => navigate('/admin')}
               className="mt-2 ml-2 text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition-colors"
             >
