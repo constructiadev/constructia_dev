@@ -29,9 +29,24 @@ const navigation = [
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout, userRole, loading } = useAuth();
+
+  // Verificar que el usuario es admin
+  useEffect(() => {
+    if (!loading && userRole !== 'admin') {
+      console.log('User is not admin, redirecting');
+      navigate('/login');
+    }
+  }, [userRole, loading, navigate]);
 
   const handleLogout = async () => {
-    navigate('/');
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      navigate('/');
+    }
   };
 
   return (

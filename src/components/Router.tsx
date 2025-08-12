@@ -42,16 +42,21 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          <p className="text-gray-600">Verificando autenticación...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
+    console.log('No user found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
   if (requiredRole && userRole !== requiredRole) {
+    console.log(`User role ${userRole} doesn't match required role ${requiredRole}`);
     return <Navigate to={userRole === 'admin' ? '/admin' : '/client/dashboard'} replace />;
   }
 

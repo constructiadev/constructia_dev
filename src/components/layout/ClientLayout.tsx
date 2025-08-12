@@ -35,8 +35,13 @@ export default function ClientLayout() {
   const { logout, user } = useAuth();
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      navigate('/');
+    }
   };
 
   return (

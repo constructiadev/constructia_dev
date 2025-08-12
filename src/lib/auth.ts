@@ -10,6 +10,25 @@ export const authService = {
     });
     
     if (error) throw error;
+    
+    // Verificar que el usuario tiene perfil de cliente
+    if (data.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        throw new Error('Error al verificar el perfil del usuario');
+      }
+      
+      if (profile && profile.role !== 'client') {
+        await supabase.auth.signOut();
+        throw new Error('Acceso no autorizado para clientes');
+      }
+    }
+    
     return data;
   },
 
@@ -23,13 +42,32 @@ export const authService = {
     if (error) throw error;
 
     // Verificar que es admin
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('role')
       .eq('id', data.user?.id)
-      .single();
+      .maybeSingle();
 
-    if (profile?.role !== 'admin') {
+    if (profileError && profileError.code !== 'PGRST116') {
+      await supabase.auth.signOut();
+      throw new Error('Error al verificar permisos');
+    }
+    
+    if (!profile) {
+      // Crear perfil de admin si no existe
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user?.id,
+          email: email,
+          role: 'admin'
+        });
+      
+      if (insertError) {
+        await supabase.auth.signOut();
+        throw new Error('Error al crear perfil de administrador');
+      }
+    } else if (profile.role !== 'admin') {
       await supabase.auth.signOut();
       throw new Error('Acceso no autorizado');
     }

@@ -72,6 +72,32 @@ const RegisterForm: React.FC = () => {
         return;
       }
 
+      // Usar el método register del contexto de autenticación
+      await register(formData.email, formData.password, {
+        companyName: formData.companyName,
+        contactName: formData.contactName,
+        phone: formData.phone,
+        address: formData.address
+      });
+
+      setSuccess(true);
+      
+      // Redirigir después de un breve delay
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error instanceof Error ? error.message : 'Error desconocido durante el registro');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función auxiliar para crear usuario (ya no se usa directamente)
+  const createUserDirectly = async () => {
+    try {
       // 1. Crear usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
@@ -92,7 +118,7 @@ const RegisterForm: React.FC = () => {
       // 2. Crear registro en la tabla users
       const { error: userError } = await supabase
         .from('users')
-        .insert({
+        .upsert({
           id: authData.user.id,
           email: formData.email,
           role: 'client'
@@ -107,7 +133,7 @@ const RegisterForm: React.FC = () => {
       const clientId = generateClientId();
       const { error: clientError } = await supabase
         .from('clients')
-        .insert({
+        .upsert({
           user_id: authData.user.id,
           client_id: clientId,
           company_name: formData.companyName,
@@ -128,19 +154,9 @@ const RegisterForm: React.FC = () => {
         console.error('Error creating client record:', clientError);
         throw new Error(`Error al crear el perfil del cliente: ${clientError.message}`);
       }
-
-      setSuccess(true);
-      
-      // Redirigir después de un breve delay
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 2000);
-
     } catch (error) {
-      console.error('Registration error:', error);
-      setError(error instanceof Error ? error.message : 'Error desconocido durante el registro');
-    } finally {
-      setLoading(false);
+      console.error('Error in createUserDirectly:', error);
+      throw error;
     }
   };
 

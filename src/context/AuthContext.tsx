@@ -46,8 +46,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
-        // Clear invalid session data and sign out
-        await supabase.auth.signOut();
         setSession(null);
         setUser(null);
         setUserProfile(null);
@@ -60,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -87,16 +86,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code !== 'PGRST116') {
-          console.error('Error loading user profile:', error);
+        console.error('Error loading user profile:', error);
+        // Si no existe el perfil, intentar crearlo
+        if (error.code === 'PGRST116') {
+          console.log('User profile not found, will be created on next login');
         }
         return;
       }
 
-      setUserProfile(data);
+      if (data) {
+        setUserProfile(data);
+      }
     } catch (error) {
       console.error('Error loading user profile:', error);
     }
@@ -104,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -116,15 +120,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
+      // Esperar a que se cargue el perfil del usuario
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+      }
+      
       return data;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const loginAdmin = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -144,27 +156,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .from('users')
             .select('role')
             .eq('id', data.user.id)
-            .single();
+            .maybeSingle();
 
           if (profileError) {
-            console.error('Error fetching user profile:', profileError);
-            // Si no existe el perfil, crearlo como admin
-            const { error: insertError } = await supabase
-              .from('users')
-              .insert({
-                id: data.user.id,
-                email: email,
-                role: 'admin'
-              });
-            
-            if (insertError) {
-              console.error('Error creating admin profile:', insertError);
+            if (profileError.code === 'PGRST116') {
+              // Usuario no existe en la tabla users, crear perfil de admin
+              const { error: insertError } = await supabase
+                .from('users')
+                .insert({
+                  id: data.user.id,
+                  email: email,
+                  role: 'admin'
+                });
+              
+              if (insertError) {
+                console.error('Error creating admin profile:', insertError);
+                await supabase.auth.signOut();
+                throw new Error('Error al crear el perfil de administrador.');
+              }
+              
+              // Cargar el perfil recién creado
+              await loadUserProfile(data.user.id);
+            } else {
+              console.error('Error fetching user profile:', profileError);
               await supabase.auth.signOut();
-              throw new Error('Error al crear el perfil de administrador.');
+              throw new Error('Error al verificar permisos de administrador.');
             }
           } else if (profile?.role !== 'admin') {
             await supabase.auth.signOut();
             throw new Error('Acceso no autorizado. Solo administradores pueden acceder.');
+          } else {
+            // Usuario admin válido, cargar perfil
+            await loadUserProfile(data.user.id);
           }
         } catch (profileError) {
           console.error('Error in admin verification:', profileError);
@@ -177,11 +200,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Admin login error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const register = async (email: string, password: string, clientData: any) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password
@@ -202,14 +228,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const createClientRecord = async (userId: string, email: string, clientData: any) => {
     try {
+      // Crear registro en users primero
       const { error: userError } = await supabase
         .from('users')
-        .insert({
+        .upsert({
           id: userId,
           email: email,
           role: 'client'
@@ -217,11 +246,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (userError) {
         console.error('Error creating user record:', userError);
+        throw userError;
       }
 
+      // Luego crear el registro del cliente
       const { error } = await supabase
         .from('clients')
-        .insert({
+        .upsert({
           user_id: userId,
           client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
           company_name: clientData.companyName || '',
@@ -234,9 +265,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Error creating client record:', error);
+        throw error;
       }
+      
+      // Cargar el perfil del usuario recién creado
+      await loadUserProfile(userId);
     } catch (error) {
       console.error('Error in createClientRecord:', error);
+      throw error;
     }
   };
 

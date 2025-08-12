@@ -61,7 +61,8 @@ export default function ClientDashboard() {
       // Get client data
       const client = await getCurrentClientData(user.id);
       if (!client) {
-        setError('No se encontraron datos del cliente para este usuario');
+        console.log('No client data found, user may need to complete profile');
+        setError('Perfil de cliente incompleto. Por favor, completa tu información.');
         return;
       }
 

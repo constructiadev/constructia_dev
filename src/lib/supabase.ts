@@ -68,6 +68,10 @@ export const getCurrentClientData = async (userId: string) => {
       .maybeSingle();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        console.log('Client data not found for user:', userId);
+        return null;
+      }
       throw new Error(`Error fetching client data: ${error.message}`);
     }
     
