@@ -16,17 +16,21 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
+  console.log('🔍 [useAuth] Hook called');
   const context = useContext(AuthContext);
+  console.log('🔍 [useAuth] Context value:', context);
   if (context === undefined) {
+    console.error('❌ [useAuth] Context is undefined - AuthProvider not found');
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  console.log('🔍 [AuthProvider] Component rendering');
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<AppUser | null>(null);
@@ -35,9 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const userRole = userProfile?.role || null;
 
   useEffect(() => {
+    console.log('🔍 [AuthProvider] useEffect triggered');
     const getInitialSession = async () => {
       try {
+        console.log('🔍 [AuthProvider] Getting initial session...');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('🔍 [AuthProvider] Initial session:', session?.user?.email || 'No session');
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -50,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setUserProfile(null);
       } finally {
+        console.log('🔍 [AuthProvider] Initial session loading complete');
         setLoading(false);
       }
     };

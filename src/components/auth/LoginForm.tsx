@@ -1,20 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, AuthContext } from '../../context/AuthContext';
 
 interface LoginFormProps {
   isAdmin?: boolean;
 }
 
 export default function LoginForm({ isAdmin = false }: LoginFormProps) {
+  // Debug: Verificar el contexto directamente
+  const authContextValue = useContext(AuthContext);
+  console.log('🔍 [LoginForm] AuthContext value:', authContextValue);
+  console.log('🔍 [LoginForm] AuthContext is undefined:', authContextValue === undefined);
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { login, loginAdmin } = useAuth();
+  
+  // Usar el contexto directamente con verificación
+  let login, loginAdmin;
+  
+  if (authContextValue === undefined) {
+    console.error('❌ [LoginForm] AuthContext is undefined - AuthProvider not found');
+    // Mostrar error en la UI en lugar de fallar silenciosamente
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+            <LogIn className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error de Inicialización</h1>
+          <p className="text-red-600 mb-4">
+            El contexto de autenticación no está disponible. 
+            Por favor, recarga la página.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Recargar Página
+          </button>
+        </div>
+      </div>
+    );
+  } else {
+    console.log('✅ [LoginForm] AuthContext is available');
+    login = authContextValue.login;
+    loginAdmin = authContextValue.loginAdmin;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
