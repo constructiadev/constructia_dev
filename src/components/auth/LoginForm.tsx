@@ -1,74 +1,60 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface LoginFormProps {
-  isAdmin?: boolean;
+  isAdmin?: boolean; // opcional: si no viene, inferimos por la URL (/admin/*)
 }
 
-export function LoginForm({ isAdmin = false }: LoginFormProps) {
-  console.log('🔍 [LoginForm] Component rendering, isAdmin:', isAdmin);
-  
-  // Use useContext directly to debug the context availability
-  const authContext = useContext(AuthContext);
-  console.log('🔍 [LoginForm] AuthContext value:', authContext);
-  
-  // Check if context is available
-  if (!authContext) {
-    console.error('❌ [LoginForm] AuthContext is undefined - AuthProvider not found');
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <h1 className="text-xl font-bold text-red-600 mb-4">Error de Configuración</h1>
-          <p className="text-gray-600">
-            El contexto de autenticación no está disponible. Por favor, recarga la página.
-          </p>
-        </div>
-      </div>
-    );
-  }
+export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, loginAdmin, isAuthenticated, userRole, loading } = useAuth();
 
-  const { login, loginAdmin } = authContext;
+  // Derivar modo admin del prop o del path
+  const isAdminMode = isAdminProp ?? location.pathname.startsWith('/admin');
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>('');
+
+  // Si ya está autenticado, redirige al panel adecuado
+  useEffect(() => {
+    if (isAuthenticated && userRole) {
+      navigate(userRole === 'admin' ? '/admin/dashboard' : '/client/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, userRole, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔍 [LoginForm] Form submitted, isAdmin:', isAdmin);
-    setLoading(true);
     setError('');
+    setSubmitting(true);
 
     try {
-      if (isAdmin) {
-        console.log('🔍 [LoginForm] Attempting admin login');
-        await loginAdmin(email, password);
-        console.log('✅ [LoginForm] Admin login successful');
+      if (isAdminMode) {
+        await loginAdmin(email, password); // esta función ya carga el perfil/rol
       } else {
-        console.log('🔍 [LoginForm] Attempting client login');
-        await login(email, password);
-        console.log('✅ [LoginForm] Client login successful, navigating to dashboard');
-        navigate('/client/dashboard');
+        await login(email, password); // idem
       }
-    } catch (err) {
-      console.error('❌ [LoginForm] Login error:', err);
-      if (err instanceof Error) {
-        setError(err.message);
+
+      // Tras login, el contexto ya tiene userRole actualizado
+      if (userRole === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
       } else {
-        setError('Ocurrió un error inesperado. Por favor, inténtalo de nuevo.');
+        navigate('/client/dashboard', { replace: true });
       }
+    } catch (err: any) {
+      setError(err?.message || 'Credenciales inválidas o error de servidor.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   const fillDemoCredentials = () => {
-    if (isAdmin) {
+    if (isAdminMode) {
       setEmail('admin@constructia.com');
       setPassword('superadmin123');
     } else {
@@ -85,10 +71,10 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
             <LogIn className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {isAdmin ? 'Acceso Administrativo' : 'Iniciar Sesión'}
+            {isAdminMode ? 'Acceso Administrativo' : 'Iniciar Sesión'}
           </h1>
           <p className="text-gray-600 mt-2">
-            {isAdmin ? 'Panel de administración de ConstructIA' : 'Accede a tu cuenta de ConstructIA'}
+            {isAdminMode ? 'Panel de administración de ConstructIA' : 'Accede a tu cuenta de ConstructIA'}
           </p>
         </div>
 
@@ -100,11 +86,13 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
             <input
               id="email"
               type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
               placeholder="tu@email.com"
               required
+              disabled={submitting || loading}
             />
           </div>
 
@@ -116,16 +104,20 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors pr-12"
                 placeholder="••••••••"
                 required
+                disabled={submitting || loading}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                disabled={submitting || loading}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -140,14 +132,14 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitting || loading}
             className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            {(submitting || loading) ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
         </form>
 
-        {!isAdmin && (
+        {!isAdminMode && (
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               ¿No tienes una cuenta?{' '}
@@ -162,15 +154,14 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
           <button
             type="button"
             onClick={fillDemoCredentials}
+            disabled={submitting || loading}
             className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
           >
-            {isAdmin ? 'Usar credenciales de admin demo' : 'Usar credenciales de cliente demo'}
+            {isAdminMode ? 'Usar credenciales de admin demo' : 'Usar credenciales de cliente demo'}
           </button>
           <div className="mt-3 text-xs text-gray-500 space-y-1">
-            {isAdmin ? (
-              <>
-                <p><strong>Admin:</strong> admin@constructia.com / superadmin123</p>
-              </>
+            {isAdminMode ? (
+              <p><strong>Admin:</strong> admin@constructia.com / superadmin123</p>
             ) : (
               <>
                 <p><strong>Cliente:</strong> juan@construccionesgarcia.com / password123</p>
