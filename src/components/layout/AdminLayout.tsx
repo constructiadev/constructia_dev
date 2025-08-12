@@ -1,5 +1,4 @@
 import React from 'react';
-import { useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -13,7 +12,7 @@ import {
   LogOut,
   Shield
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+// import { useAuth } from '../../context/AuthContext'; // Temporalmente desactivado
 import Logo from '../common/Logo';
 
 const navigation = [
@@ -31,19 +30,11 @@ const navigation = [
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, userRole, loading } = useAuth();
-
-  // Verificar que el usuario es admin
-  useEffect(() => {
-    if (!loading && userRole !== 'admin') {
-      console.log('User is not admin, redirecting');
-      navigate('/login');
-    }
-  }, [userRole, loading, navigate]);
+  // const { logout, userRole, loading } = useAuth(); // Temporalmente desactivado
 
   const handleLogout = async () => {
     try {
-      await logout();
+      // await logout(); // Temporalmente desactivado
       navigate('/');
     } catch (error) {
       console.error('Error during logout:', error);
@@ -106,7 +97,7 @@ export default function AdminLayout() {
           <div className="flex items-center space-x-4">
             <Shield className="h-5 w-5 text-green-600" />
             <span className="text-sm font-medium text-gray-700">
-              {user?.email}
+              admin@constructia.com
             </span>
           </div>
         </div>

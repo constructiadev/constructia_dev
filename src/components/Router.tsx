@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+// import { useAuth } from '../context/AuthContext'; // Temporalmente desactivado para desarrollo
 
 // Import layouts
 import AdminLayout from './layout/AdminLayout';
@@ -37,45 +37,11 @@ import TermsOfService from './legal/TermsOfService';
 import CookiePolicy from './legal/CookiePolicy';
 
 function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: 'admin' | 'client' }) {
-  const { user, userRole, loading } = useAuth();
+  // Temporalmente desactivado para desarrollo - acceso directo
+  // const { user, userRole, loading } = useAuth();
 
-  // Logs detallados de depuración para ProtectedRoute
-  console.log('🔍 [ProtectedRoute] === DETAILED DEBUG ===');
-  console.log('🔍 [ProtectedRoute] user:', user ? { id: user.id, email: user.email } : null);
-  console.log('🔍 [ProtectedRoute] userRole:', userRole);
-  console.log('🔍 [ProtectedRoute] loading:', loading);
-  console.log('🔍 [ProtectedRoute] requiredRole:', requiredRole);
-  console.log('🔍 [ProtectedRoute] === END DEBUG ===');
-
-  if (loading) {
-    console.log('🔍 [ProtectedRoute] BLOCKING: Still loading, showing loading screen');
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-          <p className="text-gray-600">Verificando autenticación...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    console.log('🔍 [ProtectedRoute] BLOCKING: No user found, redirecting to login');
-    return <Navigate to="/login" replace />;
-  }
-
-  // Durante desarrollo, permitir acceso si el usuario está autenticado pero no hay userRole
-  if (user && !loading && !userRole) {
-    console.log('🔍 [ProtectedRoute] ALLOWING: User authenticated but no profile loaded (development mode)');
-    return <>{children}</>;
-  }
-
-  if (requiredRole && userRole !== requiredRole) {
-    console.log(`🔍 [ProtectedRoute] BLOCKING: User role ${userRole} doesn't match required role ${requiredRole}, redirecting`);
-    return <Navigate to={userRole === 'admin' ? '/admin' : '/client/dashboard'} replace />;
-  }
-
-  console.log('✅ [ProtectedRoute] ACCESS GRANTED: Rendering children');
+  // DESARROLLO: Acceso directo sin autenticación
+  console.log('🚧 [ProtectedRoute] DEVELOPMENT MODE: Bypassing authentication');
   return <>{children}</>;
 }
 
@@ -86,9 +52,9 @@ export default function Router() {
         {/* Public routes */}
         <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<LandingPage />} />
-        <Route path="/login" element={<LoginForm />} />
+        <Route path="/login" element={<Navigate to="/client/dashboard" replace />} />
         <Route path="/register" element={<RegisterForm />} />
-        <Route path="/admin/login" element={<LoginForm isAdmin={true} />} />
+        <Route path="/admin/login" element={<Navigate to="/admin" replace />} />
         
         {/* Legal pages */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -96,11 +62,7 @@ export default function Router() {
         <Route path="/cookie-policy" element={<CookiePolicy />} />
 
         {/* Admin routes */}
-        <Route path="/admin" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminLayout />
-          </ProtectedRoute>
-        }>
+        <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />
@@ -112,11 +74,7 @@ export default function Router() {
         </Route>
 
         {/* Client routes */}
-        <Route path="/client" element={
-          <ProtectedRoute requiredRole="client">
-            <ClientLayout />
-          </ProtectedRoute>
-        }>
+        <Route path="/client" element={<ClientLayout />}>
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="companies" element={<Companies />} />
           <Route path="projects" element={<Projects />} />

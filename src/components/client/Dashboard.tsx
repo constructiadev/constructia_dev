@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+// import { useAuth } from '../../context/AuthContext'; // Temporalmente desactivado
 import { useNavigate } from 'react-router-dom';
 import { 
   Building2, 
@@ -29,7 +29,8 @@ interface DashboardStats {
 }
 
 export default function ClientDashboard() {
-  const { user } = useAuth();
+  // const { user } = useAuth(); // Temporalmente desactivado
+  const user = { id: 'demo-user-id', email: 'juan@construccionesgarcia.com' }; // Usuario demo para desarrollo
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

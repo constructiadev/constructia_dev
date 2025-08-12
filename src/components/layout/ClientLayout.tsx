@@ -16,7 +16,7 @@ import {
   Search
 } from 'lucide-react';
 import Logo from '../common/Logo';
-import { useAuth } from '../../context/AuthContext';
+// import { useAuth } from '../../context/AuthContext'; // Temporalmente desactivado
 
 const navigation = [
   { name: 'Dashboard', href: '/client/dashboard', icon: LayoutDashboard },
@@ -32,11 +32,11 @@ const navigation = [
 export default function ClientLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  // const { logout, user } = useAuth(); // Temporalmente desactivado
 
   const handleLogout = async () => {
     try {
-      await logout();
+      // await logout(); // Temporalmente desactivado
       navigate('/');
     } catch (error) {
       console.error('Error during logout:', error);
@@ -108,7 +108,7 @@ export default function ClientLayout() {
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
-                {user?.email}
+                juan@construccionesgarcia.com
               </span>
             </div>
           </div>
