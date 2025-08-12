@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,7 +12,7 @@ import {
   LogOut,
   Shield
 } from 'lucide-react';
-// import { useAuth } from '../../context/AuthContext'; // Temporalmente desactivado
+import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
 
 const navigation = [
@@ -20,7 +20,8 @@ const navigation = [
   { name: 'Clientes', href: '/admin/clients', icon: Users },
   { name: 'Financiero', href: '/admin/financial', icon: CreditCard },
   { name: 'IA & Integraciones', href: '/admin/ai', icon: Brain },
-  { name: 'Gestión Manual', href: '/admin/manual', icon: Settings },
+  // OJO: solo deja este item si tienes la ruta /admin/manual creada
+  // { name: 'Gestión Manual', href: '/admin/manual', icon: Settings },
   { name: 'Base de Datos', href: '/admin/database', icon: Database },
   { name: 'API Management', href: '/admin/api', icon: BarChart3 },
   { name: 'Auditoría', href: '/admin/audit', icon: Activity },
@@ -28,17 +29,16 @@ const navigation = [
 ];
 
 export default function AdminLayout() {
-  const location = useLocation();
   const navigate = useNavigate();
-  // const { logout, userRole, loading } = useAuth(); // Temporalmente desactivado
+  const { logout, user, userRole } = useAuth();
 
   const handleLogout = async () => {
     try {
-      // await logout(); // Temporalmente desactivado
-      navigate('/');
+      await logout();
+      navigate('/admin/login', { replace: true });
     } catch (error) {
       console.error('Error during logout:', error);
-      navigate('/');
+      navigate('/admin/login', { replace: true });
     }
   };
 
@@ -46,7 +46,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
-        <div className="flex h-16 items-center justify-center border-b border-gray-200">
+        <div className="flex h-16 items-center justify-center border-b border-gray-200 px-3">
           <Logo size="md" />
           <div className="ml-3 flex items-center bg-red-100 px-2 py-1 rounded text-xs text-red-800 font-semibold">
             <Shield className="h-3 w-3 mr-1" />
@@ -57,20 +57,22 @@ export default function AdminLayout() {
         <nav className="mt-8 px-4">
           <ul className="space-y-2">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+              const Icon = item.icon;
               return (
                 <li key={item.name}>
-                  <Link
+                  <NavLink
                     to={item.href}
-                    className={`group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? 'bg-green-100 text-green-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    end={item.href === '/admin'}
+                    className={({ isActive }) =>
+                      [
+                        'group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                        isActive ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'
+                      ].join(' ')
+                    }
                   >
-                    <item.icon className="mr-3 h-5 w-5" />
+                    <Icon className="mr-3 h-5 w-5" />
                     {item.name}
-                  </Link>
+                  </NavLink>
                 </li>
               );
             })}
@@ -97,8 +99,13 @@ export default function AdminLayout() {
           <div className="flex items-center space-x-4">
             <Shield className="h-5 w-5 text-green-600" />
             <span className="text-sm font-medium text-gray-700">
-              admin@constructia.com
+              {user?.email || 'admin'}
             </span>
+            {userRole && (
+              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+                {userRole.toUpperCase()}
+              </span>
+            )}
           </div>
         </div>
         
