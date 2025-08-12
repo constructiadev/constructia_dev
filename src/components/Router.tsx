@@ -1,16 +1,18 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// import { useAuth } from '../context/AuthContext'; // Temporalmente desactivado para desarrollo
 
-// Import layouts
+// Guard
+import PrivateRoute from '../components/PrivateRoute';
+
+// Layouts
 import AdminLayout from './layout/AdminLayout';
 import ClientLayout from './layout/ClientLayout';
 
-// Import auth components
-import { LoginForm } from './auth/LoginForm';
+// Auth
+import LoginForm from './auth/LoginForm';        // ⬅ ojo: default import
 import RegisterForm from './auth/RegisterForm';
 
-// Import admin components
+// Admin pages
 import AdminDashboard from './admin/Dashboard';
 import ClientsManagement from './admin/ClientsManagement';
 import FinancialModule from './admin/FinancialModule';
@@ -20,7 +22,7 @@ import APIManagement from './admin/APIManagement';
 import AuditModule from './admin/AuditModule';
 import SettingsModule from './admin/SettingsModule';
 
-// Import client components
+// Client pages
 import ClientDashboard from './client/Dashboard';
 import Companies from './client/Companies';
 import Projects from './client/Projects';
@@ -30,39 +32,37 @@ import Metrics from './client/Metrics';
 import Subscription from './client/Subscription';
 import Settings from './client/Settings';
 
-// Import landing and legal pages
+// Public pages
 import LandingPage from './landing/LandingPage';
 import PrivacyPolicy from './legal/PrivacyPolicy';
 import TermsOfService from './legal/TermsOfService';
 import CookiePolicy from './legal/CookiePolicy';
 
-function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: 'admin' | 'client' }) {
-  // Temporalmente desactivado para desarrollo - acceso directo
-  // const { user, userRole, loading } = useAuth();
-
-  // DESARROLLO: Acceso directo sin autenticación
-  console.log('🚧 [ProtectedRoute] DEVELOPMENT MODE: Bypassing authentication');
-  return <>{children}</>;
-}
-
 export default function Router() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        {/* Public routes */}
+        {/* Públicas */}
         <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<LandingPage />} />
-        <Route path="/login" element={<Navigate to="/client/dashboard" replace />} />
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/admin/login" element={<LoginForm isAdmin />} />
         <Route path="/register" element={<RegisterForm />} />
-        <Route path="/admin/login" element={<Navigate to="/admin" replace />} />
-        
-        {/* Legal pages */}
+
+        {/* Legales */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminLayout />}>
+        {/* Admin (PROTEGIDO) */}
+        <Route
+          path="/admin"
+          element={
+            <PrivateRoute allowedRoles={['admin']}>
+              <AdminLayout />
+            </PrivateRoute>
+          }
+        >
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />
@@ -73,8 +73,15 @@ export default function Router() {
           <Route path="settings" element={<SettingsModule />} />
         </Route>
 
-        {/* Client routes */}
-        <Route path="/client" element={<ClientLayout />}>
+        {/* Client (PROTEGIDO) */}
+        <Route
+          path="/client"
+          element={
+            <PrivateRoute allowedRoles={['client']}>
+              <ClientLayout />
+            </PrivateRoute>
+          }
+        >
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="companies" element={<Companies />} />
           <Route path="projects" element={<Projects />} />
@@ -85,7 +92,7 @@ export default function Router() {
           <Route path="settings" element={<Settings />} />
         </Route>
 
-        {/* Catch all route */}
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     </BrowserRouter>
