@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -10,13 +10,12 @@ import {
   Settings,
   CreditCard,
   LogOut,
-  Receipt,
-  User,
   Bell,
-  Search
+  Search,
+  User
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
-// import { useAuth } from '../../context/AuthContext'; // Temporalmente desactivado
 
 const navigation = [
   { name: 'Dashboard', href: '/client/dashboard', icon: LayoutDashboard },
@@ -30,17 +29,16 @@ const navigation = [
 ];
 
 export default function ClientLayout() {
-  const location = useLocation();
   const navigate = useNavigate();
-  // const { logout, user } = useAuth(); // Temporalmente desactivado
+  const { logout, user, userRole } = useAuth();
 
   const handleLogout = async () => {
     try {
-      // await logout(); // Temporalmente desactivado
-      navigate('/');
+      await logout();
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Error during logout:', error);
-      navigate('/');
+      navigate('/login', { replace: true });
     }
   };
 
@@ -48,7 +46,7 @@ export default function ClientLayout() {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
-        <div className="flex h-16 items-center justify-center border-b border-gray-200">
+        <div className="flex h-16 items-center justify-center border-b border-gray-200 px-3">
           <Logo size="md" />
           <div className="ml-3 bg-green-100 px-2 py-1 rounded text-xs text-green-800 font-semibold">
             CLIENTE
@@ -58,20 +56,22 @@ export default function ClientLayout() {
         <nav className="mt-8 px-4">
           <ul className="space-y-2">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+              const Icon = item.icon;
               return (
                 <li key={item.name}>
-                  <Link
+                  <NavLink
                     to={item.href}
-                    className={`group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? 'bg-green-100 text-green-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    end={item.href === '/client/dashboard'}
+                    className={({ isActive }) =>
+                      [
+                        'group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                        isActive ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'
+                      ].join(' ')
+                    }
                   >
-                    <item.icon className="mr-3 h-5 w-5" />
+                    <Icon className="mr-3 h-5 w-5" />
                     {item.name}
-                  </Link>
+                  </NavLink>
                 </li>
               );
             })}
@@ -108,8 +108,13 @@ export default function ClientLayout() {
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
-                juan@construccionesgarcia.com
+                {user?.email || 'usuario'}
               </span>
+              {userRole && (
+                <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+                  {userRole.toUpperCase()}
+                </span>
+              )}
             </div>
           </div>
         </div>
