@@ -1,30 +1,35 @@
-¡Claro que sí! He analizado el código de tu componente LoginForm de React y he encontrado el fallo principal que está causando problemas, además de algunas áreas de mejora.
-
-El problema central es una implementación incorrecta y demasiado complicada de cómo se consume el contexto de autenticación. Estás intentando usar useContext(AuthContext) directamente y luego verificando si es undefined, lo cual, aunque es una forma de depurar, es propenso a errores y no es la manera idiomática en que se debe usar un custom hook como useAuth.
-
-El custom hook useAuth ya debería estar haciendo esa validación internamente. Si el contexto es undefined, useAuth debería ser el que lance el error. Tu componente no debería tener que manejar esa lógica.
-
-Código Corregido
-Aquí tienes la versión corregida y simplificada del componente. Es más limpia, más robusta y sigue las mejores prácticas de React.
-
-JavaScript
-
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
-// Importa el custom hook directamente, es todo lo que necesitas.
-import { useAuth } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 
 interface LoginFormProps {
   isAdmin?: boolean;
 }
 
-// No necesitas 'export default', 'export function' es más limpio aquí.
 export function LoginForm({ isAdmin = false }: LoginFormProps) {
-  // 1. Usa el custom hook 'useAuth' como se espera.
-  // Este hook te dará acceso a 'login' y 'loginAdmin' o lanzará un error
-  // si el AuthProvider no se encuentra en el árbol de componentes.
-  const { login, loginAdmin } = useAuth();
+  console.log('🔍 [LoginForm] Component rendering, isAdmin:', isAdmin);
+  
+  // Use useContext directly to debug the context availability
+  const authContext = useContext(AuthContext);
+  console.log('🔍 [LoginForm] AuthContext value:', authContext);
+  
+  // Check if context is available
+  if (!authContext) {
+    console.error('❌ [LoginForm] AuthContext is undefined - AuthProvider not found');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <h1 className="text-xl font-bold text-red-600 mb-4">Error de Configuración</h1>
+          <p className="text-gray-600">
+            El contexto de autenticación no está disponible. Por favor, recarga la página.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { login, loginAdmin } = authContext;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,25 +40,23 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 [LoginForm] Form submitted, isAdmin:', isAdmin);
     setLoading(true);
     setError('');
 
     try {
       if (isAdmin) {
-        // Llama a la función de login de admin.
-        // La navegación debería ser manejada por el contexto o un HOC, no aquí.
+        console.log('🔍 [LoginForm] Attempting admin login');
         await loginAdmin(email, password);
+        console.log('✅ [LoginForm] Admin login successful');
       } else {
-        // Llama a la función de login de cliente.
+        console.log('🔍 [LoginForm] Attempting client login');
         await login(email, password);
-        // La navegación tras un login exitoso debería ocurrir dentro
-        // del AuthContext o en un componente superior para ser más consistente.
-        // Pero mantenerla aquí es aceptable si es la única ocurrencia.
+        console.log('✅ [LoginForm] Client login successful, navigating to dashboard');
         navigate('/client/dashboard');
       }
     } catch (err) {
-      console.error('Login error:', err);
-      // Simplifica el manejo de errores. Asume que el error siempre tiene un 'message'.
+      console.error('❌ [LoginForm] Login error:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -74,8 +77,6 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
     }
   };
 
-  // El resto del JSX es excelente, no necesita cambios.
-  // Es limpio, accesible y visualmente atractivo.
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
@@ -157,7 +158,27 @@ export function LoginForm({ isAdmin = false }: LoginFormProps) {
           </div>
         )}
 
-        {/* ... El resto de tu excelente JSX ... */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={fillDemoCredentials}
+            className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+          >
+            {isAdmin ? 'Usar credenciales de admin demo' : 'Usar credenciales de cliente demo'}
+          </button>
+          <div className="mt-3 text-xs text-gray-500 space-y-1">
+            {isAdmin ? (
+              <>
+                <p><strong>Admin:</strong> admin@constructia.com / superadmin123</p>
+              </>
+            ) : (
+              <>
+                <p><strong>Cliente:</strong> juan@construccionesgarcia.com / password123</p>
+                <p><strong>Cliente 2:</strong> maria@reformasmodernas.com / password123</p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
