@@ -39,16 +39,16 @@ import CookiePolicy from './legal/CookiePolicy';
 function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: 'admin' | 'client' }) {
   const { user, userRole, loading } = useAuth();
 
-  // Logs de depuración para ProtectedRoute
-  console.log('🔍 [ProtectedRoute] Component rendering with:', {
-    user: user ? { id: user.id, email: user.email } : null,
-    userRole,
-    loading,
-    requiredRole
-  });
+  // Logs detallados de depuración para ProtectedRoute
+  console.log('🔍 [ProtectedRoute] === DETAILED DEBUG ===');
+  console.log('🔍 [ProtectedRoute] user:', user ? { id: user.id, email: user.email } : null);
+  console.log('🔍 [ProtectedRoute] userRole:', userRole);
+  console.log('🔍 [ProtectedRoute] loading:', loading);
+  console.log('🔍 [ProtectedRoute] requiredRole:', requiredRole);
+  console.log('🔍 [ProtectedRoute] === END DEBUG ===');
 
   if (loading) {
-    console.log('🔍 [ProtectedRoute] Still loading, showing loading screen');
+    console.log('🔍 [ProtectedRoute] BLOCKING: Still loading, showing loading screen');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -60,31 +60,22 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
   }
 
   if (!user) {
-    console.log('No user found, redirecting to login');
-    console.log('🔍 [ProtectedRoute] No user found, redirecting to login');
+    console.log('🔍 [ProtectedRoute] BLOCKING: No user found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
-  // Permitir acceso sin verificar userRole durante desarrollo (RLS deshabilitado)
-  // TODO: Reactivar esta verificación cuando RLS esté habilitado en producción
-  // if (user && !loading && !userRole) {
-  //   console.log('User authenticated but no profile loaded, redirecting to login');
-  //   return <Navigate to="/login" replace />;
-  // }
+  // Durante desarrollo, permitir acceso si el usuario está autenticado pero no hay userRole
+  if (user && !loading && !userRole) {
+    console.log('🔍 [ProtectedRoute] ALLOWING: User authenticated but no profile loaded (development mode)');
+    return <>{children}</>;
+  }
 
   if (requiredRole && userRole !== requiredRole) {
-    // Durante desarrollo, permitir acceso si no hay userRole cargado
-    if (!userRole) {
-      console.log('No user role loaded, allowing access for development');
-      console.log('🔍 [ProtectedRoute] No user role loaded, allowing access for development');
-      return <>{children}</>;
-    }
-    console.log(`User role ${userRole} doesn't match required role ${requiredRole}`);
-    console.log(`🔍 [ProtectedRoute] User role ${userRole} doesn't match required role ${requiredRole}, redirecting`);
+    console.log(`🔍 [ProtectedRoute] BLOCKING: User role ${userRole} doesn't match required role ${requiredRole}, redirecting`);
     return <Navigate to={userRole === 'admin' ? '/admin' : '/client/dashboard'} replace />;
   }
 
-  console.log('✅ [ProtectedRoute] Access granted, rendering children');
+  console.log('✅ [ProtectedRoute] ACCESS GRANTED: Rendering children');
   return <>{children}</>;
 }
 

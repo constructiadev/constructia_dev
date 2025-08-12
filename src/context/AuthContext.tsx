@@ -92,20 +92,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      console.log('🔍 [AuthContext] Querying users table...');
+      console.log('🔍 [AuthContext] Querying users table for userId:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      console.log('🔍 [AuthContext] User profile query result:', { data, error });
+      console.log('🔍 [AuthContext] User profile query result:');
+      console.log('🔍 [AuthContext] - data:', data);
+      console.log('🔍 [AuthContext] - error:', error);
 
       if (error) {
-        console.error('❌ [AuthContext] Error loading user profile:', error);
+        console.error('❌ [AuthContext] Database error loading user profile:', error.message, error.code);
         // Si no existe el perfil, intentar crearlo
         if (error.code === 'PGRST116') {
-          console.log('⚠️ [AuthContext] User profile not found, will be created on next login');
+          console.log('⚠️ [AuthContext] User profile not found (PGRST116), creating basic profile...');
+          
+          // Intentar crear un perfil básico
+          const { data: newProfile, error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              email: 'unknown@email.com', // Se actualizará después
+              role: 'client'
+            })
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error('❌ [AuthContext] Error creating basic profile:', createError);
+          } else {
+            console.log('✅ [AuthContext] Basic profile created:', newProfile);
+            setUserProfile(newProfile);
+          }
         }
         return;
       }
@@ -114,10 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ [AuthContext] User profile loaded:', data.email, 'Role:', data.role);
         setUserProfile(data);
       } else {
-        console.log('⚠️ [AuthContext] No user profile data returned');
+        console.log('⚠️ [AuthContext] No user profile data returned, but no error either');
       }
     } catch (error) {
-      console.error('❌ [AuthContext] Error loading user profile:', error);
+      console.error('❌ [AuthContext] Unexpected error loading user profile:', error);
     }
   };
 
