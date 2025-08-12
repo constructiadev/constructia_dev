@@ -56,31 +56,33 @@ export default function LandingPage() {
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <Logo size="md" />
-            <nav className="hidden md:flex space-x-8">
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center">
+              <Logo size="sm" />
+            </div>
+            <nav className="hidden lg:flex items-center space-x-8">
               <a href="#inicio" className="text-gray-700 hover:text-green-600 transition-colors">Inicio</a>
               <a href="#caracteristicas" className="text-gray-700 hover:text-green-600 transition-colors">Características</a>
               <a href="#planes" className="text-gray-700 hover:text-green-600 transition-colors">Planes</a>
               <a href="#empresa" className="text-gray-700 hover:text-green-600 transition-colors">Empresa</a>
               <a href="#contacto" className="text-gray-700 hover:text-green-600 transition-colors">Contacto</a>
             </nav>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <Link 
                 to="/login" 
-                className="text-gray-700 hover:text-green-600 transition-colors"
+                className="text-gray-700 hover:text-green-600 transition-colors font-medium"
               >
                 Iniciar Sesión
               </Link>
               <Link 
                 to="/login" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
                 Portal Clientes
               </Link>
               <Link 
                 to="/register" 
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
                 Comenzar Gratis
               </Link>
