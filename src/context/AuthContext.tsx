@@ -107,7 +107,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -120,14 +119,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      // El perfil se cargará automáticamente por el listener de auth state change
+      // Durante desarrollo, no verificar rol específico
+      console.log('Login successful for:', email);
       
       return data;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

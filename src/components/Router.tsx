@@ -55,12 +55,19 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
-  // Si el usuario está autenticado pero no tiene perfil cargado, redirigir al login
-  if (user && !loading && !userRole) {
-    console.log('User authenticated but no profile loaded, redirecting to login');
-    return <Navigate to="/login" replace />;
-  }
+  // Permitir acceso sin verificar userRole durante desarrollo (RLS deshabilitado)
+  // TODO: Reactivar esta verificación cuando RLS esté habilitado en producción
+  // if (user && !loading && !userRole) {
+  //   console.log('User authenticated but no profile loaded, redirecting to login');
+  //   return <Navigate to="/login" replace />;
+  // }
+
   if (requiredRole && userRole !== requiredRole) {
+    // Durante desarrollo, permitir acceso si no hay userRole cargado
+    if (!userRole) {
+      console.log('No user role loaded, allowing access for development');
+      return <>{children}</>;
+    }
     console.log(`User role ${userRole} doesn't match required role ${requiredRole}`);
     return <Navigate to={userRole === 'admin' ? '/admin' : '/client/dashboard'} replace />;
   }

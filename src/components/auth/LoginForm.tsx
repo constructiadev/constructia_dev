@@ -24,11 +24,20 @@ export default function LoginForm({ isAdmin = false }: LoginFormProps) {
     try {
       if (isAdmin) {
         await loginAdmin(email, password);
-        navigate('/admin');
+        // La navegación se manejará automáticamente por el Router
       } else {
         await login(email, password);
-        navigate('/client/dashboard');
+        // La navegación se manejará automáticamente por el Router
       }
+      
+      // Redirigir después de un breve delay para permitir que el estado se actualice
+      setTimeout(() => {
+        if (isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/client/dashboard');
+        }
+      }, 100);
     } catch (error) {
       console.error('Login error:', error);
       if (error instanceof Error) {
