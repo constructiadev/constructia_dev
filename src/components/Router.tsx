@@ -7,7 +7,7 @@ import AdminLayout from './layout/AdminLayout';
 import ClientLayout from './layout/ClientLayout';
 
 // Import auth components
-import LoginForm from './auth/LoginForm';
+import { LoginForm } from './auth/LoginForm';
 import RegisterForm from './auth/RegisterForm';
 
 // Import admin components
