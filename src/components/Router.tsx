@@ -39,7 +39,16 @@ import CookiePolicy from './legal/CookiePolicy';
 function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: 'admin' | 'client' }) {
   const { user, userRole, loading } = useAuth();
 
+  // Logs de depuración para ProtectedRoute
+  console.log('🔍 [ProtectedRoute] Component rendering with:', {
+    user: user ? { id: user.id, email: user.email } : null,
+    userRole,
+    loading,
+    requiredRole
+  });
+
   if (loading) {
+    console.log('🔍 [ProtectedRoute] Still loading, showing loading screen');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -52,6 +61,7 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
 
   if (!user) {
     console.log('No user found, redirecting to login');
+    console.log('🔍 [ProtectedRoute] No user found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
@@ -66,12 +76,15 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
     // Durante desarrollo, permitir acceso si no hay userRole cargado
     if (!userRole) {
       console.log('No user role loaded, allowing access for development');
+      console.log('🔍 [ProtectedRoute] No user role loaded, allowing access for development');
       return <>{children}</>;
     }
     console.log(`User role ${userRole} doesn't match required role ${requiredRole}`);
+    console.log(`🔍 [ProtectedRoute] User role ${userRole} doesn't match required role ${requiredRole}, redirecting`);
     return <Navigate to={userRole === 'admin' ? '/admin' : '/client/dashboard'} replace />;
   }
 
+  console.log('✅ [ProtectedRoute] Access granted, rendering children');
   return <>{children}</>;
 }
 
