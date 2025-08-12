@@ -76,32 +76,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loadUserProfile = async (userId: string) => {
+    console.log('🔍 [AuthContext] Loading user profile for:', userId);
+    
     try {
       if (!userId) {
-        console.warn('No user ID provided to loadUserProfile');
+        console.warn('⚠️ [AuthContext] No user ID provided to loadUserProfile');
         return;
       }
 
+      console.log('🔍 [AuthContext] Querying users table...');
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
+      console.log('🔍 [AuthContext] User profile query result:', { data, error });
+
       if (error) {
-        console.error('Error loading user profile:', error);
+        console.error('❌ [AuthContext] Error loading user profile:', error);
         // Si no existe el perfil, intentar crearlo
         if (error.code === 'PGRST116') {
-          console.log('User profile not found, will be created on next login');
+          console.log('⚠️ [AuthContext] User profile not found, will be created on next login');
         }
         return;
       }
 
       if (data) {
+        console.log('✅ [AuthContext] User profile loaded:', data.email, 'Role:', data.role);
         setUserProfile(data);
+      } else {
+        console.log('⚠️ [AuthContext] No user profile data returned');
       }
     } catch (error) {
-      console.error('Error loading user profile:', error);
+      console.error('❌ [AuthContext] Error loading user profile:', error);
     }
   };
 

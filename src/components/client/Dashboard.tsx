@@ -44,40 +44,60 @@ export default function ClientDashboard() {
   const [clientData, setClientData] = useState<any>(null);
 
   useEffect(() => {
+    console.log('🔍 [Dashboard] useEffect triggered, user:', user?.email);
     if (user) {
+      console.log('🔍 [Dashboard] User found, loading dashboard data...');
       loadDashboardData();
+    } else {
+      console.log('⚠️ [Dashboard] No user found in useEffect');
     }
   }, [user]);
 
   const loadDashboardData = async () => {
+    console.log('🔍 [Dashboard] Starting loadDashboardData...');
+    console.log('🔍 [Dashboard] User ID:', user?.id);
+    
     try {
       setLoading(true);
       setError(null);
 
       if (!user?.id) {
+        console.error('❌ [Dashboard] No user ID found');
         throw new Error('Usuario no autenticado');
       }
 
+      console.log('🔍 [Dashboard] Getting client data for user:', user.id);
       // Get client data
       const client = await getCurrentClientData(user.id);
+      console.log('🔍 [Dashboard] Client data received:', client);
+      
       if (!client) {
-        console.log('No client data found, user may need to complete profile');
+        console.warn('⚠️ [Dashboard] No client data found, user may need to complete profile');
         setError('Perfil de cliente incompleto. Por favor, completa tu información.');
         return;
       }
 
+      console.log('🔍 [Dashboard] Setting client data:', client.company_name);
       setClientData(client);
 
+      console.log('🔍 [Dashboard] Loading dashboard statistics for client:', client.id);
       // Get dashboard statistics
       const [projects, companies, documents] = await Promise.all([
         getClientProjects(client.id),
         getClientCompanies(client.id),
         getClientDocuments(client.id)
       ]);
+      
+      console.log('🔍 [Dashboard] Data loaded:');
+      console.log('  - Projects:', projects?.length || 0);
+      console.log('  - Companies:', companies?.length || 0);
+      console.log('  - Documents:', documents?.length || 0);
 
       const processedDocs = documents.filter(doc => 
         doc.upload_status === 'completed' || doc.upload_status === 'uploaded_to_obralia'
       ).length;
+      
+      console.log('🔍 [Dashboard] Processed documents:', processedDocs);
 
       setStats({
         totalProjects: projects.length,
@@ -87,11 +107,19 @@ export default function ClientDashboard() {
         storageUsed: client.storage_used || 0,
         storageLimit: client.storage_limit || 524288000
       });
+      
+      console.log('✅ [Dashboard] Dashboard data loaded successfully');
 
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('❌ [Dashboard] Error loading dashboard data:', error);
+      console.error('❌ [Dashboard] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: user?.id
+      });
       setError(error instanceof Error ? error.message : 'Error al cargar los datos del dashboard');
     } finally {
+      console.log('🔍 [Dashboard] Setting loading to false');
       setLoading(false);
     }
   };

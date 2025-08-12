@@ -56,28 +56,36 @@ export const updateClientObraliaCredentials = async (
 
 // Helper para obtener datos del cliente actual
 export const getCurrentClientData = async (userId: string) => {
+  console.log('🔍 [Supabase] getCurrentClientData called with userId:', userId);
+  
   try {
     if (!userId) {
+      console.error('❌ [Supabase] No userId provided to getCurrentClientData');
       throw new Error('User ID is required');
     }
 
+    console.log('🔍 [Supabase] Querying clients table for user_id:', userId);
     const { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
+    console.log('🔍 [Supabase] Query result:', { data, error });
+
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('Client data not found for user:', userId);
+        console.log('⚠️ [Supabase] Client data not found for user:', userId);
         return null;
       }
+      console.error('❌ [Supabase] Database error:', error);
       throw new Error(`Error fetching client data: ${error.message}`);
     }
     
+    console.log('✅ [Supabase] Client data retrieved successfully:', data?.company_name);
     return data;
   } catch (error) {
-    console.error('Error getting client data:', error);
+    console.error('❌ [Supabase] Error getting client data:', error);
     throw error;
   }
 };
