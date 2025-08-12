@@ -93,50 +93,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('🔍 [AuthContext] Querying users table for userId:', userId);
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      console.log('🔍 [AuthContext] User profile query result:');
-      console.log('🔍 [AuthContext] - data:', data);
-      console.log('🔍 [AuthContext] - error:', error);
+      
+      // Intentar consulta con manejo de errores mejorado
+      let data = null;
+      let error = null;
+      
+      try {
+        const result = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        data = result.data;
+        error = result.error;
+        
+        console.log('🔍 [AuthContext] Database query completed');
+        console.log('🔍 [AuthContext] - data:', data);
+        console.log('🔍 [AuthContext] - error:', error);
+      } catch (queryError) {
+        console.error('❌ [AuthContext] Query exception:', queryError);
+        error = queryError;
+      }
 
       if (error) {
-        console.error('❌ [AuthContext] Database error loading user profile:', error.message, error.code);
-        // Durante desarrollo, crear perfil automáticamente si no existe
-        console.log('⚠️ [AuthContext] User profile not found, creating default profile...');
+        console.error('❌ [AuthContext] Database error:', error);
+        console.log('🔧 [AuthContext] Creating fallback profile for development...');
         
-        // Obtener email del usuario autenticado
         const { data: { user } } = await supabase.auth.getUser();
         const userEmail = user?.email || 'unknown@email.com';
         
-        // Crear perfil básico
-        const { data: newProfile, error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: userId,
-            email: userEmail,
-            role: 'client'
-          })
-          .select()
-          .single();
+        // Establecer perfil temporal para desarrollo
+        const fallbackProfile = {
+          id: userId,
+          email: userEmail,
+          role: 'client' as const,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
         
-        if (createError) {
-          console.error('❌ [AuthContext] Error creating profile:', createError);
-          // Establecer un perfil temporal para desarrollo
-          setUserProfile({
-            id: userId,
-            email: userEmail,
-            role: 'client',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        } else {
-          console.log('✅ [AuthContext] Profile created successfully:', newProfile);
-          setUserProfile(newProfile);
-        }
+        console.log('✅ [AuthContext] Setting fallback profile:', fallbackProfile);
+        setUserProfile(fallbackProfile);
         return;
       }
 
@@ -144,36 +141,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ [AuthContext] User profile loaded:', data.email, 'Role:', data.role);
         setUserProfile(data);
       } else {
-        console.log('⚠️ [AuthContext] No user profile data returned, creating default...');
+        console.log('⚠️ [AuthContext] No user profile data, creating default...');
         
-        // Si no hay datos pero tampoco error, crear perfil por defecto
         const { data: { user } } = await supabase.auth.getUser();
         const userEmail = user?.email || 'unknown@email.com';
         
-        setUserProfile({
+        const defaultProfile = {
           id: userId,
           email: userEmail,
-          role: 'client',
+          role: 'client' as const,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        });
-        console.log('✅ [AuthContext] Default profile set for development');
+        };
+        
+        console.log('✅ [AuthContext] Setting default profile:', defaultProfile);
+        setUserProfile(defaultProfile);
       }
     } catch (error) {
       console.error('❌ [AuthContext] Unexpected error loading user profile:', error);
       
-      // En caso de error inesperado, establecer perfil temporal para desarrollo
+      // Perfil de emergencia para desarrollo
       const { data: { user } } = await supabase.auth.getUser();
       const userEmail = user?.email || 'unknown@email.com';
       
-      setUserProfile({
+      const emergencyProfile = {
         id: userId,
         email: userEmail,
-        role: 'client',
+        role: 'client' as const,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      });
-      console.log('✅ [AuthContext] Fallback profile set due to error');
+      };
+      
+      console.log('🚨 [AuthContext] Setting emergency profile:', emergencyProfile);
+      setUserProfile(emergencyProfile);
     }
   };
 
