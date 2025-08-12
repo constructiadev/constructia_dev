@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { User, Mail, Lock, Building, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import Logo from '../common/Logo';
 
 interface RegisterFormData {
   email: string;
@@ -25,6 +27,8 @@ const RegisterForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -74,8 +78,8 @@ const RegisterForm: React.FC = () => {
 
       // Usar el método register del contexto de autenticación
       await register(formData.email, formData.password, {
-        companyName: formData.companyName,
-        contactName: formData.contactName,
+        company_name: formData.companyName,
+        contact_name: formData.contactName,
         phone: formData.phone,
         address: formData.address
       });
@@ -92,71 +96,6 @@ const RegisterForm: React.FC = () => {
       setError(error instanceof Error ? error.message : 'Error desconocido durante el registro');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Función auxiliar para crear usuario (ya no se usa directamente)
-  const createUserDirectly = async () => {
-    try {
-      // 1. Crear usuario en Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (authError) {
-        throw new Error(`Error de autenticación: ${authError.message}`);
-      }
-
-      if (!authData.user) {
-        throw new Error('No se pudo crear el usuario');
-      }
-
-      // 2. Crear registro en la tabla users
-      const { error: userError } = await supabase
-        .from('users')
-        .upsert({
-          id: authData.user.id,
-          email: formData.email,
-          role: 'client'
-        });
-
-      if (userError) {
-        console.error('Error creating user record:', userError);
-        throw new Error(`Error al crear el perfil de usuario: ${userError.message}`);
-      }
-
-      // 3. Crear registro del cliente
-      const clientId = generateClientId();
-      const { error: clientError } = await supabase
-        .from('clients')
-        .upsert({
-          user_id: authData.user.id,
-          client_id: clientId,
-          company_name: formData.companyName,
-          contact_name: formData.contactName,
-          email: formData.email,
-          phone: formData.phone || '',
-          address: formData.address || '',
-          subscription_plan: 'basic',
-          subscription_status: 'active',
-          storage_used: 0,
-          storage_limit: 524288000, // 500MB
-          documents_processed: 0,
-          tokens_available: 500,
-          obralia_credentials: { configured: false }
-        });
-
-      if (clientError) {
-        console.error('Error creating client record:', clientError);
-        throw new Error(`Error al crear el perfil del cliente: ${clientError.message}`);
-      }
-    } catch (error) {
-      console.error('Error in createUserDirectly:', error);
-      throw error;
     }
   };
 
@@ -357,21 +296,21 @@ const RegisterForm: React.FC = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             ¿Ya tienes cuenta?{' '}
-            <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
               Inicia sesión
-            </a>
+            </Link>
           </p>
         </div>
 
         <div className="mt-6 text-xs text-gray-500 text-center">
           Al registrarte, aceptas nuestros{' '}
-          <a href="/terms" className="text-blue-600 hover:underline">
+          <Link to="/terms-of-service" className="text-blue-600 hover:underline">
             Términos de Servicio
-          </a>{' '}
+          </Link>{' '}
           y{' '}
-          <a href="/privacy" className="text-blue-600 hover:underline">
+          <Link to="/privacy-policy" className="text-blue-600 hover:underline">
             Política de Privacidad
-          </a>
+          </Link>
         </div>
       </div>
     </div>

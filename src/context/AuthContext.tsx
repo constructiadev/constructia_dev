@@ -249,8 +249,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createClientRecord = async (userId: string, email: string, clientData: any) => {
+    console.log('🔍 [AuthContext] Creating client record for user:', userId, 'with data:', clientData);
+    
     try {
       // Crear registro en users primero
+      console.log('🔍 [AuthContext] Creating user record...');
       const { error: userError } = await supabase
         .from('users')
         .upsert({
@@ -260,18 +263,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       
       if (userError) {
+        console.error('❌ [AuthContext] Error creating user record:', userError);
         console.error('Error creating user record:', userError);
         throw userError;
       }
+      console.log('✅ [AuthContext] User record created successfully');
 
       // Luego crear el registro del cliente
+      console.log('🔍 [AuthContext] Creating client record...');
       const { error } = await supabase
         .from('clients')
         .upsert({
           user_id: userId,
           client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
-          company_name: clientData.companyName || '',
-          contact_name: clientData.contactName || '',
+          company_name: clientData.company_name || '',
+          contact_name: clientData.contact_name || '',
           email: email,
           phone: clientData.phone || '',
           address: clientData.address || '',
@@ -279,13 +285,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       
       if (error) {
+        console.error('❌ [AuthContext] Error creating client record:', error);
         console.error('Error creating client record:', error);
         throw error;
       }
+      console.log('✅ [AuthContext] Client record created successfully');
       
       // Cargar el perfil del usuario recién creado
+      console.log('🔍 [AuthContext] Loading user profile after creation...');
       await loadUserProfile(userId);
     } catch (error) {
+      console.error('❌ [AuthContext] Error in createClientRecord:', error);
       console.error('Error in createClientRecord:', error);
       throw error;
     }
