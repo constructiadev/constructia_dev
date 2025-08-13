@@ -213,6 +213,13 @@ export interface PaymentGateway {
     end_date: string;
     percentage?: number;
     fixed?: number;
+    description?: string;
+  }[];
+  commission_periods?: {
+    start_date: string;
+    end_date: string;
+    percentage?: number;
+    fixed?: number;
   }[];
   api_key?: string;
   secret_key?: string;

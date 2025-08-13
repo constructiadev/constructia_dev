@@ -671,6 +671,98 @@ export const getAIInsights = async () => {
   }
 };
 
+// Helper para calcular comisión inteligente basada en períodos
+export const calculateIntelligentCommission = (
+  gateway: any,
+  amount: number,
+  transactionDate: string
+): number => {
+  try {
+    // Si no hay períodos configurados, usar comisión estándar
+    if (!gateway.commission_periods || gateway.commission_periods.length === 0) {
+      switch (gateway.commission_type) {
+        case 'percentage':
+          return amount * (gateway.commission_percentage || 0) / 100;
+        case 'fixed':
+          return gateway.commission_fixed || 0;
+        case 'mixed':
+          const percentageCommission = amount * (gateway.commission_percentage || 0) / 100;
+          const fixedCommission = gateway.commission_fixed || 0;
+          return percentageCommission + fixedCommission;
+        default:
+          return 0;
+      }
+    }
+
+    // Buscar el período que corresponde a la fecha de transacción
+    const transactionDateObj = new Date(transactionDate);
+    const applicablePeriod = gateway.commission_periods.find((period: any) => {
+      const startDate = new Date(period.start_date);
+      const endDate = new Date(period.end_date);
+      return transactionDateObj >= startDate && transactionDateObj <= endDate;
+    });
+
+    if (!applicablePeriod) {
+      // Si no hay período aplicable, usar comisión estándar
+      return amount * (gateway.commission_percentage || 0) / 100 + (gateway.commission_fixed || 0);
+    }
+
+    // Calcular comisión del período aplicable
+    const percentageCommission = amount * (applicablePeriod.percentage || 0) / 100;
+    const fixedCommission = applicablePeriod.fixed || 0;
+    return percentageCommission + fixedCommission;
+
+  } catch (error) {
+    console.error('Error calculating intelligent commission:', error);
+    return 0;
+  }
+};
+
+// Helper para obtener estadísticas de comisiones por gateway
+export const getCommissionStatsByGateway = async () => {
+  try {
+    const [receipts, gateways] = await Promise.all([
+      getAllReceipts(),
+      getAllPaymentGateways()
+    ]);
+
+    const commissionStats = gateways.map(gateway => {
+      const gatewayReceipts = receipts.filter(r => r.gateway_name === gateway.name);
+      
+      let totalCommissions = 0;
+      let totalVolume = 0;
+      let transactionCount = 0;
+
+      gatewayReceipts.forEach(receipt => {
+        const commission = calculateIntelligentCommission(
+          gateway,
+          receipt.amount,
+          receipt.payment_date
+        );
+        totalCommissions += commission;
+        totalVolume += receipt.amount;
+        transactionCount++;
+      });
+
+      return {
+        gateway_id: gateway.id,
+        gateway_name: gateway.name,
+        gateway_type: gateway.type,
+        total_commissions: totalCommissions,
+        total_volume: totalVolume,
+        transaction_count: transactionCount,
+        avg_commission_rate: totalVolume > 0 ? (totalCommissions / totalVolume) * 100 : 0,
+        status: gateway.status
+      };
+    });
+
+    return commissionStats;
+  } catch (error) {
+    console.error('Error getting commission stats by gateway:', error);
+    return [];
+  }
+};
+
 // Helper para crear insight de IA
 export const createAIInsight = async (insight: Partial<AIInsight>) => {
   try {
