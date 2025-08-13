@@ -19,6 +19,7 @@ const navigation = [
   { name: 'Clientes', href: '/admin/clients', icon: Users },
   { name: 'Financiero', href: '/admin/financial', icon: CreditCard },
   { name: 'IA & Integraciones', href: '/admin/ai', icon: Brain },
+  { name: 'Integraciones', href: '/admin/integrations', icon: Zap },
   { name: 'Base de Datos', href: '/admin/database', icon: Database },
   { name: 'API Management', href: '/admin/api', icon: BarChart3 },
   { name: 'Auditoría', href: '/admin/audit', icon: Activity },
