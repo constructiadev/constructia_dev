@@ -12,6 +12,7 @@ import {
   DollarSign,
   RefreshCw
 } from 'lucide-react';
+import { getCurrentClientData, getClientDocuments, getClientProjects } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -23,29 +24,72 @@ interface DashboardStats {
 }
 
 export default function ClientDashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
-    totalProjects: 5,
-    totalCompanies: 2,
-    totalDocuments: 23,
-    documentsProcessed: 18,
-    storageUsed: 157286400, // ~150MB
-    storageLimit: 1073741824 // 1GB
+    totalProjects: 0,
+    totalCompanies: 0,
+    totalDocuments: 0,
+    documentsProcessed: 0,
+    storageUsed: 0,
+    storageLimit: 0
   });
-  const [clientData] = useState({
-    id: 'demo-client',
-    company_name: 'Construcciones García S.L.',
-    contact_name: 'Juan García',
-    subscription_plan: 'professional',
-    storage_used: 157286400,
-    storage_limit: 1073741824
-  });
+  const [clientData, setClientData] = useState<any>(null);
 
   useEffect(() => {
-    console.log('🔧 [Dashboard] DEVELOPMENT MODE: Using mock data');
-  }, []);
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const clientInfo = await getCurrentClientData(user!.id);
+      if (!clientInfo) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+
+      setClientData(clientInfo);
+
+      const [documents, projects] = await Promise.all([
+        getClientDocuments(clientInfo.id),
+        getClientProjects(clientInfo.id)
+      ]);
+
+      const processedDocs = documents.filter(d => 
+        d.upload_status === 'completed' || d.upload_status === 'uploaded_to_obralia'
+      );
+
+      setStats({
+        totalProjects: projects.length,
+        totalCompanies: 2, // Simulado
+        totalDocuments: documents.length,
+        documentsProcessed: processedDocs.length,
+        storageUsed: clientInfo.storage_used || 0,
+        storageLimit: clientInfo.storage_limit || 1073741824
+      });
+
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setError('Error al cargar los datos del dashboard');
+      // Set default values on error
+      setStats({
+        totalProjects: 0,
+        totalCompanies: 0,
+        totalDocuments: 0,
+        documentsProcessed: 0,
+        storageUsed: 0,
+        storageLimit: 1073741824
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -56,19 +100,33 @@ export default function ClientDashboard() {
   };
 
   const getStoragePercentage = () => {
+    if (stats.storageLimit === 0) return 0;
     return Math.round((stats.storageUsed / stats.storageLimit) * 100);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Bienvenido, {clientData?.contact_name || 'Juan García'}
+          Bienvenido, {clientData?.contact_name || profile?.email || 'Cliente'}
         </h1>
         <p className="text-gray-600">
-          {clientData.company_name} • Plan {clientData.subscription_plan}
+          {clientData?.company_name || 'Empresa Demo'} • Plan {clientData?.subscription_plan || 'Professional'}
         </p>
+        {error && (
+          <div className="mt-3 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            ⚠️ Datos limitados - Modo desarrollo
+          </div>
+        )}
       </div>
 
       {/* Stats Grid */}

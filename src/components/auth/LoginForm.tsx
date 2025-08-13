@@ -2,31 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import Logo from '../common/Logo';
 
 interface LoginFormProps {
-  isAdmin?: boolean; // opcional: si no viene, inferimos por la URL (/admin/*)
+  isAdmin?: boolean;
 }
 
-export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
+export default function LoginForm({ isAdmin = false }: LoginFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginAdmin, isAuthenticated, userRole, loading } = useAuth();
-
-  // Derivar modo admin del prop o del path
-  const isAdminMode = isAdminProp ?? location.pathname.startsWith('/admin');
+  const { login, loginAdmin, user, profile, loading } = useAuth();
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState<string>('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState('');
 
-  // Si ya está autenticado, redirige al panel adecuado
+  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && userRole) {
-      navigate(userRole === 'admin' ? '/admin/dashboard' : '/client/dashboard', { replace: true });
+    if (user && profile) {
+      const redirectTo = profile.role === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+      navigate(redirectTo, { replace: true });
     }
-  }, [isAuthenticated, userRole, navigate]);
+  }, [user, profile, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,36 +33,23 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
     setSubmitting(true);
 
     try {
-      // Modo de desarrollo para admin sin Supabase
-      if (isAdminMode && email === 'admin@constructia.com' && password === 'superadmin123') {
-        console.log('🔧 [LoginForm] Using development admin mode');
-        
-        // Simular delay de autenticación
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Usar loginAdmin que ya maneja el modo desarrollo
+      if (isAdmin) {
         await loginAdmin(email, password);
-        navigate('/admin', { replace: true });
-        return;
-      }
-      
-      if (isAdminMode) {
-        await loginAdmin(email, password);
-        navigate('/admin', { replace: true });
+        navigate('/admin/dashboard', { replace: true });
       } else {
         await login(email, password);
         navigate('/client/dashboard', { replace: true });
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err?.message || 'Error de autenticación. Verifica tus credenciales.');
+      setError(err?.message || 'Error de autenticación');
     } finally {
       setSubmitting(false);
     }
   };
 
   const fillDemoCredentials = () => {
-    if (isAdminMode) {
+    if (isAdmin) {
       setEmail('admin@constructia.com');
       setPassword('superadmin123');
     } else {
@@ -72,20 +58,34 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-            <LogIn className="w-8 h-8 text-green-600" />
+          <div className="mb-6">
+            <Logo size="lg" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isAdminMode ? 'Acceso Administrativo' : 'Iniciar Sesión'}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {isAdmin ? 'Acceso Administrativo' : 'Iniciar Sesión'}
           </h1>
-          <p className="text-gray-600 mt-2">
-            {isAdminMode ? 'Panel de administración de ConstructIA' : 'Accede a tu cuenta de ConstructIA'}
+          <p className="text-gray-600">
+            {isAdmin ? 'Panel de administración de ConstructIA' : 'Accede a tu cuenta de ConstructIA'}
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -95,7 +95,6 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
             <input
               id="email"
               type="email"
-              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
@@ -113,7 +112,6 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors pr-12"
@@ -123,21 +121,14 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 disabled={submitting}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
 
           <button
             type="submit"
@@ -148,7 +139,7 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
           </button>
         </form>
 
-        {!isAdminMode && (
+        {!isAdmin && (
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               ¿No tienes una cuenta?{' '}
@@ -166,16 +157,13 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
             disabled={submitting}
             className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
           >
-            {isAdminMode ? 'Usar credenciales de admin demo' : 'Usar credenciales de cliente demo'}
+            {isAdmin ? 'Usar credenciales de admin demo' : 'Usar credenciales de cliente demo'}
           </button>
           <div className="mt-3 text-xs text-gray-500 space-y-1">
-            {isAdminMode ? (
+            {isAdmin ? (
               <p><strong>Admin:</strong> admin@constructia.com / superadmin123</p>
             ) : (
-              <>
-                <p><strong>Cliente:</strong> juan@construccionesgarcia.com / password123</p>
-                <p><strong>Cliente 2:</strong> maria@reformasmodernas.com / password123</p>
-              </>
+              <p><strong>Cliente:</strong> juan@construccionesgarcia.com / password123</p>
             )}
           </div>
         </div>

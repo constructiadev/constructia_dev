@@ -30,11 +30,11 @@ const navigation = [
 
 export default function ClientLayout() {
   const navigate = useNavigate();
-  const { logout, user, userRole } = useAuth();
+  const { logout, user, profile } = useAuth();
 
   const handleLogout = async () => {
     try {
-      // En modo desarrollo, solo navegar sin logout
+      await logout();
       navigate('/landing', { replace: true });
     } catch (error) {
       console.error('Error during logout:', error);
@@ -108,18 +108,11 @@ export default function ClientLayout() {
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
-                {user?.email || 'cliente@constructia.com (dev)'}
+                {user?.email || 'Cliente Demo'}
               </span>
-              {userRole && (
-                <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
-                  {userRole?.toUpperCase() || 'CLIENT'}
-                </span>
-              )}
-              {!userRole && (
-                <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 font-semibold">
-                  DEV MODE
-                </span>
-              )}
+              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+                CLIENTE
+              </span>
             </div>
           </div>
         </div>

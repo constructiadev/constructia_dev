@@ -20,8 +20,6 @@ const navigation = [
   { name: 'Clientes', href: '/admin/clients', icon: Users },
   { name: 'Financiero', href: '/admin/financial', icon: CreditCard },
   { name: 'IA & Integraciones', href: '/admin/ai', icon: Brain },
-  // OJO: solo deja este item si tienes la ruta /admin/manual creada
-  // { name: 'Gestión Manual', href: '/admin/manual', icon: Settings },
   { name: 'Base de Datos', href: '/admin/database', icon: Database },
   { name: 'API Management', href: '/admin/api', icon: BarChart3 },
   { name: 'Auditoría', href: '/admin/audit', icon: Activity },
@@ -30,11 +28,11 @@ const navigation = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const { logout, user, userRole } = useAuth();
+  const { logout, user, profile } = useAuth();
 
   const handleLogout = async () => {
     try {
-      // En modo desarrollo, solo navegar sin logout
+      await logout();
       navigate('/landing', { replace: true });
     } catch (error) {
       console.error('Error during logout:', error);
@@ -94,23 +92,16 @@ export default function AdminLayout() {
       <div className="pl-64">
         <div className="flex h-16 items-center justify-between bg-white px-6 shadow-sm">
           <h1 className="text-xl font-semibold text-gray-800">
-            Panel de SuperAdministrador
+            Panel de Administración
           </h1>
           <div className="flex items-center space-x-4">
             <Shield className="h-5 w-5 text-green-600" />
             <span className="text-sm font-medium text-gray-700">
-              {user?.email || 'admin@constructia.com (dev)'}
+              {user?.email || 'Administrador'}
             </span>
-            {userRole && (
-              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
-                {userRole?.toUpperCase() || 'ADMIN'}
-              </span>
-            )}
-            {!userRole && (
-              <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 font-semibold">
-                DEV MODE
-              </span>
-            )}
+            <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+              ADMIN
+            </span>
           </div>
         </div>
         

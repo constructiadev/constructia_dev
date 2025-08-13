@@ -9,7 +9,7 @@ import AdminLayout from './layout/AdminLayout';
 import ClientLayout from './layout/ClientLayout';
 
 // Auth
-import LoginForm from './auth/LoginForm';        // ⬅ ojo: default import
+import LoginForm from './auth/LoginForm';
 import RegisterForm from './auth/RegisterForm';
 
 // Admin pages
@@ -42,24 +42,29 @@ export default function Router() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        {/* Públicas */}
+        {/* Public routes */}
         <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<LandingPage />} />
-        <Route path="/login" element={<Navigate to="/client/dashboard" replace />} />
-        <Route path="/admin/login" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/admin/login" element={<LoginForm isAdmin={true} />} />
         <Route path="/register" element={<RegisterForm />} />
 
-        {/* Legales */}
+        {/* Legal pages */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
 
-        {/* Admin (PROTEGIDO) */}
+        {/* Admin routes (protected) */}
         <Route
           path="/admin"
-          element={<AdminLayout />}
+          element={
+            <PrivateRoute allowedRoles={['admin']}>
+              <AdminLayout />
+            </PrivateRoute>
+          }
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
           <Route path="financial" element={<FinancialModule />} />
           <Route path="ai" element={<AIIntegrationModule />} />
@@ -69,11 +74,16 @@ export default function Router() {
           <Route path="settings" element={<SettingsModule />} />
         </Route>
 
-        {/* Client (PROTEGIDO) */}
+        {/* Client routes (protected) */}
         <Route
           path="/client"
-          element={<ClientLayout />}
+          element={
+            <PrivateRoute allowedRoles={['client']}>
+              <ClientLayout />
+            </PrivateRoute>
+          }
         >
+          <Route index element={<Navigate to="/client/dashboard" replace />} />
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="companies" element={<Companies />} />
           <Route path="projects" element={<Projects />} />
@@ -84,8 +94,19 @@ export default function Router() {
           <Route path="settings" element={<Settings />} />
         </Route>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+        {/* Unauthorized page */}
+        <Route path="/unauthorized" element={
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Acceso No Autorizado</h1>
+              <p className="text-gray-600 mb-4">No tienes permisos para acceder a esta página.</p>
+              <Navigate to="/landing" />
+            </div>
+          </div>
+        } />
+
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     </BrowserRouter>
   );
