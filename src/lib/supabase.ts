@@ -61,9 +61,15 @@ export const getCurrentClientData = async (userId: string) => {
   try {
     if (!userId) {
       console.error('❌ [Supabase] No userId provided to getCurrentClientData');
-      throw new Error('User ID is required');
+      return null;
     }
 
+    // Validar que el userId sea un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.error('❌ [Supabase] Invalid UUID format:', userId);
+      return null;
+    }
     console.log('🔍 [Supabase] Querying clients table for user_id:', userId);
     const { data, error } = await supabase
       .from('clients')
@@ -79,14 +85,14 @@ export const getCurrentClientData = async (userId: string) => {
         return null;
       }
       console.error('❌ [Supabase] Database error:', error);
-      throw new Error(`Error fetching client data: ${error.message}`);
+      return null;
     }
     
     console.log('✅ [Supabase] Client data retrieved successfully:', data?.company_name);
     return data;
   } catch (error) {
     console.error('❌ [Supabase] Error getting client data:', error);
-    throw error;
+    return null;
   }
 };
 

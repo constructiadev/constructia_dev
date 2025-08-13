@@ -99,24 +99,7 @@ export default function ClientDashboard() {
       
       if (!client) {
         console.warn('⚠️ [Dashboard] No client data found, user may need to complete profile');
-        // En desarrollo, usar datos demo
-        console.log('⚠️ [Dashboard] No client data, using demo data');
-        setClientData({
-          id: 'demo-client',
-          company_name: 'Construcciones García S.L.',
-          contact_name: 'Juan García',
-          subscription_plan: 'professional',
-          storage_used: 157286400,
-          storage_limit: 1073741824
-        });
-        setStats({
-          totalProjects: 5,
-          totalCompanies: 2,
-          totalDocuments: 23,
-          documentsProcessed: 18,
-          storageUsed: 157286400,
-          storageLimit: 1073741824
-        });
+        setError('No se encontraron datos del cliente para este usuario');
         return;
       }
 
