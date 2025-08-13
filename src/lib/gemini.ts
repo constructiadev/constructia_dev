@@ -212,7 +212,11 @@ export class GeminiAIService {
       const response = await result.response;
       return response.text();
     } catch (error) {
-      console.error('Error generating executive summary:', error);
+      if (error instanceof Error && error.message.includes('429')) {
+        console.warn('Gemini API quota exceeded, using mock summary:', error.message);
+      } else {
+        console.error('Error generating executive summary:', error);
+      }
       return this.getMockExecutiveSummary();
     }
   }
