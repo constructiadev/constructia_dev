@@ -21,18 +21,22 @@ import {
   Target,
   Zap,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Edit,
+  Save,
+  X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { 
   getAllReceipts, 
   getAllPaymentGateways, 
   getAllClients,
   calculateDynamicKPIs,
   getCommissionStatsByGateway,
-  calculateIntelligentCommission
+  calculateIntelligentCommission,
+  supabase
 } from '../../lib/supabase';
 import { geminiAI } from '../../lib/gemini';
-import CommissionConfigModal from './CommissionConfigModal';
 import type { PaymentGateway } from '../../types';
 
 interface FinancialKPI {
@@ -55,13 +59,145 @@ interface CommissionStats {
   transaction_count: number;
   avg_commission_rate: number;
   status: string;
+  current_percentage: number;
+  current_fixed: number;
+}
+
+interface CommissionEditModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  gateway: PaymentGateway | null;
+  onSave: (gatewayId: string, percentage: number, fixed: number) => Promise<void>;
+}
+
+function CommissionEditModal({ isOpen, onClose, gateway, onSave }: CommissionEditModalProps) {
+  const [percentage, setPercentage] = useState(0);
+  const [fixed, setFixed] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (gateway) {
+      setPercentage(gateway.commission_percentage || 0);
+      setFixed(gateway.commission_fixed || 0);
+    }
+  }, [gateway]);
+
+  const handleSave = async () => {
+    if (!gateway) return;
+    
+    setSaving(true);
+    try {
+      await onSave(gateway.id, percentage, fixed);
+      onClose();
+    } catch (error) {
+      console.error('Error saving commission:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen || !gateway) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Configurar Comisión</h2>
+              <p className="text-green-100">{gateway.name}</p>
+            </div>
+            <button onClick={onClose} className="text-white/80 hover:text-white">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Comisión Porcentual (%)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={percentage}
+                onChange={(e) => setPercentage(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Comisión Fija (€)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={fixed}
+                onChange={(e) => setFixed(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              <Euro className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3">
+            <h5 className="font-medium text-gray-800 mb-2">Ejemplo (€100)</h5>
+            <div className="text-sm text-gray-600">
+              <p>Comisión porcentual: €{(percentage * 100 / 100).toFixed(2)}</p>
+              <p>Comisión fija: €{fixed.toFixed(2)}</p>
+              <p className="font-medium text-gray-800 border-t pt-2 mt-2">
+                Total: €{(percentage * 100 / 100 + fixed).toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const FinancialModule: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [kpis, setKpis] = useState<FinancialKPI[]>([]);
   const [commissionStats, setCommissionStats] = useState<CommissionStats[]>([]);
+  const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [showCommissionModal, setShowCommissionModal] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
   const [aiInsights, setAiInsights] = useState<any[]>([]);
@@ -81,8 +217,41 @@ const FinancialModule: React.FC = () => {
         calculateDynamicKPIs()
       ]);
 
-      // Calcular estadísticas de comisiones
-      const commissionStatsData = await getCommissionStatsByGateway();
+      setGateways(gatewaysData);
+
+      // Calcular estadísticas de comisiones por gateway
+      const commissionStatsData = gatewaysData.map(gateway => {
+        const gatewayReceipts = receiptsData.filter(r => r.gateway_name === gateway.name);
+        
+        let totalCommissions = 0;
+        let totalVolume = 0;
+        let transactionCount = 0;
+
+        gatewayReceipts.forEach(receipt => {
+          const commission = calculateIntelligentCommission(
+            gateway,
+            receipt.amount,
+            receipt.payment_date
+          );
+          totalCommissions += commission;
+          totalVolume += receipt.amount;
+          transactionCount++;
+        });
+
+        return {
+          gateway_id: gateway.id,
+          gateway_name: gateway.name,
+          gateway_type: gateway.type,
+          total_commissions: totalCommissions,
+          total_volume: totalVolume,
+          transaction_count: transactionCount,
+          avg_commission_rate: totalVolume > 0 ? (totalCommissions / totalVolume) * 100 : 0,
+          status: gateway.status,
+          current_percentage: gateway.commission_percentage || 0,
+          current_fixed: gateway.commission_fixed || 0
+        };
+      });
+
       setCommissionStats(commissionStatsData);
 
       // Calcular KPIs financieros
@@ -181,6 +350,26 @@ const FinancialModule: React.FC = () => {
           icon: Target,
           color: 'bg-red-500',
           description: 'Clientes que cancelan mensualmente'
+        },
+        {
+          id: 'ltv',
+          title: 'LTV',
+          value: `€${(averageTransactionValue * 12).toFixed(0)}`,
+          change: 14.7,
+          trend: 'up',
+          icon: TrendingUp,
+          color: 'bg-pink-500',
+          description: 'Valor de vida del cliente'
+        },
+        {
+          id: 'conversion-rate',
+          title: 'Tasa de Conversión',
+          value: '3.2%',
+          change: 8.9,
+          trend: 'up',
+          icon: Target,
+          color: 'bg-teal-500',
+          description: 'Visitantes que se convierten'
         }
       ];
 
@@ -216,25 +405,24 @@ const FinancialModule: React.FC = () => {
     setShowCommissionModal(true);
   };
 
-  const handleSaveCommissionPeriods = async (gatewayId: string, periods: any[]) => {
+  const handleSaveCommission = async (gatewayId: string, percentage: number, fixed: number) => {
     try {
-      // Actualizar la pasarela con los nuevos períodos
       const { error } = await supabase
         .from('payment_gateways')
         .update({
-          commission_periods: periods,
+          commission_percentage: percentage,
+          commission_fixed: fixed,
           updated_at: new Date().toISOString()
         })
         .eq('id', gatewayId);
 
       if (error) {
-        throw new Error(`Error updating commission periods: ${error.message}`);
+        throw new Error(`Error updating commission: ${error.message}`);
       }
 
-      // Recargar datos
       await loadFinancialData();
     } catch (error) {
-      console.error('Error saving commission periods:', error);
+      console.error('Error saving commission:', error);
       throw error;
     }
   };
@@ -265,6 +453,23 @@ const FinancialModule: React.FC = () => {
       case 'bizum': return 'bg-orange-600';
       default: return 'bg-gray-600';
     }
+  };
+
+  const exportFinancialReport = () => {
+    const csvContent = [
+      ['Fecha', 'Cliente', 'Método', 'Importe', 'Comisión', 'Estado'].join(','),
+      ...commissionStats.map(stat => 
+        [stat.gateway_name, stat.total_volume.toFixed(2), stat.total_commissions.toFixed(2), stat.transaction_count, stat.avg_commission_rate.toFixed(2)].join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_financiero_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -304,7 +509,10 @@ const FinancialModule: React.FC = () => {
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Actualizando...' : 'Actualizar'}
             </button>
-            <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center">
+            <button 
+              onClick={exportFinancialReport}
+              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar
             </button>
@@ -312,8 +520,8 @@ const FinancialModule: React.FC = () => {
         </div>
       </div>
 
-      {/* KPIs Financieros - 8 tarjetas en 2 filas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* KPIs Financieros - 10 tarjetas en 2 filas */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
@@ -333,15 +541,14 @@ const FinancialModule: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-600 mb-1">{kpi.title}</h3>
-                <p className="text-2xl font-bold text-gray-900 mb-1">{kpi.value}</p>
-                <p className="text-xs text-gray-500">{kpi.description}</p>
+                <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Comisiones por Pasarela */}
+      {/* Comisiones por Pasarela de Pago */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Comisiones por Pasarela de Pago</h3>
@@ -369,31 +576,36 @@ const FinancialModule: React.FC = () => {
                   </div>
                   <button
                     onClick={() => {
-                      const gateway = gatewaysData.find(g => g.id === stat.gateway_id);
+                      const gateway = gateways.find(g => g.id === stat.gateway_id);
                       if (gateway) handleConfigureCommissions(gateway);
                     }}
                     className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <Settings className="h-4 w-4" />
+                    <Edit className="h-4 w-4" />
                   </button>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Comisiones:</span>
-                    <span className="font-semibold text-green-600">€{stat.total_commissions.toFixed(2)}</span>
+                <div className="text-center mb-4">
+                  <div className="text-3xl font-bold text-green-600 mb-1">
+                    €{stat.total_commissions.toFixed(0)}
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="text-sm text-gray-600">Total comisiones</div>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Comisión actual:</span>
+                    <span className="font-medium text-purple-600">
+                      {stat.current_percentage}% + €{stat.current_fixed}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-gray-600">Volumen:</span>
                     <span className="font-medium text-gray-900">€{stat.total_volume.toFixed(0)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-gray-600">Transacciones:</span>
                     <span className="font-medium text-gray-900">{stat.transaction_count}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tasa promedio:</span>
-                    <span className="font-medium text-purple-600">{stat.avg_commission_rate.toFixed(2)}%</span>
                   </div>
                 </div>
                 
@@ -451,14 +663,12 @@ const FinancialModule: React.FC = () => {
                 </linearGradient>
               </defs>
               
-              {/* Grid lines */}
               <g stroke="#f3f4f6" strokeWidth="1">
                 {[0, 1, 2, 3, 4].map(i => (
                   <line key={i} x1="0" y1={i * 40} x2="400" y2={i * 40} />
                 ))}
               </g>
               
-              {/* Area chart */}
               <path
                 d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60 L 380 200 L 20 200 Z"
                 fill="url(#revenueGradient)"
@@ -470,7 +680,6 @@ const FinancialModule: React.FC = () => {
                 strokeWidth="3"
               />
               
-              {/* Data points */}
               {[
                 { x: 20, y: 180 }, { x: 80, y: 160 }, { x: 140, y: 140 },
                 { x: 200, y: 120 }, { x: 260, y: 100 }, { x: 320, y: 80 }, { x: 380, y: 60 }
@@ -643,7 +852,10 @@ const FinancialModule: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="flex flex-col items-center justify-center p-6 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-200">
+          <button 
+            onClick={exportFinancialReport}
+            className="flex flex-col items-center justify-center p-6 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-200"
+          >
             <div className="bg-blue-600 p-3 rounded-full mb-3">
               <Receipt className="w-6 h-6 text-white" />
             </div>
@@ -651,7 +863,10 @@ const FinancialModule: React.FC = () => {
             <p className="text-xs text-blue-600 text-center">Exportar datos financieros</p>
           </button>
           
-          <button className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200">
+          <button 
+            onClick={() => navigate('/admin/settings')}
+            className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
+          >
             <div className="bg-green-600 p-3 rounded-full mb-3">
               <Calculator className="w-6 h-6 text-white" />
             </div>
@@ -659,7 +874,10 @@ const FinancialModule: React.FC = () => {
             <p className="text-xs text-green-600 text-center">Gestionar períodos de comisión</p>
           </button>
           
-          <button className="flex flex-col items-center justify-center p-6 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200">
+          <button 
+            onClick={() => navigate('/admin/ai')}
+            className="flex flex-col items-center justify-center p-6 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200"
+          >
             <div className="bg-purple-600 p-3 rounded-full mb-3">
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
@@ -667,22 +885,25 @@ const FinancialModule: React.FC = () => {
             <p className="text-xs text-purple-600 text-center">Insights con IA</p>
           </button>
           
-          <button className="flex flex-col items-center justify-center p-6 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-200">
+          <button 
+            onClick={() => navigate('/admin/clients')}
+            className="flex flex-col items-center justify-center p-6 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-200"
+          >
             <div className="bg-orange-600 p-3 rounded-full mb-3">
               <CreditCard className="w-6 h-6 text-white" />
             </div>
-            <h4 className="font-semibold text-orange-800 mb-1">Gestionar Pagos</h4>
-            <p className="text-xs text-orange-600 text-center">Administrar pasarelas</p>
+            <h4 className="font-semibold text-orange-800 mb-1">Gestionar Clientes</h4>
+            <p className="text-xs text-orange-600 text-center">Administrar suscripciones</p>
           </button>
         </div>
       </div>
 
-      {/* Modal de Configuración de Comisiones */}
-      <CommissionConfigModal
+      {/* Modal de Edición de Comisiones */}
+      <CommissionEditModal
         isOpen={showCommissionModal}
         onClose={() => setShowCommissionModal(false)}
-        onSave={handleSaveCommissionPeriods}
         gateway={selectedGateway}
+        onSave={handleSaveCommission}
       />
     </div>
   );
