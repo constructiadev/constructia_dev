@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Plus, Edit, Trash2, MapPin, Phone, Mail, AlertCircle, Loader2 } from 'lucide-react';
-import { getClientCompanies } from '../../lib/supabase';
-import { useAuth } from '../../context/AuthContext';
 
 interface Company {
   id: string;
@@ -16,35 +14,34 @@ interface Company {
 }
 
 const Companies: React.FC = () => {
-  const { user, profile } = useAuth();
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  useEffect(() => {
-    loadCompanies();
-  }, [profile]);
-
-  const loadCompanies = async () => {
-    if (!profile?.id) {
-      setError('No se pudo obtener la información del cliente');
-      setLoading(false);
-      return;
+  // Datos mock para desarrollo
+  const companies = [
+    {
+      id: '1',
+      name: 'Construcciones García S.L.',
+      cif: 'B12345678',
+      address: 'Calle Construcción 123, 28001 Madrid',
+      phone: '+34 600 123 456',
+      email: 'info@construccionesgarcia.com',
+      created_at: new Date().toISOString(),
+      projects: [{ count: 3 }],
+      documents: [{ count: 15 }]
+    },
+    {
+      id: '2',
+      name: 'Reformas Integrales López',
+      cif: 'B87654321',
+      address: 'Avenida Reforma 456, 28002 Madrid',
+      phone: '+34 600 654 321',
+      email: 'contacto@reformaslopez.com',
+      created_at: new Date().toISOString(),
+      projects: [{ count: 1 }],
+      documents: [{ count: 8 }]
     }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getClientCompanies(profile.id);
-      setCompanies(data || []);
-    } catch (err) {
-      console.error('Error loading companies:', err);
-      setError('Error al cargar las empresas. Por favor, inténtalo de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  ];
 
   if (loading) {
     return (
@@ -57,24 +54,6 @@ const Companies: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <div className="flex items-center">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <h3 className="text-red-800 font-medium">Error al cargar empresas</h3>
-        </div>
-        <p className="text-red-700 mt-2">{error}</p>
-        <button
-          onClick={loadCompanies}
-          className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -82,6 +61,9 @@ const Companies: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
           <p className="text-gray-600">Gestiona las empresas de tus proyectos</p>
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔧 MODO DESARROLLO - Datos simulados
+          </div>
         </div>
         <button
           onClick={() => setShowAddForm(true)}

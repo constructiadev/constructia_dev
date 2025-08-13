@@ -1,7 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 
 interface UploadedFile {
   id: string;
@@ -14,7 +12,6 @@ interface UploadedFile {
 }
 
 const DocumentUpload: React.FC = () => {
-  const { user, userProfile } = useAuth();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +103,9 @@ const DocumentUpload: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Subir Documentos</h1>
+        <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+          🔧 MODO DESARROLLO
+        </div>
       </div>
 
       {/* Upload Area */}

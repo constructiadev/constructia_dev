@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { supabase, getClientDocuments, getCurrentClientData } from '../../lib/supabase';
 
 interface Document {
   id: string;
@@ -20,38 +18,41 @@ interface Document {
 }
 
 const Documents: React.FC = () => {
-  const { user } = useAuth();
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  useEffect(() => {
-    if (user?.id) {
-      loadDocuments();
+  // Datos mock para desarrollo
+  const documents = [
+    {
+      id: '1',
+      filename: 'certificado_obra_123.pdf',
+      original_name: 'Certificado de Obra - Proyecto García.pdf',
+      file_size: 2048576,
+      file_type: 'application/pdf',
+      document_type: 'Certificado',
+      classification_confidence: 95,
+      upload_status: 'completed',
+      obralia_status: 'validated',
+      security_scan_status: 'safe',
+      created_at: new Date().toISOString(),
+      projects: { name: 'Edificio Residencial García' }
+    },
+    {
+      id: '2',
+      filename: 'factura_materiales_456.pdf',
+      original_name: 'Factura Materiales - Enero 2025.pdf',
+      file_size: 1024768,
+      file_type: 'application/pdf',
+      document_type: 'Factura',
+      classification_confidence: 92,
+      upload_status: 'processing',
+      obralia_status: 'pending',
+      security_scan_status: 'safe',
+      created_at: new Date().toISOString(),
+      projects: { name: 'Reforma Oficinas López' }
     }
-  }, [user]);
-
-  const loadDocuments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const clientData = await getCurrentClientData(user!.id);
-      if (!clientData) {
-        throw new Error('No se encontraron datos del cliente');
-      }
-
-      const data = await getClientDocuments(clientData.id);
-      setDocuments(data);
-    } catch (err) {
-      console.error('Error loading documents:', err);
-      setError(err instanceof Error ? err.message : 'Error loading documents');
-    } finally {
-      setLoading(false);
-    }
-  };
+  ];
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -102,17 +103,6 @@ const Documents: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <span className="text-red-700">{error}</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -120,6 +110,9 @@ const Documents: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
           <p className="text-gray-600">Gestiona tus documentos subidos</p>
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔧 MODO DESARROLLO - Datos simulados
+          </div>
         </div>
         <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
           <Upload className="w-4 h-4" />

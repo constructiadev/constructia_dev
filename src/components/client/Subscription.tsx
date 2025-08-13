@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building } from 'lucide-react';
 
 interface SubscriptionData {
@@ -23,53 +21,25 @@ interface ClientData {
 }
 
 export default function Subscription() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [clientData, setClientData] = useState<ClientData | null>(null);
-  const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      loadSubscriptionData();
-    }
-  }, [user]);
-
-  const loadSubscriptionData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get client data
-      const { data: client, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (clientError) throw clientError;
-      setClientData(client);
-
-      // Get subscription data
-      const { data: subscription, error: subscriptionError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('client_id', client.id)
-        .single();
-
-      if (subscriptionError && subscriptionError.code !== 'PGRST116') {
-        throw subscriptionError;
-      }
-      
-      setSubscriptionData(subscription);
-    } catch (err) {
-      console.error('Error loading subscription data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading subscription data');
-    } finally {
-      setLoading(false);
-    }
+  // Datos mock para desarrollo
+  const clientData = {
+    id: 'mock-client-id',
+    company_name: 'Construcciones García S.L.',
+    subscription_plan: 'professional',
+    subscription_status: 'active',
+    storage_used: 524288000, // 500MB
+    storage_limit: 1073741824 // 1GB
   };
 
+  const subscriptionData = {
+    id: 'mock-subscription-id',
+    plan: 'professional',
+    status: 'active',
+    current_period_start: '2025-01-01',
+    current_period_end: '2025-02-01'
+  };
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -119,23 +89,13 @@ export default function Subscription() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-            <span className="text-red-800">{error}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
+        <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+          🔧 MODO DESARROLLO
+        </div>
         <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
           Actualizar Plan
         </button>

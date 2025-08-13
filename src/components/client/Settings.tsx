@@ -1,10 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { 
-  getCurrentClientData, 
-  updateClientObraliaCredentials,
-  getClientSEPAMandates 
-} from '../../lib/supabase';
 import { 
   User, 
   Building2, 
@@ -33,51 +27,37 @@ interface ClientData {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
-  const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [obraliaCredentials, setObraliaCredentials] = useState({
-    username: '',
-    password: ''
+    username: 'demo_user',
+    password: 'demo_pass'
   });
 
-  useEffect(() => {
-    if (user?.id) {
-      loadClientData();
-    }
-  }, [user]);
-
-  const loadClientData = async () => {
-    try {
-      setLoading(true);
-      const data = await getCurrentClientData(user!.id);
-      if (data) {
-        setClientData(data);
-        if (data.obralia_credentials) {
-          setObraliaCredentials({
-            username: data.obralia_credentials.username || '',
-            password: data.obralia_credentials.password || ''
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading client data:', error);
-      setMessage({ type: 'error', text: 'Error al cargar los datos del cliente' });
-    } finally {
-      setLoading(false);
+  // Datos mock para desarrollo
+  const clientData = {
+    id: 'mock-client-id',
+    company_name: 'Construcciones García S.L.',
+    contact_name: 'Juan García',
+    email: 'juan@construccionesgarcia.com',
+    phone: '+34 600 123 456',
+    address: 'Calle Construcción 123, 28001 Madrid',
+    subscription_plan: 'professional',
+    subscription_status: 'active',
+    obralia_credentials: {
+      username: 'demo_user',
+      password: 'demo_pass',
+      configured: true
     }
   };
 
   const handleSaveObraliaCredentials = async () => {
-    if (!clientData?.id) return;
-
     try {
       setSaving(true);
-      await updateClientObraliaCredentials(clientData.id, obraliaCredentials);
+      // Simular guardado
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setMessage({ type: 'success', text: 'Credenciales de Obralia actualizadas correctamente' });
-      await loadClientData(); // Reload to get updated data
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
       setMessage({ type: 'error', text: 'Error al guardar las credenciales de Obralia' });
@@ -94,18 +74,6 @@ export default function Settings() {
     );
   }
 
-  if (!clientData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error al cargar datos</h2>
-          <p className="text-gray-600">No se pudieron cargar los datos del cliente</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -117,6 +85,9 @@ export default function Settings() {
           <p className="mt-2 text-gray-600">
             Gestiona tu perfil y configuraciones de integración
           </p>
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔧 MODO DESARROLLO - Datos simulados
+          </div>
         </div>
 
         {message && (

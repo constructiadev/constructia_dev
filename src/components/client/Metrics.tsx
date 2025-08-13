@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -12,11 +11,6 @@ import {
   Target,
   Activity
 } from 'lucide-react';
-import { 
-  getCurrentClientData,
-  getClientDocuments,
-  getClientProjects
-} from '../../lib/supabase';
 
 interface MetricsData {
   totalDocuments: number;
@@ -30,114 +24,33 @@ interface MetricsData {
 }
 
 export default function Metrics() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [metrics, setMetrics] = useState<MetricsData>({
+  
+  // Datos mock para desarrollo
+  const [metrics] = useState<MetricsData>({
     totalDocuments: 0,
-    documentsThisMonth: 0,
-    avgConfidence: 0,
-    processingTime: 0,
-    successRate: 0,
-    documentsByType: {},
-    documentsByStatus: {},
-    monthlyProgress: []
+    documentsThisMonth: 8,
+    avgConfidence: 94.2,
+    processingTime: 2.3,
+    successRate: 96.7,
+    documentsByType: {
+      'Certificado': 5,
+      'Factura': 4,
+      'Contrato': 3,
+      'Plano': 2,
+      'Otros': 1
+    },
+    documentsByStatus: {
+      'completed': 12,
+      'processing': 2,
+      'pending': 1
+    },
+    monthlyProgress: [2, 4, 6, 8, 12, 15]
   });
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
-  useEffect(() => {
-    if (user) {
-      loadMetrics();
-    }
-  }, [user, selectedPeriod]);
-
-  const loadMetrics = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!user?.id) {
-        throw new Error('Usuario no autenticado');
-      }
-
-      const clientData = await getCurrentClientData(user.id);
-      if (!clientData) {
-        throw new Error('No se encontraron datos del cliente');
-      }
-
-      const [documents, projects] = await Promise.all([
-        getClientDocuments(clientData.id),
-        getClientProjects(clientData.id)
-      ]);
-
-      // Calcular métricas
-      const now = new Date();
-      const thisMonth = documents.filter(d => {
-        const docDate = new Date(d.created_at);
-        return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
-      });
-
-      const avgConfidence = documents.length > 0 
-        ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
-        : 0;
-
-      const successfulDocs = documents.filter(d => 
-        d.upload_status === 'completed' || d.upload_status === 'uploaded_to_obralia'
-      );
-
-      const successRate = documents.length > 0 ? (successfulDocs.length / documents.length) * 100 : 0;
-
-      // Agrupar por tipo
-      const documentsByType = documents.reduce((acc, doc) => {
-        acc[doc.document_type] = (acc[doc.document_type] || 0) + 1;
-        return acc;
-      }, {} as { [key: string]: number });
-
-      // Agrupar por estado
-      const documentsByStatus = documents.reduce((acc, doc) => {
-        acc[doc.upload_status] = (acc[doc.upload_status] || 0) + 1;
-        return acc;
-      }, {} as { [key: string]: number });
-
-      // Progreso mensual (últimos 6 meses)
-      const monthlyProgress = [];
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const monthDocs = documents.filter(d => {
-          const docDate = new Date(d.created_at);
-          return docDate.getMonth() === date.getMonth() && docDate.getFullYear() === date.getFullYear();
-        });
-        monthlyProgress.push(monthDocs.length);
-      }
-
-      setMetrics({
-        totalDocuments: documents.length,
-        documentsThisMonth: thisMonth.length,
-        avgConfidence: Math.round(avgConfidence * 10) / 10,
-        processingTime: 2.3, // Simulado
-        successRate: Math.round(successRate * 10) / 10,
-        documentsByType,
-        documentsByStatus,
-        monthlyProgress
-      });
-
-    } catch (err) {
-      console.error('Error loading metrics:', err);
-      setMetrics({
-        totalDocuments: 0,
-        documentsThisMonth: 0,
-        avgConfidence: 0,
-        processingTime: 0,
-        successRate: 0,
-        documentsByType: {},
-        documentsByStatus: {},
-        monthlyProgress: [0, 0, 0, 0, 0, 0]
-      });
-      setError('Datos no disponibles temporalmente');
-    } finally {
-      setLoading(false);
-    }
+  const loadMetrics = () => {
+    console.log('🔧 [Metrics] DEVELOPMENT MODE: Using mock data');
   };
 
   if (loading) {
@@ -151,23 +64,6 @@ export default function Metrics() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <span className="text-red-700">Error: {error}</span>
-        </div>
-        <button 
-          onClick={loadMetrics}
-          className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -175,6 +71,9 @@ export default function Metrics() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Métricas y Análisis</h1>
           <p className="text-gray-600">Analiza el rendimiento de tu gestión documental</p>
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔧 MODO DESARROLLO - Datos simulados
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           <select

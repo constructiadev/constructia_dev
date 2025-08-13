@@ -14,7 +14,6 @@ import {
   Search,
   User
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
 
 const navigation = [
@@ -30,16 +29,10 @@ const navigation = [
 
 export default function ClientLayout() {
   const navigate = useNavigate();
-  const { logout, user, profile } = useAuth();
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/landing', { replace: true });
-    } catch (error) {
-      console.error('Error during logout:', error);
-      navigate('/landing', { replace: true });
-    }
+    // Logout simple para desarrollo
+    navigate('/landing', { replace: true });
   };
 
   return (
@@ -108,7 +101,7 @@ export default function ClientLayout() {
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
-                {user?.email || 'Cliente Demo'}
+                juan@construccionesgarcia.com
               </span>
               <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
                 CLIENTE

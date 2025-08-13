@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
 
 interface Project {
@@ -26,9 +24,6 @@ interface Company {
 }
 
 export default function Projects() {
-  const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -43,92 +38,56 @@ export default function Projects() {
     location: ''
   });
 
-  useEffect(() => {
-    if (user) {
-      loadData();
+  // Datos mock para desarrollo
+  const projects = [
+    {
+      id: '1',
+      name: 'Edificio Residencial García',
+      description: 'Construcción de edificio residencial de 4 plantas',
+      status: 'active' as const,
+      progress: 65,
+      start_date: '2024-01-15',
+      end_date: '2025-06-30',
+      budget: 450000,
+      location: 'Madrid, España',
+      company_id: '1',
+      companies: { name: 'Construcciones García S.L.' },
+      created_at: new Date().toISOString()
+    },
+    {
+      id: '2',
+      name: 'Reforma Oficinas López',
+      description: 'Reforma integral de oficinas corporativas',
+      status: 'planning' as const,
+      progress: 15,
+      start_date: '2025-03-01',
+      end_date: '2025-08-15',
+      budget: 125000,
+      location: 'Barcelona, España',
+      company_id: '2',
+      companies: { name: 'Reformas Integrales López' },
+      created_at: new Date().toISOString()
     }
-  }, [user]);
+  ];
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      // Get client data first
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (clientError) throw clientError;
-
-      // Load projects and companies
-      const [projectsResult, companiesResult] = await Promise.all([
-        supabase
-          .from('projects')
-          .select(`
-            *,
-            companies!inner(name)
-          `)
-          .eq('client_id', clientData.id)
-          .order('created_at', { ascending: false }),
-        
-        supabase
-          .from('companies')
-          .select('id, name')
-          .eq('client_id', clientData.id)
-          .order('name', { ascending: true })
-      ]);
-
-      if (projectsResult.error) throw projectsResult.error;
-      if (companiesResult.error) throw companiesResult.error;
-
-      setProjects(projectsResult.data || []);
-      setCompanies(companiesResult.data || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const companies = [
+    { id: '1', name: 'Construcciones García S.L.' },
+    { id: '2', name: 'Reformas Integrales López' }
+  ];
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    try {
-      // Get client data
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (clientError) throw clientError;
-
-      const { error } = await supabase
-        .from('projects')
-        .insert({
-          ...newProject,
-          client_id: clientData.id,
-          budget: parseFloat(newProject.budget) || 0
-        });
-
-      if (error) throw error;
-
-      setShowCreateModal(false);
-      setNewProject({
-        name: '',
-        description: '',
-        company_id: '',
-        start_date: '',
-        end_date: '',
-        budget: '',
-        location: ''
-      });
-      loadData();
-    } catch (error) {
-      console.error('Error creating project:', error);
-    }
+    // Simular creación de proyecto
+    console.log('Proyecto creado:', newProject);
+    setShowCreateModal(false);
+    setNewProject({
+      name: '',
+      description: '',
+      company_id: '',
+      start_date: '',
+      end_date: '',
+      budget: '',
+      location: ''
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -174,6 +133,9 @@ export default function Projects() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Proyectos</h1>
           <p className="text-gray-600">Gestiona tus proyectos de construcción</p>
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔧 MODO DESARROLLO - Datos simulados
+          </div>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}

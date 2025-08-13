@@ -12,7 +12,6 @@ import {
   LogOut,
   Shield
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import Logo from '../common/Logo';
 
 const navigation = [
@@ -28,16 +27,10 @@ const navigation = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const { logout, user, profile } = useAuth();
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/landing', { replace: true });
-    } catch (error) {
-      console.error('Error during logout:', error);
-      navigate('/landing', { replace: true });
-    }
+    // Logout simple para desarrollo
+    navigate('/landing', { replace: true });
   };
 
   return (
@@ -97,7 +90,7 @@ export default function AdminLayout() {
           <div className="flex items-center space-x-4">
             <Shield className="h-5 w-5 text-green-600" />
             <span className="text-sm font-medium text-gray-700">
-              {user?.email || 'Administrador'}
+              admin@constructia.com
             </span>
             <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
               ADMIN

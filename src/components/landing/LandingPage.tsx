@@ -69,16 +69,16 @@ export default function LandingPage() {
             </nav>
             <div className="flex items-center space-x-3">
               <Link 
-                to="/login" 
+                to="/client/dashboard" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
                 Acceso Directo Cliente
               </Link>
               <Link 
-                to="/register" 
+                to="/client/dashboard" 
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
-                Registro
+                Panel Cliente
               </Link>
             </div>
           </div>
@@ -1008,7 +1008,7 @@ export default function LandingPage() {
                 Política de Privacidad
               </a>
               <Link 
-                to="/admin/login" 
+                to="/admin-login" 
                 className="text-gray-500 hover:text-gray-700 transition-colors flex items-center"
                 title="Panel de Administración"
               >

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Building2, 
@@ -12,7 +11,6 @@ import {
   DollarSign,
   RefreshCw
 } from 'lucide-react';
-import { getCurrentClientData, getClientDocuments, getClientProjects } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -24,71 +22,23 @@ interface DashboardStats {
 }
 
 export default function ClientDashboard() {
-  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>({
+  
+  // Datos mock para desarrollo
+  const [stats] = useState<DashboardStats>({
     totalProjects: 0,
-    totalCompanies: 0,
-    totalDocuments: 0,
-    documentsProcessed: 0,
-    storageUsed: 0,
-    storageLimit: 0
+    totalCompanies: 2,
+    totalDocuments: 15,
+    documentsProcessed: 12,
+    storageUsed: 524288000, // 500MB
+    storageLimit: 1073741824 // 1GB
   });
-  const [clientData, setClientData] = useState<any>(null);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadDashboardData();
-    }
-  }, [user]);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const clientInfo = await getCurrentClientData(user!.id);
-      if (!clientInfo) {
-        throw new Error('No se encontraron datos del cliente');
-      }
-
-      setClientData(clientInfo);
-
-      const [documents, projects] = await Promise.all([
-        getClientDocuments(clientInfo.id),
-        getClientProjects(clientInfo.id)
-      ]);
-
-      const processedDocs = documents.filter(d => 
-        d.upload_status === 'completed' || d.upload_status === 'uploaded_to_obralia'
-      );
-
-      setStats({
-        totalProjects: projects.length,
-        totalCompanies: 2, // Simulado
-        totalDocuments: documents.length,
-        documentsProcessed: processedDocs.length,
-        storageUsed: clientInfo.storage_used || 0,
-        storageLimit: clientInfo.storage_limit || 1073741824
-      });
-
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-      setError('Error al cargar los datos del dashboard');
-      // Set default values on error
-      setStats({
-        totalProjects: 0,
-        totalCompanies: 0,
-        totalDocuments: 0,
-        documentsProcessed: 0,
-        storageUsed: 0,
-        storageLimit: 1073741824
-      });
-    } finally {
-      setLoading(false);
-    }
+  
+  const clientData = {
+    contact_name: 'Juan García',
+    company_name: 'Construcciones García S.L.',
+    subscription_plan: 'professional'
   };
 
   const formatBytes = (bytes: number) => {
@@ -117,16 +67,14 @@ export default function ClientDashboard() {
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Bienvenido, {clientData?.contact_name || profile?.email || 'Cliente'}
+          Bienvenido, {clientData.contact_name}
         </h1>
         <p className="text-gray-600">
-          {clientData?.company_name || 'Empresa Demo'} • Plan {clientData?.subscription_plan || 'Professional'}
+          {clientData.company_name} • Plan {clientData.subscription_plan}
         </p>
-        {error && (
-          <div className="mt-3 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            ⚠️ Datos limitados - Modo desarrollo
-          </div>
-        )}
+        <div className="mt-3 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+          🔧 MODO DESARROLLO - Datos simulados
+        </div>
       </div>
 
       {/* Stats Grid */}
