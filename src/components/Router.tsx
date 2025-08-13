@@ -45,8 +45,8 @@ export default function Router() {
         {/* Públicas */}
         <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<LandingPage />} />
-        <Route path="/login" element={<LoginForm />} />
-        <Route path="/admin/login" element={<LoginForm isAdmin />} />
+        <Route path="/login" element={<Navigate to="/client/dashboard" replace />} />
+        <Route path="/admin/login" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/register" element={<RegisterForm />} />
 
         {/* Legales */}
@@ -57,9 +57,7 @@ export default function Router() {
         {/* Admin (PROTEGIDO) */}
         <Route
           path="/admin"
-          element={
-            <AdminLayout />
-          }
+          element={<AdminLayout />}
         >
           <Route index element={<AdminDashboard />} />
           <Route path="clients" element={<ClientsManagement />} />
@@ -74,9 +72,7 @@ export default function Router() {
         {/* Client (PROTEGIDO) */}
         <Route
           path="/client"
-          element={
-            <ClientLayout />
-          }
+          element={<ClientLayout />}
         >
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="companies" element={<Companies />} />
@@ -89,7 +85,7 @@ export default function Router() {
         </Route>
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/landing" replace />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

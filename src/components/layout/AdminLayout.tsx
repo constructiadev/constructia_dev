@@ -34,11 +34,11 @@ export default function AdminLayout() {
 
   const handleLogout = async () => {
     try {
-      await logout();
-      navigate('/admin/login', { replace: true });
+      // En modo desarrollo, solo navegar sin logout
+      navigate('/landing', { replace: true });
     } catch (error) {
       console.error('Error during logout:', error);
-      navigate('/admin/login', { replace: true });
+      navigate('/landing', { replace: true });
     }
   };
 
