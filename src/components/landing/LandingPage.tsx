@@ -75,7 +75,7 @@ export default function LandingPage() {
                 Acceso Directo Cliente
               </Link>
               <Link 
-                to="/admin" 
+                to="/register" 
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
                 Registro
