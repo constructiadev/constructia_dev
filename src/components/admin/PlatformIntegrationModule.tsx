@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Plus, Settings, Eye, Trash2, RefreshCw, CheckCircle, AlertTriangle, XCircle, Clock, Globe, Database, Cloud, Smartphone, Building, CreditCard, FileText, Mail, MessageSquare, BarChart3, Shield, Key, Link, Activity, Server, Cpu, HardDrive, Wifi, Code, Terminal, Monitor, Layers, Play, Pause, Upload, Download, Search, Filter, Save, X, Edit, Copy, ExternalLink, Info, Webhook, Apple as Api, Lock, Unlock } from 'lucide-react';
+import { Zap, Plus, Settings, Eye, Trash2, RefreshCw, CheckCircle, AlertTriangle, XCircle, Clock, Globe, Database, Cloud, Smartphone, Building, CreditCard, FileText, Mail, MessageSquare, BarChart3, Shield, Key, Link, Activity, Server, Cpu, HardDrive, Wifi, Code, Terminal, Monitor, Layers, Play, Pause, Upload, Download, Search, Filter, Save, X, Edit, Copy, ExternalLink, Info, Webhook, Apple as Api, Lock, Unlock, Users } from 'lucide-react';
 
 interface PlatformIntegration {
   id: string;
