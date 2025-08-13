@@ -58,9 +58,7 @@ export default function Router() {
         <Route
           path="/admin"
           element={
-            <PrivateRoute allowedRoles={['admin']}>
-              <AdminLayout />
-            </PrivateRoute>
+            <AdminLayout />
           }
         >
           <Route index element={<AdminDashboard />} />
@@ -77,9 +75,7 @@ export default function Router() {
         <Route
           path="/client"
           element={
-            <PrivateRoute allowedRoles={['client']}>
-              <ClientLayout />
-            </PrivateRoute>
+            <ClientLayout />
           }
         >
           <Route path="dashboard" element={<ClientDashboard />} />

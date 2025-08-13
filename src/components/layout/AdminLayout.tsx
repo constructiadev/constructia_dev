@@ -99,11 +99,16 @@ export default function AdminLayout() {
           <div className="flex items-center space-x-4">
             <Shield className="h-5 w-5 text-green-600" />
             <span className="text-sm font-medium text-gray-700">
-              {user?.email || 'admin'}
+              {user?.email || 'admin@constructia.com (dev)'}
             </span>
             {userRole && (
               <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
-                {userRole.toUpperCase()}
+                {userRole?.toUpperCase() || 'ADMIN'}
+              </span>
+            )}
+            {!userRole && (
+              <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 font-semibold">
+                DEV MODE
               </span>
             )}
           </div>

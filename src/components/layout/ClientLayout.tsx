@@ -108,11 +108,16 @@ export default function ClientLayout() {
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
-                {user?.email || 'usuario'}
+                {user?.email || 'cliente@constructia.com (dev)'}
               </span>
               {userRole && (
                 <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
-                  {userRole.toUpperCase()}
+                  {userRole?.toUpperCase() || 'CLIENT'}
+                </span>
+              )}
+              {!userRole && (
+                <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 font-semibold">
+                  DEV MODE
                 </span>
               )}
             </div>
