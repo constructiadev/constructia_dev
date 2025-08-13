@@ -1003,7 +1003,8 @@ const DocumentUpload: React.FC = () => {
               <p className="text-gray-600">Clasificación automática</p>
             </div>
           </div>
-          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
               <span className="text-green-600 font-bold">3</span>
             </div>
             <div>
