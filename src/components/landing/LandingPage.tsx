@@ -17,9 +17,9 @@ import {
   MapPin,
   MessageCircle,
   Settings,
-  X,
   User,
-  Lock
+  Lock,
+  X
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
