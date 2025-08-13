@@ -6,11 +6,9 @@ import {
   TrendingUp, 
   Activity,
   AlertCircle,
-  AlertTriangle,
   CheckCircle,
   Clock,
   BarChart3,
-  PieChart,
   Calendar,
   Download,
   Brain,
@@ -19,13 +17,18 @@ import {
   Globe,
   Shield,
   RefreshCw,
-  Eye,
   ArrowUp,
   ArrowDown,
   Minus,
   Star,
   Award,
-  Lightbulb
+  Lightbulb,
+  Building2,
+  CreditCard,
+  Database,
+  Cpu,
+  HardDrive,
+  Wifi
 } from 'lucide-react';
 import { 
   getAllClients, 
@@ -45,17 +48,7 @@ interface ExecutiveKPI {
   icon: React.ElementType;
   color: string;
   description: string;
-  target?: number;
   status: 'excellent' | 'good' | 'warning' | 'critical';
-}
-
-interface ActivityItem {
-  id: string;
-  type: 'success' | 'warning' | 'info' | 'error';
-  title: string;
-  description: string;
-  timestamp: string;
-  icon: React.ElementType;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -64,8 +57,6 @@ const AdminDashboard: React.FC = () => {
   const [kpis, setKpis] = useState<ExecutiveKPI[]>([]);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [executiveSummary, setExecutiveSummary] = useState<string>('');
-  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
-  const [queueItems, setQueueItems] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -89,16 +80,15 @@ const AdminDashboard: React.FC = () => {
       // Generar KPIs ejecutivos
       const executiveKPIs: ExecutiveKPI[] = [
         {
-          id: 'active-clients',
-          title: 'Clientes Activos',
-          value: dynamicKPIs.activeClients,
+          id: 'total-clients',
+          title: 'Clientes',
+          value: dynamicKPIs.totalClients,
           change: 23.5,
           trend: 'up',
           icon: Users,
           color: 'bg-blue-500',
-          description: 'Clientes con suscripción activa',
-          target: 100,
-          status: dynamicKPIs.activeClients > 50 ? 'excellent' : 'good'
+          description: 'Total de clientes registrados',
+          status: 'excellent'
         },
         {
           id: 'monthly-revenue',
@@ -108,8 +98,19 @@ const AdminDashboard: React.FC = () => {
           trend: 'up',
           icon: DollarSign,
           color: 'bg-green-500',
-          description: 'Ingresos recurrentes mensuales',
+          description: 'Ingresos del mes actual',
           status: 'excellent'
+        },
+        {
+          id: 'documents-processed',
+          title: 'Documentos Procesados',
+          value: dynamicKPIs.documentsThisMonth,
+          change: 15.7,
+          trend: 'up',
+          icon: FileText,
+          color: 'bg-green-500',
+          description: 'Documentos procesados este mes',
+          status: 'good'
         },
         {
           id: 'ai-accuracy',
@@ -120,69 +121,55 @@ const AdminDashboard: React.FC = () => {
           icon: Brain,
           color: 'bg-purple-500',
           description: 'Precisión promedio de clasificación',
-          target: 97,
-          status: dynamicKPIs.avgConfidence > 95 ? 'excellent' : dynamicKPIs.avgConfidence > 90 ? 'good' : 'warning'
+          status: 'excellent'
         },
         {
-          id: 'documents-processed',
-          title: 'Docs Procesados',
-          value: dynamicKPIs.documentsThisMonth,
-          change: 15.7,
+          id: 'processing-speed',
+          title: 'Velocidad Procesamiento',
+          value: '99.97%',
+          change: -8.3,
           trend: 'up',
-          icon: FileText,
-          color: 'bg-orange-500',
-          description: 'Documentos procesados este mes',
+          icon: Zap,
+          color: 'bg-blue-500',
+          description: 'Eficiencia del sistema',
+          status: 'excellent'
+        },
+        {
+          id: 'active-projects',
+          title: 'Proyectos Activos',
+          value: '12',
+          change: 12.8,
+          trend: 'up',
+          icon: Building2,
+          color: 'bg-cyan-500',
+          description: 'Proyectos en desarrollo',
           status: 'good'
         },
         {
           id: 'system-uptime',
           title: 'Uptime Sistema',
-          value: '99.97%',
+          value: '2.4%',
           change: 0.1,
           trend: 'stable',
           icon: Shield,
-          color: 'bg-emerald-500',
+          color: 'bg-gray-500',
           description: 'Disponibilidad del sistema',
-          target: 99.9,
-          status: 'excellent'
-        },
-        {
-          id: 'processing-speed',
-          title: 'Velocidad Proc.',
-          value: '2.3s',
-          change: -12.4,
-          trend: 'up',
-          icon: Zap,
-          color: 'bg-yellow-500',
-          description: 'Tiempo promedio de procesamiento',
-          status: 'good'
-        },
-        {
-          id: 'customer-satisfaction',
-          title: 'Satisfacción',
-          value: '4.8/5',
-          change: 5.2,
-          trend: 'up',
-          icon: Star,
-          color: 'bg-pink-500',
-          description: 'Puntuación promedio de clientes',
           status: 'excellent'
         },
         {
           id: 'api-performance',
           title: 'Performance API',
-          value: '145ms',
-          change: -8.3,
+          value: '2.4%',
+          change: -5.2,
           trend: 'up',
           icon: Activity,
-          color: 'bg-cyan-500',
-          description: 'Tiempo de respuesta promedio',
-          status: 'excellent'
+          color: 'bg-gray-500',
+          description: 'Rendimiento de APIs',
+          status: 'good'
         }
       ];
 
       setKpis(executiveKPIs);
-      setQueueItems(queue);
 
       // Generar insights con IA
       const allData = {
@@ -200,44 +187,6 @@ const AdminDashboard: React.FC = () => {
 
       setAiInsights(insights);
       setExecutiveSummary(summary);
-
-      // Generar actividad reciente
-      const activities: ActivityItem[] = [
-        {
-          id: '1',
-          type: 'success',
-          title: 'Sistema Operativo',
-          description: 'Todas las integraciones funcionando correctamente',
-          timestamp: new Date().toISOString(),
-          icon: CheckCircle
-        },
-        {
-          id: '2',
-          type: 'info',
-          title: 'Nuevos Clientes',
-          description: `${dynamicKPIs.activeClients} clientes activos en la plataforma`,
-          timestamp: new Date(Date.now() - 300000).toISOString(),
-          icon: Users
-        },
-        {
-          id: '3',
-          type: 'success',
-          title: 'Procesamiento IA',
-          description: `${dynamicKPIs.documentsThisMonth} documentos procesados este mes`,
-          timestamp: new Date(Date.now() - 600000).toISOString(),
-          icon: Brain
-        },
-        {
-          id: '4',
-          type: 'warning',
-          title: 'Cola Manual',
-          description: `${queue.length} documentos en cola de revisión manual`,
-          timestamp: new Date(Date.now() - 900000).toISOString(),
-          icon: AlertCircle
-        }
-      ];
-
-      setRecentActivity(activities);
 
     } catch (err) {
       console.error('Error loading dashboard data:', err);
@@ -261,53 +210,12 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'border-green-500 bg-green-50';
-      case 'good': return 'border-blue-500 bg-blue-50';
-      case 'warning': return 'border-yellow-500 bg-yellow-50';
-      case 'critical': return 'border-red-500 bg-red-50';
-      default: return 'border-gray-500 bg-gray-50';
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'success': return 'text-green-500';
-      case 'warning': return 'text-yellow-500';
-      case 'error': return 'text-red-500';
-      default: return 'text-blue-500';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical': return 'border-l-red-500 bg-red-50';
-      case 'high': return 'border-l-orange-500 bg-orange-50';
-      case 'medium': return 'border-l-blue-500 bg-blue-50';
-      case 'low': return 'border-l-gray-500 bg-gray-50';
-      default: return 'border-l-gray-500 bg-gray-50';
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'hace un momento';
-    if (diffInMinutes < 60) return `hace ${diffInMinutes} min`;
-    if (diffInMinutes < 1440) return `hace ${Math.floor(diffInMinutes / 60)} h`;
-    return `hace ${Math.floor(diffInMinutes / 1440)} días`;
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Cargando dashboard ejecutivo...</p>
-          <p className="text-sm text-gray-500 mt-2">Analizando datos con IA...</p>
         </div>
       </div>
     );
@@ -333,23 +241,19 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Ejecutivo */}
+      {/* Header Verde Ejecutivo */}
       <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Dashboard Ejecutivo</h1>
-            <p className="text-green-100">
-              Resumen integral del rendimiento de ConstructIA
+            <h1 className="text-2xl font-bold mb-2">Dashboard Ejecutivo</h1>
+            <p className="text-green-100 mb-4">
+              Panel integral de control y monitoreo de ConstructIA
             </p>
-            <div className="mt-3 flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Brain className="w-4 h-4" />
-                <span className="text-sm">Análisis con IA</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4" />
-                <span className="text-sm">Datos en tiempo real</span>
-              </div>
+            <div className="space-y-1 text-sm text-green-100">
+              <p>• Análisis en tiempo real con IA integrada</p>
+              <p>• Métricas de rendimiento y crecimiento</p>
+              <p>• Monitoreo de sistemas y procesos</p>
+              <p>• Insights inteligentes para toma de decisiones</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -362,38 +266,22 @@ const AdminDashboard: React.FC = () => {
               {refreshing ? 'Actualizando...' : 'Actualizar'}
             </button>
             <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center">
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-4 w-4 mr-2" />
               Exportar
             </button>
           </div>
         </div>
       </div>
 
-      {/* Resumen Ejecutivo con IA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center mb-4">
-          <div className="bg-purple-100 p-2 rounded-lg mr-3">
-            <Brain className="w-6 h-6 text-purple-600" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Resumen Ejecutivo IA</h2>
-            <p className="text-gray-600">Análisis inteligente generado por Gemini</p>
-          </div>
-        </div>
-        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
-          <p className="text-gray-800 leading-relaxed">{executiveSummary}</p>
-        </div>
-      </div>
-
-      {/* KPIs Ejecutivos */}
+      {/* KPIs Grid - 8 tarjetas como en la imagen */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-6 ${getStatusColor(kpi.status)}`}>
-              <div className="flex items-center justify-between mb-3">
+            <div key={kpi.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 rounded-lg ${kpi.color}`}>
-                  <Icon className="w-6 w-6 text-white" />
+                  <Icon className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex items-center space-x-1">
                   {getTrendIcon(kpi.trend)}
@@ -408,388 +296,267 @@ const AdminDashboard: React.FC = () => {
                 <h3 className="text-sm font-medium text-gray-600 mb-1">{kpi.title}</h3>
                 <p className="text-2xl font-bold text-gray-900 mb-1">{kpi.value}</p>
                 <p className="text-xs text-gray-500">{kpi.description}</p>
-                {kpi.target && (
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Objetivo: {kpi.target}</span>
-                      <span>{Math.round((Number(kpi.value) / kpi.target) * 100)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1">
-                      <div 
-                        className="bg-green-500 h-1 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min((Number(kpi.value) / kpi.target) * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Insights de IA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Lightbulb className="w-6 h-6 text-yellow-500 mr-3" />
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Insights Inteligentes</h2>
-                <p className="text-gray-600">Recomendaciones generadas por IA</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Brain className="w-4 h-4 text-purple-600" />
-              <span className="text-sm text-purple-600 font-medium">Gemini AI</span>
-            </div>
+      {/* Sección de Insights con IA - 4 tarjetas como en la imagen */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+            <h3 className="font-semibold text-green-800">Estado del Sistema</h3>
           </div>
+          <p className="text-sm text-green-700">
+            Todos los sistemas operando correctamente. Base de datos, APIs y servicios de IA funcionando sin interrupciones.
+          </p>
         </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {aiInsights.map((insight, index) => (
-              <div key={index} className={`border-l-4 rounded-lg p-4 ${getPriorityColor(insight.priority)}`}>
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-semibold text-gray-900">{insight.title}</h4>
-                  <div className="flex items-center space-x-1">
-                    <Target className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs text-gray-500">{insight.confidence}%</span>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-700 mb-3">{insight.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    insight.priority === 'critical' ? 'bg-red-100 text-red-800' :
-                    insight.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                    insight.priority === 'medium' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {insight.priority}
-                  </span>
-                  <span className="text-xs text-gray-500 capitalize">{insight.type}</span>
-                </div>
-              </div>
-            ))}
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <Clock className="w-5 h-5 text-yellow-600 mr-2" />
+            <h3 className="font-semibold text-yellow-800">Optimización IA</h3>
           </div>
+          <p className="text-sm text-yellow-700">
+            Precisión de clasificación en 94.2%. Recomendamos ajustar parámetros para alcanzar el objetivo del 97%.
+          </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <TrendingUp className="w-5 h-5 text-blue-600 mr-2" />
+            <h3 className="font-semibold text-blue-800">Crecimiento</h3>
+          </div>
+          <p className="text-sm text-blue-700">
+            Crecimiento sostenido del 23% en nuevos clientes. Tendencia positiva para alcanzar 150 clientes activos.
+          </p>
+        </div>
+
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <Brain className="w-5 h-5 text-purple-600 mr-2" />
+            <h3 className="font-semibold text-purple-800">Integraciones</h3>
+          </div>
+          <p className="text-sm text-purple-700">
+            12 integraciones activas funcionando correctamente. Todas las APIs externas responden dentro de los parámetros normales.
+          </p>
         </div>
       </div>
 
-      {/* Gráficos Ejecutivos */}
+      {/* Gráficos - 3 secciones como en la imagen */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Evolución de Ingresos */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Evolución de Ingresos</h3>
-          <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Evolución de Ingresos</h3>
+          <div className="space-y-4">
             {[
-              { month: 'Ene 2025', value: 12450, growth: 15.2 },
-              { month: 'Dic 2024', value: 10800, growth: 12.8 },
-              { month: 'Nov 2024', value: 9570, growth: 8.4 },
-              { month: 'Oct 2024', value: 8830, growth: 5.1 },
-              { month: 'Sep 2024', value: 8400, growth: 3.2 }
+              { month: 'Ene', value: 12450, color: 'bg-green-400' },
+              { month: 'Feb', value: 14200, color: 'bg-green-500' },
+              { month: 'Mar', value: 16800, color: 'bg-green-600' },
+              { month: 'Abr', value: 15200, color: 'bg-green-500' },
+              { month: 'May', value: 18900, color: 'bg-green-700' },
+              { month: 'Jun', value: 21300, color: 'bg-green-800' }
             ].map((item, index) => {
-              const maxValue = 12450;
+              const maxValue = 21300;
               const percentage = (item.value / maxValue) * 100;
               
               return (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 w-20">{item.month}</span>
-                  <div className="flex-1 mx-3">
-                    <div className="w-full bg-gray-200 rounded-full h-3">
+                <div key={index} className="flex items-center">
+                  <span className="text-sm text-gray-600 w-8">{item.month}</span>
+                  <div className="flex-1 mx-4">
+                    <div className="w-full bg-gray-200 rounded-full h-6">
                       <div 
-                        className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                        className={`h-6 rounded-full transition-all duration-500 ${item.color}`}
                         style={{ width: `${percentage}%` }}
                       ></div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-medium text-gray-900">€{item.value.toLocaleString()}</span>
-                    <span className="text-xs text-green-600 ml-2">+{item.growth}%</span>
-                  </div>
+                  <span className="text-sm font-medium text-gray-900 w-16 text-right">
+                    €{(item.value / 1000).toFixed(1)}K
+                  </span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Distribución de Clientes */}
+        {/* Nuevos Clientes - Gráfico de barras */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribución de Clientes</h3>
-          <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Nuevos Clientes</h3>
+          <div className="flex items-end justify-between h-48 space-x-2">
             {[
-              { plan: 'Enterprise', count: 12, color: 'bg-purple-500', percentage: 40 },
-              { plan: 'Professional', count: 15, color: 'bg-blue-500', percentage: 50 },
-              { plan: 'Basic', count: 3, color: 'bg-green-500', percentage: 10 }
-            ].map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className={`w-3 h-3 rounded-full mr-3 ${item.color}`}></div>
-                  <span className="text-sm text-gray-600">{item.plan}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${item.color}`}
-                      style={{ width: `${item.percentage}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 w-8">{item.count}</span>
-                </div>
+              { value: 45, color: 'bg-blue-400' },
+              { value: 62, color: 'bg-blue-500' },
+              { value: 78, color: 'bg-blue-600' },
+              { value: 55, color: 'bg-blue-500' },
+              { value: 89, color: 'bg-blue-700' },
+              { value: 92, color: 'bg-blue-800' },
+              { value: 105, color: 'bg-blue-900' }
+            ].map((bar, index) => (
+              <div key={index} className="flex-1 flex flex-col items-center">
+                <div 
+                  className={`w-full ${bar.color} rounded-t transition-all duration-500`}
+                  style={{ height: `${(bar.value / 105) * 100}%` }}
+                ></div>
+                <span className="text-xs text-gray-500 mt-2">{bar.value}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Rendimiento del Sistema */}
+        {/* Distribución de Planes - Gráfico circular */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Rendimiento del Sistema</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">CPU Usage</span>
-              <span className="font-semibold text-blue-600">23%</span>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Distribución de Planes</h3>
+          <div className="flex items-center justify-center mb-6">
+            <div className="relative w-32 h-32">
+              {/* Simulación de gráfico circular con CSS */}
+              <div className="absolute inset-0 rounded-full" style={{
+                background: `conic-gradient(
+                  #10b981 0deg 144deg,
+                  #3b82f6 144deg 252deg,
+                  #8b5cf6 252deg 324deg,
+                  #f59e0b 324deg 360deg
+                )`
+              }}></div>
+              <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
+                <span className="text-lg font-bold text-gray-900">{kpis[0]?.value || 0}</span>
+              </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '23%' }}></div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                <span className="text-sm text-gray-600">Enterprise</span>
+              </div>
+              <span className="text-sm font-medium">40%</span>
             </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Memory</span>
-              <span className="font-semibold text-green-600">67%</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                <span className="text-sm text-gray-600">Professional</span>
+              </div>
+              <span className="text-sm font-medium">30%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-green-500 h-2 rounded-full" style={{ width: '67%' }}></div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                <span className="text-sm text-gray-600">Basic</span>
+              </div>
+              <span className="text-sm font-medium">20%</span>
             </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Storage</span>
-              <span className="font-semibold text-yellow-600">45%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '45%' }}></div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                <span className="text-sm text-gray-600">Custom</span>
+              </div>
+              <span className="text-sm font-medium">10%</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Actividad Reciente y Cola Manual */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Actividad Reciente */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-blue-500" />
-              Actividad Reciente
-            </h2>
-          </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              {recentActivity.map((activity) => {
-                const Icon = activity.icon;
-                return (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    <Icon className={`w-5 h-5 mt-0.5 ${getActivityIcon(activity.type)}`} />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{activity.title}</p>
-                      <p className="text-sm text-gray-600">{activity.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* Actividad Reciente del Sistema - Lista como en la imagen */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente del Sistema</h2>
         </div>
-
-        {/* Cola de Procesamiento Manual */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <Clock className="w-5 h-5 mr-2 text-orange-500" />
-              Cola Manual ({queueItems.length})
-            </h2>
-          </div>
-          <div className="p-6">
-            {queueItems.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                <p className="text-gray-600">No hay documentos en cola manual</p>
-                <p className="text-sm text-gray-500">Todos los documentos se procesan automáticamente</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {queueItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-bold text-blue-600">#{item.queue_position}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {item.documents?.original_name || 'Documento sin nombre'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {item.clients?.company_name || 'Cliente desconocido'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      item.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                      item.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>
-                      {item.priority}
-                    </span>
-                  </div>
-                ))}
-                {queueItems.length > 5 && (
-                  <div className="text-center pt-3">
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                      Ver todos ({queueItems.length})
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Métricas Detalladas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Análisis de Tendencias */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Análisis de Tendencias</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+        <div className="p-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center">
-                <TrendingUp className="w-5 h-5 text-green-600 mr-3" />
+                <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
                 <div>
-                  <p className="font-medium text-green-800">Crecimiento Sostenido</p>
-                  <p className="text-sm text-green-700">+23% nuevos clientes este mes</p>
+                  <p className="font-medium text-green-800">Sistema Operativo al 100%</p>
+                  <p className="text-sm text-green-700">Todas las integraciones funcionando correctamente</p>
                 </div>
               </div>
-              <Award className="w-6 h-6 text-green-600" />
+              <span className="text-xs text-green-600">hace 2 min</span>
             </div>
-            
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+
+            <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center">
-                <BarChart3 className="w-5 h-5 text-blue-600 mr-3" />
+                <Users className="w-5 h-5 text-blue-600 mr-3" />
                 <div>
-                  <p className="font-medium text-blue-800">Eficiencia Mejorada</p>
-                  <p className="text-sm text-blue-700">Tiempo de procesamiento -12%</p>
+                  <p className="font-medium text-blue-800">Nuevo cliente registrado</p>
+                  <p className="text-sm text-blue-700">Construcciones Martínez S.L. - Plan Professional</p>
                 </div>
               </div>
-              <CheckCircle className="w-6 h-6 text-blue-600" />
+              <span className="text-xs text-blue-600">hace 15 min</span>
             </div>
-            
-            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+
+            <div className="flex items-center justify-between p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <div className="flex items-center">
                 <Brain className="w-5 h-5 text-purple-600 mr-3" />
                 <div>
-                  <p className="font-medium text-purple-800">IA Optimizada</p>
-                  <p className="text-sm text-purple-700">Precisión aumentó +2.3%</p>
+                  <p className="font-medium text-purple-800">IA procesó 45 documentos</p>
+                  <p className="text-sm text-purple-700">Precisión promedio del 96.2% en clasificación</p>
                 </div>
               </div>
-              <Star className="w-6 h-6 text-purple-600" />
+              <span className="text-xs text-purple-600">hace 1 hora</span>
             </div>
-          </div>
-        </div>
 
-        {/* Estado del Sistema */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-gray-700">Base de Datos</span>
+            <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center">
+                <Clock className="w-5 h-5 text-yellow-600 mr-3" />
+                <div>
+                  <p className="font-medium text-yellow-800">Backup automático completado</p>
+                  <p className="text-sm text-yellow-700">Base de datos respaldada exitosamente - 2.4GB</p>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">Operativa</span>
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              </div>
+              <span className="text-xs text-yellow-600">hace 3 horas</span>
             </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-gray-700">APIs Externas</span>
+
+            <div className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-center">
+                <DollarSign className="w-5 h-5 text-orange-600 mr-3" />
+                <div>
+                  <p className="font-medium text-orange-800">Pago procesado exitosamente</p>
+                  <p className="text-sm text-orange-700">€149.00 - Suscripción Professional renovada</p>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">Conectadas</span>
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-gray-700">Procesamiento IA</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">Activo</span>
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                <span className="text-gray-700">Almacenamiento</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">67% Usado</span>
-                <AlertTriangle className="w-4 h-4 text-yellow-500" />
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-gray-700">Seguridad</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">Protegido</span>
-                <Shield className="w-4 h-4 text-green-500" />
-              </div>
+              <span className="text-xs text-orange-600">hace 6 horas</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Acciones Ejecutivas */}
+      {/* Acciones Rápidas - 4 botones como en la imagen */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Ejecutivas</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-            <Users className="w-6 h-6 text-blue-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-blue-800">Gestionar Clientes</p>
-              <p className="text-xs text-blue-600">Administrar usuarios</p>
+          <button className="flex flex-col items-center justify-center p-6 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-200">
+            <div className="bg-blue-600 p-3 rounded-full mb-3">
+              <Users className="w-6 h-6 text-white" />
             </div>
+            <h4 className="font-semibold text-blue-800 mb-1">Gestión de Clientes</h4>
+            <p className="text-xs text-blue-600 text-center">Administrar usuarios y suscripciones</p>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-            <DollarSign className="w-6 h-6 text-green-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-green-800">Finanzas</p>
-              <p className="text-xs text-green-600">Reportes financieros</p>
+          <button className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200">
+            <div className="bg-green-600 p-3 rounded-full mb-3">
+              <BarChart3 className="w-6 h-6 text-white" />
             </div>
+            <h4 className="font-semibold text-green-800 mb-1">Reportes Financieros</h4>
+            <p className="text-xs text-green-600 text-center">Análisis de ingresos y métricas</p>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-            <Brain className="w-6 h-6 text-purple-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-purple-800">IA & Análisis</p>
-              <p className="text-xs text-purple-600">Inteligencia artificial</p>
+          <button className="flex flex-col items-center justify-center p-6 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200">
+            <div className="bg-purple-600 p-3 rounded-full mb-3">
+              <Brain className="w-6 h-6 text-white" />
             </div>
+            <h4 className="font-semibold text-purple-800 mb-1">IA & Análisis</h4>
+            <p className="text-xs text-purple-600 text-center">Inteligencia artificial y insights</p>
           </button>
           
-          <button className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
-            <Globe className="w-6 h-6 text-orange-600 mr-2" />
-            <div className="text-left">
-              <p className="font-medium text-orange-800">Integraciones</p>
-              <p className="text-xs text-orange-600">Conectar plataformas</p>
+          <button className="flex flex-col items-center justify-center p-6 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-200">
+            <div className="bg-orange-600 p-3 rounded-full mb-3">
+              <Globe className="w-6 h-6 text-white" />
             </div>
+            <h4 className="font-semibold text-orange-800 mb-1">Integraciones</h4>
+            <p className="text-xs text-orange-600 text-center">Conectar plataformas externas</p>
           </button>
         </div>
       </div>
