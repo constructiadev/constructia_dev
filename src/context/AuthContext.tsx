@@ -209,6 +209,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profile.role !== 'admin') {
         await supabase.auth.signOut();
+        // En desarrollo, permitir acceso si el email es de admin
+        if (email === 'admin@constructia.com') {
+          console.log('🔧 [DEV] Actualizando rol a admin para usuario de desarrollo');
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ role: 'admin' })
+            .eq('id', authedUser.id);
+          
+          if (updateError) {
+            console.error('Error actualizando rol:', updateError);
+            throw new Error('Error configurando permisos de administrador.');
+          }
+          
+          await loadUserProfile(authedUser.id);
+          return;
+        }
+        
         throw new Error('Acceso denegado: Este usuario no tiene permisos de administrador.');
       }
 
