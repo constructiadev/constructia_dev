@@ -67,6 +67,43 @@ async function setupDatabase() {
       }
     }
 
+    // Special handling for clients table to allow anonymous inserts
+    console.log('\n🔐 Configuring clients table for anonymous access...');
+    try {
+      // Re-enable RLS for clients table
+      await supabase.rpc('exec_sql', {
+        sql: `ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;`
+      });
+      console.log('✅ RLS re-enabled for clients table');
+
+      // Drop existing policies to prevent conflicts
+      await supabase.rpc('exec_sql', {
+        sql: `DROP POLICY IF EXISTS "Allow anonymous client creation" ON public.clients;`
+      });
+      console.log('✅ Existing policies cleared');
+
+      // Create policy to allow anonymous inserts
+      await supabase.rpc('exec_sql', {
+        sql: `
+          CREATE POLICY "Allow anonymous client creation"
+          ON public.clients
+          FOR INSERT
+          TO anon
+          WITH CHECK (true);
+        `
+      });
+      console.log('✅ Anonymous insert policy created');
+
+      // Grant insert privilege to anon role
+      await supabase.rpc('exec_sql', {
+        sql: `GRANT INSERT ON public.clients TO anon;`
+      });
+      console.log('✅ Insert privilege granted to anon role');
+
+    } catch (e) {
+      console.warn('⚠️ Error configuring clients table:', e.message);
+    }
+
     // 3. Create admin user
     console.log('\n3️⃣ Creating admin user...');
     
