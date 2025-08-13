@@ -163,6 +163,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
 
+      // Modo de desarrollo: permitir acceso admin sin Supabase
+      if (email === 'admin@constructia.com' && password === 'superadmin123') {
+        console.log('🔧 [AuthContext] Using development admin mode');
+        
+        // Crear usuario mock para desarrollo
+        const mockUser = {
+          id: 'admin-dev-user',
+          email: 'admin@constructia.com',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          aud: 'authenticated',
+          role: 'authenticated'
+        } as User;
+        
+        const mockSession = {
+          access_token: 'mock-admin-token',
+          refresh_token: 'mock-refresh-token',
+          expires_in: 3600,
+          token_type: 'bearer',
+          user: mockUser
+        } as Session;
+        
+        const mockProfile: AppUser = {
+          id: 'admin-dev-user',
+          email: 'admin@constructia.com',
+          role: 'admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        setUser(mockUser);
+        setSession(mockSession);
+        setUserProfile(mockProfile);
+        return;
+      }
+
       // 1) Autenticación
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
