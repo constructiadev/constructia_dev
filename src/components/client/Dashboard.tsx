@@ -29,7 +29,7 @@ interface DashboardStats {
 }
 
 export default function ClientDashboard() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
