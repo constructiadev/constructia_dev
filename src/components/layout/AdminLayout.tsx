@@ -11,7 +11,8 @@ import {
   Brain,
   LogOut,
   Shield,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
