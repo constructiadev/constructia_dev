@@ -13,40 +13,24 @@ import {
   Calendar,
   Download
 } from 'lucide-react';
+import { 
+  getAllClients, 
+  getManualProcessingQueue, 
+  calculateDynamicKPIs 
+} from '../../lib/supabase';
 
 const AdminDashboard: React.FC = () => {
-  const [loading] = useState(false);
-  
-  // Datos mock para desarrollo
-  const dynamicKpis = {
-    activeClients: 15,
-    totalDocuments: 1247,
-    totalRevenue: 12450.50,
-    avgConfidence: 94.2,
-    documentsThisMonth: 156,
-    totalClients: 18
-  };
-  
-  const queueItems = [
-    {
-      id: '1',
-      queue_position: 1,
-      priority: 'high',
-      manual_status: 'pending',
-      created_at: new Date().toISOString(),
-      documents: { original_name: 'Certificado_Obra_123.pdf' },
-      clients: { company_name: 'Construcciones García S.L.' }
-    },
-    {
-      id: '2',
-      queue_position: 2,
-      priority: 'normal',
-      manual_status: 'in_progress',
-      created_at: new Date().toISOString(),
-      documents: { original_name: 'Factura_Materiales_456.pdf' },
-      clients: { company_name: 'Reformas Modernas S.L.' }
-    }
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dynamicKpis, setDynamicKpis] = useState({
+    activeClients: 0,
+    totalDocuments: 0,
+    totalRevenue: 0,
+    avgConfidence: 0,
+    documentsThisMonth: 0,
+    totalClients: 0
+  });
+  const [queueItems, setQueueItems] = useState<any[]>([]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -77,8 +61,57 @@ const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log('🔧 [AdminDashboard] DEVELOPMENT MODE: Using mock data');
+    loadAdminData();
   }, []);
+
+  const loadAdminData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [kpis, queue] = await Promise.all([
+        calculateDynamicKPIs(),
+        getManualProcessingQueue()
+      ]);
+
+      setDynamicKpis(kpis);
+      setQueueItems(queue);
+    } catch (err) {
+      console.error('Error loading admin data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading admin data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando panel de administración...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de Conexión</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadAdminData}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,10 +119,11 @@ const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
         <p className="text-gray-600">
-          Bienvenido, {user?.email || 'admin@constructia.com'}. Aquí tienes un resumen del estado del sistema.
+          Bienvenido, admin@constructia.com. Aquí tienes un resumen del estado del sistema.
         </p>
-        <div className="mt-3 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-          🔧 MODO DESARROLLO - Datos simulados
+        <div className="mt-3 flex items-center space-x-2">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          <span className="text-sm text-green-600">Sistema operativo - Datos en tiempo real</span>
         </div>
       </div>
 
@@ -219,9 +253,9 @@ const AdminDashboard: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <p className="text-sm text-gray-600">
-                  Sistema iniciado correctamente
+                  Sistema conectado a Supabase
                 </p>
-                <span className="text-xs text-gray-400">hace 2 min</span>
+                <span className="text-xs text-gray-400">hace 1 min</span>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>

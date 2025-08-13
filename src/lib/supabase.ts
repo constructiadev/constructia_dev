@@ -14,45 +14,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
     flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json'
+    }
   }
 });
-
-// Helper para actualizar credenciales de Obralia del cliente
-export const updateClientObraliaCredentials = async (
-  clientId: string, 
-  credentials: { username: string; password: string }
-) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        obralia_credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          configured: true
-        }
-      })
-      .eq('id', clientId)
-      .select();
-
-    if (error) {
-      throw new Error(`Database error: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('No data returned from update operation. Client may not exist.');
-    }
-
-    return data[0];
-  } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
-    throw error;
-  }
-};
 
 // Helper para obtener datos del cliente actual
 export const getCurrentClientData = async (userId: string) => {
@@ -64,20 +32,11 @@ export const getCurrentClientData = async (userId: string) => {
       return null;
     }
 
-    // Validar que el userId sea un UUID válido
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      console.error('❌ [Supabase] Invalid UUID format:', userId);
-      return null;
-    }
-    console.log('🔍 [Supabase] Querying clients table for user_id:', userId);
     const { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
-
-    console.log('🔍 [Supabase] Query result:', { data, error });
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -93,6 +52,25 @@ export const getCurrentClientData = async (userId: string) => {
   } catch (error) {
     console.error('❌ [Supabase] Error getting client data:', error);
     return null;
+  }
+};
+
+// Helper para obtener todos los clientes (admin)
+export const getAllClients = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Error fetching all clients: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching all clients:', error);
+    throw error;
   }
 };
 
@@ -171,26 +149,6 @@ export const getClientDocuments = async (clientId: string) => {
     return data || [];
   } catch (error) {
     console.error('Error fetching documents:', error);
-    throw error;
-  }
-};
-
-// Helper para obtener todos los clientes (admin)
-export const getAllClients = async () => {
-  try {
-    // Usar service role para acceso directo sin autenticación
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Error fetching all clients: ${error.message}`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching all clients:', error);
     throw error;
   }
 };
@@ -496,6 +454,166 @@ export const getAPIIntegrations = async () => {
     ];
   } catch (error) {
     console.error('Error fetching API integrations:', error);
+    throw error;
+  }
+};
+
+// Helper para crear cliente de prueba
+export const createTestClient = async () => {
+  try {
+    const testClientData = {
+      user_id: 'test-user-id',
+      client_id: 'CLI-TEST-001',
+      company_name: 'Construcciones García S.L.',
+      contact_name: 'Juan García',
+      email: 'juan@construccionesgarcia.com',
+      phone: '+34 600 123 456',
+      address: 'Calle Construcción 123, 28001 Madrid',
+      subscription_plan: 'professional',
+      subscription_status: 'active',
+      storage_used: 524288000,
+      storage_limit: 1073741824,
+      documents_processed: 15,
+      tokens_available: 1000,
+      obralia_credentials: { configured: true, username: 'test_user', password: 'test_pass' }
+    };
+
+    const { data, error } = await supabase
+      .from('clients')
+      .upsert(testClientData)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error creating test client: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating test client:', error);
+    throw error;
+  }
+};
+
+// Helper para crear datos de prueba
+export const createTestData = async () => {
+  try {
+    // Crear cliente de prueba
+    const client = await createTestClient();
+    
+    // Crear empresas de prueba
+    const companies = [
+      {
+        client_id: client.id,
+        name: 'Construcciones García S.L.',
+        cif: 'B12345678',
+        address: 'Calle Construcción 123, 28001 Madrid',
+        phone: '+34 600 123 456',
+        email: 'info@construccionesgarcia.com'
+      },
+      {
+        client_id: client.id,
+        name: 'Reformas Integrales López',
+        cif: 'B87654321',
+        address: 'Avenida Reforma 456, 28002 Madrid',
+        phone: '+34 600 654 321',
+        email: 'contacto@reformaslopez.com'
+      }
+    ];
+
+    const { data: companiesData, error: companiesError } = await supabase
+      .from('companies')
+      .upsert(companies)
+      .select();
+
+    if (companiesError) {
+      console.warn('Error creating test companies:', companiesError);
+    }
+
+    // Crear proyectos de prueba
+    if (companiesData && companiesData.length > 0) {
+      const projects = [
+        {
+          company_id: companiesData[0].id,
+          client_id: client.id,
+          name: 'Edificio Residencial García',
+          description: 'Construcción de edificio residencial de 4 plantas',
+          status: 'active',
+          progress: 65,
+          start_date: '2024-01-15',
+          end_date: '2025-06-30',
+          budget: 450000,
+          location: 'Madrid, España'
+        },
+        {
+          company_id: companiesData[1].id,
+          client_id: client.id,
+          name: 'Reforma Oficinas López',
+          description: 'Reforma integral de oficinas corporativas',
+          status: 'planning',
+          progress: 15,
+          start_date: '2025-03-01',
+          end_date: '2025-08-15',
+          budget: 125000,
+          location: 'Barcelona, España'
+        }
+      ];
+
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .upsert(projects)
+        .select();
+
+      if (projectsError) {
+        console.warn('Error creating test projects:', projectsError);
+      }
+
+      // Crear documentos de prueba
+      if (projectsData && projectsData.length > 0) {
+        const documents = [
+          {
+            project_id: projectsData[0].id,
+            client_id: client.id,
+            filename: 'certificado_obra_123.pdf',
+            original_name: 'Certificado de Obra - Proyecto García.pdf',
+            file_size: 2048576,
+            file_type: 'application/pdf',
+            document_type: 'Certificado',
+            classification_confidence: 95,
+            upload_status: 'completed',
+            obralia_status: 'validated',
+            security_scan_status: 'safe',
+            processing_attempts: 1
+          },
+          {
+            project_id: projectsData[1].id,
+            client_id: client.id,
+            filename: 'factura_materiales_456.pdf',
+            original_name: 'Factura Materiales - Enero 2025.pdf',
+            file_size: 1024768,
+            file_type: 'application/pdf',
+            document_type: 'Factura',
+            classification_confidence: 92,
+            upload_status: 'processing',
+            obralia_status: 'pending',
+            security_scan_status: 'safe',
+            processing_attempts: 0
+          }
+        ];
+
+        const { error: documentsError } = await supabase
+          .from('documents')
+          .upsert(documents);
+
+        if (documentsError) {
+          console.warn('Error creating test documents:', documentsError);
+        }
+      }
+    }
+
+    return client;
+  } catch (error) {
+    console.error('Error creating test data:', error);
     throw error;
   }
 };

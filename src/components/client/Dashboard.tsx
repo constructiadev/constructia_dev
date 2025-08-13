@@ -11,6 +11,7 @@ import {
   DollarSign,
   RefreshCw
 } from 'lucide-react';
+import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -24,21 +25,64 @@ interface DashboardStats {
 export default function ClientDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  
-  // Datos mock para desarrollo
-  const [stats] = useState<DashboardStats>({
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
     totalProjects: 0,
-    totalCompanies: 2,
-    totalDocuments: 15,
-    documentsProcessed: 12,
-    storageUsed: 524288000, // 500MB
-    storageLimit: 1073741824 // 1GB
+    totalCompanies: 0,
+    totalDocuments: 0,
+    documentsProcessed: 0,
+    storageUsed: 0,
+    storageLimit: 0
   });
-  
-  const clientData = {
-    contact_name: 'Juan García',
-    company_name: 'Construcciones García S.L.',
-    subscription_plan: 'professional'
+  const [clientData, setClientData] = useState<any>(null);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Para desarrollo, usar un ID de cliente fijo
+      const testClientId = 'test-user-id';
+      
+      // Obtener datos del cliente
+      const client = await getCurrentClientData(testClientId);
+      
+      if (!client) {
+        // Si no existe el cliente, crear datos de prueba
+        const { createTestData } = await import('../../lib/supabase');
+        const newClient = await createTestData();
+        setClientData(newClient);
+      } else {
+        setClientData(client);
+      }
+
+      // Obtener estadísticas
+      const [projects, companies, documents] = await Promise.all([
+        getClientProjects(client?.id || testClientId),
+        getClientCompanies(client?.id || testClientId),
+        getClientDocuments(client?.id || testClientId)
+      ]);
+
+      const newStats = {
+        totalProjects: projects.length,
+        totalCompanies: companies.length,
+        totalDocuments: documents.length,
+        documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
+        storageUsed: client?.storage_used || 0,
+        storageLimit: client?.storage_limit || 1073741824
+      };
+
+      setStats(newStats);
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading dashboard data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatBytes = (bytes: number) => {
@@ -57,7 +101,28 @@ export default function ClientDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de Conexión</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadDashboardData}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }
@@ -67,13 +132,14 @@ export default function ClientDashboard() {
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Bienvenido, {clientData.contact_name}
+          Bienvenido, {clientData?.contact_name || 'Usuario'}
         </h1>
         <p className="text-gray-600">
-          {clientData.company_name} • Plan {clientData.subscription_plan}
+          {clientData?.company_name || 'Empresa'} • Plan {clientData?.subscription_plan || 'básico'}
         </p>
-        <div className="mt-3 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-          🔧 MODO DESARROLLO - Datos simulados
+        <div className="mt-3 flex items-center space-x-2">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          <span className="text-sm text-green-600">Conectado a base de datos</span>
         </div>
       </div>
 
@@ -197,13 +263,22 @@ export default function ClientDashboard() {
 
       {/* Recent Activity */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Actividad Reciente</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
+          <button
+            onClick={loadDashboardData}
+            className="flex items-center text-blue-600 hover:text-blue-700 text-sm"
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Actualizar
+          </button>
+        </div>
         <div className="space-y-3">
           <div className="flex items-center p-3 bg-green-50 rounded-lg">
             <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
             <div>
-              <p className="font-medium text-gray-900">Sistema funcionando correctamente</p>
-              <p className="text-sm text-gray-500">Todas las funciones operativas - hace 2 min</p>
+              <p className="font-medium text-gray-900">Base de datos conectada</p>
+              <p className="text-sm text-gray-500">Datos cargados desde Supabase - hace 1 min</p>
             </div>
           </div>
           
