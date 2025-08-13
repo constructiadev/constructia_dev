@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Building2, 
+  getCurrentClientData,
+  TEST_USER_UUID,
   FileText, 
   TrendingUp, 
   Users, 
@@ -45,8 +46,8 @@ export default function ClientDashboard() {
       setLoading(true);
       setError(null);
 
-      // Para desarrollo, usar un ID de cliente fijo
-      const testClientId = 'test-user-id';
+      // Para desarrollo, usar UUID válido
+      const testClientId = TEST_USER_UUID;
       
       // Obtener datos del cliente
       const client = await getCurrentClientData(testClientId);

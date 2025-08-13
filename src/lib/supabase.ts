@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Constante UUID válida para desarrollo
+export const TEST_USER_UUID = '00000000-0000-0000-0000-000000000001';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -490,7 +493,7 @@ export const getAPIIntegrations = async () => {
 export const createTestClient = async () => {
   try {
     const testClientData = {
-      user_id: 'test-user-id',
+      user_id: TEST_USER_UUID,
       client_id: 'CLI-TEST-001',
       company_name: 'Construcciones García S.L.',
       contact_name: 'Juan García',
