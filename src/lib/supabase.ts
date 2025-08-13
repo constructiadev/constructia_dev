@@ -648,3 +648,49 @@ export const createTestData = async () => {
     throw error;
   }
 };
+
+// Helper para obtener insights de IA
+export const getAIInsights = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_insights')
+      .select('*')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.warn('Error fetching AI insights:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching AI insights:', error);
+    return [];
+  }
+};
+
+// Helper para crear insight de IA
+export const createAIInsight = async (insight: Partial<AIInsight>) => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_insights')
+      .insert({
+        ...insight,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error creating AI insight: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating AI insight:', error);
+    throw error;
+  }
+};
