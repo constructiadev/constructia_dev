@@ -398,6 +398,34 @@ export const calculateDynamicKPIs = async () => {
   }
 };
 
+// Helper para actualizar credenciales de Obralia del cliente
+export const updateClientObraliaCredentials = async (clientId: string, credentials: { username: string; password: string }) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          configured: true,
+          username: credentials.username,
+          password: credentials.password
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', clientId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error updating Obralia credentials: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
+};
+
 // Helper para obtener estadísticas de ingresos
 export const getRevenueStats = async () => {
   try {
