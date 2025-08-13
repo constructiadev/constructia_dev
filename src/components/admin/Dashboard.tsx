@@ -13,7 +13,7 @@ import {
   Calendar,
   Download
 } from 'lucide-react';
-// import { useAuth } from '../../context/AuthContext'; // Temporalmente desactivado
+import { useAuth } from '../../context/AuthContext';
 import {
   getAllClients,
   getKPIs,
@@ -51,8 +51,7 @@ interface QueueItem {
 }
 
 const AdminDashboard: React.FC = () => {
-  // const { user } = useAuth(); // Temporalmente desactivado
-  const user = { id: 'admin-demo', email: 'admin@constructia.com' }; // Usuario demo para desarrollo
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kpis, setKpis] = useState<KPI[]>([]);
