@@ -226,4 +226,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
 
       // 1) Crear usuario en auth
-      const { data: authData, error: authError } = await supab
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('No se pudo crear el usuario.');
+
+      // 2) Crear perfil en tabla users
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email,
+          role: 'client'
+        });
+
+      if (userError) throw userError;
+
+      // 3) Crear registro de cliente
+      const clientId = `CLI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const { error: clientError } = await supabase
+        .from('clients')
+        .insert({
+          user_id: authData.user.id,
+          client_id: clientId,
+          company_name: clientData.company_name || '',
+          contact_name: clientData.contact_name || '',
+          email: email,
+          phone: clientData.phone || '',
+          address: clientData.address || '',
+          subscription_plan: 'basic',
+          subscription_status: 'active',
+          storage_used: 0,
+          storage_limit: 524288000, // 500MB
+          documents_processed: 0,
+          tokens_available: 500
+        });
+
+      if (clientError) throw clientError;
+
+      // 4) Cargar perfil del usuario
+      await loadUserProfile(authData.user.id);
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
