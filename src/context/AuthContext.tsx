@@ -279,4 +279,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-}
+  // --- Logout
+  const logout = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      setUser(null);
+      setSession(null);
+      setUserProfile(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Reset Password
+  const resetPassword = async (email: string): Promise<any> => {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  };
+
+  // --- Valores del contexto
+  const value: AuthContextType = {
+    user,
+    session,
+    userProfile,
+    userRole,
+    isAuthenticated: !!user,
+    isAdmin: userRole === 'admin',
+    isClient: userRole === 'client',
+    loading,
+    login,
+    loginAdmin,
+    register,
+    logout,
+    resetPassword,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
