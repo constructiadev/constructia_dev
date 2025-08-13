@@ -229,7 +229,7 @@ const AdminDashboard: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de Conexión</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={loadDashboardData}
+            onClick={() => navigate('/admin/financial')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -540,7 +540,7 @@ const AdminDashboard: React.FC = () => {
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-green-800 mb-1">Reportes Financieros</h4>
-            <p className="text-xs text-green-600 text-center">Análisis de ingresos y métricas</p>
+            <p className="text-xs text-green-600 text-center">Ingresos y comisiones</p>
           </button>
           
           <button className="flex flex-col items-center justify-center p-6 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200">
@@ -548,7 +548,7 @@ const AdminDashboard: React.FC = () => {
               <Brain className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-purple-800 mb-1">IA & Análisis</h4>
-            <p className="text-xs text-purple-600 text-center">Inteligencia artificial y insights</p>
+            <p className="text-xs text-purple-600 text-center">IA y procesamiento</p>
           </button>
           
           <button className="flex flex-col items-center justify-center p-6 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-200">
@@ -556,7 +556,7 @@ const AdminDashboard: React.FC = () => {
               <Globe className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-orange-800 mb-1">Integraciones</h4>
-            <p className="text-xs text-orange-600 text-center">Conectar plataformas externas</p>
+            <p className="text-xs text-orange-600 text-center">APIs y conexiones</p>
           </button>
         </div>
       </div>

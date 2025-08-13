@@ -876,14 +876,21 @@ const FinancialModule: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => setShowCommissionModal(true)}
+            onClick={() => {
+              // Abrir configuración de comisiones específica
+              const firstGateway = gateways[0];
+              if (firstGateway) {
+                setSelectedGateway(firstGateway);
+                setShowCommissionModal(true);
+              }
+            }}
             className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
           >
             <div className="bg-green-600 p-3 rounded-full mb-3">
               <Calculator className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-green-800 mb-1">Configurar Comisiones</h4>
-            <p className="text-xs text-green-600 text-center">Configuración financiera</p>
+            <p className="text-xs text-green-600 text-center">Gestión de comisiones</p>
           </button>
           
           <button 
@@ -894,7 +901,7 @@ const FinancialModule: React.FC = () => {
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-purple-800 mb-1">Análisis Avanzado</h4>
-            <p className="text-xs text-purple-600 text-center">Insights con IA</p>
+            <p className="text-xs text-purple-600 text-center">IA y métricas</p>
           </button>
           
           <button 
@@ -905,7 +912,7 @@ const FinancialModule: React.FC = () => {
               <CreditCard className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-orange-800 mb-1">Gestionar Clientes</h4>
-            <p className="text-xs text-orange-600 text-center">Administrar suscripciones</p>
+            <p className="text-xs text-orange-600 text-center">Clientes y planes</p>
           </button>
         </div>
       </div>
