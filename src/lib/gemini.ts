@@ -43,6 +43,15 @@ export class GeminiAIService {
       return this.parseAIResponse(text, data);
     } catch (error) {
       console.error('Error generating AI insights:', error);
+      // If it's a network error or API unavailable, use mock data
+      if (error instanceof Error && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('503') ||
+        error.message.includes('overloaded') ||
+        error.message.includes('network')
+      )) {
+        console.log('Using mock insights due to API unavailability');
+      }
       return this.getMockInsights(context);
     }
   }
