@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Currency as getCurrentClientData, Accessibility as TEST_USER_UUID, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments } from '../../lib/supabase';
+import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
+import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments, TEST_USER_UUID } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
