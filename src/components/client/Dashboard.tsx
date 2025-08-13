@@ -56,6 +56,14 @@ export default function ClientDashboard() {
   const loadDashboardData = async () => {
     console.log('🔍 [Dashboard] Starting loadDashboardData...');
     console.log('🔍 [Dashboard] User ID:', user?.id);
+    console.log('🔍 [Dashboard] User role:', userRole);
+    
+    // Si es admin, no cargar datos de cliente
+    if (userRole === 'admin') {
+      console.log('⚠️ [Dashboard] Admin user detected, redirecting...');
+      navigate('/admin/dashboard', { replace: true });
+      return;
+    }
     
     try {
       setLoading(true);
