@@ -61,11 +61,14 @@ export class GeminiAIService {
       try {
         return await apiCall();
       } catch (error: any) {
-        const isOverloaded = error.message?.includes('503') || error.message?.includes('overloaded');
+        const isRetryableError = error.message?.includes('503') || 
+                                error.message?.includes('overloaded') ||
+                                error.message?.includes('Failed to fetch') ||
+                                error.message?.includes('network');
         
-        if (isOverloaded && attempt < maxRetries) {
+        if (isRetryableError && attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
-          console.log(`API overloaded, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+          console.log(`API error (${error.message}), retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
