@@ -341,3 +341,20 @@ export interface APIIntegration {
   created_at: string;
   updated_at: string;
 }
+
+export interface AIInsight {
+  id: string;
+  insight_type: 'trend' | 'anomaly' | 'recommendation' | 'prediction' | 'alert';
+  title: string;
+  description: string;
+  data_source: any;
+  ai_analysis: any;
+  confidence_score: number;
+  category: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'archived' | 'dismissed';
+  generated_by: string;
+  expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
