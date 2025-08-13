@@ -50,10 +50,6 @@ const AdminDashboard: React.FC = () => {
     }
   ];
 
-  useEffect(() => {
-    console.log('🔧 [AdminDashboard] DEVELOPMENT MODE: Using mock data');
-  }, []);
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent':
@@ -81,6 +77,10 @@ const AdminDashboard: React.FC = () => {
         return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
+
+  useEffect(() => {
+    console.log('🔧 [AdminDashboard] DEVELOPMENT MODE: Using mock data');
+  }, []);
 
   return (
     <div className="space-y-6">
