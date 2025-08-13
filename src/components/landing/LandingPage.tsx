@@ -16,7 +16,10 @@ import {
   Phone,
   MapPin,
   MessageCircle,
-  Settings
+  Settings,
+  User,
+  Lock,
+  X
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
@@ -29,6 +32,18 @@ export default function LandingPage() {
     message: '',
     consultationType: 'demo'
   });
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [registrationData, setRegistrationData] = useState({
+    company_name: '',
+    contact_name: '',
+    email: '',
+    phone: '',
+    address: '',
+    cif: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +64,49 @@ export default function LandingPage() {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleRegistrationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setRegistrationData({
+      ...registrationData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleRegistrationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (registrationData.password !== registrationData.confirmPassword) {
+      alert('Las contraseñas no coinciden');
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      // Simular registro de cliente
+      console.log('Registrando nuevo cliente:', registrationData);
+      
+      // Aquí se conectaría con Supabase para crear el cliente
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      alert('¡Registro exitoso! Te hemos enviado un email de confirmación.');
+      setShowRegistrationModal(false);
+      setRegistrationData({
+        company_name: '',
+        contact_name: '',
+        email: '',
+        phone: '',
+        address: '',
+        cif: '',
+        password: '',
+        confirmPassword: ''
+      });
+    } catch (error) {
+      console.error('Error en registro:', error);
+      alert('Error al registrar. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   return (
@@ -72,14 +130,14 @@ export default function LandingPage() {
                 to="/client/dashboard" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
-                Acceso Directo Cliente
+                Acceso Clientes
               </Link>
-              <Link 
-                to="/client/dashboard" 
+              <button 
+                onClick={() => setShowRegistrationModal(true)}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium"
               >
-                Panel Cliente
-              </Link>
+                Registro
+              </button>
             </div>
           </div>
         </div>
@@ -1018,6 +1076,229 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Modal de Registro */}
+      {showRegistrationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="bg-white/20 p-3 rounded-full mr-4">
+                    <Users className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Registro de Cliente</h2>
+                    <p className="text-green-100">Únete a ConstructIA y revoluciona tu gestión documental</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRegistrationModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <form onSubmit={handleRegistrationSubmit} className="p-6 space-y-6">
+              {/* Información de la Empresa */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                  <Building2 className="h-5 w-5 mr-2" />
+                  Información de la Empresa
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre de la Empresa *
+                    </label>
+                    <input
+                      type="text"
+                      name="company_name"
+                      value={registrationData.company_name}
+                      onChange={handleRegistrationChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Ej: Construcciones García S.L."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CIF/NIF *
+                    </label>
+                    <input
+                      type="text"
+                      name="cif"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Teléfono
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={registrationData.phone}
+                      onChange={handleRegistrationChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="+34 600 000 000"
+                    />
+                  </div>
+                      value={registrationData.cif}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dirección
+                    </label>
+                    <input
+                      type="text"
+                      name="address"
+                      value={registrationData.address}
+                      onChange={handleRegistrationChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Calle Ejemplo 123, 28001 Madrid"
+                    />
+                  </div>
+                </div>
+              </div>
+                      onChange={handleRegistrationChange}
+              {/* Información del Contacto */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Información del Contacto
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre del Contacto *
+                    </label>
+                    <input
+                      type="text"
+                      name="contact_name"
+                      value={registrationData.contact_name}
+                      onChange={handleRegistrationChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Juan García"
+                    />
+                  </div>
+                      required
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={registrationData.email}
+                      onChange={handleRegistrationChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="juan@empresa.com"
+                    />
+                  </div>
+                </div>
+              </div>
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              {/* Configuración de Acceso */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                  <Lock className="h-5 w-5 mr-2" />
+                  Configuración de Acceso
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contraseña *
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={registrationData.password}
+                      onChange={handleRegistrationChange}
+                      required
+                      minLength={8}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                  </div>
+                      placeholder="B12345678"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Confirmar Contraseña *
+                    </label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={registrationData.confirmPassword}
+                      onChange={handleRegistrationChange}
+                      required
+                      minLength={8}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Repetir contraseña"
+                    />
+                  </div>
+                </div>
+              </div>
+                    />
+              {/* Términos y Condiciones */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    required
+                    className="mt-1 mr-3"
+                  />
+                  <div>
+                    <label htmlFor="terms" className="text-sm text-blue-800">
+                      Acepto los{' '}
+                      <Link to="/terms-of-service" className="text-blue-600 hover:text-blue-800 underline">
+                        Términos y Condiciones
+                      </Link>
+                      {' '}y la{' '}
+                      <Link to="/privacy-policy" className="text-blue-600 hover:text-blue-800 underline">
+                        Política de Privacidad
+                      </Link>
+                      {' '}de ConstructIA
+                    </label>
+                  </div>
+                </div>
+              </div>
+                  </div>
+              {/* Footer */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowRegistrationModal(false)}
+                  className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRegistering}
+                  className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isRegistering ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Registrando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Crear Cuenta
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
