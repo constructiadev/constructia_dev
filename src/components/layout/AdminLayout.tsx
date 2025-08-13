@@ -10,7 +10,8 @@ import {
   BarChart3,
   Brain,
   LogOut,
-  Shield
+  Shield,
+  Zap
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
