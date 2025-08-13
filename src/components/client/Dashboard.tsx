@@ -12,12 +12,6 @@ import {
   DollarSign,
   RefreshCw
 } from 'lucide-react';
-import { 
-  getCurrentClientData,
-  getClientProjects,
-  getClientCompanies,
-  getClientDocuments
-} from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -29,126 +23,29 @@ interface DashboardStats {
 }
 
 export default function ClientDashboard() {
-  const { user, userRole } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
-    totalProjects: 0,
-    totalCompanies: 0,
-    totalDocuments: 0,
-    documentsProcessed: 0,
-    storageUsed: 0,
-    storageLimit: 0
+    totalProjects: 5,
+    totalCompanies: 2,
+    totalDocuments: 23,
+    documentsProcessed: 18,
+    storageUsed: 157286400, // ~150MB
+    storageLimit: 1073741824 // 1GB
   });
-  const [clientData, setClientData] = useState<any>(null);
+  const [clientData] = useState({
+    id: 'demo-client',
+    company_name: 'Construcciones García S.L.',
+    contact_name: 'Juan García',
+    subscription_plan: 'professional',
+    storage_used: 157286400,
+    storage_limit: 1073741824
+  });
 
   useEffect(() => {
-    console.log('🔍 [Dashboard] useEffect triggered, user:', user?.email);
-    if (user) {
-      console.log('🔍 [Dashboard] User found, loading dashboard data...');
-      loadDashboardData();
-    } else {
-      console.log('⚠️ [Dashboard] No user found in useEffect');
-    }
-  }, [user]);
-
-  const loadDashboardData = async () => {
-    console.log('🔍 [Dashboard] Starting loadDashboardData...');
-    console.log('🔍 [Dashboard] User ID:', user?.id);
-    console.log('🔍 [Dashboard] User role:', userRole);
-    
-    // Si es admin, no cargar datos de cliente
-    if (userRole === 'admin') {
-      console.log('⚠️ [Dashboard] Admin user detected, redirecting...');
-      navigate('/admin/dashboard', { replace: true });
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!user?.id) {
-        console.error('❌ [Dashboard] No user ID found');
-        // En desarrollo, usar datos demo
-        console.log('⚠️ [Dashboard] No user ID, using demo data');
-        setClientData({
-          id: 'demo-client',
-          company_name: 'Construcciones García S.L.',
-          contact_name: 'Juan García',
-          subscription_plan: 'professional',
-          storage_used: 157286400, // ~150MB
-          storage_limit: 1073741824 // 1GB
-        });
-        setStats({
-          totalProjects: 5,
-          totalCompanies: 2,
-          totalDocuments: 23,
-          documentsProcessed: 18,
-          storageUsed: 157286400,
-          storageLimit: 1073741824
-        });
-        return;
-      }
-
-      console.log('🔍 [Dashboard] Getting client data for user:', user.id);
-      // Get client data
-      const client = await getCurrentClientData(user.id);
-      console.log('🔍 [Dashboard] Client data received:', client);
-      
-      if (!client) {
-        console.warn('⚠️ [Dashboard] No client data found, user may need to complete profile');
-        setError('No se encontraron datos del cliente para este usuario');
-        return;
-      }
-
-      console.log('🔍 [Dashboard] Setting client data:', client.company_name);
-      setClientData(client);
-
-      console.log('🔍 [Dashboard] Loading dashboard statistics for client:', client.id);
-      // Get dashboard statistics
-      const [projects, companies, documents] = await Promise.all([
-        getClientProjects(client.id),
-        getClientCompanies(client.id),
-        getClientDocuments(client.id)
-      ]);
-      
-      console.log('🔍 [Dashboard] Data loaded:');
-      console.log('  - Projects:', projects?.length || 0);
-      console.log('  - Companies:', companies?.length || 0);
-      console.log('  - Documents:', documents?.length || 0);
-
-      const processedDocs = documents.filter(doc => 
-        doc.upload_status === 'completed' || doc.upload_status === 'uploaded_to_obralia'
-      ).length;
-      
-      console.log('🔍 [Dashboard] Processed documents:', processedDocs);
-
-      setStats({
-        totalProjects: projects.length,
-        totalCompanies: companies.length,
-        totalDocuments: documents.length,
-        documentsProcessed: processedDocs,
-        storageUsed: client.storage_used || 0,
-        storageLimit: client.storage_limit || 524288000
-      });
-      
-      console.log('✅ [Dashboard] Dashboard data loaded successfully');
-
-    } catch (error) {
-      console.error('❌ [Dashboard] Error loading dashboard data:', error);
-      console.error('❌ [Dashboard] Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: user?.id
-      });
-      setError(error instanceof Error ? error.message : 'Error al cargar los datos del dashboard');
-    } finally {
-      console.log('🔍 [Dashboard] Setting loading to false');
-      setLoading(false);
-    }
-  };
+    console.log('🔧 [Dashboard] DEVELOPMENT MODE: Using mock data');
+  }, []);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -162,61 +59,15 @@ export default function ClientDashboard() {
     return Math.round((stats.storageUsed / stats.storageLimit) * 100);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center space-x-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-          <span className="text-gray-600">Cargando dashboard...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {error === 'No se encontraron datos del cliente para este usuario' ? 'Perfil de Cliente Incompleto' : 'Error'}
-          </h2>
-          <p className="text-gray-600 mb-4">
-            {error === 'No se encontraron datos del cliente para este usuario' 
-              ? 'Tu perfil de cliente no está completo. Por favor, completa tu información para acceder al dashboard.'
-              : error
-            }
-          </p>
-          <div className="flex space-x-3 justify-center">
-            <button
-              onClick={loadDashboardData}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Reintentar
-            </button>
-            <button
-              onClick={() => navigate('/client/settings')}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              {error === 'No se encontraron datos del cliente para este usuario' ? 'Completar Perfil' : 'Ir a Configuración'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Bienvenido, {clientData?.contact_name || user?.email}
+          Bienvenido, {clientData?.contact_name || 'Juan García'}
         </h1>
         <p className="text-gray-600">
-          {clientData?.company_name && `${clientData.company_name} • `}
-          Plan {clientData?.subscription_plan || 'Básico'}
+          {clientData.company_name} • Plan {clientData.subscription_plan}
         </p>
       </div>
 
