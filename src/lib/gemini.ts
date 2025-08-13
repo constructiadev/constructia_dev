@@ -36,7 +36,7 @@ export class GeminiAIService {
 
     try {
       const prompt = this.buildPrompt(data, context);
-      const result = await this.model.generateContent(prompt);
+      const result = await this.retryApiCall(() => this.model.generateContent(prompt));
       const response = await result.response;
       const text = response.text();
       
@@ -45,6 +45,26 @@ export class GeminiAIService {
       console.error('Error generating AI insights:', error);
       return this.getMockInsights(context);
     }
+  }
+
+  private async retryApiCall<T>(apiCall: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await apiCall();
+      } catch (error: any) {
+        const isOverloaded = error.message?.includes('503') || error.message?.includes('overloaded');
+        
+        if (isOverloaded && attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
+          console.log(`API overloaded, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        throw error;
+      }
+    }
+    throw new Error('Max retries exceeded');
   }
 
   private buildPrompt(data: any, context: string): string {
@@ -170,7 +190,7 @@ export class GeminiAIService {
         Responde solo con el texto del resumen, sin formato adicional.
       `;
 
-      const result = await this.model.generateContent(prompt);
+      const result = await this.retryApiCall(() => this.model.generateContent(prompt));
       const response = await result.response;
       return response.text();
     } catch (error) {
