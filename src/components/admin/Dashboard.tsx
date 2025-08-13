@@ -209,8 +209,6 @@ const AdminDashboard: React.FC = () => {
           )}
         </div>
       </div>
-          </div>
-        )}
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -267,55 +265,6 @@ const AdminDashboard: React.FC = () => {
                 <BarChart3 className="w-6 h-6 text-purple-600 mr-2" />
                 <span className="text-sm font-medium">Generar Reportes</span>
               </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  function getStatusIcon(status: string) {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'in_progress':
-        return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-500" />;
-    }
-  }
-};
-
-export default AdminDashboard;
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h2>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4">
-                <button className="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <Users className="w-6 h-6 text-indigo-600 mr-2" />
-                  <span className="text-sm font-medium">Gestionar Clientes</span>
-                </button>
-                <button className="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <FileText className="w-6 h-6 text-green-600 mr-2" />
-                  <span className="text-sm font-medium">Revisar Documentos</span>
-                </button>
-                <button className="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <DollarSign className="w-6 h-6 text-yellow-600 mr-2" />
-                  <span className="text-sm font-medium">Ver Finanzas</span>
-                </button>
-                <button className="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <BarChart3 className="w-6 h-6 text-purple-600 mr-2" />
-                  <span className="text-sm font-medium">Generar Reportes</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>
