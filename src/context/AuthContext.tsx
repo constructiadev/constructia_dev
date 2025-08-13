@@ -166,10 +166,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 1) Autenticación
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        console.error('Admin auth error:', error);
         if (error.message?.includes('Invalid login credentials')) {
-          throw new Error('Credenciales incorrectas. Verifica tu email y contraseña.');
+          throw new Error('Credenciales de administrador incorrectas.');
         }
-        throw error;
+        throw new Error(`Error de autenticación: ${error.message}`);
       }
 
       const authedUser = data.user;
@@ -187,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileError) {
         console.error('Error obteniendo perfil:', profileError);
         await supabase.auth.signOut();
-        throw new Error('Error al verificar permisos de administrador.');
+        throw new Error(`Error de base de datos: ${profileError.message}`);
       }
 
       if (!profile) {
@@ -199,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (insertError) {
           console.error('Error creando perfil admin:', insertError);
           await supabase.auth.signOut();
-          throw new Error('Error al crear el perfil de administrador.');
+          throw new Error(`Error creando perfil: ${insertError.message}`);
         }
 
         await loadUserProfile(authedUser.id);
@@ -208,12 +209,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profile.role !== 'admin') {
         await supabase.auth.signOut();
-        throw new Error('Acceso no autorizado. Solo administradores pueden acceder.');
+        throw new Error('Acceso denegado: Este usuario no tiene permisos de administrador.');
       }
 
       await loadUserProfile(authedUser.id);
     } catch (err) {
       console.error('Admin login error:', err);
+      // Asegurar que el usuario se desloguee en caso de error
+      try {
+        await supabase.auth.signOut();
+      } catch (logoutError) {
+        console.error('Error during logout after failed admin login:', logoutError);
+      }
       throw err;
     } finally {
       setLoading(false);

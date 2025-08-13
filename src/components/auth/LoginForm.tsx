@@ -35,19 +35,22 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
 
     try {
       if (isAdminMode) {
-        await loginAdmin(email, password); // esta función ya carga el perfil/rol
-      } else {
-        await login(email, password); // idem
-      }
-
-      // Tras login, el contexto ya tiene userRole actualizado
-      if (userRole === 'admin') {
+        await loginAdmin(email, password);
+        // Solo navegar si el login fue exitoso
         navigate('/admin/dashboard', { replace: true });
       } else {
+        await login(email, password);
+        // Solo navegar si el login fue exitoso
         navigate('/client/dashboard', { replace: true });
       }
     } catch (err: any) {
-      setError(err?.message || 'Credenciales inválidas o error de servidor.');
+      console.error('Login error:', err);
+      // Mantener al usuario en la página actual y mostrar error específico
+      if (isAdminMode) {
+        setError(err?.message || 'Error de acceso administrativo. Verifica tus credenciales.');
+      } else {
+        setError(err?.message || 'Credenciales inválidas. Verifica tu email y contraseña.');
+      }
     } finally {
       setSubmitting(false);
     }
