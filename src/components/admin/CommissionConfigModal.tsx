@@ -346,20 +346,6 @@ export default function CommissionConfigModal({
           </div>
 
           {/* Información Importante */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-yellow-800 mb-2">Información Importante</h4>
-                <ul className="text-sm text-yellow-700 space-y-1">
-                  <li>• Los períodos no pueden solaparse entre sí</li>
-                  <li>• Las comisiones se calculan automáticamente según la fecha de transacción</li>
-                  <li>• Si no hay período aplicable, se usa la configuración estándar</li>
-                  <li>• Los cambios afectan solo a transacciones futuras</li>
-                </ul>
-              </div>
-            </div>
-          </div>
 
           {/* Footer */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">

@@ -552,9 +552,6 @@ const FinancialModule: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Comisiones por Pasarela de Pago</h3>
-          <div className="text-sm text-gray-600">
-            Cálculo inteligente con períodos configurables
-          </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -623,30 +620,45 @@ const FinancialModule: React.FC = () => {
       </div>
 
       {/* Insights de IA */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {aiInsights.slice(0, 4).map((insight, index) => {
-          const colors = [
-            'bg-green-50 border-green-200 text-green-800',
-            'bg-yellow-50 border-yellow-200 text-yellow-800', 
-            'bg-blue-50 border-blue-200 text-blue-800',
-            'bg-purple-50 border-purple-200 text-purple-800'
-          ];
-          const icons = [CheckCircle, AlertTriangle, TrendingUp, Activity];
-          const Icon = icons[index];
-          
-          return (
-            <div key={insight.title} className={`border rounded-xl p-6 ${colors[index]}`}>
-              <div className="flex items-center mb-3">
-                <Icon className="w-5 h-5 mr-2" />
-                <h3 className="font-semibold">{insight.title}</h3>
-              </div>
-              <p className="text-sm">{insight.description}</p>
-              <div className="mt-3 text-xs opacity-75">
-                Confianza: {insight.confidence}%
-              </div>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+            <h3 className="font-semibold text-green-800">Crecimiento Acelerado de Clientes</h3>
+          </div>
+          <p className="text-sm text-green-700">
+            Se observa un crecimiento del 23% en nuevos clientes este mes.
+          </p>
+          <div className="mt-3 text-xs text-green-600">
+            Confianza: 87%
+          </div>
+        </div>
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
+            <h3 className="font-semibold text-yellow-800">Optimizar Procesamiento de Documentos</h3>
+          </div>
+          <p className="text-sm text-yellow-700">
+            La precisión de IA está en 94.2%. Recomiendo ajustar los parámetros del modelo para alcanzar el 97% objetivo.
+          </p>
+          <div className="mt-3 text-xs text-yellow-600">
+            Confianza: 92%
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <div className="flex items-center mb-3">
+            <TrendingUp className="w-5 h-5 text-blue-600 mr-2" />
+            <h3 className="font-semibold text-blue-800">Uso Elevado de Almacenamiento</h3>
+          </div>
+          <p className="text-sm text-blue-700">
+            Varios clientes están cerca del límite de almacenamiento. Considerar ofertas de upgrade automático.
+          </p>
+          <div className="mt-3 text-xs text-blue-600">
+            Confianza: 95%
+          </div>
+        </div>
       </div>
 
       {/* Gráficos Financieros */}
@@ -864,14 +876,14 @@ const FinancialModule: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => navigate('/admin/settings')}
+            onClick={() => setShowCommissionModal(true)}
             className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
           >
             <div className="bg-green-600 p-3 rounded-full mb-3">
               <Calculator className="w-6 h-6 text-white" />
             </div>
             <h4 className="font-semibold text-green-800 mb-1">Configurar Comisiones</h4>
-            <p className="text-xs text-green-600 text-center">Gestionar períodos de comisión</p>
+            <p className="text-xs text-green-600 text-center">Configuración financiera</p>
           </button>
           
           <button 
