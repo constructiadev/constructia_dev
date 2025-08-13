@@ -95,7 +95,7 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
               placeholder="tu@email.com"
               required
-              disabled={submitting || loading}
+              disabled={submitting}
             />
           </div>
 
@@ -113,14 +113,14 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors pr-12"
                 placeholder="••••••••"
                 required
-                disabled={submitting || loading}
+                disabled={submitting}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                disabled={submitting || loading}
+                disabled={submitting}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -135,10 +135,10 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
 
           <button
             type="submit"
-            disabled={submitting || loading}
+            disabled={submitting}
             className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {(submitting || loading) ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            {submitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
         </form>
 
@@ -157,7 +157,7 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
           <button
             type="button"
             onClick={fillDemoCredentials}
-            disabled={submitting || loading}
+            disabled={submitting}
             className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
           >
             {isAdminMode ? 'Usar credenciales de admin demo' : 'Usar credenciales de cliente demo'}
