@@ -11,7 +11,6 @@ import {
   Clock,
   Info
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { usePaymentGateways } from '../../context/PaymentGatewayContext';
 import SEPAMandateForm from './SEPAMandateForm';
 import type { PaymentGateway } from '../../types';
@@ -29,7 +28,6 @@ export default function PaymentMethodSelector({
   onSelect, 
   selectedGatewayId 
 }: PaymentMethodSelectorProps) {
-  const { user } = useAuth();
   const { gateways: availableGateways, loading, error } = usePaymentGateways();
   const [showCommissionDetails, setShowCommissionDetails] = useState(false);
   const [showSEPAForm, setShowSEPAForm] = useState(false);

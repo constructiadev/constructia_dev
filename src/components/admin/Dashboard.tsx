@@ -13,10 +13,8 @@ import {
   Calendar,
   Download
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 
 const AdminDashboard: React.FC = () => {
-  const { user } = useAuth();
   const [loading] = useState(false);
   
   // Datos mock para desarrollo
