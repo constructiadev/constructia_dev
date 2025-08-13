@@ -34,23 +34,29 @@ export default function LoginForm({ isAdmin: isAdminProp }: LoginFormProps) {
     setSubmitting(true);
 
     try {
+      // Modo de desarrollo para admin sin Supabase
+      if (isAdminMode && email === 'admin@constructia.com' && password === 'superadmin123') {
+        console.log('🔧 [LoginForm] Using development admin mode');
+        
+        // Simular delay de autenticación
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Usar loginAdmin que ya maneja el modo desarrollo
+        await loginAdmin(email, password);
+        navigate('/admin', { replace: true });
+        return;
+      }
+      
       if (isAdminMode) {
         await loginAdmin(email, password);
-        // Solo navegar si el login fue exitoso
-        navigate('/admin/dashboard', { replace: true });
+        navigate('/admin', { replace: true });
       } else {
         await login(email, password);
-        // Solo navegar si el login fue exitoso
         navigate('/client/dashboard', { replace: true });
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      // Mantener al usuario en la página actual y mostrar error específico
-      if (isAdminMode) {
-        setError(err?.message || 'Error de acceso administrativo. Verifica tus credenciales.');
-      } else {
-        setError(err?.message || 'Credenciales inválidas. Verifica tu email y contraseña.');
-      }
+      setError(err?.message || 'Error de autenticación. Verifica tus credenciales.');
     } finally {
       setSubmitting(false);
     }
