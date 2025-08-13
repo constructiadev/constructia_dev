@@ -42,10 +42,16 @@ export class GeminiAIService {
       
       return this.parseAIResponse(text, data);
     } catch (error) {
-      console.error('Error generating AI insights:', error);
-      // If it's a network error or API unavailable, use mock data
+      // Check if it's a quota exceeded error (429)
+      if (error instanceof Error && error.message.includes('429')) {
+        console.warn('Gemini API quota exceeded, using mock insights:', error.message);
+      } else {
+        console.error('Error generating AI insights:', error);
+      }
+      // If it's a network error, quota exceeded, or API unavailable, use mock data
       if (error instanceof Error && (
         error.message.includes('Failed to fetch') ||
+        error.message.includes('429') ||
         error.message.includes('503') ||
         error.message.includes('overloaded') ||
         error.message.includes('network')
