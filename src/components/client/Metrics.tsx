@@ -11,6 +11,7 @@ import {
   Target,
   Activity
 } from 'lucide-react';
+import { getAllClients, getClientDocuments } from '../../lib/supabase';
 
 interface MetricsData {
   totalDocuments: number;
@@ -25,32 +26,102 @@ interface MetricsData {
 
 export default function Metrics() {
   const [loading, setLoading] = useState(true);
-  
-  // Datos mock para desarrollo
-  const [metrics] = useState<MetricsData>({
+  const [metrics, setMetrics] = useState<MetricsData>({
     totalDocuments: 0,
-    documentsThisMonth: 8,
-    avgConfidence: 94.2,
-    processingTime: 2.3,
-    successRate: 96.7,
-    documentsByType: {
-      'Certificado': 5,
-      'Factura': 4,
-      'Contrato': 3,
-      'Plano': 2,
-      'Otros': 1
-    },
-    documentsByStatus: {
-      'completed': 12,
-      'processing': 2,
-      'pending': 1
-    },
-    monthlyProgress: [2, 4, 6, 8, 12, 15]
+    documentsThisMonth: 0,
+    avgConfidence: 0,
+    processingTime: 0,
+    successRate: 0,
+    documentsByType: {},
+    documentsByStatus: {},
+    monthlyProgress: []
   });
+  const [error, setError] = useState<string | null>(null);
+  
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
-  const loadMetrics = () => {
-    console.log('🔧 [Metrics] DEVELOPMENT MODE: Using mock data');
+  useEffect(() => {
+    loadMetrics();
+  }, []);
+
+  const loadMetrics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
+      }
+      
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      
+      // Obtener documentos del cliente
+      const documents = await getClientDocuments(activeClient.id);
+      
+      // Calcular métricas reales
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const documentsThisMonth = documents.filter(doc => {
+        const docDate = new Date(doc.created_at);
+        return docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear;
+      }).length;
+      
+      const avgConfidence = documents.length > 0 
+        ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
+        : 0;
+      
+      const completedDocs = documents.filter(d => d.upload_status === 'completed').length;
+      const successRate = documents.length > 0 ? (completedDocs / documents.length) * 100 : 0;
+      
+      // Agrupar por tipo
+      const documentsByType: { [key: string]: number } = {};
+      documents.forEach(doc => {
+        const type = doc.document_type || 'Sin clasificar';
+        documentsByType[type] = (documentsByType[type] || 0) + 1;
+      });
+      
+      // Agrupar por estado
+      const documentsByStatus: { [key: string]: number } = {};
+      documents.forEach(doc => {
+        const status = doc.upload_status;
+        documentsByStatus[status] = (documentsByStatus[status] || 0) + 1;
+      });
+      
+      // Calcular progreso mensual (últimos 6 meses)
+      const monthlyProgress = [];
+      for (let i = 5; i >= 0; i--) {
+        const targetDate = new Date();
+        targetDate.setMonth(targetDate.getMonth() - i);
+        
+        const docsInMonth = documents.filter(doc => {
+          const docDate = new Date(doc.created_at);
+          return docDate.getMonth() === targetDate.getMonth() && 
+                 docDate.getFullYear() === targetDate.getFullYear();
+        }).length;
+        
+        monthlyProgress.push(docsInMonth);
+      }
+      
+      setMetrics({
+        totalDocuments: documents.length,
+        documentsThisMonth,
+        avgConfidence: Math.round(avgConfidence * 10) / 10,
+        processingTime: 2.3, // Valor estimado
+        successRate: Math.round(successRate * 10) / 10,
+        documentsByType,
+        documentsByStatus,
+        monthlyProgress
+      });
+      
+    } catch (err) {
+      console.error('Error loading metrics:', err);
+      setError(err instanceof Error ? err.message : 'Error loading metrics');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -64,6 +135,22 @@ export default function Metrics() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={loadMetrics}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -71,8 +158,8 @@ export default function Metrics() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Métricas y Análisis</h1>
           <p className="text-gray-600">Analiza el rendimiento de tu gestión documental</p>
-          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔧 MODO DESARROLLO - Datos simulados
+          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            ✅ DATOS REALES - Métricas calculadas desde BD
           </div>
         </div>
         <div className="flex items-center space-x-4">
@@ -301,6 +388,18 @@ export default function Metrics() {
                 <p className="font-medium text-yellow-800">Oportunidad de mejora</p>
                 <p className="text-sm text-yellow-700">
                   Tu tasa de éxito es del {metrics.successRate}%. Considera revisar la calidad de los documentos
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {metrics.totalDocuments === 0 && (
+            <div className="flex items-center p-3 bg-gray-50 rounded-lg">
+              <FileText className="w-5 h-5 text-gray-500 mr-3" />
+              <div>
+                <p className="font-medium text-gray-800">Sin documentos</p>
+                <p className="text-sm text-gray-700">
+                  Comienza subiendo documentos para ver métricas detalladas
                 </p>
               </div>
             </div>

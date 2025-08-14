@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments, TEST_USER_UUID } from '../../lib/supabase';
+import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments, getAllClients, supabase } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -35,26 +35,22 @@ export default function ClientDashboard() {
       setLoading(true);
       setError(null);
 
-      // Para desarrollo, usar UUID válido
-      const testClientId = TEST_USER_UUID;
+      // Obtener el primer cliente disponible de la base de datos
+      const allClients = await getAllClients();
       
-      // Obtener datos del cliente
-      const client = await getCurrentClientData(testClientId);
-      
-      if (!client) {
-        // Si no existe el cliente, crear datos de prueba
-        const { createTestData } = await import('../../lib/supabase');
-        const newClient = await createTestData();
-        setClientData(newClient);
-      } else {
-        setClientData(client);
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos. Ejecuta el script de población primero.');
       }
+      
+      // Usar el primer cliente activo disponible
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      setClientData(activeClient);
 
       // Obtener estadísticas
       const [projects, companies, documents] = await Promise.all([
-        getClientProjects(client?.id || testClientId),
-        getClientCompanies(client?.id || testClientId),
-        getClientDocuments(client?.id || testClientId)
+        getClientProjects(activeClient.id),
+        getClientCompanies(activeClient.id),
+        getClientDocuments(activeClient.id)
       ]);
 
       const newStats = {
@@ -62,8 +58,8 @@ export default function ClientDashboard() {
         totalCompanies: companies.length,
         totalDocuments: documents.length,
         documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
-        storageUsed: client?.storage_used || 0,
-        storageLimit: client?.storage_limit || 1073741824
+        storageUsed: activeClient.storage_used || 0,
+        storageLimit: activeClient.storage_limit || 1073741824
       };
 
       setStats(newStats);
@@ -130,6 +126,7 @@ export default function ClientDashboard() {
         <div className="mt-3 flex items-center space-x-2">
           <CheckCircle className="w-4 h-4 text-green-600" />
           <span className="text-sm text-green-600">Conectado a base de datos</span>
+          <span className="text-sm text-gray-500">• ID: {clientData?.client_id}</span>
         </div>
       </div>
 

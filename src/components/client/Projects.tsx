@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
+import { getAllClients, getClientProjects } from '../../lib/supabase';
 
 interface Project {
   id: string;
@@ -25,6 +26,9 @@ interface Company {
 
 export default function Projects() {
   const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -38,42 +42,35 @@ export default function Projects() {
     location: ''
   });
 
-  // Datos mock para desarrollo
-  const projects = [
-    {
-      id: '1',
-      name: 'Edificio Residencial García',
-      description: 'Construcción de edificio residencial de 4 plantas',
-      status: 'active' as const,
-      progress: 65,
-      start_date: '2024-01-15',
-      end_date: '2025-06-30',
-      budget: 450000,
-      location: 'Madrid, España',
-      company_id: '1',
-      companies: { name: 'Construcciones García S.L.' },
-      created_at: new Date().toISOString()
-    },
-    {
-      id: '2',
-      name: 'Reforma Oficinas López',
-      description: 'Reforma integral de oficinas corporativas',
-      status: 'planning' as const,
-      progress: 15,
-      start_date: '2025-03-01',
-      end_date: '2025-08-15',
-      budget: 125000,
-      location: 'Barcelona, España',
-      company_id: '2',
-      companies: { name: 'Reformas Integrales López' },
-      created_at: new Date().toISOString()
-    }
-  ];
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
-  const companies = [
-    { id: '1', name: 'Construcciones García S.L.' },
-    { id: '2', name: 'Reformas Integrales López' }
-  ];
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
+      }
+      
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      
+      // Obtener proyectos del cliente
+      const projectsData = await getClientProjects(activeClient.id);
+      setProjects(projectsData || []);
+      
+    } catch (err) {
+      console.error('Error loading projects:', err);
+      setError(err instanceof Error ? err.message : 'Error loading projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     // Simular creación de proyecto
@@ -126,6 +123,22 @@ export default function Projects() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={loadProjects}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -133,8 +146,8 @@ export default function Projects() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Proyectos</h1>
           <p className="text-gray-600">Gestiona tus proyectos de construcción</p>
-          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔧 MODO DESARROLLO - Datos simulados
+          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            ✅ DATOS REALES - {projects.length} proyectos cargados
           </div>
         </div>
         <button
@@ -297,6 +310,34 @@ export default function Projects() {
         ))}
       </div>
 
+      useEffect(() => {
+        loadProjects();
+      }, []);
+
+      const loadProjects = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          // Obtener el primer cliente disponible
+          const allClients = await getAllClients();
+          if (!allClients || allClients.length === 0) {
+            throw new Error('No hay clientes en la base de datos');
+          }
+          
+          const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+          
+          // Obtener proyectos del cliente
+          const projectsData = await getClientProjects(activeClient.id);
+          setProjects(projectsData || []);
+          
+        } catch (err) {
+          console.error('Error loading projects:', err);
+          setError(err instanceof Error ? err.message : 'Error loading projects');
+        } finally {
+          setLoading(false);
+        }
+      };
       {filteredProjects.length === 0 && (
         <div className="text-center py-12">
           <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />

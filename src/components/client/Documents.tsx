@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
+import { getAllClients, getClientDocuments } from '../../lib/supabase';
 
 interface Document {
   id: string;
@@ -19,40 +20,39 @@ interface Document {
 
 const Documents: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Datos mock para desarrollo
-  const documents = [
-    {
-      id: '1',
-      filename: 'certificado_obra_123.pdf',
-      original_name: 'Certificado de Obra - Proyecto García.pdf',
-      file_size: 2048576,
-      file_type: 'application/pdf',
-      document_type: 'Certificado',
-      classification_confidence: 95,
-      upload_status: 'completed',
-      obralia_status: 'validated',
-      security_scan_status: 'safe',
-      created_at: new Date().toISOString(),
-      projects: { name: 'Edificio Residencial García' }
-    },
-    {
-      id: '2',
-      filename: 'factura_materiales_456.pdf',
-      original_name: 'Factura Materiales - Enero 2025.pdf',
-      file_size: 1024768,
-      file_type: 'application/pdf',
-      document_type: 'Factura',
-      classification_confidence: 92,
-      upload_status: 'processing',
-      obralia_status: 'pending',
-      security_scan_status: 'safe',
-      created_at: new Date().toISOString(),
-      projects: { name: 'Reforma Oficinas López' }
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  const loadDocuments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
+      }
+      
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      
+      // Obtener documentos del cliente
+      const documentsData = await getClientDocuments(activeClient.id);
+      setDocuments(documentsData || []);
+      
+    } catch (err) {
+      console.error('Error loading documents:', err);
+      setError(err instanceof Error ? err.message : 'Error loading documents');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -103,6 +103,22 @@ const Documents: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={loadDocuments}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -110,8 +126,8 @@ const Documents: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
           <p className="text-gray-600">Gestiona tus documentos subidos</p>
-          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔧 MODO DESARROLLO - Datos simulados
+          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            ✅ DATOS REALES - {documents.length} documentos cargados
           </div>
         </div>
         <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">

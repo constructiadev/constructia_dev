@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Plus, Edit, Trash2, MapPin, Phone, Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { getAllClients, getClientCompanies } from '../../lib/supabase';
 
 interface Company {
   id: string;
@@ -16,32 +17,37 @@ interface Company {
 const Companies: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // Datos mock para desarrollo
-  const companies = [
-    {
-      id: '1',
-      name: 'Construcciones García S.L.',
-      cif: 'B12345678',
-      address: 'Calle Construcción 123, 28001 Madrid',
-      phone: '+34 600 123 456',
-      email: 'info@construccionesgarcia.com',
-      created_at: new Date().toISOString(),
-      projects: [{ count: 3 }],
-      documents: [{ count: 15 }]
-    },
-    {
-      id: '2',
-      name: 'Reformas Integrales López',
-      cif: 'B87654321',
-      address: 'Avenida Reforma 456, 28002 Madrid',
-      phone: '+34 600 654 321',
-      email: 'contacto@reformaslopez.com',
-      created_at: new Date().toISOString(),
-      projects: [{ count: 1 }],
-      documents: [{ count: 8 }]
+  useEffect(() => {
+    loadCompanies();
+  }, []);
+
+  const loadCompanies = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
+      }
+      
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      
+      // Obtener empresas del cliente
+      const companiesData = await getClientCompanies(activeClient.id);
+      setCompanies(companiesData || []);
+      
+    } catch (err) {
+      console.error('Error loading companies:', err);
+      setError(err instanceof Error ? err.message : 'Error loading companies');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   if (loading) {
     return (
@@ -54,6 +60,22 @@ const Companies: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={loadCompanies}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -61,8 +83,8 @@ const Companies: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
           <p className="text-gray-600">Gestiona las empresas de tus proyectos</p>
-          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔧 MODO DESARROLLO - Datos simulados
+          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            ✅ DATOS REALES - {companies.length} empresas cargadas
           </div>
         </div>
         <button
