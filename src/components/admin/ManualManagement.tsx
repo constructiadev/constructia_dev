@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 import {
   getAllClients,
-  getClientDocuments,
   updateClientObraliaCredentials,
   removeFile,
   getClientCompanies,
