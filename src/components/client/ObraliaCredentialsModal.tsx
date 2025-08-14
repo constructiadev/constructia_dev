@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import { 
   Shield, 
   Eye, 
@@ -24,17 +21,6 @@ interface ObraliaCredentialsModalProps {
   clientName: string;
 }
 
-const schema = yup.object({
-  username: yup
-    .string()
-    .required('El usuario de Obralia es obligatorio')
-    .min(3, 'El usuario debe tener al menos 3 caracteres'),
-  password: yup
-    .string()
-    .required('La contraseña de Obralia es obligatoria')
-    .min(6, 'La contraseña debe tener al menos 6 caracteres')
-});
-
 export default function ObraliaCredentialsModal({ 
   isOpen, 
   onSave, 
@@ -42,25 +28,35 @@ export default function ObraliaCredentialsModal({
 }: ObraliaCredentialsModalProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset
-  } = useForm<ObraliaCredentials>({
-    resolver: yupResolver(schema),
-    defaultValues: {
-      username: 'obralia_user',
-      password: 'obralia_pass'
-    }
+  const [credentials, setCredentials] = useState<ObraliaCredentials>({
+    username: '',
+    password: ''
   });
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  const onSubmit = async (data: ObraliaCredentials) => {
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!credentials.username || credentials.username.length < 3) {
+      newErrors.username = 'El usuario de Obralia es obligatorio (mín. 3 caracteres)';
+    }
+    if (!credentials.password || credentials.password.length < 6) {
+      newErrors.password = 'La contraseña de Obralia es obligatoria (mín. 6 caracteres)';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
     setIsSubmitting(true);
     try {
-      await onSave(data);
-      reset();
+      await onSave(credentials);
+      setCredentials({ username: '', password: '' });
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
       // Show specific error message to user
@@ -122,7 +118,7 @@ export default function ObraliaCredentialsModal({
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -133,7 +129,8 @@ export default function ObraliaCredentialsModal({
                   <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  {...register('username')}
+                  value={credentials.username}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
                   type="text"
                   className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${
                     errors.username 
@@ -158,7 +155,8 @@ export default function ObraliaCredentialsModal({
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  {...register('password')}
+                  value={credentials.password}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
                   type={showPassword ? 'text' : 'password'}
                   className={`block w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${
                     errors.password 
