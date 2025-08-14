@@ -55,8 +55,7 @@ async function injectDocumentsToQueue() {
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
       .select('id, company_name, contact_name')
-      .eq('subscription_status', 'active')
-      .limit(5);
+      .eq('subscription_status', 'active');
 
     if (clientsError || !clients || clients.length === 0) {
       throw new Error('No se encontraron clientes activos');
@@ -67,8 +66,36 @@ async function injectDocumentsToQueue() {
       .select('id, name, client_id')
       .in('client_id', clients.map(c => c.id));
 
-    if (companiesError || !companies || companies.length === 0) {
-      throw new Error('No se encontraron empresas');
+    if (companiesError) {
+      throw new Error(`Error obteniendo empresas: ${companiesError.message}`);
+    }
+
+    // Si no hay empresas, crear algunas automáticamente
+    if (!companies || companies.length === 0) {
+      console.log('⚠️ No se encontraron empresas, creando empresas de ejemplo...');
+      
+      const newCompanies = clients.slice(0, 5).map(client => ({
+        client_id: client.id,
+        name: client.company_name,
+        cif: `B${Math.floor(Math.random() * 90000000) + 10000000}`,
+        address: `Calle Ejemplo ${Math.floor(Math.random() * 999) + 1}, Madrid`,
+        phone: `+34 ${Math.floor(Math.random() * 900) + 600} ${Math.floor(Math.random() * 900) + 100} ${Math.floor(Math.random() * 900) + 100}`,
+        email: `contacto@${client.company_name.toLowerCase().replace(/\s+/g, '')}.com`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { data: createdCompanies, error: createError } = await supabase
+        .from('companies')
+        .insert(newCompanies)
+        .select();
+
+      if (createError) {
+        throw new Error(`Error creando empresas: ${createError.message}`);
+      }
+
+      companies = createdCompanies;
+      console.log(`✅ ${companies.length} empresas creadas automáticamente`);
     }
 
     const { data: projects, error: projectsError } = await supabase
@@ -76,8 +103,40 @@ async function injectDocumentsToQueue() {
       .select('id, name, company_id, client_id')
       .in('client_id', clients.map(c => c.id));
 
-    if (projectsError || !projects || projects.length === 0) {
-      throw new Error('No se encontraron proyectos');
+    if (projectsError) {
+      throw new Error(`Error obteniendo proyectos: ${projectsError.message}`);
+    }
+
+    // Si no hay proyectos, crear algunos automáticamente
+    if (!projects || projects.length === 0) {
+      console.log('⚠️ No se encontraron proyectos, creando proyectos de ejemplo...');
+      
+      const newProjects = companies.map((company, index) => ({
+        company_id: company.id,
+        client_id: company.client_id,
+        name: `Proyecto ${index + 1} - ${company.name}`,
+        description: `Proyecto de construcción para ${company.name}`,
+        status: 'active',
+        progress: Math.floor(Math.random() * 80) + 10,
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        budget: Math.floor(Math.random() * 500000) + 50000,
+        location: 'Madrid, España',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { data: createdProjects, error: createProjectsError } = await supabase
+        .from('projects')
+        .insert(newProjects)
+        .select();
+
+      if (createProjectsError) {
+        throw new Error(`Error creando proyectos: ${createProjectsError.message}`);
+      }
+
+      projects = createdProjects;
+      console.log(`✅ ${projects.length} proyectos creados automáticamente`);
     }
 
     console.log(`✅ Datos obtenidos: ${clients.length} clientes, ${companies.length} empresas, ${projects.length} proyectos`);
