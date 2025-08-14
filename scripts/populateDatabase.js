@@ -224,7 +224,7 @@ async function populateDatabase() {
       });
     }
 
-    const { error: clientsError } = await supabase
+    const { data: clientsData, error: clientsError } = await supabase
       .from('clients')
       .upsert(clients)
       .select();
