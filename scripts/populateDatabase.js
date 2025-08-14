@@ -226,7 +226,8 @@ async function populateDatabase() {
 
     const { error: clientsError } = await supabase
       .from('clients')
-      .upsert(clients);
+      .upsert(clients)
+      .select();
 
     if (clientsError) {
       console.error('❌ Error creating clients:', clientsError);
@@ -238,7 +239,7 @@ async function populateDatabase() {
     console.log('3️⃣ Creando empresas...');
     const companies = [];
     
-    clients.forEach((client, index) => {
+    clientsData.forEach((client, index) => {
       // Cada cliente tiene 1-3 empresas
       const numCompanies = Math.floor(Math.random() * 3) + 1;
       
@@ -376,14 +377,14 @@ async function populateDatabase() {
     console.log('6️⃣ Creando suscripciones...');
     const subscriptions = [];
     
-    clients.forEach((client) => {
+    clientsData.forEach((client) => {
       if (client.subscription_status === 'active') {
         const startDate = new Date(client.created_at);
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + 1);
 
         subscriptions.push({
-          client_id: client.user_id,
+          client_id: client.id,
           plan: client.subscription_plan,
           status: client.subscription_status,
           current_period_start: startDate.toISOString(),
@@ -411,7 +412,7 @@ async function populateDatabase() {
     const receipts = [];
     const paymentMethods = ['stripe', 'sepa', 'paypal', 'bizum'];
     
-    clients.forEach((client, index) => {
+    clientsData.forEach((client, index) => {
       if (client.subscription_status === 'active') {
         // Crear 1-6 pagos por cliente activo
         const numPayments = Math.floor(Math.random() * 6) + 1;
@@ -426,7 +427,7 @@ async function populateDatabase() {
           const paymentDate = generateRandomDate(180);
           
           const payment = {
-            client_id: client.user_id,
+            client_id: client.id,
             amount: amount,
             currency: 'EUR',
             payment_method: paymentMethod,
@@ -446,7 +447,7 @@ async function populateDatabase() {
 
             receipts.push({
               receipt_number: `REC-${new Date().getFullYear()}-${String(index * 10 + j + 1).padStart(6, '0')}`,
-              client_id: client.user_id,
+              client_id: client.id,
               amount: amount,
               base_amount: baseAmount,
               tax_amount: taxAmount,
@@ -507,11 +508,11 @@ async function populateDatabase() {
 
     for (let i = 0; i < 200; i++) {
       const user = getRandomElement(users);
-      const client = clients.find(c => c.user_id === user.id);
+      const client = clientsData.find(c => c.user_id === user.id);
       
       auditLogs.push({
         user_id: user.id,
-        client_id: client ? client.user_id : null,
+        client_id: client ? client.id : null,
         action: getRandomElement(actions),
         resource: getRandomElement(resources),
         details: {
@@ -691,15 +692,15 @@ async function populateDatabase() {
       console.log(`✅ Verificación exitosa: ${finalClients?.length || 0} clientes en base de datos`);
       
       // Estadísticas finales
-      const activeClients = finalClients?.filter(c => c.subscription_status === 'active').length || 0;
-      const enterpriseClients = finalClients?.filter(c => c.subscription_plan === 'enterprise').length || 0;
-      const configuredObralia = finalClients?.filter(c => c.obralia_credentials?.configured).length || 0;
+      const activeClients = clientsData?.filter(c => c.subscription_status === 'active').length || 0;
+      const enterpriseClients = clientsData?.filter(c => c.subscription_plan === 'enterprise').length || 0;
+      const configuredObralia = clientsData?.filter(c => c.obralia_credentials?.configured).length || 0;
       
       console.log('\n📊 Estadísticas finales:');
-      console.log(`   - Total clientes: ${finalClients?.length || 0}`);
-      console.log(`   - Clientes activos: ${activeClients} (${Math.round(activeClients / (finalClients?.length || 1) * 100)}%)`);
+      console.log(`   - Total clientes: ${clientsData?.length || 0}`);
+      console.log(`   - Clientes activos: ${activeClients} (${Math.round(activeClients / (clientsData?.length || 1) * 100)}%)`);
       console.log(`   - Clientes Enterprise: ${enterpriseClients}`);
-      console.log(`   - Obralia configurado: ${configuredObralia} (${Math.round(configuredObralia / (finalClients?.length || 1) * 100)}%)`);
+      console.log(`   - Obralia configurado: ${configuredObralia} (${Math.round(configuredObralia / (clientsData?.length || 1) * 100)}%)`);
       console.log(`   - Total empresas: ${companies.length}`);
       console.log(`   - Total proyectos: ${projects.length}`);
       console.log(`   - Total documentos: ${documents.length}`);
