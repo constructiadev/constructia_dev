@@ -529,17 +529,41 @@ export const createTestClient = async () => {
 // Helper para crear datos de prueba
 export const createTestData = async () => {
   try {
-    // Crear usuario de prueba primero para satisfacer la foreign key constraint
-    const { error: userError } = await supabase
+    // Verificar si el usuario de prueba ya existe
+    const { data: existingUser, error: checkError } = await supabase
       .from('users')
-      .upsert({
-        id: TEST_USER_UUID,
-        email: 'test@construccionesgarcia.com',
-        role: 'client'
-      });
+      .select('id')
+      .eq('id', TEST_USER_UUID)
+      .maybeSingle();
 
-    if (userError) {
-      console.warn('Error creating test user:', userError);
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw new Error(`Error checking for existing user: ${checkError.message}`);
+    }
+
+    // Si el usuario no existe, crearlo
+    if (!existingUser) {
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: TEST_USER_UUID,
+          email: 'test@construccionesgarcia.com',
+          role: 'client'
+        });
+
+      if (userError) {
+        throw new Error(`Error creating test user: ${userError.message}`);
+      }
+    }
+
+    // Verificar que el usuario existe antes de crear el cliente
+    const { data: verifyUser, error: verifyError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', TEST_USER_UUID)
+      .single();
+
+    if (verifyError || !verifyUser) {
+      throw new Error('Test user could not be verified after creation');
     }
 
     // Crear cliente de prueba
