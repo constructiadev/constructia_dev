@@ -15,7 +15,6 @@ interface Document {
   security_scan_status: string;
   created_at: string;
   projects?: { name: string };
-  companies?: { name: string };
 }
 
 const Documents: React.FC = () => {

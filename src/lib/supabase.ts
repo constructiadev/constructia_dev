@@ -139,8 +139,7 @@ export const getClientDocuments = async (clientId: string) => {
       .from('documents')
       .select(`
         *,
-        projects(name),
-        companies(name)
+        projects(name)
       `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
