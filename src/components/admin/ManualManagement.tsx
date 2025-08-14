@@ -78,7 +78,6 @@ import {
   getAllClients, 
   getClientCompanies, 
   getClientProjects,
-  getClientDocuments,
   supabase 
 } from '../../lib/supabase';
 

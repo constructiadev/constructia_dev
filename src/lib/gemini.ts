@@ -24,42 +24,15 @@ export class GeminiAIService {
   private model: any;
 
   constructor() {
-    if (genAI) {
-      this.model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    }
+    // Siempre usar simulación en desarrollo para evitar errores de cuota
+    this.model = null;
+    console.log('🤖 [Gemini] Usando simulación en desarrollo para evitar errores de cuota');
   }
 
   async generateInsights(data: any, context: string): Promise<AIInsight[]> {
-    if (!this.model) {
-      return this.getMockInsights(context);
-    }
-
-    try {
-      const prompt = this.buildPrompt(data, context);
-      const result = await this.retryApiCall(() => this.model.generateContent(prompt));
-      const response = await result.response;
-      const text = response.text();
-      
-      return this.parseAIResponse(text, data);
-    } catch (error) {
-      // Check if it's a quota exceeded error (429)
-      if (error instanceof Error && error.message.includes('429')) {
-        console.warn('Gemini API quota exceeded, using mock insights:', error.message);
-      } else {
-        console.error('Error generating AI insights:', error);
-      }
-      // If it's a network error, quota exceeded, or API unavailable, use mock data
-      if (error instanceof Error && (
-        error.message.includes('Failed to fetch') ||
-        error.message.includes('429') ||
-        error.message.includes('503') ||
-        error.message.includes('overloaded') ||
-        error.message.includes('network')
-      )) {
-        console.log('Using mock insights due to API unavailability');
-      }
-      return this.getMockInsights(context);
-    }
+    // Siempre usar simulación en desarrollo
+    console.log('🤖 [Gemini] Generando insights simulados para:', context);
+    return this.getMockInsights(context);
   }
 
   private async retryApiCall<T>(apiCall: () => Promise<T>, maxRetries: number = 3): Promise<T> {
@@ -190,35 +163,9 @@ export class GeminiAIService {
   }
 
   async generateExecutiveSummary(allData: any): Promise<string> {
-    if (!this.model) {
-      return this.getMockExecutiveSummary();
-    }
-
-    try {
-      const prompt = `
-        Genera un resumen ejecutivo para ConstructIA basado en estos datos:
-        ${JSON.stringify(allData, null, 2)}
-        
-        El resumen debe ser:
-        - Máximo 200 palabras
-        - Enfocado en métricas clave
-        - Incluir recomendaciones estratégicas
-        - Tono profesional y ejecutivo
-        
-        Responde solo con el texto del resumen, sin formato adicional.
-      `;
-
-      const result = await this.retryApiCall(() => this.model.generateContent(prompt));
-      const response = await result.response;
-      return response.text();
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('429')) {
-        console.warn('Gemini API quota exceeded, using mock summary:', error.message);
-      } else {
-        console.error('Error generating executive summary:', error);
-      }
-      return this.getMockExecutiveSummary();
-    }
+    // Siempre usar simulación en desarrollo
+    console.log('🤖 [Gemini] Generando resumen ejecutivo simulado');
+    return this.getMockExecutiveSummary();
   }
 
   private getMockExecutiveSummary(): string {
