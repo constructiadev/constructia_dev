@@ -446,7 +446,7 @@ async function populateDatabase() {
             const taxAmount = amount - baseAmount; // IVA 21%
 
             receipts.push({
-              receipt_number: `REC-${new Date().getFullYear()}-${String(index * 10 + j + 1).padStart(6, '0')}`,
+              receipt_number: `REC-${new Date().getFullYear()}-${Date.now()}-${String(index * 10 + j + 1).padStart(6, '0')}`,
               client_id: client.id,
               amount: amount,
               base_amount: baseAmount,
