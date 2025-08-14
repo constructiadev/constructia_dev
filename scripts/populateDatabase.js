@@ -119,8 +119,8 @@ async function populateDatabase() {
   console.log('🚀 Poblando base de datos con 50 clientes diversos...\n');
 
   try {
-    // 1. Crear usuarios de prueba primero
-    console.log('1️⃣ Creando usuarios de prueba...');
+    // 1. Crear usuarios usando Supabase Auth
+    console.log('1️⃣ Creando usuarios con UUIDs válidos...');
     const users = [];
     
     for (let i = 0; i < 50; i++) {
@@ -128,10 +128,20 @@ async function populateDatabase() {
       const companyName = companyNames[i];
       const email = generateRandomEmail(contactName, companyName);
       
-      const userId = `user-${String(i + 1).padStart(3, '0')}-${Date.now()}`;
+      // Crear usuario con Supabase Auth para obtener UUID válido
+      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+        email: email,
+        password: 'TempPassword123!',
+        email_confirm: true
+      });
+
+      if (authError) {
+        console.error(`❌ Error creating auth user ${email}:`, authError);
+        continue;
+      }
       
       users.push({
-        id: userId,
+        id: authUser.user.id,
         email: email,
         role: 'client',
         created_at: generateRandomDate(365),
@@ -147,13 +157,13 @@ async function populateDatabase() {
       console.error('❌ Error creating users:', usersError);
       throw usersError;
     }
-    console.log('✅ 50 usuarios creados exitosamente');
+    console.log(`✅ ${users.length} usuarios creados exitosamente`);
 
     // 2. Crear clientes con datos diversos
     console.log('2️⃣ Creando clientes con datos diversos...');
     const clients = [];
     
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < users.length; i++) {
       const user = users[i];
       const contactName = contactNames[i];
       const companyName = companyNames[i];
