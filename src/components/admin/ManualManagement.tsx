@@ -45,7 +45,8 @@ import {
   Layers,
   ArrowRight,
   ChevronDown,
-  ChevronRight
+  CheckCircle as CheckIcon,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   getManualProcessingQueue, 
