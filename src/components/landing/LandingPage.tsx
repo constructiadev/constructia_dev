@@ -527,6 +527,143 @@ export default function LandingPage() {
       </section>
 
       {/* Proceso de Implementación */}
+      <section className="py-20 bg-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-white mb-4">Proceso de Implementación</h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Implementamos ConstructIA en tu empresa de forma rápida y sin interrupciones
+            </p>
+          </div>
+
+          <div className="space-y-16">
+            {/* Paso 1 */}
+            <div className="flex flex-col lg:flex-row items-center gap-12">
+              <div className="lg:w-1/2">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
+                    01
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Configuración Inicial</h3>
+                </div>
+                <p className="text-gray-300 text-lg mb-6">
+                  Nuestro equipo de expertos configura la plataforma según las 
+                  necesidades específicas de tu empresa en menos de 24 horas.
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center text-gray-300">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                    <span>Análisis de requisitos</span>
+                  </div>
+                  <div className="flex items-center text-gray-300">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                    <span>Configuración personalizada</span>
+                  </div>
+                </div>
+              </div>
+              <div className="lg:w-1/2">
+                <div className="bg-gray-700 rounded-xl p-8 border border-gray-600">
+                  <img 
+                    src="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800" 
+                    alt="Configuración inicial" 
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Paso 2 */}
+            <div className="flex flex-col lg:flex-row-reverse items-center gap-12">
+              <div className="lg:w-1/2">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
+                    02
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Integración de Datos</h3>
+                </div>
+                <p className="text-gray-300 text-lg mb-6">
+                  Integramos todos tus documentos existentes y los organizamos 
+                  automáticamente usando IA para una transición perfecta.
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center text-gray-300">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                    <span>Migración de documentos</span>
+                  </div>
+                  <div className="flex items-center text-gray-300">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                    <span>Clasificación automática</span>
+                  </div>
+                </div>
+              </div>
+              <div className="lg:w-1/2">
+                <div className="bg-gray-700 rounded-xl p-8 border border-gray-600">
+                  <img 
+                    src="https://images.pexels.com/photos/3184339/pexels-photo-3184339.jpeg?auto=compress&cs=tinysrgb&w=800" 
+                    alt="Integración de datos" 
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Paso 3 */}
+            <div className="flex flex-col lg:flex-row items-center gap-12">
+              <div className="lg:w-1/2">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
+                    03
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Capacitación del Equipo</h3>
+                </div>
+                <p className="text-gray-300 text-lg mb-6">
+                  Formamos a tu equipo para maximizar el potencial de la plataforma 
+                  con sesiones de capacitación personalizadas.
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center text-gray-300">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                    <span>Formación personalizada</span>
+                  </div>
+                  <div className="flex items-center text-gray-300">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                    <span>Soporte continuo</span>
+                  </div>
+                </div>
+              </div>
+              <div className="lg:w-1/2">
+                <div className="bg-gray-700 rounded-xl p-8 border border-gray-600">
+                  <img 
+                    src="https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg?auto=compress&cs=tinysrgb&w=800" 
+                    alt="Capacitación del equipo" 
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA Final */}
+          <div className="text-center mt-16">
+            <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl p-8 text-white">
+              <h3 className="text-2xl font-bold mb-4">¿Listo para Transformar tu Gestión Documental?</h3>
+              <p className="text-lg text-green-100 mb-6">
+                Únete a las empresas que ya han optimizado sus procesos con ConstructIA
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                  Prueba Gratuita
+                </button>
+                <button className="bg-green-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-800 transition-colors">
+                  Ver Demo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Proceso de Implementación */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
