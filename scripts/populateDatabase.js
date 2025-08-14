@@ -71,10 +71,28 @@ function getRandomElement(array) {
 }
 
 function generateRandomEmail(contactName, companyName) {
-  const name = contactName.toLowerCase().replace(' ', '.') + Date.now(); // Add timestamp for uniqueness
-  const domain = companyName.toLowerCase()
-    .replace(/[^a-z0-9]/g, '') // Remove non-alphanumeric characters
-    .substring(0, 10) + '.com';
+  // Clean contact name: remove accents, convert to lowercase, replace spaces with dots
+  const cleanName = contactName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters except spaces
+    .replace(/\s+/g, '.'); // Replace spaces with dots
+  
+  // Clean company name for domain
+  const cleanCompany = companyName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters except spaces
+    .replace(/\s+/g, '') // Remove all spaces
+    .substring(0, 15); // Ensure reasonable length
+  
+  // Generate unique email with timestamp
+  const timestamp = Date.now();
+  const name = `${cleanName}${timestamp}`;
+  const domain = `${cleanCompany}example.com`; // Use example.com for safety
+  
   return `${name}@${domain}`;
 }
 
