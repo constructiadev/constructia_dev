@@ -607,7 +607,7 @@ async function populateDatabase() {
         ...kpi,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      })));
+      })), { onConflict: 'id' });
 
     if (kpisError) {
       console.error('❌ Error creating KPIs:', kpisError);
