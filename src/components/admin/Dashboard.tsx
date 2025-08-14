@@ -35,7 +35,8 @@ import {
   getManualProcessingQueue, 
   calculateDynamicKPIs,
   getAllReceipts,
-  getDocumentStats
+  getDocumentStats,
+  supabase
 } from '../../lib/supabase';
 import { geminiAI, type AIInsight } from '../../lib/gemini';
 
@@ -200,6 +201,10 @@ const AdminDashboard: React.FC = () => {
     setRefreshing(true);
     await loadDashboardData();
     setRefreshing(false);
+  };
+
+  const navigateToModule = (path: string) => {
+    window.location.href = path;
   };
 
   const getTrendIcon = (trend: string) => {
@@ -527,7 +532,10 @@ const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="flex flex-col items-center justify-center p-6 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-200">
+          <button 
+            onClick={() => navigateToModule('/admin/clients')}
+            className="flex flex-col items-center justify-center p-6 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-200"
+          >
             <div className="bg-blue-600 p-3 rounded-full mb-3">
               <Users className="w-6 h-6 text-white" />
             </div>
@@ -535,7 +543,10 @@ const AdminDashboard: React.FC = () => {
             <p className="text-xs text-blue-600 text-center">Administrar usuarios y suscripciones</p>
           </button>
           
-          <button className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200">
+          <button 
+            onClick={() => navigateToModule('/admin/financial')}
+            className="flex flex-col items-center justify-center p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
+          >
             <div className="bg-green-600 p-3 rounded-full mb-3">
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
@@ -543,7 +554,10 @@ const AdminDashboard: React.FC = () => {
             <p className="text-xs text-green-600 text-center">Ingresos y comisiones</p>
           </button>
           
-          <button className="flex flex-col items-center justify-center p-6 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200">
+          <button 
+            onClick={() => navigateToModule('/admin/ai')}
+            className="flex flex-col items-center justify-center p-6 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200"
+          >
             <div className="bg-purple-600 p-3 rounded-full mb-3">
               <Brain className="w-6 h-6 text-white" />
             </div>
@@ -551,7 +565,10 @@ const AdminDashboard: React.FC = () => {
             <p className="text-xs text-purple-600 text-center">IA y procesamiento</p>
           </button>
           
-          <button className="flex flex-col items-center justify-center p-6 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-200">
+          <button 
+            onClick={() => navigateToModule('/admin/integrations')}
+            className="flex flex-col items-center justify-center p-6 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-200"
+          >
             <div className="bg-orange-600 p-3 rounded-full mb-3">
               <Globe className="w-6 h-6 text-white" />
             </div>

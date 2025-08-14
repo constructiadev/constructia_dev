@@ -3,72 +3,55 @@ import {
   Users, 
   Search, 
   Filter, 
-  Eye, 
-  Edit, 
-  Trash2, 
   Plus, 
-  AlertCircle, 
-  CheckCircle,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  DollarSign,
-  FileText,
-  Clock,
-  Building2,
-  CreditCard,
-  Shield,
-  Activity,
-  BarChart3,
+  Edit, 
+  Eye, 
+  Trash2, 
   RefreshCw,
   Download,
-  Settings,
-  Key,
-  Phone,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Building2,
+  CreditCard,
+  Calendar,
   Mail,
+  Phone,
   MapPin,
   Hash,
+  Settings,
+  Key,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  Clock,
+  BarChart3,
+  DollarSign,
+  FileText,
+  Database,
+  Shield,
+  Globe,
+  Activity,
+  Target,
+  Award,
+  Zap,
   User,
   Save,
   X,
+  Lock,
+  Unlock,
   ArrowUp,
-  ArrowDown,
-  Minus
+  ArrowDown
 } from 'lucide-react';
 import { 
-  supabase, 
   getAllClients, 
+  getClientProjects, 
+  getClientCompanies, 
+  getClientDocuments,
   updateClientObraliaCredentials,
-  getKPIs,
-  calculateDynamicKPIs,
-  getAuditLogs
+  supabase 
 } from '../../lib/supabase';
-
-interface Client {
-  id: string;
-  client_id: string;
-  user_id: string;
-  company_name: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  subscription_plan: string;
-  subscription_status: string;
-  storage_used: number;
-  storage_limit: number;
-  documents_processed: number;
-  tokens_available: number;
-  obralia_credentials: {
-    username?: string;
-    password?: string;
-    configured: boolean;
-  };
-  created_at: string;
-  updated_at: string;
-  last_activity?: string;
-  monthly_revenue?: number;
-}
+import type { Client } from '../../types';
 
 interface ClientKPI {
   id: string;
@@ -79,6 +62,355 @@ interface ClientKPI {
   icon: React.ElementType;
   color: string;
   description: string;
+}
+
+interface ClientDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  client: Client | null;
+  onUpdate: () => void;
+}
+
+function ClientDetailsModal({ isOpen, onClose, client, onUpdate }: ClientDetailsModalProps) {
+  const [activeTab, setActiveTab] = useState('details');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (client && isOpen) {
+      loadClientData();
+    }
+  }, [client, isOpen]);
+
+  const loadClientData = async () => {
+    if (!client) return;
+    
+    setLoading(true);
+    try {
+      const [projectsData, companiesData, documentsData] = await Promise.all([
+        getClientProjects(client.id),
+        getClientCompanies(client.id),
+        getClientDocuments(client.id)
+      ]);
+      
+      setProjects(projectsData || []);
+      setCompanies(companiesData || []);
+      setDocuments(documentsData || []);
+    } catch (error) {
+      console.error('Error loading client data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getStoragePercentage = () => {
+    if (!client || client.storage_limit === 0) return 0;
+    return Math.round((client.storage_used / client.storage_limit) * 100);
+  };
+
+  if (!isOpen || !client) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-white/20 p-3 rounded-full mr-4">
+                <Building2 className="h-8 w-8" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">{client.company_name}</h2>
+                <p className="text-blue-100">{client.contact_name} • {client.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            {[
+              { id: 'details', label: 'Detalles', icon: User },
+              { id: 'projects', label: 'Proyectos', icon: FolderOpen },
+              { id: 'companies', label: 'Empresas', icon: Building2 },
+              { id: 'documents', label: 'Documentos', icon: FileText },
+              { id: 'billing', label: 'Facturación', icon: CreditCard }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 mr-2" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'details' && (
+                <div className="space-y-6">
+                  {/* Client Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">ID Cliente</label>
+                        <p className="mt-1 text-sm text-gray-900 font-mono">{client.client_id}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Empresa</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.company_name}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Contacto</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.contact_name}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.email}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.phone || 'No especificado'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Dirección</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.address || 'No especificada'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Plan de Suscripción</label>
+                        <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                          client.subscription_plan === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                          client.subscription_plan === 'professional' ? 'bg-blue-100 text-blue-800' :
+                          client.subscription_plan === 'custom' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {client.subscription_plan.toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Estado</label>
+                        <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                          client.subscription_status === 'active' ? 'bg-green-100 text-green-800' :
+                          client.subscription_status === 'suspended' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {client.subscription_status === 'active' ? 'Activo' :
+                           client.subscription_status === 'suspended' ? 'Suspendido' : 'Cancelado'}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Almacenamiento</label>
+                        <div className="mt-1">
+                          <div className="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>{formatBytes(client.storage_used)} / {formatBytes(client.storage_limit)}</span>
+                            <span>{getStoragePercentage()}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                getStoragePercentage() > 90 ? 'bg-red-500' : 
+                                getStoragePercentage() > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                              }`}
+                              style={{ width: `${Math.min(getStoragePercentage(), 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Tokens Disponibles</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.tokens_available}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Documentos Procesados</label>
+                        <p className="mt-1 text-sm text-gray-900">{client.documents_processed}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Obralia Configurado</label>
+                        <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                          client.obralia_credentials?.configured ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {client.obralia_credentials?.configured ? 'Sí' : 'No'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'projects' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Proyectos ({projects.length})</h3>
+                  {projects.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No hay proyectos registrados</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {projects.map((project) => (
+                        <div key={project.id} className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900">{project.name}</h4>
+                          <p className="text-sm text-gray-600 mb-2">{project.description}</p>
+                          <div className="flex justify-between items-center">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              project.status === 'active' ? 'bg-green-100 text-green-800' :
+                              project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                              project.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {project.status}
+                            </span>
+                            <span className="text-sm text-gray-600">{project.progress}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'companies' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Empresas ({companies.length})</h3>
+                  {companies.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No hay empresas registradas</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {companies.map((company) => (
+                        <div key={company.id} className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900">{company.name}</h4>
+                          <p className="text-sm text-gray-600">CIF: {company.cif}</p>
+                          <p className="text-sm text-gray-600">{company.address}</p>
+                          {company.email && (
+                            <p className="text-sm text-gray-600">{company.email}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'documents' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Documentos ({documents.length})</h3>
+                  {documents.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No hay documentos registrados</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documento</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {documents.slice(0, 10).map((doc) => (
+                            <tr key={doc.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {doc.original_name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {doc.document_type}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                  doc.upload_status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  doc.upload_status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                  doc.upload_status === 'error' ? 'bg-red-100 text-red-800' :
+                                  'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {doc.upload_status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(doc.created_at).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'billing' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Información de Facturación</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-green-800">Plan Actual</h4>
+                      <p className="text-2xl font-bold text-green-600">{client.subscription_plan.toUpperCase()}</p>
+                      <p className="text-sm text-green-700">
+                        {client.subscription_plan === 'enterprise' ? '€299/mes' :
+                         client.subscription_plan === 'professional' ? '€149/mes' :
+                         client.subscription_plan === 'custom' ? 'Personalizado' : '€59/mes'}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-800">Estado</h4>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {client.subscription_status === 'active' ? 'ACTIVO' :
+                         client.subscription_status === 'suspended' ? 'SUSPENDIDO' : 'CANCELADO'}
+                      </p>
+                      <p className="text-sm text-blue-700">Desde {new Date(client.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-purple-800">Uso de Recursos</h4>
+                      <p className="text-sm text-purple-700">
+                        Almacenamiento: {getStoragePercentage()}%
+                      </p>
+                      <p className="text-sm text-purple-700">
+                        Tokens: {client.tokens_available}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface EditClientModalProps {
@@ -97,7 +429,6 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
     address: '',
     subscription_plan: 'basic',
     subscription_status: 'active',
-    storage_limit: 524288000,
     tokens_available: 500
   });
   const [saving, setSaving] = useState(false);
@@ -105,15 +436,14 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
   useEffect(() => {
     if (client) {
       setFormData({
-        company_name: client.company_name,
-        contact_name: client.contact_name,
-        email: client.email,
+        company_name: client.company_name || '',
+        contact_name: client.contact_name || '',
+        email: client.email || '',
         phone: client.phone || '',
         address: client.address || '',
-        subscription_plan: client.subscription_plan,
-        subscription_status: client.subscription_status,
-        storage_limit: client.storage_limit,
-        tokens_available: client.tokens_available
+        subscription_plan: client.subscription_plan || 'basic',
+        subscription_status: client.subscription_status || 'active',
+        tokens_available: client.tokens_available || 500
       });
     }
   }, [client]);
@@ -124,7 +454,11 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
 
     setSaving(true);
     try {
-      await onSave({ ...formData, id: client.id });
+      await onSave({
+        id: client.id,
+        ...formData,
+        updated_at: new Date().toISOString()
+      });
       onClose();
     } catch (error) {
       console.error('Error saving client:', error);
@@ -138,12 +472,12 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-xl">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-t-xl">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold">Editar Cliente</h2>
-              <p className="text-blue-100">{client.company_name}</p>
+              <p className="text-green-100">{client.company_name}</p>
             </div>
             <button onClick={onClose} className="text-white/80 hover:text-white">
               <X className="h-6 w-6" />
@@ -154,125 +488,91 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de la Empresa *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Empresa</label>
               <input
                 type="text"
                 value={formData.company_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 required
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de Contacto *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Contacto</label>
               <input
                 type="text"
                 value={formData.contact_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 required
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 required
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               />
             </div>
-
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dirección
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
               <input
                 type="text"
                 value={formData.address}
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Plan de Suscripción *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Plan</label>
               <select
                 value={formData.subscription_plan}
                 onChange={(e) => setFormData(prev => ({ ...prev, subscription_plan: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               >
-                <option value="basic">Basic</option>
-                <option value="professional">Professional</option>
+                <option value="basic">Básico</option>
+                <option value="professional">Profesional</option>
                 <option value="enterprise">Enterprise</option>
-                <option value="custom">Custom</option>
+                <option value="custom">Personalizado</option>
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado de Suscripción *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
               <select
                 value={formData.subscription_status}
                 onChange={(e) => setFormData(prev => ({ ...prev, subscription_status: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
               >
                 <option value="active">Activo</option>
                 <option value="suspended">Suspendido</option>
                 <option value="cancelled">Cancelado</option>
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Límite de Almacenamiento (MB)
-              </label>
-              <input
-                type="number"
-                value={Math.round(formData.storage_limit / 1048576)}
-                onChange={(e) => setFormData(prev => ({ ...prev, storage_limit: parseInt(e.target.value) * 1048576 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tokens Disponibles
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tokens Disponibles</label>
               <input
                 type="number"
                 value={formData.tokens_available}
-                onChange={(e) => setFormData(prev => ({ ...prev, tokens_available: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setFormData(prev => ({ ...prev, tokens_available: parseInt(e.target.value) || 0 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                min="0"
               />
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
@@ -283,7 +583,7 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+              className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50"
             >
               {saving ? (
                 <>
@@ -304,258 +604,14 @@ function EditClientModal({ isOpen, onClose, client, onSave }: EditClientModalPro
   );
 }
 
-interface ClientDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  client: Client | null;
-  onEdit: (client: Client) => void;
-  onConfigureObralia: (client: Client) => void;
-}
-
-function ClientDetailsModal({ isOpen, onClose, client, onEdit, onConfigureObralia }: ClientDetailsModalProps) {
-  if (!isOpen || !client) return null;
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'text-green-600 bg-green-100';
-      case 'suspended': return 'text-yellow-600 bg-yellow-100';
-      case 'cancelled': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getPlanColor = (plan: string) => {
-    switch (plan) {
-      case 'basic': return 'text-blue-600 bg-blue-100';
-      case 'professional': return 'text-purple-600 bg-purple-100';
-      case 'enterprise': return 'text-orange-600 bg-orange-100';
-      case 'custom': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-t-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="bg-white/20 p-3 rounded-full mr-4">
-                <Building2 className="h-8 w-8" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Detalles del Cliente</h2>
-                <p className="text-green-100">{client.company_name}</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="text-white/80 hover:text-white">
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Información General */}
-            <div className="space-y-6">
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Información General
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center">
-                    <Hash className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 w-20">ID:</span>
-                    <span className="text-sm font-mono text-gray-900">{client.client_id}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Building2 className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 w-20">Empresa:</span>
-                    <span className="text-sm text-gray-900">{client.company_name}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 w-20">Contacto:</span>
-                    <span className="text-sm text-gray-900">{client.contact_name}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 w-20">Email:</span>
-                    <span className="text-sm text-gray-900">{client.email}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 w-20">Teléfono:</span>
-                    <span className="text-sm text-gray-900">{client.phone || 'No especificado'}</span>
-                  </div>
-                  <div className="flex items-start">
-                    <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                    <span className="text-sm text-gray-600 w-20">Dirección:</span>
-                    <span className="text-sm text-gray-900">{client.address || 'No especificada'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-purple-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Suscripción y Uso
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Plan:</span>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPlanColor(client.subscription_plan)}`}>
-                      {client.subscription_plan.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Estado:</span>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(client.subscription_status)}`}>
-                      {client.subscription_status === 'active' ? 'Activo' : 
-                       client.subscription_status === 'suspended' ? 'Suspendido' : 'Cancelado'}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Almacenamiento:</span>
-                      <span className="text-gray-900">
-                        {formatBytes(client.storage_used)} / {formatBytes(client.storage_limit)}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-purple-600 h-2 rounded-full" 
-                        style={{ width: `${Math.min((client.storage_used / client.storage_limit) * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Documentos procesados:</span>
-                    <span className="text-sm font-medium text-gray-900">{client.documents_processed}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Tokens disponibles:</span>
-                    <span className="text-sm font-medium text-gray-900">{client.tokens_available}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Configuración e Historial */}
-            <div className="space-y-6">
-              <div className="bg-orange-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-orange-900 mb-4 flex items-center">
-                  <Key className="h-5 w-5 mr-2" />
-                  Configuración Obralia
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Estado:</span>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      client.obralia_credentials?.configured 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {client.obralia_credentials?.configured ? 'Configurado' : 'Sin configurar'}
-                    </span>
-                  </div>
-                  {client.obralia_credentials?.configured && (
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-600 w-16">Usuario:</span>
-                        <span className="text-sm font-mono text-gray-900">
-                          {client.obralia_credentials.username || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-600 w-16">Password:</span>
-                        <span className="text-sm font-mono text-gray-900">••••••••</span>
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => onConfigureObralia(client)}
-                    className="w-full mt-3 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
-                  >
-                    {client.obralia_credentials?.configured ? 'Reconfigurar' : 'Configurar'} Obralia
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Clock className="h-5 w-5 mr-2" />
-                  Historial
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Registro:</span>
-                    <span className="text-gray-900">{formatDate(client.created_at)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Última actualización:</span>
-                    <span className="text-gray-900">{formatDate(client.updated_at)}</span>
-                  </div>
-                  {client.last_activity && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Última actividad:</span>
-                      <span className="text-gray-900">{formatDate(client.last_activity)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cerrar
-            </button>
-            <button
-              type="button"
-              onClick={() => onEdit(client)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-            >
-              Editar Cliente
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface ObraliaConfigModalProps {
+interface ObraliaCredentialsModalProps {
   isOpen: boolean;
   onClose: () => void;
   client: Client | null;
   onSave: (clientId: string, credentials: { username: string; password: string }) => Promise<void>;
 }
 
-function ObraliaConfigModal({ isOpen, onClose, client, onSave }: ObraliaConfigModalProps) {
+function ObraliaCredentialsModal({ isOpen, onClose, client, onSave }: ObraliaCredentialsModalProps) {
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
@@ -594,28 +650,22 @@ function ObraliaConfigModal({ isOpen, onClose, client, onSave }: ObraliaConfigMo
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white p-6 rounded-t-xl">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Configurar Obralia</h2>
-              <p className="text-orange-100">{client.company_name}</p>
+            <div className="flex items-center">
+              <Key className="h-6 w-6 mr-3" />
+              <div>
+                <h2 className="text-lg font-bold">Credenciales Obralia</h2>
+                <p className="text-orange-100">{client.company_name}</p>
+              </div>
             </div>
             <button onClick={onClose} className="text-white/80 hover:text-white">
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <h4 className="font-semibold text-yellow-800 mb-2">📋 Credenciales de Acceso</h4>
-            <p className="text-sm text-yellow-700">
-              Solicita al cliente sus credenciales de Obralia/Nalanda para configurar la integración automática.
-            </p>
-          </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Usuario de Obralia *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Usuario</label>
             <input
               type="text"
               value={credentials.username}
@@ -624,11 +674,9 @@ function ObraliaConfigModal({ isOpen, onClose, client, onSave }: ObraliaConfigMo
               placeholder="usuario@obralia.com"
             />
           </div>
-
+          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contraseña de Obralia *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -642,7 +690,7 @@ function ObraliaConfigModal({ isOpen, onClose, client, onSave }: ObraliaConfigMo
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                {showPassword ? <Eye className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
               </button>
             </div>
           </div>
@@ -667,7 +715,7 @@ function ObraliaConfigModal({ isOpen, onClose, client, onSave }: ObraliaConfigMo
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Guardar Credenciales
+                  Guardar
                 </>
               )}
             </button>
@@ -680,170 +728,152 @@ function ObraliaConfigModal({ isOpen, onClose, client, onSave }: ObraliaConfigMo
 
 export default function ClientsManagement() {
   const [clients, setClients] = useState<Client[]>([]);
-  const [kpis, setKpis] = useState<ClientKPI[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterPlan, setFilterPlan] = useState('all');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [planFilter, setPlanFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showObraliaModal, setShowObraliaModal] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [kpis, setKpis] = useState<ClientKPI[]>([]);
 
   useEffect(() => {
-    loadClientsData();
+    loadClients();
   }, []);
 
-  const loadClientsData = async () => {
+  useEffect(() => {
+    filterClients();
+  }, [clients, searchTerm, planFilter, statusFilter]);
+
+  const loadClients = async () => {
     try {
       setLoading(true);
-      
-      const [clientsData, kpisData, dynamicKPIs] = await Promise.all([
-        getAllClients(),
-        getKPIs(),
-        calculateDynamicKPIs()
-      ]);
-
+      const clientsData = await getAllClients();
       setClients(clientsData);
-
-      // Calcular KPIs específicos de clientes
-      const activeClients = clientsData.filter(c => c.subscription_status === 'active').length;
-      const suspendedClients = clientsData.filter(c => c.subscription_status === 'suspended').length;
-      const cancelledClients = clientsData.filter(c => c.subscription_status === 'cancelled').length;
-      const enterpriseClients = clientsData.filter(c => c.subscription_plan === 'enterprise').length;
-      const professionalClients = clientsData.filter(c => c.subscription_plan === 'professional').length;
-      const basicClients = clientsData.filter(c => c.subscription_plan === 'basic').length;
-      const customClients = clientsData.filter(c => c.subscription_plan === 'custom').length;
-      const obraliaConfigured = clientsData.filter(c => c.obralia_credentials?.configured).length;
-
-      // Calcular nuevos clientes este mes
-      const thisMonth = new Date();
-      const newClientsThisMonth = clientsData.filter(c => {
-        const clientDate = new Date(c.created_at);
-        return clientDate.getMonth() === thisMonth.getMonth() && 
-               clientDate.getFullYear() === thisMonth.getFullYear();
-      }).length;
-
-      // Calcular ingresos promedio por cliente
-      const totalRevenue = dynamicKPIs.totalRevenue || 0;
-      const avgRevenuePerClient = activeClients > 0 ? totalRevenue / activeClients : 0;
-
-      const clientKPIs: ClientKPI[] = [
-        {
-          id: 'total-clients',
-          title: 'Total Clientes',
-          value: clientsData.length,
-          change: 23.5,
-          trend: 'up',
-          icon: Users,
-          color: 'bg-blue-500',
-          description: 'Clientes registrados en total'
-        },
-        {
-          id: 'active-clients',
-          title: 'Clientes Activos',
-          value: activeClients,
-          change: 18.2,
-          trend: 'up',
-          icon: CheckCircle,
-          color: 'bg-green-500',
-          description: 'Clientes con suscripción activa'
-        },
-        {
-          id: 'new-clients',
-          title: 'Nuevos Este Mes',
-          value: newClientsThisMonth,
-          change: 45.7,
-          trend: 'up',
-          icon: TrendingUp,
-          color: 'bg-emerald-500',
-          description: 'Nuevos clientes este mes'
-        },
-        {
-          id: 'enterprise-clients',
-          title: 'Enterprise',
-          value: enterpriseClients,
-          change: 33.3,
-          trend: 'up',
-          icon: Building2,
-          color: 'bg-purple-500',
-          description: 'Clientes Enterprise'
-        },
-        {
-          id: 'professional-clients',
-          title: 'Professional',
-          value: professionalClients,
-          change: 21.4,
-          trend: 'up',
-          icon: CreditCard,
-          color: 'bg-indigo-500',
-          description: 'Clientes Professional'
-        },
-        {
-          id: 'basic-clients',
-          title: 'Basic',
-          value: basicClients,
-          change: 7.1,
-          trend: 'up',
-          icon: Shield,
-          color: 'bg-cyan-500',
-          description: 'Clientes Basic'
-        },
-        {
-          id: 'suspended-clients',
-          title: 'Suspendidos',
-          value: suspendedClients,
-          change: -20.0,
-          trend: 'up',
-          icon: AlertCircle,
-          color: 'bg-yellow-500',
-          description: 'Clientes suspendidos'
-        },
-        {
-          id: 'cancelled-clients',
-          title: 'Cancelados',
-          value: cancelledClients,
-          change: -11.1,
-          trend: 'up',
-          icon: X,
-          color: 'bg-red-500',
-          description: 'Clientes cancelados'
-        },
-        {
-          id: 'avg-revenue',
-          title: 'Ingresos/Cliente',
-          value: `€${avgRevenuePerClient.toFixed(0)}`,
-          change: 14.2,
-          trend: 'up',
-          icon: DollarSign,
-          color: 'bg-orange-500',
-          description: 'Ingresos promedio por cliente'
-        },
-        {
-          id: 'obralia-configured',
-          title: 'Obralia Config.',
-          value: obraliaConfigured,
-          change: 28.0,
-          trend: 'up',
-          icon: Key,
-          color: 'bg-pink-500',
-          description: 'Clientes con Obralia configurado'
-        }
-      ];
-
-      setKpis(clientKPIs);
+      calculateKPIs(clientsData);
     } catch (error) {
-      console.error('Error loading clients data:', error);
+      console.error('Error loading clients:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const refreshData = async () => {
-    setRefreshing(true);
-    await loadClientsData();
-    setRefreshing(false);
+  const calculateKPIs = (clientsData: Client[]) => {
+    const now = new Date();
+    const thisMonth = clientsData.filter(c => {
+      const createdDate = new Date(c.created_at);
+      return createdDate.getMonth() === now.getMonth() && createdDate.getFullYear() === now.getFullYear();
+    });
+
+    const lastMonth = clientsData.filter(c => {
+      const createdDate = new Date(c.created_at);
+      const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return createdDate.getMonth() === lastMonthDate.getMonth() && createdDate.getFullYear() === lastMonthDate.getFullYear();
+    });
+
+    const activeClients = clientsData.filter(c => c.subscription_status === 'active');
+    const cancelledClients = clientsData.filter(c => c.subscription_status === 'cancelled');
+    const obraliaConfigured = clientsData.filter(c => c.obralia_credentials?.configured);
+    
+    const avgRevenue = activeClients.reduce((sum, c) => {
+      const planRevenue = c.subscription_plan === 'enterprise' ? 299 :
+                         c.subscription_plan === 'professional' ? 149 :
+                         c.subscription_plan === 'custom' ? 250 : 59;
+      return sum + planRevenue;
+    }, 0) / Math.max(activeClients.length, 1);
+
+    const churnRate = (cancelledClients.length / Math.max(clientsData.length, 1)) * 100;
+    const growthRate = lastMonth.length > 0 ? ((thisMonth.length - lastMonth.length) / lastMonth.length) * 100 : 0;
+
+    const clientKPIs: ClientKPI[] = [
+      {
+        id: 'total-clients',
+        title: 'Total Clientes',
+        value: clientsData.length,
+        change: growthRate,
+        trend: growthRate > 0 ? 'up' : growthRate < 0 ? 'down' : 'stable',
+        icon: Users,
+        color: 'bg-blue-500',
+        description: 'Clientes registrados'
+      },
+      {
+        id: 'active-clients',
+        title: 'Clientes Activos',
+        value: activeClients.length,
+        change: 15.2,
+        trend: 'up',
+        icon: CheckCircle,
+        color: 'bg-green-500',
+        description: 'Suscripciones activas'
+      },
+      {
+        id: 'new-this-month',
+        title: 'Nuevos Este Mes',
+        value: thisMonth.length,
+        change: 23.5,
+        trend: 'up',
+        icon: TrendingUp,
+        color: 'bg-purple-500',
+        description: 'Adquisiciones mensuales'
+      },
+      {
+        id: 'churn-rate',
+        title: 'Tasa de Abandono',
+        value: `${churnRate.toFixed(1)}%`,
+        change: -5.3,
+        trend: 'up',
+        icon: TrendingDown,
+        color: 'bg-red-500',
+        description: 'Clientes que cancelan'
+      },
+      {
+        id: 'avg-revenue',
+        title: 'Ingreso Promedio',
+        value: `€${avgRevenue.toFixed(0)}`,
+        change: 12.8,
+        trend: 'up',
+        icon: DollarSign,
+        color: 'bg-emerald-500',
+        description: 'Revenue por cliente'
+      },
+      {
+        id: 'obralia-adoption',
+        title: 'Adopción Obralia',
+        value: `${Math.round((obraliaConfigured.length / Math.max(clientsData.length, 1)) * 100)}%`,
+        change: 8.7,
+        trend: 'up',
+        icon: Globe,
+        color: 'bg-orange-500',
+        description: 'Clientes con Obralia'
+      }
+    ];
+
+    setKpis(clientKPIs);
+  };
+
+  const filterClients = () => {
+    let filtered = clients;
+
+    if (searchTerm) {
+      filtered = filtered.filter(client =>
+        client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.client_id.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (planFilter !== 'all') {
+      filtered = filtered.filter(client => client.subscription_plan === planFilter);
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(client => client.subscription_status === statusFilter);
+    }
+
+    setFilteredClients(filtered);
   };
 
   const handleViewClient = (client: Client) => {
@@ -861,39 +891,8 @@ export default function ClientsManagement() {
     setShowObraliaModal(true);
   };
 
-  const handleSaveClient = async (clientData: Partial<Client>) => {
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          ...clientData,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', clientData.id);
-
-      if (error) {
-        throw new Error(`Error updating client: ${error.message}`);
-      }
-
-      await loadClientsData();
-    } catch (error) {
-      console.error('Error saving client:', error);
-      throw error;
-    }
-  };
-
-  const handleSaveObraliaCredentials = async (clientId: string, credentials: { username: string; password: string }) => {
-    try {
-      await updateClientObraliaCredentials(clientId, credentials);
-      await loadClientsData();
-    } catch (error) {
-      console.error('Error saving Obralia credentials:', error);
-      throw error;
-    }
-  };
-
-  const handleDeleteClient = async (clientId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este cliente? Esta acción no se puede deshacer.')) {
+  const handleDeleteClient = async (client: Client) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar el cliente ${client.company_name}?`)) {
       return;
     }
 
@@ -901,22 +900,51 @@ export default function ClientsManagement() {
       const { error } = await supabase
         .from('clients')
         .delete()
-        .eq('id', clientId);
+        .eq('id', client.id);
 
       if (error) {
-        throw new Error(`Error deleting client: ${error.message}`);
+        throw error;
       }
 
-      await loadClientsData();
+      await loadClients();
+      alert('Cliente eliminado exitosamente');
     } catch (error) {
       console.error('Error deleting client:', error);
       alert('Error al eliminar el cliente');
     }
   };
 
-  const exportClientsData = () => {
+  const handleSaveClient = async (clientData: Partial<Client>) => {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update(clientData)
+        .eq('id', clientData.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await loadClients();
+    } catch (error) {
+      console.error('Error updating client:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveObraliaCredentials = async (clientId: string, credentials: { username: string; password: string }) => {
+    try {
+      await updateClientObraliaCredentials(clientId, credentials);
+      await loadClients();
+    } catch (error) {
+      console.error('Error saving Obralia credentials:', error);
+      throw error;
+    }
+  };
+
+  const exportClients = () => {
     const csvContent = [
-      ['ID Cliente', 'Empresa', 'Contacto', 'Email', 'Plan', 'Estado', 'Documentos', 'Almacenamiento', 'Registro'].join(','),
+      ['ID Cliente', 'Empresa', 'Contacto', 'Email', 'Plan', 'Estado', 'Fecha Registro'].join(','),
       ...filteredClients.map(client => [
         client.client_id,
         client.company_name,
@@ -924,8 +952,6 @@ export default function ClientsManagement() {
         client.email,
         client.subscription_plan,
         client.subscription_status,
-        client.documents_processed,
-        `${Math.round((client.storage_used / client.storage_limit) * 100)}%`,
         new Date(client.created_at).toLocaleDateString()
       ].join(','))
     ].join('\n');
@@ -947,54 +973,22 @@ export default function ClientsManagement() {
     }
   };
 
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = 
-      client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.client_id.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = filterStatus === 'all' || client.subscription_status === filterStatus;
-    const matchesPlan = filterPlan === 'all' || client.subscription_plan === filterPlan;
-
-    return matchesSearch && matchesStatus && matchesPlan;
-  });
+  const getPlanColor = (plan: string) => {
+    switch (plan) {
+      case 'enterprise': return 'bg-purple-100 text-purple-800';
+      case 'professional': return 'bg-blue-100 text-blue-800';
+      case 'custom': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-green-100 text-green-800';
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'text-green-600 bg-green-100';
-      case 'suspended': return 'text-yellow-600 bg-yellow-100';
-      case 'cancelled': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'suspended': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const getPlanColor = (plan: string) => {
-    switch (plan) {
-      case 'basic': return 'text-blue-600 bg-blue-100';
-      case 'professional': return 'text-purple-600 bg-purple-100';
-      case 'enterprise': return 'text-orange-600 bg-orange-100';
-      case 'custom': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (loading) {
@@ -1016,26 +1010,25 @@ export default function ClientsManagement() {
           <div>
             <h1 className="text-2xl font-bold mb-2">Gestión de Clientes</h1>
             <p className="text-blue-100 mb-4">
-              Panel integral de administración y análisis de clientes
+              Panel integral de Business Intelligence para gestión de clientes
             </p>
             <div className="space-y-1 text-sm text-blue-100">
-              <p>• Análisis completo de base de clientes y tendencias</p>
-              <p>• Gestión de suscripciones y configuraciones</p>
-              <p>• Métricas de adquisición y retención</p>
-              <p>• Configuración de integraciones por cliente</p>
+              <p>• Análisis completo de adquisición y retención de clientes</p>
+              <p>• Métricas de rendimiento y satisfacción en tiempo real</p>
+              <p>• Gestión de suscripciones y configuraciones Obralia</p>
+              <p>• Herramientas de toma de decisiones basadas en datos</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={refreshData}
-              disabled={refreshing}
+              onClick={loadClients}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Actualizando...' : 'Actualizar'}
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Actualizar
             </button>
-            <button 
-              onClick={exportClientsData}
+            <button
+              onClick={exportClients}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -1045,8 +1038,8 @@ export default function ClientsManagement() {
         </div>
       </div>
 
-      {/* KPIs de Clientes */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
@@ -1074,203 +1067,16 @@ export default function ClientsManagement() {
         })}
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Buscar por empresa, contacto, email o ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Todos los estados</option>
-                <option value="active">Activo</option>
-                <option value="suspended">Suspendido</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            </div>
-            <select
-              value={filterPlan}
-              onChange={(e) => setFilterPlan(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Todos los planes</option>
-              <option value="basic">Basic</option>
-              <option value="professional">Professional</option>
-              <option value="enterprise">Enterprise</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla de Clientes */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Plan
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Almacenamiento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Documentos
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Obralia
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Registro
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{client.company_name}</div>
-                      <div className="text-sm text-gray-500">{client.contact_name}</div>
-                      <div className="text-sm text-gray-500">{client.email}</div>
-                      <div className="text-xs text-gray-400">ID: {client.client_id}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPlanColor(client.subscription_plan)}`}>
-                      {client.subscription_plan.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(client.subscription_status)}`}>
-                      {client.subscription_status === 'active' ? 'Activo' : 
-                       client.subscription_status === 'suspended' ? 'Suspendido' : 'Cancelado'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {formatBytes(client.storage_used)} / {formatBytes(client.storage_limit)}
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${Math.min((client.storage_used / client.storage_limit) * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {Math.round((client.storage_used / client.storage_limit) * 100)}% usado
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center">
-                      <FileText className="h-4 w-4 text-gray-400 mr-2" />
-                      {client.documents_processed}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {client.obralia_credentials?.configured ? (
-                        <div className="flex items-center text-green-600">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          <span className="text-xs">Configurado</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-red-600">
-                          <AlertCircle className="h-4 w-4 mr-1" />
-                          <span className="text-xs">Sin configurar</span>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(client.created_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleViewClient(client)}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                        title="Ver detalles"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEditClient(client)}
-                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                        title="Editar"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleConfigureObralia(client)}
-                        className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
-                        title="Configurar Obralia"
-                      >
-                        <Key className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClient(client.id)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredClients.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No hay clientes</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || filterStatus !== 'all' || filterPlan !== 'all'
-                ? 'No se encontraron clientes con los filtros aplicados.'
-                : 'No hay clientes registrados en el sistema.'
-              }
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Análisis de Tendencias */}
+      {/* Análisis Visual */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Distribución por Plan */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Distribución por Plan</h3>
           <div className="space-y-4">
             {['enterprise', 'professional', 'basic', 'custom'].map((plan, index) => {
               const count = clients.filter(c => c.subscription_plan === plan).length;
               const percentage = clients.length > 0 ? (count / clients.length) * 100 : 0;
-              const colors = ['bg-orange-500', 'bg-purple-500', 'bg-blue-500', 'bg-gray-500'];
+              const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500'];
               
               return (
                 <div key={plan} className="flex items-center justify-between">
@@ -1293,6 +1099,7 @@ export default function ClientsManagement() {
           </div>
         </div>
 
+        {/* Estado de Suscripciones */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Estado de Suscripciones</h3>
           <div className="space-y-4">
@@ -1323,17 +1130,21 @@ export default function ClientsManagement() {
           </div>
         </div>
 
+        {/* Configuración Obralia */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Configuración Obralia</h3>
           <div className="space-y-4">
             {[
-              { label: 'Configurados', count: clients.filter(c => c.obralia_credentials?.configured).length, color: 'bg-green-500' },
-              { label: 'Sin configurar', count: clients.filter(c => !c.obralia_credentials?.configured).length, color: 'bg-red-500' }
+              { key: 'configured', label: 'Configurados', color: 'bg-green-500' },
+              { key: 'not_configured', label: 'Sin configurar', color: 'bg-red-500' }
             ].map((item, index) => {
-              const percentage = clients.length > 0 ? (item.count / clients.length) * 100 : 0;
+              const count = item.key === 'configured' 
+                ? clients.filter(c => c.obralia_credentials?.configured).length
+                : clients.filter(c => !c.obralia_credentials?.configured).length;
+              const percentage = clients.length > 0 ? (count / clients.length) * 100 : 0;
               
               return (
-                <div key={index} className="flex items-center justify-between">
+                <div key={item.key} className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className={`w-3 h-3 rounded-full mr-3 ${item.color}`}></div>
                     <span className="text-sm text-gray-600">{item.label}</span>
@@ -1345,7 +1156,7 @@ export default function ClientsManagement() {
                         style={{ width: `${percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 w-8">{item.count}</span>
+                    <span className="text-sm font-medium text-gray-900 w-8">{count}</span>
                   </div>
                 </div>
               );
@@ -1354,13 +1165,197 @@ export default function ClientsManagement() {
         </div>
       </div>
 
-      {/* Modales */}
+      {/* Filtros */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Buscar por empresa, contacto, email o ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todos los planes</option>
+              <option value="basic">Básico</option>
+              <option value="professional">Profesional</option>
+              <option value="enterprise">Enterprise</option>
+              <option value="custom">Personalizado</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="active">Activos</option>
+              <option value="suspended">Suspendidos</option>
+              <option value="cancelled">Cancelados</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabla de Clientes */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Plan
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Obralia
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Uso
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Registro
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredClients.map((client) => {
+                const storagePercentage = client.storage_limit > 0 ? (client.storage_used / client.storage_limit) * 100 : 0;
+                
+                return (
+                  <tr key={client.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{client.company_name}</div>
+                          <div className="text-sm text-gray-500">{client.contact_name}</div>
+                          <div className="text-xs text-gray-400">{client.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPlanColor(client.subscription_plan)}`}>
+                        {client.subscription_plan.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(client.subscription_status)}`}>
+                        {client.subscription_status === 'active' ? 'Activo' :
+                         client.subscription_status === 'suspended' ? 'Suspendido' : 'Cancelado'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {client.obralia_credentials?.configured ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500 mr-1" />
+                        )}
+                        <span className="text-xs text-gray-600">
+                          {client.obralia_credentials?.configured ? 'Configurado' : 'Sin configurar'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="w-16 bg-gray-200 rounded-full h-2 mb-1">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              storagePercentage > 90 ? 'bg-red-500' : 
+                              storagePercentage > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(storagePercentage, 100)}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-gray-500">{Math.round(storagePercentage)}%</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(client.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleViewClient(client)}
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                          title="Ver detalles"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditClient(client)}
+                          className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                          title="Editar cliente"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleConfigureObralia(client)}
+                          className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
+                          title="Configurar Obralia"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClient(client)}
+                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                          title="Eliminar cliente"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Resumen */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">
+            Mostrando {filteredClients.length} de {clients.length} clientes
+          </span>
+          <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <span>Activos: {clients.filter(c => c.subscription_status === 'active').length}</span>
+            <span>Enterprise: {clients.filter(c => c.subscription_plan === 'enterprise').length}</span>
+            <span>Obralia: {clients.filter(c => c.obralia_credentials?.configured).length}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
       <ClientDetailsModal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         client={selectedClient}
-        onEdit={handleEditClient}
-        onConfigureObralia={handleConfigureObralia}
+        onUpdate={loadClients}
       />
 
       <EditClientModal
@@ -1370,7 +1365,7 @@ export default function ClientsManagement() {
         onSave={handleSaveClient}
       />
 
-      <ObraliaConfigModal
+      <ObraliaCredentialsModal
         isOpen={showObraliaModal}
         onClose={() => setShowObraliaModal(false)}
         client={selectedClient}
