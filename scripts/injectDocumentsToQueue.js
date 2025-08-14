@@ -49,18 +49,46 @@ async function injectDocumentsToQueue() {
   console.log('🚀 Inyectando 30 documentos en la cola de procesamiento manual...\n');
 
   try {
-    // 1. Obtener clientes, empresas y proyectos existentes
-    console.log('1️⃣ Obteniendo datos existentes...');
+    // 1. Verificar conexión a Supabase
+    console.log('1️⃣ Verificando conexión a Supabase...');
+    
+    const { data: testConnection, error: connectionError } = await supabase
+      .from('users')
+      .select('id')
+      .limit(1);
+
+    if (connectionError) {
+      console.error('❌ Error de conexión a Supabase:', connectionError.message);
+      console.log('\n🔧 Posibles soluciones:');
+      console.log('   1. Verifica que VITE_SUPABASE_URL esté configurado correctamente');
+      console.log('   2. Verifica que VITE_SUPABASE_SERVICE_ROLE_KEY sea válido');
+      console.log('   3. Asegúrate de que RLS esté deshabilitado para desarrollo');
+      throw new Error(`Conexión a Supabase fallida: ${connectionError.message}`);
+    }
+    
+    console.log('✅ Conexión a Supabase exitosa');
+
+    // 2. Obtener clientes existentes
+    console.log('2️⃣ Obteniendo clientes existentes...');
     
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
-      .select('id, company_name, contact_name')
-      .eq('subscription_status', 'active');
+      .select('id, company_name, contact_name, subscription_status');
 
-    if (clientsError || !clients || clients.length === 0) {
-      throw new Error('No se encontraron clientes activos');
+    if (clientsError) {
+      throw new Error(`Error obteniendo clientes: ${clientsError.message}`);
     }
+    
+    if (!clients || clients.length === 0) {
+      console.log('⚠️ No se encontraron clientes. Ejecutando script de población primero...');
+      console.log('   Ejecuta: node scripts/populateDatabase.js');
+      throw new Error('No hay clientes en la base de datos. Ejecuta el script de población primero.');
+    }
+    
+    console.log(`✅ ${clients.length} clientes encontrados`);
 
+    // 3. Obtener o crear empresas
+    console.log('3️⃣ Obteniendo empresas...');
     const { data: companies, error: companiesError } = await supabase
       .from('companies')
       .select('id, name, client_id')
@@ -70,11 +98,17 @@ async function injectDocumentsToQueue() {
       throw new Error(`Error obteniendo empresas: ${companiesError.message}`);
     }
 
-    // Si no hay empresas, crear algunas automáticamente
-    if (!companies || companies.length === 0) {
-      console.log('⚠️ No se encontraron empresas, creando empresas de ejemplo...');
+    let finalCompanies = companies || [];
+    
+    // Si hay pocos empresas, crear más automáticamente
+    if (finalCompanies.length < 5) {
+      console.log(`⚠️ Solo ${finalCompanies.length} empresas encontradas, creando más empresas de ejemplo...`);
       
-      const newCompanies = clients.slice(0, 5).map(client => ({
+      const clientsNeedingCompanies = clients.filter(client => 
+        !finalCompanies.some(company => company.client_id === client.id)
+      ).slice(0, 10);
+      
+      const newCompanies = clientsNeedingCompanies.map(client => ({
         client_id: client.id,
         name: client.company_name,
         cif: `B${Math.floor(Math.random() * 90000000) + 10000000}`,
@@ -85,19 +119,29 @@ async function injectDocumentsToQueue() {
         updated_at: new Date().toISOString()
       }));
 
-      const { data: createdCompanies, error: createError } = await supabase
-        .from('companies')
-        .insert(newCompanies)
-        .select();
+      if (newCompanies.length > 0) {
+        const { data: createdCompanies, error: createError } = await supabase
+          .from('companies')
+          .insert(newCompanies)
+          .select();
 
-      if (createError) {
-        throw new Error(`Error creando empresas: ${createError.message}`);
+        if (createError) {
+          console.warn(`⚠️ Error creando empresas: ${createError.message}`);
+        } else {
+          finalCompanies = [...finalCompanies, ...createdCompanies];
+          console.log(`✅ ${createdCompanies.length} empresas creadas automáticamente`);
+        }
       }
-
-      companies = createdCompanies;
-      console.log(`✅ ${companies.length} empresas creadas automáticamente`);
     }
 
+    if (finalCompanies.length === 0) {
+      throw new Error('No se pudieron obtener o crear empresas');
+    }
+
+    console.log(`✅ ${finalCompanies.length} empresas disponibles`);
+
+    // 4. Obtener o crear proyectos
+    console.log('4️⃣ Obteniendo proyectos...');
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('id, name, company_id, client_id')
@@ -107,11 +151,13 @@ async function injectDocumentsToQueue() {
       throw new Error(`Error obteniendo proyectos: ${projectsError.message}`);
     }
 
-    // Si no hay proyectos, crear algunos automáticamente
-    if (!projects || projects.length === 0) {
-      console.log('⚠️ No se encontraron proyectos, creando proyectos de ejemplo...');
+    let finalProjects = projects || [];
+    
+    // Si hay pocos proyectos, crear más automáticamente
+    if (finalProjects.length < 10) {
+      console.log(`⚠️ Solo ${finalProjects.length} proyectos encontrados, creando más proyectos de ejemplo...`);
       
-      const newProjects = companies.map((company, index) => ({
+      const newProjects = finalCompanies.slice(0, 15).map((company, index) => ({
         company_id: company.id,
         client_id: company.client_id,
         name: `Proyecto ${index + 1} - ${company.name}`,
@@ -126,30 +172,37 @@ async function injectDocumentsToQueue() {
         updated_at: new Date().toISOString()
       }));
 
-      const { data: createdProjects, error: createProjectsError } = await supabase
-        .from('projects')
-        .insert(newProjects)
-        .select();
+      if (newProjects.length > 0) {
+        const { data: createdProjects, error: createProjectsError } = await supabase
+          .from('projects')
+          .insert(newProjects)
+          .select();
 
-      if (createProjectsError) {
-        throw new Error(`Error creando proyectos: ${createProjectsError.message}`);
+        if (createProjectsError) {
+          console.warn(`⚠️ Error creando proyectos: ${createProjectsError.message}`);
+        } else {
+          finalProjects = [...finalProjects, ...createdProjects];
+          console.log(`✅ ${createdProjects.length} proyectos creados automáticamente`);
+        }
       }
-
-      projects = createdProjects;
-      console.log(`✅ ${projects.length} proyectos creados automáticamente`);
     }
 
-    console.log(`✅ Datos obtenidos: ${clients.length} clientes, ${companies.length} empresas, ${projects.length} proyectos`);
+    if (finalProjects.length === 0) {
+      throw new Error('No se pudieron obtener o crear proyectos');
+    }
 
-    // 2. Crear 30 documentos distribuidos
-    console.log('2️⃣ Creando 30 documentos...');
+    console.log(`✅ ${finalProjects.length} proyectos disponibles`);
+    console.log(`📊 Resumen: ${clients.length} clientes, ${finalCompanies.length} empresas, ${finalProjects.length} proyectos`);
+
+    // 5. Crear 30 documentos distribuidos
+    console.log('5️⃣ Creando 30 documentos...');
     const documents = [];
 
     for (let i = 0; i < 30; i++) {
       const client = getRandomElement(clients);
-      const clientCompanies = companies.filter(c => c.client_id === client.id);
+      const clientCompanies = finalCompanies.filter(c => c.client_id === client.id);
       const company = getRandomElement(clientCompanies);
-      const companyProjects = projects.filter(p => p.company_id === company.id);
+      const companyProjects = finalProjects.filter(p => p.company_id === company.id);
       const project = getRandomElement(companyProjects);
       
       const docType = getRandomElement(documentTypes);
@@ -189,13 +242,13 @@ async function injectDocumentsToQueue() {
 
     console.log(`✅ ${documents.length} documentos creados exitosamente`);
 
-    // 3. Crear entradas en la cola manual
-    console.log('3️⃣ Agregando documentos a la cola manual...');
+    // 6. Crear entradas en la cola manual
+    console.log('6️⃣ Agregando documentos a la cola manual...');
     const queueEntries = [];
 
     documentsData.forEach((doc, index) => {
-      const project = projects.find(p => p.id === doc.project_id);
-      const company = companies.find(c => c.id === project?.company_id);
+      const project = finalProjects.find(p => p.id === doc.project_id);
+      const company = finalCompanies.find(c => c.id === project?.company_id);
       const client = clients.find(c => c.id === doc.client_id);
       
       queueEntries.push({
@@ -236,8 +289,8 @@ async function injectDocumentsToQueue() {
 
     console.log(`✅ ${queueEntries.length} documentos agregados a la cola manual`);
 
-    // 4. Verificación final
-    console.log('4️⃣ Verificación final...');
+    // 7. Verificación final
+    console.log('7️⃣ Verificación final...');
     
     const { data: queueData, error: verifyError } = await supabase
       .from('manual_document_queue')
@@ -285,7 +338,12 @@ async function injectDocumentsToQueue() {
     console.log('🔧 El administrador puede ahora gestionar la cola desde el módulo de Gestión Manual');
 
   } catch (error) {
-    console.error('❌ Error fatal:', error);
+    console.error('❌ Error fatal:', error.message);
+    console.log('\n🔧 Diagnóstico:');
+    console.log('   1. Verifica que el archivo .env tenga las variables correctas');
+    console.log('   2. Asegúrate de que VITE_SUPABASE_SERVICE_ROLE_KEY sea válido');
+    console.log('   3. Ejecuta primero: node scripts/populateDatabase.js');
+    console.log('   4. Verifica que RLS esté deshabilitado: node scripts/disableAllRLS.js');
     process.exit(1);
   }
 }
