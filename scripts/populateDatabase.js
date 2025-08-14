@@ -540,6 +540,7 @@ async function populateDatabase() {
     console.log('9️⃣ Creando KPIs del sistema...');
     const kpis = [
       {
+        id: 'kpi-1',
         name: 'Total Clientes',
         value: clients.length,
         change: 23.5,
@@ -549,6 +550,7 @@ async function populateDatabase() {
         description: 'Total de clientes registrados'
       },
       {
+        id: 'kpi-2',
         name: 'Clientes Activos',
         value: clients.filter(c => c.subscription_status === 'active').length,
         change: 18.2,
@@ -558,6 +560,7 @@ async function populateDatabase() {
         description: 'Clientes con suscripción activa'
       },
       {
+        id: 'kpi-3',
         name: 'Tasa de Retención',
         value: 84,
         change: 5.7,
@@ -567,6 +570,7 @@ async function populateDatabase() {
         description: 'Porcentaje de clientes que renuevan'
       },
       {
+        id: 'kpi-4',
         name: 'Ingresos Mensuales',
         value: Math.round(receipts.reduce((sum, r) => sum + r.amount, 0) / 6),
         change: 15.3,
@@ -576,6 +580,7 @@ async function populateDatabase() {
         description: 'Ingresos promedio mensuales'
       },
       {
+        id: 'kpi-5',
         name: 'Documentos Procesados',
         value: documents.length,
         change: 28.9,
@@ -585,6 +590,7 @@ async function populateDatabase() {
         description: 'Total de documentos procesados'
       },
       {
+        id: 'kpi-6',
         name: 'Precisión IA',
         value: 94.2,
         change: 2.1,
