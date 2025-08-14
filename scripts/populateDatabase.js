@@ -7,7 +7,7 @@ dotenv.config();
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || supabaseServiceKey) {
+if (!supabaseUrl || !supabaseServiceKey) {
   console.error('❌ Missing Supabase configuration. Please check your .env file.');
   process.exit(1);
 }
