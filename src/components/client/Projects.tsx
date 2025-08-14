@@ -310,34 +310,6 @@ export default function Projects() {
         ))}
       </div>
 
-      useEffect(() => {
-        loadProjects();
-      }, []);
-
-      const loadProjects = async () => {
-        try {
-          setLoading(true);
-          setError(null);
-          
-          // Obtener el primer cliente disponible
-          const allClients = await getAllClients();
-          if (!allClients || allClients.length === 0) {
-            throw new Error('No hay clientes en la base de datos');
-          }
-          
-          const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-          
-          // Obtener proyectos del cliente
-          const projectsData = await getClientProjects(activeClient.id);
-          setProjects(projectsData || []);
-          
-        } catch (err) {
-          console.error('Error loading projects:', err);
-          setError(err instanceof Error ? err.message : 'Error loading projects');
-        } finally {
-          setLoading(false);
-        }
-      };
       {filteredProjects.length === 0 && (
         <div className="text-center py-12">
           <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
