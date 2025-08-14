@@ -89,21 +89,25 @@ async function injectDocumentsToQueue() {
     ];
     
     console.log('✅ Datos de ejemplo creados');
-        updated_at: new Date().toISOString()
-      }));
+    
+    // Crear proyectos adicionales si es necesario
+    const newProjects = sampleProjects.map(project => ({
+      ...project,
+      created_at: generateRandomDate(60),
+      updated_at: new Date().toISOString()
+    }));
 
-      if (newProjects.length > 0) {
-        const { data: createdProjects, error: createProjectsError } = await supabase
-          .from('projects')
-          .insert(newProjects)
-          .select();
+    if (newProjects.length > 0) {
+      const { data: createdProjects, error: createProjectsError } = await supabase
+        .from('projects')
+        .insert(newProjects)
+        .select();
 
-        if (createProjectsError) {
-          console.warn(`⚠️ Error creando proyectos: ${createProjectsError.message}`);
-        } else {
-          finalProjects = [...finalProjects, ...createdProjects];
-          console.log(`✅ ${createdProjects.length} proyectos creados automáticamente`);
-        }
+      if (createProjectsError) {
+        console.warn(`⚠️ Error creando proyectos: ${createProjectsError.message}`);
+      } else {
+        finalProjects = [...finalProjects, ...createdProjects];
+        console.log(`✅ ${createdProjects.length} proyectos creados automáticamente`);
       }
     }
 
@@ -258,6 +262,8 @@ async function injectDocumentsToQueue() {
       }
     } catch (error) {
       console.warn(`⚠️ Error de conexión verificando cola: ${error.message}`);
+    }
+    
     console.log(`✅ Cola verificada: ${queueData?.length || 0} documentos en cola`);
 
     // Estadísticas por cliente
