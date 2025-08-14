@@ -244,7 +244,7 @@ async function populateDatabase() {
       
       for (let j = 0; j < numCompanies; j++) {
         companies.push({
-          client_id: client.user_id, // Usar user_id como referencia
+          client_id: client.id, // Usar id como referencia
           name: j === 0 ? client.company_name : `${client.company_name.split(' ')[0]} ${getRandomElement(['Filial', 'Sucursal', 'División'])} ${j + 1}`,
           cif: generateRandomCIF(),
           address: client.address,
