@@ -541,7 +541,7 @@ async function populateDatabase() {
     const kpis = [
       {
         name: 'Total Clientes',
-        value: clients.length.toString(),
+        value: clients.length,
         change: 23.5,
         trend: 'up',
         period: 'monthly',
@@ -550,7 +550,7 @@ async function populateDatabase() {
       },
       {
         name: 'Clientes Activos',
-        value: clients.filter(c => c.subscription_status === 'active').length.toString(),
+        value: clients.filter(c => c.subscription_status === 'active').length,
         change: 18.2,
         trend: 'up',
         period: 'monthly',
@@ -559,7 +559,7 @@ async function populateDatabase() {
       },
       {
         name: 'Tasa de Retención',
-        value: '84%',
+        value: 84,
         change: 5.7,
         trend: 'up',
         period: 'monthly',
@@ -568,7 +568,7 @@ async function populateDatabase() {
       },
       {
         name: 'Ingresos Mensuales',
-        value: (receipts.reduce((sum, r) => sum + r.amount, 0) / 6).toFixed(0),
+        value: Math.round(receipts.reduce((sum, r) => sum + r.amount, 0) / 6),
         change: 15.3,
         trend: 'up',
         period: 'monthly',
@@ -577,7 +577,7 @@ async function populateDatabase() {
       },
       {
         name: 'Documentos Procesados',
-        value: documents.length.toString(),
+        value: documents.length,
         change: 28.9,
         trend: 'up',
         period: 'monthly',
@@ -586,7 +586,7 @@ async function populateDatabase() {
       },
       {
         name: 'Precisión IA',
-        value: '94.2%',
+        value: 94.2,
         change: 2.1,
         trend: 'up',
         period: 'monthly',
