@@ -799,6 +799,29 @@ export const getCommissionStatsByGateway = async () => {
   }
 };
 
+// Helper para eliminar documento
+export const removeFile = async (documentId: string) => {
+  try {
+    if (!documentId) {
+      throw new Error('Document ID is required');
+    }
+
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', documentId);
+
+    if (error) {
+      throw new Error(`Error removing document: ${error.message}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error removing document:', error);
+    throw error;
+  }
+};
+
 // Helper para crear insight de IA
 export const createAIInsight = async (insight: Partial<AIInsight>) => {
   try {
