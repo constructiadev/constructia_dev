@@ -529,6 +529,19 @@ export const createTestClient = async () => {
 // Helper para crear datos de prueba
 export const createTestData = async () => {
   try {
+    // Crear usuario de prueba primero para satisfacer la foreign key constraint
+    const { error: userError } = await supabase
+      .from('users')
+      .upsert({
+        id: TEST_USER_UUID,
+        email: 'test@construccionesgarcia.com',
+        role: 'client'
+      });
+
+    if (userError) {
+      console.warn('Error creating test user:', userError);
+    }
+
     // Crear cliente de prueba
     const client = await createTestClient();
     
