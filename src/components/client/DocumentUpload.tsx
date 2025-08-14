@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Upload, 
   FileText, 
@@ -21,6 +22,8 @@ import {
   User,
   Trash2
 } from 'lucide-react';
+import { getAllClients } from '../../lib/supabase';
+import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 
 interface UploadedFile {
   id: string;
@@ -443,7 +446,11 @@ function BulkActionsModal({ isOpen, onClose, selectedFiles, onBulkAction }: Bulk
 }
 
 const DocumentUpload: React.FC = () => {
+  const navigate = useNavigate();
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [clientData, setClientData] = useState<any>(null);
+  const [showObraliaModal, setShowObraliaModal] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showFileDetails, setShowFileDetails] = useState(false);
@@ -453,6 +460,46 @@ const DocumentUpload: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    checkObraliaCredentials();
+  }, []);
+
+  const checkObraliaCredentials = async () => {
+    try {
+      setLoading(true);
+      
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
+      }
+      
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      setClientData(activeClient);
+      
+      // Verificar si tiene credenciales configuradas
+      if (!activeClient.obralia_credentials?.configured) {
+        setShowObraliaModal(true);
+      }
+      
+    } catch (error) {
+      console.error('Error checking Obralia credentials:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleObraliaCredentialsSave = async (credentials: { username: string; password: string }) => {
+    try {
+      // Aquí se guardarían las credenciales en la base de datos
+      console.log('Credenciales guardadas:', credentials);
+      await checkObraliaCredentials(); // Recargar datos
+    } catch (error) {
+      console.error('Error saving Obralia credentials:', error);
+      throw error;
+    }
+  };
 
   // Datos mock para desarrollo
   const projects: Project[] = [
@@ -466,6 +513,12 @@ const DocumentUpload: React.FC = () => {
   ];
 
   const handleFileSelect = (selectedFiles: FileList) => {
+    // Verificar credenciales antes de permitir subida
+    if (!clientData?.obralia_credentials?.configured) {
+      setShowObraliaModal(true);
+      return;
+    }
+
     const newFiles: UploadedFile[] = Array.from(selectedFiles).map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
@@ -657,6 +710,17 @@ const DocumentUpload: React.FC = () => {
     totalSize: files.reduce((sum, f) => sum + f.size, 0)
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando configuración...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -664,8 +728,19 @@ const DocumentUpload: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Subir Documentos</h1>
           <p className="text-gray-600">Gestión avanzada de carga de documentos con IA</p>
-          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔧 MODO DESARROLLO - Simulación completa
+          <div className="mt-2 flex items-center space-x-2">
+            <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+              🔧 MODO DESARROLLO - Simulación completa
+            </div>
+            {clientData?.obralia_credentials?.configured ? (
+              <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                ✅ Obralia Configurado
+              </div>
+            ) : (
+              <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                ⚠ Obralia No Configurado
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -1023,6 +1098,13 @@ const DocumentUpload: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Obralia Credentials Modal */}
+      <ObraliaCredentialsModal
+        isOpen={showObraliaModal}
+        onSave={handleObraliaCredentialsSave}
+        clientName={clientData?.company_name || 'Cliente'}
+      />
 
       {/* Modals */}
       <FileDetailsModal

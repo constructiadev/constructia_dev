@@ -1,95 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
-  Upload, 
   Users, 
   Building2, 
   FolderOpen, 
-  Search, 
-  Filter,
-  RefreshCw,
-  Eye,
+  Upload,
   Download,
-  Trash2,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Brain,
-  Database,
-  Shield,
+  Eye,
   Settings,
-  Key,
+  RefreshCw,
+  Search,
+  Filter,
+  Calendar,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Play,
+  Pause,
+  MoreHorizontal,
+  ChevronDown,
+  ChevronRight,
   User,
+  Shield,
+  Database,
+  Zap,
+  Target,
+  Activity,
+  BarChart3,
+  TrendingUp,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Copy,
+  ExternalLink,
+  Key,
   Lock,
   Unlock,
   Save,
   X,
+  Info,
+  Loader2,
   Plus,
+  Trash2,
   Edit,
-  Calendar,
-  Target,
-  Activity,
-  TrendingUp,
-  BarChart3,
-  Zap,
-  Globe,
   Mail,
   Phone,
-  MapPin,
-  Hash,
-  Building,
-  CreditCard,
-  FolderPlus,
-  MousePointer,
-  HardDrive,
-  Layers,
-  ArrowRight,
-  ChevronDown,
-  CheckCircle as CheckIcon,
-  AlertTriangle
+  MapPin
 } from 'lucide-react';
 import { 
   getManualProcessingQueue, 
   getAllClients, 
-  getClientCompanies, 
-  getClientProjects,
-  updateClientObraliaCredentials 
+  getAllPaymentGateways,
+  updateClientObraliaCredentials,
+  supabase 
 } from '../../lib/supabase';
 
 interface QueueItem {
   id: string;
   document_id: string;
   client_id: string;
-  company_id?: string;
-  project_id?: string;
+  company_id: string;
+  project_id: string;
   queue_position: number;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   manual_status: 'pending' | 'in_progress' | 'uploaded' | 'validated' | 'error' | 'corrupted';
   ai_analysis: any;
   admin_notes: string;
-  processed_by?: string;
-  processed_at?: string;
   corruption_detected: boolean;
   file_integrity_score: number;
   retry_count: number;
-  last_error_message?: string;
+  estimated_processing_time: string;
   created_at: string;
+  updated_at: string;
   documents?: {
     filename: string;
     original_name: string;
-    file_size: number;
-    file_type: string;
     document_type: string;
+    file_size: number;
     classification_confidence: number;
   };
   clients?: {
     company_name: string;
     contact_name: string;
-    email: string;
     obralia_credentials?: {
+      configured: boolean;
       username?: string;
       password?: string;
-      configured?: boolean;
     };
   };
   companies?: {
@@ -100,108 +97,311 @@ interface QueueItem {
   };
 }
 
-interface Client {
-  id: string;
-  client_id: string;
-  company_name: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  obralia_credentials?: {
-    username?: string;
-    password?: string;
-    configured?: boolean;
+interface GroupedQueueData {
+  [clientId: string]: {
+    client: {
+      id: string;
+      name: string;
+      contact: string;
+      obralia_configured: boolean;
+      credentials?: {
+        username: string;
+        password: string;
+      };
+    };
+    companies: {
+      [companyId: string]: {
+        company: {
+          id: string;
+          name: string;
+        };
+        projects: {
+          [projectId: string]: {
+            project: {
+              id: string;
+              name: string;
+            };
+            documents: QueueItem[];
+          };
+        };
+      };
+    };
+    totalDocuments: number;
   };
 }
 
-interface Company {
-  id: string;
-  name: string;
-  cif: string;
-  client_id: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  company_id: string;
-  client_id: string;
-}
-
-interface ObraliaUploadModalProps {
+interface ObraliaCredentialsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  client: Client | null;
-  onUpload: (files: FileList, clientId: string, companyId: string, projectId: string, uploadMethod: 'drag' | 'directory') => void;
+  onSave: (clientId: string, credentials: { username: string; password: string }) => Promise<void>;
+  clientData: {
+    id: string;
+    name: string;
+    contact: string;
+  } | null;
 }
 
-function ObraliaUploadModal({ isOpen, onClose, client, onUpload }: ObraliaUploadModalProps) {
-  const [selectedCompany, setSelectedCompany] = useState('');
-  const [selectedProject, setSelectedProject] = useState('');
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [dragOver, setDragOver] = useState(false);
-  const [uploadMethod, setUploadMethod] = useState<'drag' | 'directory'>('drag');
-  const [expandedHierarchy, setExpandedHierarchy] = useState<{[key: string]: boolean}>({});
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const directoryInputRef = React.useRef<HTMLInputElement>(null);
+function ObraliaCredentialsModal({ isOpen, onClose, onSave, clientData }: ObraliaCredentialsModalProps) {
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  useEffect(() => {
-    if (client) {
-      loadClientData();
-    }
-  }, [client]);
-
-  const loadClientData = async () => {
-    if (!client) return;
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
     
+    if (!credentials.username || credentials.username.length < 3) {
+      newErrors.username = 'El usuario de Obralia es obligatorio (mín. 3 caracteres)';
+    }
+    if (!credentials.password || credentials.password.length < 6) {
+      newErrors.password = 'La contraseña de Obralia es obligatoria (mín. 6 caracteres)';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm() || !clientData) return;
+    
+    setIsSubmitting(true);
     try {
-      const [companiesData, projectsData] = await Promise.all([
-        getClientCompanies(client.id),
-        getClientProjects(client.id)
-      ]);
-      
-      setCompanies(companiesData || []);
-      setProjects(projectsData || []);
+      await onSave(clientData.id, credentials);
+      setCredentials({ username: '', password: '' });
+      onClose();
     } catch (error) {
-      console.error('Error loading client data:', error);
+      console.error('Error saving Obralia credentials:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleFileSelect = (files: FileList, method: 'drag' | 'directory') => {
-    if (!client || !selectedCompany || !selectedProject) return;
-    onUpload(files, client.id, selectedCompany, selectedProject, method);
-    onClose();
-  };
-
-  const filteredProjects = projects.filter(project => 
-    !selectedCompany || project.company_id === selectedCompany
-  );
-
-  const toggleHierarchy = (key: string) => {
-    setExpandedHierarchy(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  if (!isOpen || !client) return null;
+  if (!isOpen || !clientData) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white p-6 rounded-t-xl">
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-white/20 p-3 rounded-full mr-4">
+                <Shield className="h-8 w-8" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Configuración Obligatoria</h2>
+                <p className="text-orange-100">Credenciales de Obralia</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {/* Warning Notice */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold text-yellow-800 mb-1">
+                  Configuración Requerida
+                </h4>
+                <p className="text-sm text-yellow-700">
+                  Para poder subir documentos automáticamente a Obralia, 
+                  necesitas configurar tus credenciales. Esta configuración es 
+                  <strong> obligatoria</strong> para usar la plataforma.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Client Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <User className="h-5 w-5 text-blue-600 mr-3" />
+              <div>
+                <p className="font-semibold text-blue-800">Cliente: {clientData.name}</p>
+                <p className="text-sm text-blue-700">Contacto: {clientData.contact}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Usuario de Obralia *
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={credentials.username}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="obralia_user"
+                />
+              </div>
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contraseña de Obralia *
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={credentials.password}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="••••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Security Notice */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-start">
+                <CheckCircle className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+                <div>
+                  <p className="text-sm text-green-800">
+                    <strong>Seguridad garantizada:</strong> Las credenciales se 
+                    almacenan de forma segura y encriptada para la integración automática con Obralia.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Guardando credenciales...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar y Continuar
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface DocumentUploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  clientData: {
+    id: string;
+    name: string;
+    credentials?: {
+      username: string;
+      password: string;
+    };
+  } | null;
+  selectedDocuments: QueueItem[];
+  onUploadComplete: () => void;
+}
+
+function DocumentUploadModal({ isOpen, onClose, clientData, selectedDocuments, onUploadComplete }: DocumentUploadModalProps) {
+  const [uploadMethod, setUploadMethod] = useState<'drag' | 'directory'>('drag');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const directoryInputRef = useRef<HTMLInputElement>(null);
+
+  const simulateUpload = async () => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    setUploadStatus('Conectando con Obralia...');
+
+    try {
+      // Simular proceso de subida
+      const steps = [
+        { progress: 20, status: 'Autenticando con credenciales...' },
+        { progress: 40, status: 'Navegando a la sección correcta...' },
+        { progress: 60, status: 'Subiendo documentos...' },
+        { progress: 80, status: 'Validando documentos subidos...' },
+        { progress: 100, status: 'Subida completada exitosamente' }
+      ];
+
+      for (const step of steps) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setUploadProgress(step.progress);
+        setUploadStatus(step.status);
+      }
+
+      // Actualizar estado de documentos en la base de datos
+      const documentIds = selectedDocuments.map(doc => doc.document_id);
+      await supabase
+        .from('manual_document_queue')
+        .update({
+          manual_status: 'uploaded',
+          updated_at: new Date().toISOString()
+        })
+        .in('document_id', documentIds);
+
+      onUploadComplete();
+      setTimeout(() => {
+        onClose();
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadStatus('');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error uploading to Obralia:', error);
+      setUploadStatus('Error en la subida');
+      setIsUploading(false);
+    }
+  };
+
+  if (!isOpen || !clientData) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white p-6 rounded-t-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="bg-white/20 p-3 rounded-full mr-4">
                 <Upload className="h-8 w-8" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">Subir a Obralia/Nalanda</h2>
-                <p className="text-orange-100">{client.company_name}</p>
+                <h2 className="text-xl font-bold">Subir a Obralia</h2>
+                <p className="text-blue-100">{selectedDocuments.length} documentos seleccionados</p>
               </div>
             </div>
             <button
@@ -215,501 +415,142 @@ function ObraliaUploadModal({ isOpen, onClose, client, onUpload }: ObraliaUpload
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Jerarquía Visual */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-              <Layers className="h-5 w-5 mr-2" />
-              Jerarquía: Cliente → Empresa → Proyecto → Documento
-            </h3>
-            
-            {/* Cliente (Read-only) */}
-            <div className="mb-4">
-              <div 
-                className="flex items-center p-3 bg-blue-100 border border-blue-300 rounded-lg cursor-pointer"
-                onClick={() => toggleHierarchy('client')}
-              >
-                <div className="flex items-center flex-1">
-                  {expandedHierarchy.client ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
-                  <Users className="h-5 w-5 text-blue-600 mr-3" />
-                  <div>
-                    <p className="font-semibold text-blue-800">Cliente: {client.company_name}</p>
-                    <p className="text-sm text-blue-600">{client.contact_name} • {client.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    client.obralia_credentials?.configured 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {client.obralia_credentials?.configured ? 'Obralia OK' : 'Sin configurar'}
-                  </span>
+          {/* Client Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <User className="h-5 w-5 text-blue-600 mr-3" />
+                <div>
+                  <p className="font-semibold text-blue-800">{clientData.name}</p>
+                  <p className="text-sm text-blue-700">
+                    Usuario Obralia: {clientData.credentials?.username || 'No configurado'}
+                  </p>
                 </div>
               </div>
-
-              {expandedHierarchy.client && (
-                <div className="ml-6 mt-2 p-3 bg-blue-50 border-l-4 border-blue-300 rounded">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-blue-700 font-medium">ID Cliente:</span>
-                      <p className="text-blue-600">{client.client_id}</p>
-                    </div>
-                    <div>
-                      <span className="text-blue-700 font-medium">Teléfono:</span>
-                      <p className="text-blue-600">{client.phone}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-blue-700 font-medium">Dirección:</span>
-                      <p className="text-blue-600">{client.address}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Empresa Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Building2 className="h-4 w-4 inline mr-1" />
-                Empresa *
-              </label>
-              <select
-                value={selectedCompany}
-                onChange={(e) => {
-                  setSelectedCompany(e.target.value);
-                  setSelectedProject(''); // Reset project when company changes
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                required
-              >
-                <option value="">Seleccionar empresa</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name} ({company.cif})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Proyecto Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FolderOpen className="h-4 w-4 inline mr-1" />
-                Proyecto *
-              </label>
-              <select
-                value={selectedProject}
-                onChange={(e) => setSelectedProject(e.target.value)}
-                disabled={!selectedCompany}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-100"
-                required
-              >
-                <option value="">Seleccionar proyecto</option>
-                {filteredProjects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Hierarchy Visualization */}
-            {selectedCompany && selectedProject && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <h5 className="font-medium text-green-800 mb-2">📁 Ruta de Subida:</h5>
-                <div className="flex items-center text-sm text-green-700 space-x-2">
-                  <span className="bg-blue-100 px-2 py-1 rounded">{client.company_name}</span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span className="bg-purple-100 px-2 py-1 rounded">
-                    {companies.find(c => c.id === selectedCompany)?.name}
-                  </span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span className="bg-orange-100 px-2 py-1 rounded">
-                    {projects.find(p => p.id === selectedProject)?.name}
-                  </span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span className="bg-green-100 px-2 py-1 rounded">Documentos</span>
-                </div>
+              <div className="flex items-center space-x-2">
+                <Copy className="h-4 w-4 text-blue-600 cursor-pointer" title="Copiar usuario" />
+                <Copy className="h-4 w-4 text-blue-600 cursor-pointer" title="Copiar contraseña" />
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Métodos de Subida */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Drag & Drop */}
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
+          {/* Upload Method Selection */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-800">Método de Subida</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                uploadMethod === 'drag' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}>
                 <input
                   type="radio"
-                  id="drag-method"
-                  name="upload-method"
+                  name="uploadMethod"
                   value="drag"
                   checked={uploadMethod === 'drag'}
                   onChange={(e) => setUploadMethod(e.target.value as 'drag' | 'directory')}
-                  className="text-orange-600"
+                  className="sr-only"
                 />
-                <label htmlFor="drag-method" className="font-medium text-gray-800 flex items-center">
-                  <MousePointer className="h-4 w-4 mr-2" />
-                  Drag & Drop
-                </label>
-              </div>
-              
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
-                  uploadMethod === 'drag'
-                    ? dragOver
-                      ? 'border-orange-400 bg-orange-50 scale-105'
-                      : 'border-orange-300 hover:border-orange-400 hover:bg-orange-50'
-                    : 'border-gray-200 bg-gray-50 opacity-50'
-                }`}
-                onDragOver={(e) => {
-                  if (uploadMethod === 'drag') {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  if (uploadMethod === 'drag' && selectedCompany && selectedProject) {
-                    e.preventDefault();
-                    setDragOver(false);
-                    if (e.dataTransfer.files) {
-                      handleFileSelect(e.dataTransfer.files, 'drag');
-                    }
-                  }
-                }}
-              >
-                <Upload className="w-12 h-12 text-orange-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                  Arrastra documentos aquí
-                </h4>
-                <p className="text-gray-600 mb-4">
-                  Suelta los archivos para subirlos directamente a Obralia
-                </p>
-                <button
-                  onClick={() => uploadMethod === 'drag' && fileInputRef.current?.click()}
-                  disabled={uploadMethod !== 'drag' || !selectedCompany || !selectedProject}
-                  className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Seleccionar Archivos
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => {
-                    if (e.target.files && selectedCompany && selectedProject) {
-                      handleFileSelect(e.target.files, 'drag');
-                    }
-                  }}
-                />
-              </div>
-            </div>
+                <div className="flex items-center">
+                  <Upload className="h-6 w-6 text-blue-600 mr-3" />
+                  <div>
+                    <p className="font-medium text-gray-900">Drag & Drop</p>
+                    <p className="text-sm text-gray-600">Subida individual de archivos</p>
+                  </div>
+                </div>
+              </label>
 
-            {/* Directory Selection */}
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
+              <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                uploadMethod === 'directory' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}>
                 <input
                   type="radio"
-                  id="directory-method"
-                  name="upload-method"
+                  name="uploadMethod"
                   value="directory"
                   checked={uploadMethod === 'directory'}
                   onChange={(e) => setUploadMethod(e.target.value as 'drag' | 'directory')}
-                  className="text-orange-600"
+                  className="sr-only"
                 />
-                <label htmlFor="directory-method" className="font-medium text-gray-800 flex items-center">
-                  <FolderPlus className="h-4 w-4 mr-2" />
-                  Selección de Directorio
-                </label>
-              </div>
-              
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
-                  uploadMethod === 'directory'
-                    ? 'border-blue-300 hover:border-blue-400 hover:bg-blue-50'
-                    : 'border-gray-200 bg-gray-50 opacity-50'
-                }`}
-              >
-                <HardDrive className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                  Seleccionar Carpeta Completa
-                </h4>
-                <p className="text-gray-600 mb-4">
-                  Sube todos los archivos de una carpeta de una vez
-                </p>
-                <button
-                  onClick={() => uploadMethod === 'directory' && directoryInputRef.current?.click()}
-                  disabled={uploadMethod !== 'directory' || !selectedCompany || !selectedProject}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Seleccionar Carpeta
-                </button>
-                <input
-                  ref={directoryInputRef}
-                  type="file"
-                  multiple
-                  webkitdirectory=""
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && selectedCompany && selectedProject) {
-                      handleFileSelect(e.target.files, 'directory');
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Información de Obralia */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <h4 className="font-semibold text-orange-800 mb-3 flex items-center">
-              <Globe className="h-5 w-5 mr-2" />
-              Estado de Conexión Obralia
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-orange-700">Usuario:</span>
-                  <span className="text-sm font-medium text-orange-800">
-                    {client.obralia_credentials?.username || 'No configurado'}
-                  </span>
+                <div className="flex items-center">
+                  <FolderOpen className="h-6 w-6 text-green-600 mr-3" />
+                  <div>
+                    <p className="font-medium text-gray-900">Selección de Directorio</p>
+                    <p className="text-sm text-gray-600">Subida masiva de carpetas</p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-orange-700">Estado:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    client.obralia_credentials?.configured 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {client.obralia_credentials?.configured ? 'Conectado' : 'Desconectado'}
-                  </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Documents List */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-800 mb-3">Documentos a Subir ({selectedDocuments.length})</h4>
+            <div className="max-h-32 overflow-y-auto space-y-2">
+              {selectedDocuments.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">{doc.documents?.original_name}</span>
+                  <span className="text-gray-500">{doc.documents?.document_type}</span>
                 </div>
-              </div>
-              <div className="bg-white rounded p-3">
-                <p className="text-xs text-gray-600">
-                  <strong>Proceso:</strong> Los documentos se subirán automáticamente usando las 
-                  credenciales configuradas del cliente. El administrador supervisa el proceso.
-                </p>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Instrucciones */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-800 mb-3">📋 Instrucciones de Subida</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h5 className="font-medium text-blue-800 mb-2">Drag & Drop:</h5>
-                <ul className="text-blue-700 space-y-1">
-                  <li>• Selecciona archivos individuales</li>
-                  <li>• Arrastra desde el explorador</li>
-                  <li>• Ideal para documentos específicos</li>
-                  <li>• Control granular de selección</li>
-                </ul>
+          {/* Upload Progress */}
+          {isUploading && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center mb-3">
+                <Loader2 className="h-5 w-5 text-blue-600 animate-spin mr-2" />
+                <span className="font-medium text-blue-800">Subiendo a Obralia...</span>
               </div>
-              <div>
-                <h5 className="font-medium text-blue-800 mb-2">Selección de Directorio:</h5>
-                <ul className="text-blue-700 space-y-1">
-                  <li>• Sube carpetas completas</li>
-                  <li>• Mantiene estructura de archivos</li>
-                  <li>• Ideal para lotes grandes</li>
-                  <li>• Procesamiento masivo</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Requirements */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-yellow-800 mb-2">Requisitos Previos</h4>
-                <ul className="text-sm text-yellow-700 space-y-1">
-                  <li>✓ Cliente debe tener credenciales Obralia configuradas</li>
-                  <li>✓ Seleccionar empresa y proyecto de destino</li>
-                  <li>✓ Archivos deben ser PDF, DOC, XLS, TXT o imágenes</li>
-                  <li>✓ Tamaño máximo por archivo: 10MB</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface ObraliaCredentialsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  client: Client | null;
-  onSave: (clientId: string, credentials: { username: string; password: string }) => Promise<void>;
-}
-
-function ObraliaCredentialsModal({ isOpen, onClose, client, onSave }: ObraliaCredentialsModalProps) {
-  const [credentials, setCredentials] = useState({
-    username: '',
-    password: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    if (client?.obralia_credentials) {
-      setCredentials({
-        username: client.obralia_credentials.username || '',
-        password: client.obralia_credentials.password || ''
-      });
-    }
-  }, [client]);
-
-  const handleSave = async () => {
-    if (!client || !credentials.username || !credentials.password) return;
-    
-    setSaving(true);
-    try {
-      await onSave(client.id, credentials);
-      onClose();
-    } catch (error) {
-      console.error('Error saving credentials:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!isOpen || !client) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-t-xl">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-white/20 p-3 rounded-full">
-              <Shield className="h-8 w-8" />
-            </div>
-          </div>
-          <h2 className="text-xl font-bold text-center">Configuración Obligatoria</h2>
-          <p className="text-orange-100 text-center mt-2">
-            Credenciales de Nalanda/Obralia
-          </p>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Warning Notice */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-yellow-800 mb-1">
-                  Configuración Requerida
-                </h4>
-                <p className="text-sm text-yellow-700">
-                  Para poder subir documentos automáticamente a Obralia/Nalanda, 
-                  necesitas configurar tus credenciales. Esta configuración es 
-                  <strong> obligatoria</strong> para usar la plataforma.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Client Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <Globe className="h-5 w-5 text-blue-600 mr-3" />
-              <div>
-                <p className="font-semibold text-blue-800">Cliente: {client.company_name}</p>
-                <p className="text-sm text-blue-700">
-                  Las credenciales se almacenan de forma segura y encriptada
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Credentials Form */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Usuario de Obralia/Nalanda *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={credentials.username}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="obralia_user"
+              <div className="w-full bg-blue-200 rounded-full h-3 mb-2">
+                <div
+                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
                 />
               </div>
+              <p className="text-sm text-blue-700">{uploadStatus}</p>
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña de Obralia/Nalanda *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={credentials.password}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="••••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Security Notice */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          {/* Instructions */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-start">
-              <CheckCircle className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+              <Info className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
               <div>
-                <p className="text-sm text-green-800">
-                  <strong>Seguridad garantizada:</strong> Tus credenciales se 
-                  encriptan antes de almacenarse y solo se usan para 
-                  la integración automática con Obralia.
-                </p>
+                <h4 className="font-semibold text-green-800 mb-2">Instrucciones</h4>
+                <ol className="text-sm text-green-700 space-y-1">
+                  <li>1. Copia las credenciales mostradas arriba</li>
+                  <li>2. Accede a Obralia con esas credenciales</li>
+                  <li>3. Navega a la sección correspondiente del proyecto</li>
+                  <li>4. Sube los documentos usando el método seleccionado</li>
+                  <li>5. Confirma la subida en este modal</li>
+                </ol>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex space-x-3 pt-4">
+          {/* Footer */}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
+              type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center"
+              disabled={isUploading}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
             >
-              <X className="h-4 w-4 mr-2" />
               Cancelar
             </button>
             <button
-              onClick={handleSave}
-              disabled={saving || !credentials.username || !credentials.password}
-              className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
+              onClick={simulateUpload}
+              disabled={isUploading}
+              className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
             >
-              {saving ? (
+              {isUploading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Guardando...
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Subiendo...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Guardar y Continuar
+                  <Upload className="h-4 w-4 mr-2" />
+                  Confirmar Subida
                 </>
               )}
             </button>
@@ -720,35 +561,15 @@ function ObraliaCredentialsModal({ isOpen, onClose, client, onSave }: ObraliaCre
   );
 }
 
-interface DocumentQueueTableProps {
-  queue: QueueItem[];
-  onConfigureCredentials: (client: Client) => void;
-  onUploadToObralia: (item: QueueItem) => void;
-  onViewDetails: (item: QueueItem) => void;
+interface DocumentDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  document: QueueItem | null;
+  onUpdateStatus: (documentId: string, status: string) => void;
 }
 
-function DocumentQueueTable({ queue, onConfigureCredentials, onUploadToObralia, onViewDetails }: DocumentQueueTableProps) {
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'normal': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'uploaded': return 'bg-green-100 text-green-800 border-green-200';
-      case 'validated': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'error': return 'bg-red-100 text-red-800 border-red-200';
-      case 'corrupted': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+function DocumentDetailsModal({ isOpen, onClose, document, onUpdateStatus }: DocumentDetailsModalProps) {
+  if (!isOpen || !document) return null;
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -759,382 +580,336 @@ function DocumentQueueTable({ queue, onConfigureCredentials, onUploadToObralia, 
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <Database className="h-5 w-5 mr-2" />
-          Cola de Documentos para Obralia ({queue.length})
-        </h3>
-      </div>
-      
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                #
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cliente
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Empresa
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Proyecto
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Documento
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Prioridad
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Obralia
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {queue.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-6 py-12 text-center">
-                  <div className="flex flex-col items-center space-y-2">
-                    <FileText className="w-12 h-12 text-gray-300" />
-                    <span className="text-gray-500">No hay documentos en la cola manual</span>
-                    <p className="text-sm text-gray-400">
-                      Los documentos aparecerán aquí cuando requieran procesamiento manual
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              queue.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-2">
-                        <span className="text-orange-600 font-bold text-xs">#{item.queue_position}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Building className="h-5 w-5 text-blue-600" />
-                        </div>
-                      </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">
-                          {item.clients?.company_name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {item.clients?.contact_name}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {item.clients?.email}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.companies?.name || 'N/A'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.projects?.name || 'N/A'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.documents?.original_name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {item.documents?.document_type} • {formatFileSize(item.documents?.file_size || 0)}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Confianza IA: {item.documents?.classification_confidence}%
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(item.priority)}`}>
-                      {item.priority === 'urgent' ? 'Urgente' :
-                       item.priority === 'high' ? 'Alta' :
-                       item.priority === 'normal' ? 'Normal' : 'Baja'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(item.manual_status)}`}>
-                      {item.manual_status === 'pending' ? 'Pendiente' :
-                       item.manual_status === 'in_progress' ? 'En Progreso' :
-                       item.manual_status === 'uploaded' ? 'Subido' :
-                       item.manual_status === 'validated' ? 'Validado' :
-                       item.manual_status === 'error' ? 'Error' : 'Corrupto'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {item.clients?.obralia_credentials?.configured ? (
-                        <div className="flex items-center text-green-600">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          <span className="text-xs">Configurado</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-red-600">
-                          <AlertCircle className="h-4 w-4 mr-1" />
-                          <span className="text-xs">Sin configurar</span>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => {
-                          const client = {
-                            id: item.client_id,
-                            client_id: item.client_id,
-                            company_name: item.clients?.company_name || '',
-                            contact_name: item.clients?.contact_name || '',
-                            email: item.clients?.email || '',
-                            phone: '',
-                            address: '',
-                            obralia_credentials: item.clients?.obralia_credentials
-                          } as Client;
-                          onConfigureCredentials(client);
-                        }}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                        title="Configurar Obralia"
-                      >
-                        <Key className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onUploadToObralia(item)}
-                        disabled={!item.clients?.obralia_credentials?.configured}
-                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Subir a Obralia"
-                      >
-                        <Upload className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onViewDetails(item)}
-                        className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50"
-                        title="Ver detalles"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FileText className="h-8 w-8 mr-3" />
+              <div>
+                <h2 className="text-xl font-bold">Detalles del Documento</h2>
+                <p className="text-purple-100">{document.documents?.original_name}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Document Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-800 mb-3">Información del Documento</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Nombre:</span>
+                  <span className="font-medium text-gray-900">{document.documents?.original_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tipo:</span>
+                  <span className="font-medium text-gray-900">{document.documents?.document_type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tamaño:</span>
+                  <span className="font-medium text-gray-900">{formatFileSize(document.documents?.file_size || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Confianza IA:</span>
+                  <span className="font-medium text-gray-900">{document.documents?.classification_confidence}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-800 mb-3">Jerarquía</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center">
+                  <User className="h-4 w-4 text-blue-600 mr-2" />
+                  <span className="text-gray-700">{document.clients?.company_name}</span>
+                </div>
+                <div className="flex items-center ml-4">
+                  <Building2 className="h-4 w-4 text-green-600 mr-2" />
+                  <span className="text-gray-700">{document.companies?.name}</span>
+                </div>
+                <div className="flex items-center ml-8">
+                  <FolderOpen className="h-4 w-4 text-purple-600 mr-2" />
+                  <span className="text-gray-700">{document.projects?.name}</span>
+                </div>
+                <div className="flex items-center ml-12">
+                  <FileText className="h-4 w-4 text-orange-600 mr-2" />
+                  <span className="text-gray-700">{document.documents?.original_name}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Queue Info */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">Estado en Cola</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Posición:</span>
+                <p className="font-medium text-gray-900">#{document.queue_position}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Prioridad:</span>
+                <p className={`font-medium ${
+                  document.priority === 'urgent' ? 'text-red-600' :
+                  document.priority === 'high' ? 'text-orange-600' :
+                  document.priority === 'normal' ? 'text-blue-600' : 'text-gray-600'
+                }`}>
+                  {document.priority.toUpperCase()}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-600">Estado:</span>
+                <p className="font-medium text-gray-900">{document.manual_status}</p>
+              </div>
+              <div>
+                <span className="text-gray-600">Integridad:</span>
+                <p className="font-medium text-gray-900">{document.file_integrity_score}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => onUpdateStatus(document.document_id, 'error')}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              Marcar Error
+            </button>
+            <button
+              onClick={() => onUpdateStatus(document.document_id, 'uploaded')}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              Marcar Subido
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-export default function ManualManagement() {
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+const ManualManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [groupedQueue, setGroupedQueue] = useState<GroupedQueueData>({});
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showDocumentDetails, setShowDocumentDetails] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedDocument, setSelectedDocument] = useState<QueueItem | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
+    loadQueueData();
   }, []);
 
-  const loadData = async () => {
+  const loadQueueData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Cargar datos reales de la base de datos
-      const [queueData, clientsData] = await Promise.all([
-        getManualProcessingQueue(),
-        getAllClients()
-      ]);
-
-      // Datos mock para desarrollo si no hay datos reales
-      const mockQueue: QueueItem[] = [
-        {
-          id: '1',
-          document_id: 'doc_1',
-          client_id: 'client_1',
-          company_id: 'company_1',
-          project_id: 'project_1',
-          queue_position: 1,
-          priority: 'urgent',
-          manual_status: 'pending',
-          ai_analysis: {},
-          admin_notes: '',
-          corruption_detected: false,
-          file_integrity_score: 95,
-          retry_count: 0,
-          created_at: new Date().toISOString(),
-          documents: {
-            filename: 'certificado_obra_audi.pdf',
-            original_name: 'Certificado de Obra Audi',
-            file_size: 2048576,
-            file_type: 'application/pdf',
-            document_type: 'Certificado',
-            classification_confidence: 95
-          },
-          clients: {
-            company_name: 'Construcciones García S.L.',
-            contact_name: 'Juan García',
-            email: 'juan.garcia@obralia.com',
-            obralia_credentials: {
-              username: 'juan.garcia@obralia.com',
-              password: 'Garcia2024!',
-              configured: true
-            }
-          },
-          companies: { name: 'Construcciones García S.L.' },
-          projects: { name: 'Edificio Residencial García' }
-        },
-        {
-          id: '2',
-          document_id: 'doc_2',
-          client_id: 'client_2',
-          company_id: 'company_2',
-          project_id: 'project_2',
-          queue_position: 2,
-          priority: 'normal',
-          manual_status: 'pending',
-          ai_analysis: {},
-          admin_notes: '',
-          corruption_detected: false,
-          file_integrity_score: 88,
-          retry_count: 0,
-          created_at: new Date().toISOString(),
-          documents: {
-            filename: 'factura_volquetes_8.pdf',
-            original_name: 'Factura Volquetes 8.pdf',
-            file_size: 1024768,
-            file_type: 'application/pdf',
-            document_type: 'Factura',
-            classification_confidence: 88
-          },
-          clients: {
-            company_name: 'Obras Públicas del Norte S.A.',
-            contact_name: 'María López',
-            email: 'maria@obraspublicas.es',
-            obralia_credentials: {
-              configured: false
-            }
-          },
-          companies: { name: 'Obras Públicas del Norte S.A.' },
-          projects: { name: 'Carretera Nacional 340' }
+      const queueData = await getManualProcessingQueue();
+      setQueue(queueData || []);
+      
+      // Agrupar datos por jerarquía
+      const grouped: GroupedQueueData = {};
+      
+      queueData.forEach(item => {
+        const clientId = item.client_id;
+        const companyId = item.company_id;
+        const projectId = item.project_id;
+        
+        if (!grouped[clientId]) {
+          grouped[clientId] = {
+            client: {
+              id: clientId,
+              name: item.clients?.company_name || 'Cliente desconocido',
+              contact: item.clients?.contact_name || '',
+              obralia_configured: item.clients?.obralia_credentials?.configured || false,
+              credentials: item.clients?.obralia_credentials?.configured ? {
+                username: item.clients?.obralia_credentials?.username || '',
+                password: item.clients?.obralia_credentials?.password || ''
+              } : undefined
+            },
+            companies: {},
+            totalDocuments: 0
+          };
         }
-      ];
-
-      const mockClients: Client[] = [
-        {
-          id: 'client_1',
-          client_id: 'CLI-001',
-          company_name: 'Construcciones García S.L.',
-          contact_name: 'Juan García',
-          email: 'juan@construccionesgarcia.com',
-          phone: '+34 600 123 456',
-          address: 'Calle Construcción 123, Madrid',
-          obralia_credentials: {
-            username: 'juan.garcia@obralia.com',
-            password: 'Garcia2024!',
-            configured: true
-          }
-        },
-        {
-          id: 'client_2',
-          client_id: 'CLI-002',
-          company_name: 'Obras Públicas del Norte S.A.',
-          contact_name: 'María López',
-          email: 'maria@obraspublicas.es',
-          phone: '+34 600 654 321',
-          address: 'Avenida Norte 456, Bilbao',
-          obralia_credentials: {
-            configured: false
-          }
+        
+        if (!grouped[clientId].companies[companyId]) {
+          grouped[clientId].companies[companyId] = {
+            company: {
+              id: companyId,
+              name: item.companies?.name || 'Empresa desconocida'
+            },
+            projects: {}
+          };
         }
-      ];
-
-      setQueue(queueData.length > 0 ? queueData : mockQueue);
-      setClients(clientsData.length > 0 ? clientsData : mockClients);
-    } catch (error) {
-      console.error('Error loading manual management data:', error);
+        
+        if (!grouped[clientId].companies[companyId].projects[projectId]) {
+          grouped[clientId].companies[companyId].projects[projectId] = {
+            project: {
+              id: projectId,
+              name: item.projects?.name || 'Proyecto desconocido'
+            },
+            documents: []
+          };
+        }
+        
+        grouped[clientId].companies[companyId].projects[projectId].documents.push(item);
+        grouped[clientId].totalDocuments++;
+      });
+      
+      setGroupedQueue(grouped);
+      
+    } catch (err) {
+      console.error('Error loading queue data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading queue data');
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleClientExpansion = (clientId: string) => {
+    const newExpanded = new Set(expandedClients);
+    if (newExpanded.has(clientId)) {
+      newExpanded.delete(clientId);
+    } else {
+      newExpanded.add(clientId);
+    }
+    setExpandedClients(newExpanded);
+  };
+
+  const toggleCompanyExpansion = (companyId: string) => {
+    const newExpanded = new Set(expandedCompanies);
+    if (newExpanded.has(companyId)) {
+      newExpanded.delete(companyId);
+    } else {
+      newExpanded.add(companyId);
+    }
+    setExpandedCompanies(newExpanded);
+  };
+
+  const toggleProjectExpansion = (projectId: string) => {
+    const newExpanded = new Set(expandedProjects);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
+    }
+    setExpandedProjects(newExpanded);
+  };
+
+  const toggleDocumentSelection = (documentId: string) => {
+    const newSelected = new Set(selectedDocuments);
+    if (newSelected.has(documentId)) {
+      newSelected.delete(documentId);
+    } else {
+      newSelected.add(documentId);
+    }
+    setSelectedDocuments(newSelected);
+  };
+
+  const handleConfigureCredentials = (clientData: any) => {
+    setSelectedClient(clientData);
+    setShowCredentialsModal(true);
+  };
+
   const handleSaveCredentials = async (clientId: string, credentials: { username: string; password: string }) => {
     try {
       await updateClientObraliaCredentials(clientId, credentials);
-      await loadData(); // Reload data to show updated credentials
+      await loadQueueData(); // Recargar datos
     } catch (error) {
       console.error('Error saving credentials:', error);
       throw error;
     }
   };
 
-  const handleUploadDocuments = (files: FileList, clientId: string, companyId: string, projectId: string, uploadMethod: 'drag' | 'directory') => {
-    // Simular subida de documentos
-    console.log('Uploading documents to Obralia:', {
-      files: Array.from(files).map(f => f.name),
-      clientId,
-      companyId,
-      projectId,
-      method: uploadMethod
-    });
+  const handleUploadToObralia = (clientData: any) => {
+    const clientDocuments = queue.filter(doc => 
+      doc.client_id === clientData.id && selectedDocuments.has(doc.document_id)
+    );
     
-    // Aquí se implementaría la lógica real de subida a Obralia
-    alert(`Subiendo ${files.length} documentos a Obralia usando ${uploadMethod === 'drag' ? 'Drag & Drop' : 'Selección de Directorio'}`);
+    if (clientDocuments.length === 0) {
+      alert('Selecciona al menos un documento para subir');
+      return;
+    }
+    
+    setSelectedClient(clientData);
+    setShowUploadModal(true);
   };
 
-  const handleUploadToObralia = (item: QueueItem) => {
-    // Simular subida individual a Obralia
-    console.log('Uploading to Obralia:', item);
-    alert(`Subiendo "${item.documents?.original_name}" a Obralia para ${item.clients?.company_name}`);
+  const handleUpdateDocumentStatus = async (documentId: string, status: string) => {
+    try {
+      await supabase
+        .from('manual_document_queue')
+        .update({
+          manual_status: status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('document_id', documentId);
+      
+      await loadQueueData();
+    } catch (error) {
+      console.error('Error updating document status:', error);
+    }
   };
 
-  const handleViewDetails = (item: QueueItem) => {
-    // Mostrar detalles del documento
-    console.log('Viewing details:', item);
-    alert(`Detalles de "${item.documents?.original_name}"`);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'text-yellow-600 bg-yellow-100';
+      case 'in_progress': return 'text-blue-600 bg-blue-100';
+      case 'uploaded': return 'text-green-600 bg-green-100';
+      case 'validated': return 'text-emerald-600 bg-emerald-100';
+      case 'error': return 'text-red-600 bg-red-100';
+      case 'corrupted': return 'text-red-800 bg-red-200';
+      default: return 'text-gray-600 bg-gray-100';
+    }
   };
 
-  const filteredQueue = queue.filter(item => {
-    const matchesSearch = 
-      item.documents?.original_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.clients?.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.companies?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.projects?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || item.manual_status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'text-red-600 bg-red-100';
+      case 'high': return 'text-orange-600 bg-orange-100';
+      case 'normal': return 'text-blue-600 bg-blue-100';
+      case 'low': return 'text-gray-600 bg-gray-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
 
   const stats = {
     total: queue.length,
-    pending: queue.filter(item => item.manual_status === 'pending').length,
-    inProgress: queue.filter(item => item.manual_status === 'in_progress').length,
-    completed: queue.filter(item => ['uploaded', 'validated'].includes(item.manual_status)).length,
-    errors: queue.filter(item => ['error', 'corrupted'].includes(item.manual_status)).length,
-    urgent: queue.filter(item => item.priority === 'urgent').length,
-    clientsConfigured: clients.filter(c => c.obralia_credentials?.configured).length
+    pending: queue.filter(q => q.manual_status === 'pending').length,
+    inProgress: queue.filter(q => q.manual_status === 'in_progress').length,
+    uploaded: queue.filter(q => q.manual_status === 'uploaded').length,
+    errors: queue.filter(q => q.manual_status === 'error' || q.manual_status === 'corrupted').length,
+    clientsWithCredentials: Object.values(groupedQueue).filter(g => g.client.obralia_configured).length,
+    clientsWithoutCredentials: Object.values(groupedQueue).filter(g => !g.client.obralia_configured).length
   };
 
   if (loading) {
@@ -1142,9 +917,29 @@ export default function ManualManagement() {
       <div className="p-6">
         <div className="flex items-center justify-center h-64">
           <div className="flex items-center space-x-2">
-            <RefreshCw className="w-6 h-6 animate-spin text-orange-600" />
-            <span className="text-gray-600">Cargando gestión manual...</span>
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-gray-600">Cargando cola de documentos...</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <span className="text-red-800 font-medium">Error al cargar la cola</span>
+          </div>
+          <p className="text-red-700 mt-2">{error}</p>
+          <button
+            onClick={loadQueueData}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     );
@@ -1156,146 +951,168 @@ export default function ManualManagement() {
       <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">🔧 Gestión Manual de Documentos</h1>
+            <h1 className="text-2xl font-bold mb-2">Gestión Manual de Documentos</h1>
             <p className="text-orange-100 mb-4">
-              Cola operativa con conexión directa a Obralia/Nalanda
+              Cola de procesamiento manual para subida a Obralia
             </p>
             <div className="space-y-1 text-sm text-orange-100">
-              <p>• <strong>Drag & Drop:</strong> Subida individual de archivos</p>
-              <p>• <strong>Directorio:</strong> Subida masiva de carpetas completas</p>
-              <p>• <strong>Jerarquía:</strong> Cliente → Empresa → Proyecto → Documento</p>
-              <p>• <strong>Estado:</strong> {stats.total} documentos en cola, {stats.clientsConfigured} clientes configurados</p>
+              <p>• Gestión jerárquica: Cliente → Empresa → Proyecto → Documento</p>
+              <p>• Subida manual con credenciales de cliente</p>
+              <p>• Dos métodos: Drag & Drop y Selección de Directorio</p>
+              <p>• Control de integridad y validación automática</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Subir a Obralia
-            </button>
-            <button
-              onClick={loadData}
+              onClick={loadQueueData}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Actualizar
             </button>
+            {selectedDocuments.size > 0 && (
+              <button
+                onClick={() => {
+                  const firstSelectedDoc = queue.find(doc => selectedDocuments.has(doc.document_id));
+                  if (firstSelectedDoc) {
+                    const clientData = groupedQueue[firstSelectedDoc.client_id]?.client;
+                    if (clientData?.obralia_configured) {
+                      handleUploadToObralia(clientData);
+                    } else {
+                      handleConfigureCredentials(clientData);
+                    }
+                  }
+                }}
+                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Subir Seleccionados ({selectedDocuments.size})
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Métricas Operativas */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">📊 Métricas Operativas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Database className="w-6 h-6 text-blue-600" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <FileText className="w-5 h-5 text-blue-600" />
             </div>
-            <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-            <div className="text-sm text-gray-600">En Cola</div>
+            <div>
+              <p className="text-sm text-gray-600">Total Cola</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.total}</p>
+            </div>
           </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Clock className="w-6 h-6 text-yellow-600" />
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-yellow-50 rounded-lg">
+              <Clock className="w-5 h-5 text-yellow-600" />
             </div>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <div className="text-sm text-gray-600">Pendientes</div>
+            <div>
+              <p className="text-sm text-gray-600">Pendientes</p>
+              <p className="text-xl font-semibold text-yellow-600">{stats.pending}</p>
+            </div>
           </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Activity className="w-5 h-5 text-blue-600" />
             </div>
-            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-            <div className="text-sm text-gray-600">Subidos</div>
+            <div>
+              <p className="text-sm text-gray-600">En Proceso</p>
+              <p className="text-xl font-semibold text-blue-600">{stats.inProgress}</p>
+            </div>
           </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
-            <div className="text-2xl font-bold text-red-600">{stats.errors}</div>
-            <div className="text-sm text-gray-600">Errores</div>
+            <div>
+              <p className="text-sm text-gray-600">Subidos</p>
+              <p className="text-xl font-semibold text-green-600">{stats.uploaded}</p>
+            </div>
           </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Target className="w-6 h-6 text-purple-600" />
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-red-50 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
             </div>
-            <div className="text-2xl font-bold text-purple-600">{stats.urgent}</div>
-            <div className="text-sm text-gray-600">Urgentes</div>
+            <div>
+              <p className="text-sm text-gray-600">Errores</p>
+              <p className="text-xl font-semibold text-red-600">{stats.errors}</p>
+            </div>
           </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Globe className="w-6 h-6 text-teal-600" />
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-purple-50 rounded-lg">
+              <Shield className="w-5 h-5 text-purple-600" />
             </div>
-            <div className="text-2xl font-bold text-teal-600">{stats.clientsConfigured}</div>
-            <div className="text-sm text-gray-600">Configurados</div>
+            <div>
+              <p className="text-sm text-gray-600">Configurados</p>
+              <p className="text-xl font-semibold text-purple-600">{stats.clientsWithCredentials}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Controles de Filtrado */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-800">🎛️ Controles de Cola</h3>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva Subida
-            </button>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-              <Download className="w-4 h-4" />
-              Exportar Cola
-            </button>
-          </div>
-        </div>
-
+      {/* Filtros */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Buscar cliente, empresa, proyecto o documento..."
+              placeholder="Buscar documentos, clientes, proyectos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
           </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="pending">Pendiente</option>
-            <option value="in_progress">En Progreso</option>
-            <option value="uploaded">Subido</option>
-            <option value="validated">Validado</option>
-            <option value="error">Error</option>
-            <option value="corrupted">Corrupto</option>
-          </select>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="pending">Pendiente</option>
+              <option value="in_progress">En Proceso</option>
+              <option value="uploaded">Subido</option>
+              <option value="validated">Validado</option>
+              <option value="error">Error</option>
+              <option value="corrupted">Corrupto</option>
+            </select>
+          </div>
 
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          >
-            <option value="all">Todas las prioridades</option>
-            <option value="urgent">Urgente</option>
-            <option value="high">Alta</option>
-            <option value="normal">Normal</option>
-            <option value="low">Baja</option>
-          </select>
+          <div className="relative">
+            <Target className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none"
+            >
+              <option value="all">Todas las prioridades</option>
+              <option value="urgent">Urgente</option>
+              <option value="high">Alta</option>
+              <option value="normal">Normal</option>
+              <option value="low">Baja</option>
+            </select>
+          </div>
 
           <button
             onClick={() => {
@@ -1310,60 +1127,291 @@ export default function ManualManagement() {
         </div>
       </div>
 
-      {/* Tabla de Cola */}
-      <DocumentQueueTable
-        queue={filteredQueue}
-        onConfigureCredentials={(client) => {
-          setSelectedClient(client);
-          setShowCredentialsModal(true);
-        }}
-        onUploadToObralia={handleUploadToObralia}
-        onViewDetails={handleViewDetails}
-      />
-
-      {/* Información del Sistema */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">🎯 Estado del Sistema Obralia</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center text-sm text-gray-700">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-              <span><strong>Conexión Activa:</strong> Sistema integrado con Obralia/Nalanda</span>
-            </div>
-            <div className="flex items-center text-sm text-gray-700">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-              <span><strong>Métodos Disponibles:</strong> Drag & Drop y Selección de Directorio</span>
-            </div>
-            <div className="flex items-center text-sm text-gray-700">
-              <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
-              <span><strong>Procesamiento:</strong> Automático con supervisión manual</span>
-            </div>
-            <div className="flex items-center text-sm text-gray-700">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mr-3"></div>
-              <span><strong>Jerarquía:</strong> Cliente → Empresa → Proyecto → Documento</span>
+      {/* Cola Jerárquica */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Cola de Documentos Agrupada</h2>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">
+                {selectedDocuments.size} documentos seleccionados
+              </span>
+              <button
+                onClick={() => setSelectedDocuments(new Set())}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Limpiar selección
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-800 mb-3">Estadísticas de Rendimiento</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Cola activa:</span>
-                <span className="font-medium text-blue-600">{stats.total} documentos</span>
+        <div className="divide-y divide-gray-200">
+          {Object.entries(groupedQueue).map(([clientId, clientGroup]) => (
+            <div key={clientId} className="p-4">
+              {/* Cliente Level */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => toggleClientExpansion(clientId)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    {expandedClients.has(clientId) ? (
+                      <ChevronDown className="w-4 h-4 text-gray-600" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
+                    )}
+                  </button>
+                  <User className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{clientGroup.client.name}</h3>
+                    <p className="text-sm text-gray-600">
+                      {clientGroup.totalDocuments} documentos • {clientGroup.client.contact}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {clientGroup.client.obralia_configured ? (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        ✓ Configurado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        ⚠ Sin configurar
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  {!clientGroup.client.obralia_configured ? (
+                    <button
+                      onClick={() => handleConfigureCredentials(clientGroup.client)}
+                      className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm transition-colors"
+                    >
+                      <Key className="w-3 h-3 mr-1 inline" />
+                      Configurar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleUploadToObralia(clientGroup.client)}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
+                    >
+                      <Upload className="w-3 h-3 mr-1 inline" />
+                      Subir a Obralia
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Clientes configurados:</span>
-                <span className="font-medium text-green-600">
-                  {stats.clientsConfigured} de {clients.length}
-                </span>
+
+              {/* Empresas Level */}
+              {expandedClients.has(clientId) && (
+                <div className="ml-8 space-y-3">
+                  {Object.entries(clientGroup.companies).map(([companyId, companyGroup]) => (
+                    <div key={companyId}>
+                      <div className="flex items-center space-x-3 mb-2">
+                        <button
+                          onClick={() => toggleCompanyExpansion(companyId)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          {expandedCompanies.has(companyId) ? (
+                            <ChevronDown className="w-4 h-4 text-gray-600" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-600" />
+                          )}
+                        </button>
+                        <Building2 className="w-4 h-4 text-green-600" />
+                        <span className="font-medium text-gray-800">{companyGroup.company.name}</span>
+                        <span className="text-sm text-gray-500">
+                          ({Object.keys(companyGroup.projects).length} proyectos)
+                        </span>
+                      </div>
+
+                      {/* Proyectos Level */}
+                      {expandedCompanies.has(companyId) && (
+                        <div className="ml-8 space-y-2">
+                          {Object.entries(companyGroup.projects).map(([projectId, projectGroup]) => (
+                            <div key={projectId}>
+                              <div className="flex items-center space-x-3 mb-2">
+                                <button
+                                  onClick={() => toggleProjectExpansion(projectId)}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                  {expandedProjects.has(projectId) ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-600" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                                  )}
+                                </button>
+                                <FolderOpen className="w-4 h-4 text-purple-600" />
+                                <span className="font-medium text-gray-800">{projectGroup.project.name}</span>
+                                <span className="text-sm text-gray-500">
+                                  ({projectGroup.documents.length} documentos)
+                                </span>
+                              </div>
+
+                              {/* Documentos Level */}
+                              {expandedProjects.has(projectId) && (
+                                <div className="ml-8">
+                                  <div className="bg-gray-50 rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="text-left p-3 font-medium text-gray-700">
+                                            <input
+                                              type="checkbox"
+                                              onChange={(e) => {
+                                                const projectDocIds = projectGroup.documents.map(d => d.document_id);
+                                                if (e.target.checked) {
+                                                  setSelectedDocuments(prev => new Set([...prev, ...projectDocIds]));
+                                                } else {
+                                                  setSelectedDocuments(prev => {
+                                                    const newSet = new Set(prev);
+                                                    projectDocIds.forEach(id => newSet.delete(id));
+                                                    return newSet;
+                                                  });
+                                                }
+                                              }}
+                                              className="mr-2"
+                                            />
+                                            Documento
+                                          </th>
+                                          <th className="text-left p-3 font-medium text-gray-700">Tipo</th>
+                                          <th className="text-left p-3 font-medium text-gray-700">Prioridad</th>
+                                          <th className="text-left p-3 font-medium text-gray-700">Estado</th>
+                                          <th className="text-left p-3 font-medium text-gray-700">Confianza</th>
+                                          <th className="text-left p-3 font-medium text-gray-700">Acciones</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-200">
+                                        {projectGroup.documents.map((doc) => (
+                                          <tr key={doc.id} className="hover:bg-gray-100">
+                                            <td className="p-3">
+                                              <div className="flex items-center">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={selectedDocuments.has(doc.document_id)}
+                                                  onChange={() => toggleDocumentSelection(doc.document_id)}
+                                                  className="mr-3"
+                                                />
+                                                <div className="flex items-center">
+                                                  <FileText className="w-4 h-4 text-orange-600 mr-2" />
+                                                  <div>
+                                                    <p className="font-medium text-gray-900">
+                                                      {doc.documents?.original_name}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                      Pos. #{doc.queue_position}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="p-3">
+                                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                                                {doc.documents?.document_type}
+                                              </span>
+                                            </td>
+                                            <td className="p-3">
+                                              <span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(doc.priority)}`}>
+                                                {doc.priority.toUpperCase()}
+                                              </span>
+                                            </td>
+                                            <td className="p-3">
+                                              <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(doc.manual_status)}`}>
+                                                {doc.manual_status}
+                                              </span>
+                                            </td>
+                                            <td className="p-3">
+                                              <div className="flex items-center">
+                                                <div className="w-12 bg-gray-200 rounded-full h-2 mr-2">
+                                                  <div
+                                                    className="bg-green-600 h-2 rounded-full"
+                                                    style={{ width: `${doc.documents?.classification_confidence || 0}%` }}
+                                                  />
+                                                </div>
+                                                <span className="text-xs text-gray-600">
+                                                  {doc.documents?.classification_confidence}%
+                                                </span>
+                                              </div>
+                                            </td>
+                                            <td className="p-3">
+                                              <div className="flex items-center space-x-1">
+                                                <button
+                                                  onClick={() => {
+                                                    setSelectedDocument(doc);
+                                                    setShowDocumentDetails(true);
+                                                  }}
+                                                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                                  title="Ver detalles"
+                                                >
+                                                  <Eye className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                  onClick={() => handleUpdateDocumentStatus(doc.document_id, 'in_progress')}
+                                                  className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                                                  title="Marcar en proceso"
+                                                >
+                                                  <Play className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                  onClick={() => handleUpdateDocumentStatus(doc.document_id, 'error')}
+                                                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                                  title="Marcar error"
+                                                >
+                                                  <XCircle className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Información de Ayuda */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="flex items-start">
+          <Info className="h-6 w-6 text-blue-600 mr-3 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-blue-800 mb-2">Flujo de Trabajo</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-blue-700">
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                  <span className="text-blue-600 font-bold text-xs">1</span>
+                </div>
+                <span>Configurar credenciales del cliente</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Procesamiento activo:</span>
-                <span className="font-medium text-orange-600">{stats.inProgress} en curso</span>
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                  <span className="text-blue-600 font-bold text-xs">2</span>
+                </div>
+                <span>Seleccionar documentos a subir</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Tasa de éxito:</span>
-                <span className="font-medium text-purple-600">96.7%</span>
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                  <span className="text-blue-600 font-bold text-xs">3</span>
+                </div>
+                <span>Elegir método de subida</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                  <span className="text-blue-600 font-bold text-xs">4</span>
+                </div>
+                <span>Confirmar subida a Obralia</span>
               </div>
             </div>
           </div>
@@ -1374,16 +1422,26 @@ export default function ManualManagement() {
       <ObraliaCredentialsModal
         isOpen={showCredentialsModal}
         onClose={() => setShowCredentialsModal(false)}
-        client={selectedClient}
         onSave={handleSaveCredentials}
+        clientData={selectedClient}
       />
 
-      <ObraliaUploadModal
+      <DocumentUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
-        client={selectedClient}
-        onUpload={handleUploadDocuments}
+        clientData={selectedClient}
+        selectedDocuments={queue.filter(doc => selectedDocuments.has(doc.document_id))}
+        onUploadComplete={loadQueueData}
+      />
+
+      <DocumentDetailsModal
+        isOpen={showDocumentDetails}
+        onClose={() => setShowDocumentDetails(false)}
+        document={selectedDocument}
+        onUpdateStatus={handleUpdateDocumentStatus}
       />
     </div>
   );
-}
+};
+
+export default ManualManagement;
