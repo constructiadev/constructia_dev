@@ -635,7 +635,8 @@ export default function ManualManagement() {
                                   </div>
                                   {expandedProjects.includes(project.id) && (
                                     <div className="pl-8">
-                                      {project.documents.filter(doc => doc.manual_queue?.manual_status).map(document => ( {/* Filter documents in queue */}
+                                      {/* Filter documents in queue */}
+                                      {project.documents.filter(doc => doc.manual_queue?.manual_status).map(document => (
                                         <div key={document.id} className="flex items-center justify-between p-3 border-b border-gray-200 last:border-b-0">
                                           <div className="flex items-center space-x-3">
                                             <input
