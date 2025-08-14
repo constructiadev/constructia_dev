@@ -603,11 +603,11 @@ async function populateDatabase() {
 
     const { error: kpisError } = await supabase
       .from('kpis')
-      .upsert(kpis.map(kpi => ({
+      .insert(kpis.map(kpi => ({
         ...kpi,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      })), { onConflict: 'id' });
+      })));
 
     if (kpisError) {
       console.error('❌ Error creating KPIs:', kpisError);
