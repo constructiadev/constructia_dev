@@ -71,9 +71,9 @@ function getRandomElement(array) {
 }
 
 function generateRandomEmail(contactName, companyName) {
-  const name = contactName.toLowerCase().replace(' ', '.');
+  const name = contactName.toLowerCase().replace(' ', '.') + Date.now(); // Add timestamp for uniqueness
   const domain = companyName.toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
+    .replace(/[^a-z0-9]/g, '') // Remove non-alphanumeric characters
     .substring(0, 10) + '.com';
   return `${name}@${domain}`;
 }
@@ -184,7 +184,7 @@ async function populateDatabase() {
 
       clients.push({
         user_id: user.id,
-        client_id: `CLI-${String(i + 1).padStart(4, '0')}`,
+        client_id: `CLI-${Date.now()}-${String(i + 1).padStart(4, '0')}`, // Add timestamp for uniqueness
         company_name: companyName,
         contact_name: contactName,
         email: user.email,
