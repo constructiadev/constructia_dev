@@ -1,0 +1,580 @@
+import { createClient } from '@supabase/supabase-js';
+import type { 
+  Tenant, 
+  NewUser, 
+  Empresa, 
+  Obra, 
+  Proveedor, 
+  Trabajador, 
+  Maquinaria, 
+  NewDocumento,
+  Tarea,
+  ManualUploadQueue,
+  UserRole
+} from '../types';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+export const supabaseNew = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    flowType: 'pkce'
+  }
+});
+
+// Constantes para desarrollo
+export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+export const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
+
+// Helper para obtener tenant actual del usuario
+export const getCurrentUserTenant = async (userId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('users')
+      .select('tenant_id')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error getting user tenant:', error);
+      return null;
+    }
+
+    return data?.tenant_id || null;
+  } catch (error) {
+    console.error('Error getting user tenant:', error);
+    return null;
+  }
+};
+
+// Helper para obtener datos del tenant
+export const getTenantData = async (tenantId: string): Promise<Tenant | null> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('tenants')
+      .select('*')
+      .eq('id', tenantId)
+      .single();
+
+    if (error) {
+      console.error('Error getting tenant data:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting tenant data:', error);
+    return null;
+  }
+};
+
+// Helper para obtener empresas del tenant
+export const getTenantEmpresas = async (tenantId: string): Promise<Empresa[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('empresas')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('razon_social');
+
+    if (error) {
+      console.error('Error getting empresas:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting empresas:', error);
+    return [];
+  }
+};
+
+// Helper para obtener obras del tenant
+export const getTenantObras = async (tenantId: string): Promise<Obra[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('obras')
+      .select(`
+        *,
+        empresas!inner(razon_social)
+      `)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error getting obras:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting obras:', error);
+    return [];
+  }
+};
+
+// Helper para obtener proveedores del tenant
+export const getTenantProveedores = async (tenantId: string): Promise<Proveedor[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('proveedores')
+      .select(`
+        *,
+        empresas!inner(razon_social)
+      `)
+      .eq('tenant_id', tenantId)
+      .order('razon_social');
+
+    if (error) {
+      console.error('Error getting proveedores:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting proveedores:', error);
+    return [];
+  }
+};
+
+// Helper para obtener trabajadores del tenant
+export const getTenantTrabajadores = async (tenantId: string): Promise<Trabajador[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('trabajadores')
+      .select(`
+        *,
+        proveedores!inner(razon_social)
+      `)
+      .eq('tenant_id', tenantId)
+      .order('apellido', 'nombre');
+
+    if (error) {
+      console.error('Error getting trabajadores:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting trabajadores:', error);
+    return [];
+  }
+};
+
+// Helper para obtener maquinaria del tenant
+export const getTenantMaquinaria = async (tenantId: string): Promise<Maquinaria[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('maquinaria')
+      .select(`
+        *,
+        empresas!inner(razon_social)
+      `)
+      .eq('tenant_id', tenantId)
+      .order('tipo', 'marca_modelo');
+
+    if (error) {
+      console.error('Error getting maquinaria:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting maquinaria:', error);
+    return [];
+  }
+};
+
+// Helper para obtener documentos del tenant
+export const getTenantDocumentos = async (tenantId: string): Promise<NewDocumento[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('documentos')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error getting documentos:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting documentos:', error);
+    return [];
+  }
+};
+
+// Helper para obtener cola de subida manual
+export const getManualUploadQueue = async (tenantId: string): Promise<ManualUploadQueue[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('manual_upload_queue')
+      .select(`
+        *,
+        documentos!inner(file, categoria, estado),
+        empresas!inner(razon_social),
+        obras!inner(nombre_obra, codigo_obra)
+      `)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error getting manual upload queue:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting manual upload queue:', error);
+    return [];
+  }
+};
+
+// Helper para obtener tareas del tenant
+export const getTenantTareas = async (tenantId: string): Promise<Tarea[]> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('tareas')
+      .select(`
+        *,
+        documentos(categoria, file),
+        obras(nombre_obra, codigo_obra),
+        users(name, email)
+      `)
+      .eq('tenant_id', tenantId)
+      .order('vencimiento');
+
+    if (error) {
+      console.error('Error getting tareas:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting tareas:', error);
+    return [];
+  }
+};
+
+// Helper para crear documento
+export const createDocumento = async (documentoData: Partial<NewDocumento>): Promise<NewDocumento | null> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('documentos')
+      .insert(documentoData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating documento:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error creating documento:', error);
+    return null;
+  }
+};
+
+// Helper para actualizar estado de documento
+export const updateDocumentoEstado = async (
+  documentoId: string, 
+  estado: DocumentoEstado, 
+  observaciones?: string
+): Promise<boolean> => {
+  try {
+    const { error } = await supabaseNew
+      .from('documentos')
+      .update({ 
+        estado, 
+        observaciones,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', documentoId);
+
+    if (error) {
+      console.error('Error updating documento estado:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating documento estado:', error);
+    return false;
+  }
+};
+
+// Helper para crear tarea
+export const createTarea = async (tareaData: Partial<Tarea>): Promise<Tarea | null> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('tareas')
+      .insert(tareaData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating tarea:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error creating tarea:', error);
+    return null;
+  }
+};
+
+// Helper para añadir documento a cola manual
+export const addToManualQueue = async (
+  tenantId: string,
+  empresaId: string,
+  obraId: string,
+  documentoId: string,
+  nota?: string
+): Promise<ManualUploadQueue | null> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('manual_upload_queue')
+      .insert({
+        tenant_id: tenantId,
+        empresa_id: empresaId,
+        obra_id: obraId,
+        documento_id: documentoId,
+        status: 'queued',
+        nota
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding to manual queue:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error adding to manual queue:', error);
+    return null;
+  }
+};
+
+// Helper para obtener estructura jerárquica completa
+export const getTenantHierarchy = async (tenantId: string) => {
+  try {
+    const [empresas, obras, proveedores, trabajadores, maquinaria, documentos, queue] = await Promise.all([
+      getTenantEmpresas(tenantId),
+      getTenantObras(tenantId),
+      getTenantProveedores(tenantId),
+      getTenantTrabajadores(tenantId),
+      getTenantMaquinaria(tenantId),
+      getTenantDocumentos(tenantId),
+      getManualUploadQueue(tenantId)
+    ]);
+
+    // Construir jerarquía: Empresa -> Obra -> Documentos
+    const hierarchy = empresas.map(empresa => ({
+      ...empresa,
+      obras: obras.filter(obra => obra.empresa_id === empresa.id).map(obra => ({
+        ...obra,
+        documentos: documentos.filter(doc => 
+          doc.entidad_tipo === 'obra' && doc.entidad_id === obra.id
+        ).map(doc => ({
+          ...doc,
+          queue_item: queue.find(q => q.documento_id === doc.id)
+        })),
+        proveedores: proveedores.filter(prov => prov.empresa_id === empresa.id).map(proveedor => ({
+          ...proveedor,
+          trabajadores: trabajadores.filter(trab => trab.proveedor_id === proveedor.id).map(trabajador => ({
+            ...trabajador,
+            documentos: documentos.filter(doc => 
+              doc.entidad_tipo === 'trabajador' && doc.entidad_id === trabajador.id
+            ).map(doc => ({
+              ...doc,
+              queue_item: queue.find(q => q.documento_id === doc.id)
+            }))
+          }))
+        })),
+        maquinaria: maquinaria.filter(maq => maq.empresa_id === empresa.id).map(maquina => ({
+          ...maquina,
+          documentos: documentos.filter(doc => 
+            doc.entidad_tipo === 'maquinaria' && doc.entidad_id === maquina.id
+          ).map(doc => ({
+            ...doc,
+            queue_item: queue.find(q => q.documento_id === doc.id)
+          }))
+        }))
+      }))
+    }));
+
+    return hierarchy;
+  } catch (error) {
+    console.error('Error getting tenant hierarchy:', error);
+    return [];
+  }
+};
+
+// Helper para verificar permisos por rol
+export const checkRolePermission = (userRole: UserRole, action: string, resource: string): boolean => {
+  const permissions = {
+    SuperAdmin: ['*'],
+    ClienteAdmin: ['read:*', 'write:empresas', 'write:obras', 'write:proveedores', 'write:trabajadores', 'write:maquinaria'],
+    GestorDocumental: ['read:*', 'write:documentos', 'write:tareas'],
+    SupervisorObra: ['read:obras', 'read:documentos', 'write:tareas'],
+    Proveedor: ['read:own', 'write:own'],
+    Lector: ['read:*']
+  };
+
+  const userPermissions = permissions[userRole] || [];
+  
+  // SuperAdmin tiene acceso total
+  if (userPermissions.includes('*')) return true;
+  
+  // Verificar permisos específicos
+  const fullPermission = `${action}:${resource}`;
+  const wildcardPermission = `${action}:*`;
+  
+  return userPermissions.includes(fullPermission) || 
+         userPermissions.includes(wildcardPermission);
+};
+
+// Helper para logging de auditoría
+export const logAuditoria = async (
+  tenantId: string,
+  actorUserId: string,
+  accion: string,
+  entidad?: string,
+  entidadId?: string,
+  detalles?: any
+) => {
+  try {
+    await supabaseNew
+      .from('auditoria')
+      .insert({
+        tenant_id: tenantId,
+        actor_user: actorUserId,
+        accion,
+        entidad,
+        entidad_id: entidadId,
+        ip: '127.0.0.1', // En desarrollo
+        detalles: detalles || {}
+      });
+  } catch (error) {
+    console.error('Error logging audit:', error);
+  }
+};
+
+// Helper para obtener estadísticas del tenant
+export const getTenantStats = async (tenantId: string) => {
+  try {
+    const [
+      { count: totalEmpresas },
+      { count: totalObras },
+      { count: totalProveedores },
+      { count: totalTrabajadores },
+      { count: totalMaquinaria },
+      { count: totalDocumentos },
+      { count: documentosPendientes },
+      { count: documentosAprobados },
+      { count: tareasAbiertas },
+      { count: queuePendientes }
+    ] = await Promise.all([
+      supabaseNew.from('empresas').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseNew.from('obras').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseNew.from('proveedores').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseNew.from('trabajadores').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseNew.from('maquinaria').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseNew.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseNew.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'pendiente'),
+      supabaseNew.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'aprobado'),
+      supabaseNew.from('tareas').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'abierta'),
+      supabaseNew.from('manual_upload_queue').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'queued')
+    ]);
+
+    return {
+      totalEmpresas: totalEmpresas || 0,
+      totalObras: totalObras || 0,
+      totalProveedores: totalProveedores || 0,
+      totalTrabajadores: totalTrabajadores || 0,
+      totalMaquinaria: totalMaquinaria || 0,
+      totalDocumentos: totalDocumentos || 0,
+      documentosPendientes: documentosPendientes || 0,
+      documentosAprobados: documentosAprobados || 0,
+      tareasAbiertas: tareasAbiertas || 0,
+      queuePendientes: queuePendientes || 0
+    };
+  } catch (error) {
+    console.error('Error getting tenant stats:', error);
+    return {
+      totalEmpresas: 0,
+      totalObras: 0,
+      totalProveedores: 0,
+      totalTrabajadores: 0,
+      totalMaquinaria: 0,
+      totalDocumentos: 0,
+      documentosPendientes: 0,
+      documentosAprobados: 0,
+      tareasAbiertas: 0,
+      queuePendientes: 0
+    };
+  }
+};
+
+// Helper para procesar documento en cola manual
+export const processManualQueueItem = async (
+  queueId: string,
+  action: 'upload' | 'error' | 'complete',
+  operatorUserId?: string,
+  nota?: string
+): Promise<boolean> => {
+  try {
+    const newStatus = action === 'upload' ? 'in_progress' : 
+                     action === 'error' ? 'error' : 'uploaded';
+
+    const { error } = await supabaseNew
+      .from('manual_upload_queue')
+      .update({
+        status: newStatus,
+        operator_user: operatorUserId,
+        nota,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', queueId);
+
+    if (error) {
+      console.error('Error processing manual queue item:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error processing manual queue item:', error);
+    return false;
+  }
+};
+
+// Helper para eliminar documento de cola manual
+export const removeFromManualQueue = async (queueId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabaseNew
+      .from('manual_upload_queue')
+      .delete()
+      .eq('id', queueId);
+
+    if (error) {
+      console.error('Error removing from manual queue:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error removing from manual queue:', error);
+    return false;
+  }
+};

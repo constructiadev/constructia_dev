@@ -1,4 +1,310 @@
 // ConstructIA - Tipos TypeScript Globales
+
+// Nuevos tipos para la arquitectura multi-tenant
+export type UserRole = 'SuperAdmin' | 'ClienteAdmin' | 'GestorDocumental' | 'SupervisorObra' | 'Proveedor' | 'Lector';
+export type TenantStatus = 'active' | 'suspended';
+export type DocumentoCategoria = 'PRL' | 'APTITUD_MEDICA' | 'DNI' | 'ALTA_SS' | 'CONTRATO' | 'SEGURO_RC' | 'REA' | 'FORMACION_PRL' | 'EVAL_RIESGOS' | 'CERT_MAQUINARIA' | 'PLAN_SEGURIDAD' | 'OTROS';
+export type DocumentoEstado = 'borrador' | 'pendiente' | 'aprobado' | 'rechazado';
+export type EntidadTipo = 'empresa' | 'trabajador' | 'maquinaria' | 'obra';
+export type PlataformaTipo = 'nalanda' | 'ctaima' | 'ecoordina' | 'otro';
+export type PerfilRiesgo = 'baja' | 'media' | 'alta';
+export type EstadoCompliance = 'al_dia' | 'pendiente' | 'caducado';
+export type EstadoHomologacion = 'ok' | 'pendiente' | 'bloqueado';
+export type TareaTipo = 'subir' | 'revisar' | 'aprobar' | 'rechazar' | 'subsanar' | 'enviar';
+export type TareaEstado = 'abierta' | 'en_progreso' | 'resuelta';
+export type JobEstado = 'pendiente' | 'enviado' | 'aceptado' | 'rechazado' | 'error';
+export type AdaptadorEstado = 'ready' | 'error';
+export type PlanTipo = 'Starter' | 'Autonomo' | 'AutonomoEmpleados' | 'Empresas' | 'Asesorias';
+export type SuscripcionEstado = 'activa' | 'cancelada' | 'trial';
+export type MensajeTipo = 'info' | 'notificacion' | 'alerta' | 'recordatorio' | 'urgencia';
+export type Prioridad = 'baja' | 'media' | 'alta';
+export type MensajeEstado = 'programado' | 'enviado' | 'vencido';
+export type ReporteTipo = 'operativo' | 'financiero';
+export type TokenTipo = 'compra' | 'consumo';
+export type MedioPago = 'stripe' | 'paypal' | 'bizum' | 'sepa' | 'tarjeta';
+export type QueueStatus = 'queued' | 'in_progress' | 'uploaded' | 'error';
+export type DocumentoOrigen = 'usuario' | 'ia' | 'import';
+
+// Interfaces para la nueva arquitectura
+export interface Tenant {
+  id: string;
+  name: string;
+  status: TenantStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewUser {
+  id: string;
+  tenant_id: string;
+  email: string;
+  name?: string;
+  role: UserRole;
+  active: boolean;
+  password_hash?: string;
+  last_login_ip?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Empresa {
+  id: string;
+  tenant_id: string;
+  razon_social: string;
+  cif: string;
+  rea_numero?: string;
+  cnae?: string;
+  direccion?: string;
+  contacto_email?: string;
+  estado_compliance: EstadoCompliance;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Obra {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  nombre_obra: string;
+  codigo_obra: string;
+  direccion?: string;
+  cliente_final?: string;
+  fecha_inicio?: string;
+  fecha_fin_estimada?: string;
+  plataforma_destino?: PlataformaTipo;
+  perfil_riesgo: PerfilRiesgo;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Proveedor {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  razon_social: string;
+  cif: string;
+  rea_numero?: string;
+  contacto_email?: string;
+  estado_homologacion: EstadoHomologacion;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Trabajador {
+  id: string;
+  tenant_id: string;
+  proveedor_id: string;
+  dni_nie: string;
+  nombre?: string;
+  apellido?: string;
+  nss?: string;
+  puesto?: string;
+  aptitud_medica_caducidad?: string;
+  formacion_prl_nivel?: string;
+  formacion_prl_caducidad?: string;
+  epis_entregadas: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Maquinaria {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  tipo?: string;
+  marca_modelo?: string;
+  numero_serie?: string;
+  certificado_ce: boolean;
+  mantenimiento_caducidad?: string;
+  seguro_caducidad?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewDocumento {
+  id: string;
+  tenant_id: string;
+  entidad_tipo: EntidadTipo;
+  entidad_id: string;
+  categoria: DocumentoCategoria;
+  file: string;
+  mime?: string;
+  size_bytes?: number;
+  hash_sha256?: string;
+  version: number;
+  estado: DocumentoEstado;
+  caducidad?: string;
+  emisor?: string;
+  observaciones?: string;
+  metadatos: any;
+  origen: DocumentoOrigen;
+  sensible: boolean;
+  virtual_path?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Tarea {
+  id: string;
+  tenant_id: string;
+  tipo: TareaTipo;
+  documento_id?: string;
+  obra_id?: string;
+  asignado_role?: string;
+  asignado_user?: string;
+  vencimiento: string;
+  estado: TareaEstado;
+  comentarios?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RequisitoPlataforma {
+  id: string;
+  tenant_id: string;
+  plataforma: PlataformaTipo;
+  aplica_a: EntidadTipo;
+  perfil_riesgo: PerfilRiesgo;
+  categoria: DocumentoCategoria;
+  obligatorio: boolean;
+  reglas_validacion: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MappingTemplate {
+  id: string;
+  tenant_id: string;
+  plataforma: PlataformaTipo;
+  version: number;
+  schema_destino: any;
+  rules: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Adaptador {
+  id: string;
+  tenant_id: string;
+  plataforma: PlataformaTipo;
+  alias?: string;
+  credenciales: any;
+  estado: AdaptadorEstado;
+  ultimo_envio?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobIntegracion {
+  id: string;
+  tenant_id: string;
+  plataforma: PlataformaTipo;
+  obra_id: string;
+  payload?: any;
+  estado: JobEstado;
+  intentos: number;
+  respuesta?: any;
+  trace_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewSuscripcion {
+  id: string;
+  tenant_id: string;
+  plan: PlanTipo;
+  limites: any;
+  stripe_customer_id?: string;
+  estado: SuscripcionEstado;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewAuditoria {
+  id: string;
+  tenant_id: string;
+  actor_user?: string;
+  accion: string;
+  entidad?: string;
+  entidad_id?: string;
+  ip?: string;
+  detalles: any;
+  created_at: string;
+}
+
+export interface Mensaje {
+  id: string;
+  tenant_id: string;
+  tipo: MensajeTipo;
+  titulo?: string;
+  contenido?: string;
+  prioridad: Prioridad;
+  vence?: string;
+  destinatarios: any;
+  estado: MensajeEstado;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Reporte {
+  id: string;
+  tenant_id: string;
+  mes: string;
+  tipo: ReporteTipo;
+  kpis: any;
+  pdf_file?: string;
+  enviado_a: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TokenTransaction {
+  id: string;
+  tenant_id: string;
+  concepto?: string;
+  monto?: number;
+  tipo?: TokenTipo;
+  medio_pago?: MedioPago;
+  created_at: string;
+}
+
+export interface CheckoutProvider {
+  id: string;
+  tenant_id: string;
+  proveedor: MedioPago;
+  logo_base64?: string;
+  comision_pct?: number;
+  config: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MandatoSEPA {
+  id: string;
+  tenant_id: string;
+  cliente_email: string;
+  iban: string;
+  firma_base64?: string;
+  pdf_firmado?: string;
+  firmado_en?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ManualUploadQueue {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  obra_id: string;
+  documento_id: string;
+  status: QueueStatus;
+  operator_user?: string;
+  nota?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Tipos existentes (mantener compatibilidad)
 export interface User {
   id: string;
   email: string;
