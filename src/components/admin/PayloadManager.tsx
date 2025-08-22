@@ -28,7 +28,9 @@ import {
 } from 'lucide-react';
 import { PayloadService } from '../../lib/payload-service';
 import { getTenantObras, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from '../../lib/supabase-new';
+import { MappingTemplateService, MappingEngine } from '../../types/mapping';
 import type { IntegrationPayload, PlataformaTipo } from '../../types';
+import MappingTemplateManager from './MappingTemplateManager';
 
 interface PayloadManagerProps {
   tenantId?: string;
@@ -45,8 +47,12 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
   const [selectedPlatform, setSelectedPlatform] = useState<PlataformaTipo>('nalanda');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showMappingManager, setShowMappingManager] = useState(false);
+  const [selectedPayloadForPreview, setSelectedPayloadForPreview] = useState<any>(null);
+  const [showPayloadPreview, setShowPayloadPreview] = useState(false);
 
   const payloadService = new PayloadService(tenantId);
+  const mappingService = new MappingTemplateService(tenantId);
 
   useEffect(() => {
     loadData();
@@ -76,6 +82,26 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
 
   const handleSendPayload = async (payload: IntegrationPayload, platform: PlataformaTipo) => {
     try {
+      // Obtener template de mapping
+      const template = await mappingService.getTemplate(platform);
+      if (!template) {
+        console.error('❌ No se encontró template de mapping para', platform);
+        return;
+      }
+
+      // Aplicar transformación
+      const mappingEngine = new MappingEngine(template);
+      const transformedPayload = mappingEngine.transform(payload);
+
+      // Validar resultado
+      const validation = mappingEngine.validate(transformedPayload);
+      if (!validation.isValid) {
+        console.error('❌ Payload inválido:', validation.errors);
+        return;
+      }
+
+      console.log('🔄 Payload transformado para', platform, ':', transformedPayload);
+
       const result = await payloadService.sendToPlataforma(
         payload,
         platform,
@@ -102,6 +128,31 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
       }
     } catch (error) {
       console.error('Error retrying job:', error);
+    }
+  };
+
+  const handlePreviewTransformation = async (payload: IntegrationPayload, platform: PlataformaTipo) => {
+    try {
+      const template = await mappingService.getTemplate(platform);
+      if (!template) {
+        console.error('No se encontró template para', platform);
+        return;
+      }
+
+      const mappingEngine = new MappingEngine(template);
+      const transformedPayload = mappingEngine.transform(payload);
+      const validation = mappingEngine.validate(transformedPayload);
+
+      setSelectedPayloadForPreview({
+        original: payload,
+        transformed: transformedPayload,
+        validation,
+        platform,
+        template
+      });
+      setShowPayloadPreview(true);
+    } catch (error) {
+      console.error('Error previewing transformation:', error);
     }
   };
 
@@ -407,6 +458,15 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
       {/* Generador de Payloads */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Generar Nuevo Payload</h3>
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={() => setShowMappingManager(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Gestionar Templates
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {obras.map((obra) => (
             <div key={obra.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -439,18 +499,32 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
                   <option value="otro">Otro</option>
                 </select>
                 
-                <button
-                  onClick={async () => {
-                    const payload = await payloadService.generatePayloadForObra(obra.id);
-                    if (payload) {
-                      await handleSendPayload(payload, selectedPlatform);
-                    }
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center"
-                >
-                  <Send className="w-3 h-3 mr-1" />
-                  Enviar
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={async () => {
+                      const payload = await payloadService.generatePayloadForObra(obra.id);
+                      if (payload) {
+                        await handlePreviewTransformation(payload, selectedPlatform);
+                      }
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center"
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    Preview
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const payload = await payloadService.generatePayloadForObra(obra.id);
+                      if (payload) {
+                        await handleSendPayload(payload, selectedPlatform);
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center"
+                  >
+                    <Send className="w-3 h-3 mr-1" />
+                    Enviar
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -476,6 +550,88 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
               <pre className="bg-gray-50 p-4 rounded-lg overflow-auto text-sm">
                 {JSON.stringify(selectedPayload, null, 2)}
               </pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Gestión de Templates */}
+      {showMappingManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[95vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Gestión de Templates de Mapping</h3>
+                <button
+                  onClick={() => setShowMappingManager(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <MappingTemplateManager tenantId={tenantId} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Preview de Transformación */}
+      {showPayloadPreview && selectedPayloadForPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Preview de Transformación - {selectedPayloadForPreview.platform}
+                </h3>
+                <button
+                  onClick={() => setShowPayloadPreview(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Payload Original</h4>
+                <pre className="bg-gray-50 p-4 rounded-lg overflow-auto text-sm max-h-96">
+                  {JSON.stringify(selectedPayloadForPreview.original, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Payload Transformado</h4>
+                <div className={`p-3 rounded-lg mb-3 ${
+                  selectedPayloadForPreview.validation.isValid 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <div className="flex items-center">
+                    {selectedPayloadForPreview.validation.isValid ? (
+                      <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                    ) : (
+                      <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+                    )}
+                    <span className={`font-medium ${
+                      selectedPayloadForPreview.validation.isValid ? 'text-green-800' : 'text-red-800'
+                    }`}>
+                      {selectedPayloadForPreview.validation.isValid ? 'Válido' : 'Inválido'}
+                    </span>
+                  </div>
+                  {!selectedPayloadForPreview.validation.isValid && (
+                    <ul className="mt-2 text-sm text-red-700">
+                      {selectedPayloadForPreview.validation.errors.map((error: string, index: number) => (
+                        <li key={index}>• {error}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <pre className="bg-gray-50 p-4 rounded-lg overflow-auto text-sm max-h-96">
+                  {JSON.stringify(selectedPayloadForPreview.transformed, null, 2)}
+                </pre>
+              </div>
             </div>
           </div>
         </div>

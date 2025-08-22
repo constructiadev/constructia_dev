@@ -30,6 +30,7 @@ import {
   DEV_ADMIN_USER_ID
 } from '../../lib/supabase-new';
 import PayloadManager from './PayloadManager';
+import MappingTemplateManager from './MappingTemplateManager';
 
 interface HierarchyNode {
   id: string;
@@ -100,6 +101,7 @@ export default function NewManualManagement() {
   const [expandedMaquinaria, setExpandedMaquinaria] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showMappingManager, setShowMappingManager] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -257,6 +259,13 @@ export default function NewManualManagement() {
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualizar
+            </button>
+            <button
+              onClick={() => setShowMappingManager(true)}
+              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Templates
             </button>
           </div>
         </div>
@@ -636,6 +645,28 @@ export default function NewManualManagement() {
 
       {/* Gestor de Payloads */}
       <PayloadManager tenantId={DEV_TENANT_ID} />
+
+      {/* Modal de Gestión de Templates */}
+      {showMappingManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[95vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Gestión de Templates de Mapping</h3>
+                <button
+                  onClick={() => setShowMappingManager(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <MappingTemplateManager tenantId={DEV_TENANT_ID} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

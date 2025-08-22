@@ -37,6 +37,19 @@ export type {
   PayloadTransformer
 } from './payloads';
 
+// Re-exportar tipos de mapping
+export type {
+  MappingRule,
+  MappingTemplate,
+  TransformFunction,
+  WorkflowStep,
+  Workflow,
+  MappingEngine,
+  MappingTemplateService,
+  WorkflowEngine,
+  TransformEngine
+} from './mapping';
+
 // Interfaces para la nueva arquitectura
 export interface Tenant {
   id: string;

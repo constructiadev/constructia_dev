@@ -6,6 +6,13 @@ import {
   type CompanyPayload,
   type SitePayload 
 } from '../types/payloads';
+import {
+  MappingTemplateService,
+  MappingEngine,
+  WorkflowEngine,
+  type MappingTemplate,
+  type Workflow
+} from '../types/mapping';
 import { 
   getTenantHierarchy, 
   supabaseNew,
@@ -15,9 +22,11 @@ import type { PlataformaTipo } from '../types';
 
 export class PayloadService {
   private tenantId: string;
+  private mappingService: MappingTemplateService;
 
   constructor(tenantId: string) {
     this.tenantId = tenantId;
+    this.mappingService = new MappingTemplateService(tenantId);
   }
 
   // Generar payload para una obra específica
@@ -115,8 +124,21 @@ export class PayloadService {
     userId: string
   ): Promise<{ success: boolean; jobId?: string; error?: string }> {
     try {
-      // Transformar payload para la plataforma específica
-      const transformedPayload = PayloadTransformer.transformForPlatform(payload, plataforma);
+      // Obtener template de mapping para la plataforma
+      const template = await this.mappingService.getTemplate(plataforma);
+      if (!template) {
+        throw new Error(`No se encontró template de mapping para ${plataforma}`);
+      }
+
+      // Aplicar transformación usando el motor de mapping
+      const mappingEngine = new MappingEngine(template);
+      const transformedPayload = mappingEngine.transform(payload);
+
+      // Validar payload transformado
+      const validation = mappingEngine.validate(transformedPayload);
+      if (!validation.isValid) {
+        throw new Error(`Payload inválido: ${validation.errors.join(', ')}`);
+      }
 
       // Obtener credenciales del adaptador
       const { data: adaptador, error: adaptadorError } = await supabaseNew
