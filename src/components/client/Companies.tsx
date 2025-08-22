@@ -19,6 +19,16 @@ const Companies: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCompany, setNewCompany] = useState({
+    name: '',
+    cif: '',
+    address: '',
+    phone: '',
+    email: ''
+  });
 
   useEffect(() => {
     loadCompanies();
@@ -48,6 +58,47 @@ const Companies: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleCreateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Simular creación de empresa
+      const companyData: Company = {
+        id: `company_${Date.now()}`,
+        name: newCompany.name,
+        cif: newCompany.cif,
+        address: newCompany.address,
+        phone: newCompany.phone,
+        email: newCompany.email,
+        created_at: new Date().toISOString()
+      };
+      
+      setCompanies(prev => [...prev, companyData]);
+      console.log('Empresa creada:', companyData);
+    } catch (error) {
+      console.error('Error creating company:', error);
+    }
+    
+    setShowCreateModal(false);
+    setNewCompany({
+      name: '',
+      cif: '',
+      address: '',
+      phone: '',
+      email: ''
+    });
+  };
+
+  const handleDeleteCompany = async (companyId: string) => {
+    if (confirm('¿Estás seguro de que quieres eliminar esta empresa?')) {
+      setCompanies(prev => prev.filter(c => c.id !== companyId));
+    }
+  };
+
+  const filteredCompanies = companies.filter(company => {
+    const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         company.cif.toLowerCase().includes(searchTerm.toLowerCase());
 
   if (loading) {
     return (
@@ -125,7 +176,10 @@ const Companies: React.FC = () => {
                   <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
                     <Edit className="w-4 h-4" />
                   </button>
-                  <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
+                  <button 
+                    onClick={() => handleDeleteCompany(company.id)}
+                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -166,13 +220,16 @@ const Companies: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Nueva Empresa</h2>
-            <form className="space-y-4">
+            <form onSubmit={handleCreateCompany} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nombre de la empresa *
                 </label>
                 <input
                   type="text"
+                  required
+                  value={newCompany.name}
+                  onChange={(e) => setNewCompany(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ej: Constructora ABC S.L."
                 />
@@ -183,6 +240,9 @@ const Companies: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  required
+                  value={newCompany.cif}
+                  onChange={(e) => setNewCompany(prev => ({ ...prev, cif: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Ej: B12345678"
                 />
@@ -193,6 +253,8 @@ const Companies: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  value={newCompany.address}
+                  onChange={(e) => setNewCompany(prev => ({ ...prev, address: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Dirección completa"
                 />
@@ -203,6 +265,8 @@ const Companies: React.FC = () => {
                 </label>
                 <input
                   type="tel"
+                  value={newCompany.phone}
+                  onChange={(e) => setNewCompany(prev => ({ ...prev, phone: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="+34 600 000 000"
                 />
@@ -213,6 +277,8 @@ const Companies: React.FC = () => {
                 </label>
                 <input
                   type="email"
+                  value={newCompany.email}
+                  onChange={(e) => setNewCompany(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="contacto@empresa.com"
                 />

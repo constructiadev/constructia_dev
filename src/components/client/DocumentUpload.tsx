@@ -505,6 +505,9 @@ const DocumentUpload: React.FC = () => {
       
       // Cerrar el modal
       setShowObraliaModal(false);
+      
+      // Mostrar mensaje de éxito
+      alert('Credenciales de Obralia configuradas correctamente. Ya puedes subir documentos.');
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
       throw error;

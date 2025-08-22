@@ -421,9 +421,10 @@ const FinancialModule: React.FC = () => {
       }
 
       await loadFinancialData();
+      alert('Comisión actualizada correctamente');
     } catch (error) {
       console.error('Error saving commission:', error);
-      throw error;
+      alert('Error al guardar la comisión: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 

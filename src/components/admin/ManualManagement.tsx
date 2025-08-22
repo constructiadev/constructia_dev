@@ -278,10 +278,11 @@ export default function ManualManagement() {
     try {
       await updateClientObraliaCredentials(selectedClientForObralia.id, credentials);
       await loadData(); // Reload data to reflect changes
+      alert('Credenciales de Obralia guardadas correctamente');
     } catch (err) {
       console.error('Error saving Obralia credentials:', err);
       setError(err instanceof Error ? err.message : 'Error al guardar las credenciales de Obralia');
-      throw err; // Re-throw to keep modal open on error
+      alert('Error al guardar las credenciales: ' + (err instanceof Error ? err.message : 'Error desconocido'));
     } finally {
       setShowObraliaCredentialsModal(false);
     }

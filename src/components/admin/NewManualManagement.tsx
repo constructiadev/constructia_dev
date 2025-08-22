@@ -150,9 +150,11 @@ export default function NewManualManagement() {
       const success = await processManualQueueItem(queueId, action, DEV_ADMIN_USER_ID);
       if (success) {
         await loadData(); // Recargar datos
+        alert(`Documento ${action === 'upload' ? 'procesado' : action === 'error' ? 'marcado con error' : 'completado'} correctamente`);
       }
     } catch (error) {
       console.error('Error processing document:', error);
+      alert('Error al procesar el documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 
@@ -161,9 +163,11 @@ export default function NewManualManagement() {
       const success = await removeFromManualQueue(queueId);
       if (success) {
         await loadData(); // Recargar datos
+        alert('Documento eliminado de la cola correctamente');
       }
     } catch (error) {
       console.error('Error removing from queue:', error);
+      alert('Error al eliminar de la cola: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 

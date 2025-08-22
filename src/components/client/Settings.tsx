@@ -97,6 +97,7 @@ export default function Settings() {
     try {
       await updateClientObraliaCredentials(clientData.id, credentials);
       await loadClientData();
+      setShowObraliaModal(false);
       setMessage({ type: 'success', text: 'Credenciales de Obralia configuradas correctamente' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {

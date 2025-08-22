@@ -42,10 +42,67 @@ export default function Projects() {
     location: ''
   });
 
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
+      }
+      
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      
+      // Obtener proyectos del cliente
+      const projectsData = await getClientProjects(activeClient.id);
+      setProjects(projectsData || []);
+      
+      // Obtener empresas del cliente
+      const companiesData = await getClientCompanies(activeClient.id);
+      setCompanies(companiesData || []);
+      
+    } catch (err) {
+      console.error('Error loading projects:', err);
+      setError(err instanceof Error ? err.message : 'Error loading projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simular creación de proyecto
-    console.log('Proyecto creado:', newProject);
+    
+    try {
+      // Simular creación de proyecto
+      const projectData: Project = {
+        id: `project_${Date.now()}`,
+        name: newProject.name,
+        description: newProject.description,
+        status: 'planning',
+        progress: 0,
+        start_date: newProject.start_date,
+        end_date: newProject.end_date,
+        budget: parseFloat(newProject.budget) || 0,
+        location: newProject.location,
+        company_id: newProject.company_id,
+        companies: {
+          name: companies.find(c => c.id === newProject.company_id)?.name || 'Empresa'
+        },
+        created_at: new Date().toISOString()
+      };
+      
+      setProjects(prev => [...prev, projectData]);
+      console.log('Proyecto creado:', projectData);
+    } catch (error) {
+      console.error('Error creating project:', error);
+    }
+    
     setShowCreateModal(false);
     setNewProject({
       name: '',
@@ -89,7 +146,10 @@ export default function Projects() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando proyectos...</p>
+        </div>
       </div>
     );
   }
