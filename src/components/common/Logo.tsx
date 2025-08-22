@@ -9,7 +9,7 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
   const sizeClasses = {
     sm: 'h-12',
     md: 'h-13', 
-    lg: 'h-15'
+    lg: 'h-13'
   };
 
   return (
