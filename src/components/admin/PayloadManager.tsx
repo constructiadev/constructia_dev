@@ -86,6 +86,7 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
       const template = await mappingService.getTemplate(platform);
       if (!template) {
         console.error('❌ No se encontró template de mapping para', platform);
+        alert(`No se encontró template de mapping para ${platform}`);
         return;
       }
 
@@ -97,6 +98,7 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
       const validation = mappingEngine.validate(transformedPayload);
       if (!validation.isValid) {
         console.error('❌ Payload inválido:', validation.errors);
+        alert(`Payload inválido: ${validation.errors.join(', ')}`);
         return;
       }
 
@@ -111,12 +113,15 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
 
       if (result.success) {
         console.log('✅ Payload enviado exitosamente:', result.jobId);
+        alert(`Payload enviado exitosamente a ${platform}`);
         await loadData(); // Recargar datos
       } else {
         console.error('❌ Error enviando payload:', result.error);
+        alert(`Error enviando payload: ${result.error}`);
       }
     } catch (error) {
       console.error('Error sending payload:', error);
+      alert('Error al enviar payload: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 
@@ -124,10 +129,14 @@ export default function PayloadManager({ tenantId = DEV_TENANT_ID }: PayloadMana
     try {
       const success = await payloadService.retryJob(jobId, DEV_ADMIN_USER_ID);
       if (success) {
+        alert('Job reintentado correctamente');
         await loadData(); // Recargar datos
+      } else {
+        alert('Error al reintentar el job');
       }
     } catch (error) {
       console.error('Error retrying job:', error);
+      alert('Error al reintentar job: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 

@@ -359,6 +359,7 @@ export default function MappingTemplateManager({ tenantId = DEV_TENANT_ID }: Map
           templateData.rules!
         );
         setTemplates(prev => [...prev, newTemplate]);
+        alert('Template creado correctamente');
       } else if (modalMode === 'edit' && selectedTemplate) {
         // En producción, actualizar en base de datos
         const updatedTemplate = {
@@ -369,9 +370,11 @@ export default function MappingTemplateManager({ tenantId = DEV_TENANT_ID }: Map
         setTemplates(prev => prev.map(t => 
           t.id === selectedTemplate.id ? updatedTemplate : t
         ));
+        alert('Template actualizado correctamente');
       }
     } catch (error) {
       console.error('Error saving template:', error);
+      alert('Error al guardar template: ' + (error instanceof Error ? error.message : 'Error desconocido'));
       throw error;
     }
   };
@@ -379,6 +382,7 @@ export default function MappingTemplateManager({ tenantId = DEV_TENANT_ID }: Map
   const handleDeleteTemplate = async (templateId: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar este template?')) {
       setTemplates(prev => prev.filter(t => t.id !== templateId));
+      alert('Template eliminado correctamente');
     }
   };
 
@@ -391,6 +395,7 @@ export default function MappingTemplateManager({ tenantId = DEV_TENANT_ID }: Map
       updated_at: new Date().toISOString()
     };
     setTemplates(prev => [...prev, duplicated]);
+    alert('Template duplicado correctamente');
   };
 
   const getPlatformColor = (plataforma: string) => {

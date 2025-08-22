@@ -751,15 +751,18 @@ export default function PlatformIntegrationModule() {
         } as PlatformIntegration;
         
         setIntegrations(prev => [...prev, newIntegration]);
+        alert('Integración creada correctamente');
       } else if (modalMode === 'edit' && selectedIntegration) {
         setIntegrations(prev => prev.map(integration => 
           integration.id === selectedIntegration.id 
             ? { ...integration, ...integrationData, updated_at: new Date().toISOString() }
             : integration
         ));
+        alert('Integración actualizada correctamente');
       }
     } catch (error) {
       console.error('Error saving integration:', error);
+      alert('Error al guardar integración: ' + (error instanceof Error ? error.message : 'Error desconocido'));
       throw error;
     }
   };
@@ -767,6 +770,7 @@ export default function PlatformIntegrationModule() {
   const handleDeleteIntegration = async (id: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar esta integración?')) {
       setIntegrations(prev => prev.filter(integration => integration.id !== id));
+      alert('Integración eliminada correctamente');
     }
   };
 
@@ -780,6 +784,10 @@ export default function PlatformIntegrationModule() {
           }
         : integration
     ));
+    
+    const integration = integrations.find(i => i.id === id);
+    const newStatus = integration?.status === 'connected' ? 'desconectada' : 'conectada';
+    alert(`Integración ${newStatus} correctamente`);
   };
 
   const filteredIntegrations = integrations.filter(integration => {
