@@ -37,7 +37,8 @@ import {
   Zap,
   User,
   Save,
-  X,
+  Package,
+  FolderOpen
   Lock,
   Unlock,
   ArrowUp,
