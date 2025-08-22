@@ -1,113 +1,100 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus, Edit, Trash2, MapPin, Phone, Mail, AlertCircle, Loader2 } from 'lucide-react';
-import { getAllClients, getClientCompanies } from '../../lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
+import { 
+  getTenantEmpresas, 
+  createEmpresa, 
+  getCurrentUserTenant,
+  DEV_TENANT_ID 
+} from '../../lib/supabase-real';
 
-interface Company {
-  id: string;
-  name: string;
-  cif: string;
-  address: string;
-  phone: string;
-  email: string;
-  created_at: string;
-  projects?: { count: number }[];
-  documents?: { count: number }[];
+interface DashboardStats {
+  totalProjects: number;
+  totalCompanies: number;
+  totalDocuments: number;
+  documentsProcessed: number;
+  storageUsed: number;
+  storageLimit: number;
 }
 
-const Companies: React.FC = () => {
+export default function ClientDashboard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newCompany, setNewCompany] = useState({
-    name: '',
-    cif: '',
-    address: '',
-    phone: '',
-    email: ''
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProjects: 0,
+    totalCompanies: 0,
+    totalDocuments: 0,
+    documentsProcessed: 0,
+    storageUsed: 0,
+    storageLimit: 0
   });
+  const [clientData, setClientData] = useState<any>(null);
 
   useEffect(() => {
-    loadCompanies();
+    loadDashboardData();
   }, []);
 
-  const loadCompanies = async () => {
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Obtener el primer cliente disponible
+
+      // Obtener el primer cliente disponible de la base de datos
       const allClients = await getAllClients();
+      
       if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+        throw new Error('No hay clientes en la base de datos. Ejecuta el script de población primero.');
       }
       
+      // Usar el primer cliente activo disponible
       const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      
-      // Obtener empresas del cliente
-      const companiesData = await getClientCompanies(activeClient.id);
-      setCompanies(companiesData || []);
-      
+      setClientData(activeClient);
+
+      // Obtener estadísticas
+      const [projects, companies, documents] = await Promise.all([
+        getClientProjects(activeClient.id),
+        getClientCompanies(activeClient.id),
+        getClientDocuments(activeClient.id)
+      ]);
+
+      const newStats = {
+        totalProjects: projects.length,
+        totalCompanies: companies.length,
+        totalDocuments: documents.length,
+        documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
+        storageUsed: activeClient.storage_used || 0,
+        storageLimit: activeClient.storage_limit || 1073741824
+      };
+
+      setStats(newStats);
     } catch (err) {
-      console.error('Error loading companies:', err);
-      setError(err instanceof Error ? err.message : 'Error loading companies');
+      console.error('Error loading dashboard data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateCompany = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      // Simular creación de empresa
-      const companyData: Company = {
-        id: `company_${Date.now()}`,
-        name: newCompany.name,
-        cif: newCompany.cif,
-        address: newCompany.address,
-        phone: newCompany.phone,
-        email: newCompany.email,
-        created_at: new Date().toISOString()
-      };
-      
-      setCompanies(prev => [...prev, companyData]);
-      console.log('Empresa creada:', companyData);
-    } catch (error) {
-      console.error('Error creating company:', error);
-    }
-    
-    setShowCreateModal(false);
-    setNewCompany({
-      name: '',
-      cif: '',
-      address: '',
-      phone: '',
-      email: ''
-    });
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleDeleteCompany = async (companyId: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar esta empresa?')) {
-      setCompanies(prev => prev.filter(c => c.id !== companyId));
-    }
+  const getStoragePercentage = () => {
+    if (stats.storageLimit === 0) return 0;
+    return Math.round((stats.storageUsed / stats.storageLimit) * 100);
   };
-
-  const filteredCompanies = companies.filter(company => {
-    const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         company.cif.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Cargando empresas...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando dashboard...</p>
         </div>
       </div>
     );
@@ -115,12 +102,13 @@ const Companies: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-center">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 mb-4">{error}</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de Conexión</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={loadCompanies}
+            onClick={loadDashboardData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -129,183 +117,184 @@ const Companies: React.FC = () => {
       </div>
     );
   }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Empresas</h1>
-          <p className="text-gray-600">Gestiona las empresas de tus proyectos</p>
-          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            ✅ DATOS REALES - {companies.length} empresas cargadas
-          </div>
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Bienvenido, {clientData?.contact_name || 'Usuario'}
+        </h1>
+        <p className="text-gray-600">
+          {clientData?.company_name || 'Empresa'} • Plan {clientData?.subscription_plan || 'básico'}
+        </p>
+        <div className="mt-3 flex items-center space-x-2">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          <span className="text-sm text-green-600">Conectado a base de datos</span>
+          <span className="text-sm text-gray-500">• ID: {clientData?.client_id}</span>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Nueva Empresa
-        </button>
       </div>
 
-      {/* Companies Grid */}
-      {companies.length === 0 ? (
-        <div className="text-center py-12">
-          <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay empresas registradas</h3>
-          <p className="text-gray-600 mb-6">Comienza agregando tu primera empresa para organizar tus proyectos</p>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Agregar Primera Empresa
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {companies.map((company) => (
-            <div key={company.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center">
-                  <Building2 className="w-8 h-8 text-blue-600 mr-3" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{company.name}</h3>
-                    <p className="text-sm text-gray-500">CIF: {company.cif}</p>
-                  </div>
-                </div>
-                <div className="flex space-x-1">
-                  <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteCompany(company.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                {company.address && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    <span className="truncate">{company.address}</span>
-                  </div>
-                )}
-                {company.phone && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Phone className="w-4 h-4 mr-2" />
-                    <span>{company.phone}</span>
-                  </div>
-                )}
-                {company.email && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Mail className="w-4 h-4 mr-2" />
-                    <span className="truncate">{company.email}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-between text-sm text-gray-500 pt-4 border-t border-gray-100">
-                <span>{company.projects?.[0]?.count || 0} proyectos</span>
-                <span>{company.documents?.[0]?.count || 0} documentos</span>
-              </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Building2 className="w-6 h-6 text-blue-600" />
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Add Company Modal */}
-      {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Nueva Empresa</h2>
-            <form onSubmit={handleCreateCompany} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre de la empresa *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCompany.name}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ej: Constructora ABC S.L."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CIF *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCompany.cif}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, cif: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ej: B12345678"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dirección
-                </label>
-                <input
-                  type="text"
-                  value={newCompany.address}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, address: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Dirección completa"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={newCompany.phone}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+34 600 000 000"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={newCompany.email}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="contacto@empresa.com"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Crear Empresa
-                </button>
-              </div>
-            </form>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Empresas</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</p>
+            </div>
           </div>
         </div>
-      )}
+
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <FileText className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Proyectos</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Documentos</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-orange-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Procesados</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.documentsProcessed}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Storage Usage */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Uso de Almacenamiento</h3>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">
+              {formatBytes(stats.storageUsed)} de {formatBytes(stats.storageLimit)} utilizados
+            </span>
+            <span className="text-gray-900 font-medium">{getStoragePercentage()}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className={`h-2 rounded-full ${
+                getStoragePercentage() > 90 ? 'bg-red-500' : 
+                getStoragePercentage() > 70 ? 'bg-yellow-500' : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min(getStoragePercentage(), 100)}%` }}
+            ></div>
+          </div>
+          {getStoragePercentage() > 90 && (
+            <div className="flex items-center text-red-600 text-sm mt-2">
+              <AlertCircle className="w-4 h-4 mr-1" />
+              Almacenamiento casi lleno. Considera actualizar tu plan.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => navigate('/client/upload')}
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <FileText className="w-8 h-8 text-green-600 mr-3" />
+            <div className="text-left">
+              <p className="font-medium text-gray-900">Subir Documentos</p>
+              <p className="text-sm text-gray-600">Añadir nuevos documentos</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/client/companies')}
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Building2 className="w-8 h-8 text-blue-600 mr-3" />
+            <div className="text-left">
+              <p className="font-medium text-gray-900">Gestionar Empresas</p>
+              <p className="text-sm text-gray-600">Administrar empresas</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/client/metrics')}
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <TrendingUp className="w-8 h-8 text-purple-600 mr-3" />
+            <div className="text-left">
+              <p className="font-medium text-gray-900">Ver Métricas</p>
+              <p className="text-sm text-gray-600">Analizar rendimiento</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
+          <button
+            onClick={loadDashboardData}
+            className="flex items-center text-blue-600 hover:text-blue-700 text-sm"
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Actualizar
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center p-3 bg-green-50 rounded-lg">
+            <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">Base de datos conectada</p>
+              <p className="text-sm text-gray-500">Datos cargados desde Supabase - hace 1 min</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+            <FileText className="w-5 h-5 text-blue-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">
+                {stats.totalDocuments} documentos en tu cuenta
+              </p>
+              <p className="text-sm text-gray-500">Gestión documental activa - hace 5 min</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-purple-50 rounded-lg">
+            <Building2 className="w-5 h-5 text-purple-500 mr-3" />
+            <div>
+              <p className="font-medium text-gray-900">
+                {stats.totalProjects} proyectos activos
+              </p>
+              <p className="text-sm text-gray-500">Gestión de proyectos - hace 10 min</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Companies;
+}
