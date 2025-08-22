@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, AlertCircle, CheckCircle, Database, Key, Globe, Mail } from 'lucide-react';
 import { getSystemSettings, updateSystemSetting, getAPIIntegrations } from '../../lib/supabase';
+import SystemConfigPanel from './SystemConfigPanel';
 
 interface SystemSetting {
   id: string;
@@ -102,6 +103,9 @@ export default function SettingsModule() {
         <h1 className="text-2xl font-bold text-gray-900">Configuración del Sistema</h1>
       </div>
 
+      {/* Sistema de Configuración Completo */}
+      <SystemConfigPanel />
+
       {message && (
         <div className={`p-4 rounded-lg flex items-center gap-2 ${
           message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
@@ -116,11 +120,11 @@ export default function SettingsModule() {
       )}
 
       {/* Configuraciones del Sistema */}
-      <div className="bg-white rounded-lg shadow-sm border">
+      <div className="bg-white rounded-lg shadow-sm border mt-8">
         <div className="p-6 border-b">
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Configuraciones del Sistema</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Configuraciones Heredadas</h2>
           </div>
         </div>
         <div className="p-6">
