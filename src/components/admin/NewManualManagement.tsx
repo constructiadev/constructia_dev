@@ -29,6 +29,7 @@ import {
   DEV_TENANT_ID,
   DEV_ADMIN_USER_ID
 } from '../../lib/supabase-new';
+import PayloadManager from './PayloadManager';
 
 interface HierarchyNode {
   id: string;
@@ -632,6 +633,9 @@ export default function NewManualManagement() {
           </div>
         </div>
       </div>
+
+      {/* Gestor de Payloads */}
+      <PayloadManager tenantId={DEV_TENANT_ID} />
     </div>
   );
 }

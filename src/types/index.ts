@@ -25,6 +25,18 @@ export type MedioPago = 'stripe' | 'paypal' | 'bizum' | 'sepa' | 'tarjeta';
 export type QueueStatus = 'queued' | 'in_progress' | 'uploaded' | 'error';
 export type DocumentoOrigen = 'usuario' | 'ia' | 'import';
 
+// Re-exportar tipos de payloads
+export type {
+  CompanyPayload,
+  SitePayload,
+  WorkerPayload,
+  MachinePayload,
+  DocumentPayload,
+  IntegrationPayload,
+  PayloadBuilder,
+  PayloadTransformer
+} from './payloads';
+
 // Interfaces para la nueva arquitectura
 export interface Tenant {
   id: string;
