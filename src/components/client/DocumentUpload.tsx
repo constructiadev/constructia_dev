@@ -23,6 +23,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { getAllClients } from '../../lib/supabase';
+import { updateClientObraliaCredentials } from '../../lib/supabase';
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 
 interface UploadedFile {
@@ -492,9 +493,18 @@ const DocumentUpload: React.FC = () => {
 
   const handleObraliaCredentialsSave = async (credentials: { username: string; password: string }) => {
     try {
-      // Guardar credenciales de forma segura (sin mostrar en consola)
-      console.log('Guardando credenciales de Obralia...');
-      await checkObraliaCredentials(); // Recargar datos
+      if (!clientData?.id) {
+        throw new Error('No se encontró información del cliente');
+      }
+
+      // Guardar credenciales en la base de datos
+      await updateClientObraliaCredentials(clientData.id, credentials);
+      
+      // Recargar datos del cliente para reflejar los cambios
+      await checkObraliaCredentials();
+      
+      // Cerrar el modal
+      setShowObraliaModal(false);
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
       throw error;
