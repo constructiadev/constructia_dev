@@ -10,7 +10,11 @@ import type {
   NewDocumento,
   Tarea,
   ManualUploadQueue,
-  UserRole
+  UserRole,
+  MappingTemplate,
+  RequisitoPlataforma,
+  Adaptador,
+  JobIntegracion
 } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -368,14 +372,13 @@ export const addToManualQueue = async (
 // Helper para obtener estructura jerárquica completa
 export const getTenantHierarchy = async (tenantId: string) => {
   try {
-    const [empresas, obras, proveedores, trabajadores, maquinaria, documentos, queue] = await Promise.all([
+    const [empresas, obras, proveedores, trabajadores, maquinaria, documentos] = await Promise.all([
       getTenantEmpresas(tenantId),
       getTenantObras(tenantId),
       getTenantProveedores(tenantId),
       getTenantTrabajadores(tenantId),
       getTenantMaquinaria(tenantId),
-      getTenantDocumentos(tenantId),
-      getManualUploadQueue(tenantId)
+      getTenantDocumentos(tenantId)
     ]);
 
     // Construir jerarquía: Empresa -> Obra -> Documentos
@@ -385,30 +388,21 @@ export const getTenantHierarchy = async (tenantId: string) => {
         ...obra,
         documentos: documentos.filter(doc => 
           doc.entidad_tipo === 'obra' && doc.entidad_id === obra.id
-        ).map(doc => ({
-          ...doc,
-          queue_item: queue.find(q => q.documento_id === doc.id)
-        })),
+        ),
         proveedores: proveedores.filter(prov => prov.empresa_id === empresa.id).map(proveedor => ({
           ...proveedor,
           trabajadores: trabajadores.filter(trab => trab.proveedor_id === proveedor.id).map(trabajador => ({
             ...trabajador,
             documentos: documentos.filter(doc => 
               doc.entidad_tipo === 'trabajador' && doc.entidad_id === trabajador.id
-            ).map(doc => ({
-              ...doc,
-              queue_item: queue.find(q => q.documento_id === doc.id)
-            }))
+            )
           }))
         })),
         maquinaria: maquinaria.filter(maq => maq.empresa_id === empresa.id).map(maquina => ({
           ...maquina,
           documentos: documentos.filter(doc => 
             doc.entidad_tipo === 'maquinaria' && doc.entidad_id === maquina.id
-          ).map(doc => ({
-            ...doc,
-            queue_item: queue.find(q => q.documento_id === doc.id)
-          }))
+          )
         }))
       }))
     }));
@@ -576,5 +570,137 @@ export const removeFromManualQueue = async (queueId: string): Promise<boolean> =
   } catch (error) {
     console.error('Error removing from manual queue:', error);
     return false;
+  }
+};
+// Helper para obtener mapping templates
+export const getMappingTemplates = async (tenantId: string, plataforma?: string): Promise<MappingTemplate[]> => {
+  try {
+    let query = supabaseNew
+      .from('mapping_templates')
+      .select('*')
+      .eq('tenant_id', tenantId);
+
+    if (plataforma) {
+      query = query.eq('plataforma', plataforma);
+    }
+
+    const { data, error } = await query.order('version', { ascending: false });
+
+    if (error) {
+      console.error('Error getting mapping templates:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting mapping templates:', error);
+    return [];
+  }
+};
+
+// Helper para crear mapping template
+export const createMappingTemplate = async (templateData: Partial<MappingTemplate>): Promise<MappingTemplate | null> => {
+  try {
+    const { data, error } = await supabaseNew
+      .from('mapping_templates')
+      .insert(templateData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating mapping template:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error creating mapping template:', error);
+    return null;
+  }
+};
+
+// Helper para obtener requisitos de plataforma
+export const getRequisitosPlatforma = async (
+  tenantId: string,
+  plataforma?: string,
+  perfilRiesgo?: string
+): Promise<RequisitoPlataforma[]> => {
+  try {
+    let query = supabaseNew
+      .from('requisitos_plataforma')
+      .select('*')
+      .eq('tenant_id', tenantId);
+
+    if (plataforma) {
+      query = query.eq('plataforma', plataforma);
+    }
+
+    if (perfilRiesgo) {
+      query = query.eq('perfil_riesgo', perfilRiesgo);
+    }
+
+    const { data, error } = await query.order('categoria');
+
+    if (error) {
+      console.error('Error getting requisitos plataforma:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting requisitos plataforma:', error);
+    return [];
+  }
+};
+
+// Helper para obtener adaptadores
+export const getAdaptadores = async (tenantId: string, plataforma?: string): Promise<Adaptador[]> => {
+  try {
+    let query = supabaseNew
+      .from('adaptadores')
+      .select('*')
+      .eq('tenant_id', tenantId);
+
+    if (plataforma) {
+      query = query.eq('plataforma', plataforma);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error getting adaptadores:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting adaptadores:', error);
+    return [];
+  }
+};
+
+// Helper para obtener jobs de integración
+export const getJobsIntegracion = async (tenantId: string, obraId?: string): Promise<JobIntegracion[]> => {
+  try {
+    let query = supabaseNew
+      .from('jobs_integracion')
+      .select('*')
+      .eq('tenant_id', tenantId);
+
+    if (obraId) {
+      query = query.eq('obra_id', obraId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error getting jobs integracion:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting jobs integracion:', error);
+    return [];
   }
 };
