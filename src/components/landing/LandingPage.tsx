@@ -192,10 +192,16 @@ export default function LandingPage() {
                 Contacto
               </button>
               <button
+                onClick={() => navigate('/client/dashboard')}
+                className="text-gray-600 hover:text-green-600 transition-colors"
+              >
+                Iniciar Sesión
+              </button>
+              <button
                 onClick={handleGetStarted}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
               >
-                Comenzar
+                Registrarse
               </button>
             </div>
 
