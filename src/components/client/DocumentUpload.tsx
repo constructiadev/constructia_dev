@@ -186,11 +186,6 @@ function HierarchicalSelector({ isOpen, onClose, onSelect, companies, projects, 
                             <p className="text-sm text-gray-600">CIF: {company.cif}</p>
                           </div>
                         </div>
-                              {file.company_id && file.project_id && (
-                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  {companies.find(c => c.id === file.company_id)?.name} → {projects.find(p => p.id === file.project_id)?.name}
-                                </span>
-                              )}
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-600">{companyProjects.length} proyectos</span>
                           {isSelected && (
@@ -660,17 +655,6 @@ const DocumentUpload: React.FC = () => {
     }
   };
 
-  // Datos mock para desarrollo
-  const projects: Project[] = [
-    { id: '1', name: 'Edificio Residencial García', company_name: 'Construcciones García S.L.' },
-    { id: '2', name: 'Reforma Oficinas López', company_name: 'Reformas Integrales López' }
-  ];
-
-  const companies: Company[] = [
-    { id: '1', name: 'Construcciones García S.L.' },
-    { id: '2', name: 'Reformas Integrales López' }
-  ];
-
   const handleFileSelect = (selectedFiles: FileList) => {
     // Verificar credenciales antes de permitir subida
     if (!clientData?.obralia_credentials?.configured) {
@@ -835,6 +819,9 @@ const DocumentUpload: React.FC = () => {
     setSelectedFiles([]);
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'error':
         return <AlertCircle className="w-5 h-5 text-red-500" />;
@@ -867,6 +854,14 @@ const DocumentUpload: React.FC = () => {
       case 'uploading_to_obralia': return 'bg-orange-100 text-orange-800';
       default: return 'bg-blue-100 text-blue-800';
     }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const filteredFiles = files.filter(file => {
@@ -1134,6 +1129,11 @@ const DocumentUpload: React.FC = () => {
                             {file.classification && (
                               <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
                                 {file.classification} ({file.confidence}%)
+                              </span>
+                            )}
+                            {file.company_id && file.project_id && (
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                {companies.find(c => c.id === file.company_id)?.name} → {projects.find(p => p.id === file.project_id)?.name}
                               </span>
                             )}
                           </div>
