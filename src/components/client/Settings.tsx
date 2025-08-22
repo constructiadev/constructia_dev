@@ -69,13 +69,23 @@ export default function Settings() {
     
     try {
       setSaving(true);
+      // Validar formato de credenciales
+      if (obraliaCredentials.username.length < 3) {
+        setMessage({ type: 'error', text: 'El usuario debe tener al menos 3 caracteres' });
+        return;
+      }
+      if (obraliaCredentials.password.length < 6) {
+        setMessage({ type: 'error', text: 'La contraseña debe tener al menos 6 caracteres' });
+        return;
+      }
+      
       await updateClientObraliaCredentials(clientData.id, obraliaCredentials);
       await loadClientData(); // Recargar datos
       setMessage({ type: 'success', text: 'Credenciales de Obralia actualizadas correctamente' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
-      setMessage({ type: 'error', text: 'Error al guardar las credenciales de Obralia' });
+      setMessage({ type: 'error', text: 'Error al guardar las credenciales. Verifica los datos e inténtalo de nuevo.' });
     } finally {
       setSaving(false);
     }

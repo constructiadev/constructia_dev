@@ -59,9 +59,8 @@ export default function ObraliaCredentialsModal({
       setCredentials({ username: '', password: '' });
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
-      // Show specific error message to user
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al guardar credenciales: ${errorMessage}`);
+      // Mostrar mensaje de error sin exponer detalles sensibles
+      alert('Error al guardar las credenciales. Por favor, verifica los datos e inténtalo de nuevo.');
     } finally {
       setIsSubmitting(false);
     }

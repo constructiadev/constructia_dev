@@ -403,6 +403,16 @@ export const calculateDynamicKPIs = async () => {
 // Helper para actualizar credenciales de Obralia del cliente
 export const updateClientObraliaCredentials = async (clientId: string, credentials: { username: string; password: string }) => {
   try {
+    // Validar entrada
+    if (!clientId || !credentials.username || !credentials.password) {
+      throw new Error('Datos de credenciales incompletos');
+    }
+    
+    // Validar formato básico
+    if (credentials.username.length < 3 || credentials.password.length < 6) {
+      throw new Error('Formato de credenciales inválido');
+    }
+    
     const { data, error } = await supabase
       .from('clients')
       .update({
@@ -423,7 +433,7 @@ export const updateClientObraliaCredentials = async (clientId: string, credentia
     
     return data;
   } catch (error) {
-    console.error('Error updating Obralia credentials:', error);
+    console.error('Error updating Obralia credentials');
     throw error;
   }
 };

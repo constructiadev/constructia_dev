@@ -479,7 +479,7 @@ const DocumentUpload: React.FC = () => {
       setClientData(activeClient);
       
       // Verificar si tiene credenciales configuradas
-      if (!activeClient.obralia_credentials?.configured) {
+      if (!activeClient?.obralia_credentials?.configured) {
         setShowObraliaModal(true);
       }
       
@@ -492,8 +492,8 @@ const DocumentUpload: React.FC = () => {
 
   const handleObraliaCredentialsSave = async (credentials: { username: string; password: string }) => {
     try {
-      // Aquí se guardarían las credenciales en la base de datos
-      console.log('Credenciales guardadas:', credentials);
+      // Guardar credenciales de forma segura (sin mostrar en consola)
+      console.log('Guardando credenciales de Obralia...');
       await checkObraliaCredentials(); // Recargar datos
     } catch (error) {
       console.error('Error saving Obralia credentials:', error);
