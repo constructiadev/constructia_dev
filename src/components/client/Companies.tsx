@@ -99,6 +99,8 @@ const Companies: React.FC = () => {
   const filteredCompanies = companies.filter(company => {
     const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          company.cif.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
 
   if (loading) {
     return (
