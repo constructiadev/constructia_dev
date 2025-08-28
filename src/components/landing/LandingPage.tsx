@@ -509,7 +509,7 @@ export default function LandingPage() {
     {
       icon: Zap,
       title: 'Integración Automática',
-      description: 'Conexión directa con Obralia, Nalanda y CTAIMA. Subida automática sin intervención manual.',
+      description: 'Conexión directa con Obralia/Nalanda, ECoordina, CTAIMA. Subida automática sin intervención manual.',
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
       details: [
@@ -923,7 +923,7 @@ export default function LandingPage() {
             </h1>
             
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-4xl mx-auto leading-relaxed">
-              Automatiza la clasificación y subida de documentos a <strong>Obralia</strong> y <strong>Nalanda</strong> con IA. 
+              Automatiza la clasificación y subida de documentos a <strong>Obralia/Nalanda</strong> , <strong>CTAIMA, ECoordina</strong> con IA. 
               Ahorra <strong>15 horas semanales</strong>, reduce errores al <strong>0%</strong> y cumple con todas las normativas.
             </p>
             
