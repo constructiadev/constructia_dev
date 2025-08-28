@@ -7,6 +7,7 @@ import ClientLayout from './layout/ClientLayout';
 
 // Auth
 import AdminLogin from './auth/AdminLogin';
+import ClientLogin from './auth/ClientLogin';
 
 // Admin pages
 import AdminDashboard from './admin/Dashboard';
@@ -48,6 +49,9 @@ export default function Router() {
         
         {/* Admin login - Solo accesible desde el escudo del footer */}
         <Route path="/admin-login" element={<AdminLogin />} />
+        
+        {/* Client login - Acceso aislado para clientes externos */}
+        <Route path="/client-login" element={<ClientLogin />} />
 
         {/* Legal pages */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
