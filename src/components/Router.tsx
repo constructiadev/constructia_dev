@@ -20,6 +20,7 @@ import AuditModule from './admin/AuditModule';
 import SettingsModule from './admin/SettingsModule';
 import ManualManagement from './admin/ManualManagement';
 import NewManualManagement from './admin/NewManualManagement';
+import MessagingModule from './admin/MessagingModule';
 
 // Client pages
 import ClientDashboard from './client/Dashboard';
@@ -66,6 +67,7 @@ export default function Router() {
           <Route path="audit" element={<AuditModule />} />
           <Route path="settings" element={<SettingsModule />} />
           <Route path="manual" element={<NewManualManagement />} />
+          <Route path="messaging" element={<MessagingModule />} />
         </Route>
 
         {/* Client routes - Sin protección temporal */}
