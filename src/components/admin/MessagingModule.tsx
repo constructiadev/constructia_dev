@@ -968,7 +968,7 @@ export default function MessagingModule() {
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
