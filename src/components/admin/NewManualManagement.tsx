@@ -4,7 +4,7 @@ import {
   FileText,
   AlertCircle,
   CheckCircle,
-import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
+  Clock,
   Building2,
   User,
   Settings,
@@ -33,6 +33,7 @@ import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
   BarChart3,
   FolderOpen
 } from 'lucide-react';
+import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
 import {
   getTenantHierarchy,
   getTenantStats,
