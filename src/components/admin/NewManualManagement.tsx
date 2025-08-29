@@ -32,15 +32,17 @@ import {
   Activity,
   BarChart3,
   FolderOpen
-} from 'lucide-react';
-import {
-  AlertCircle,
-  CheckCircle,
-  Building2,
-  User,
-  Settings,
+  Search,
+  RefreshCw,
+  Upload,
+  Eye,
+  Trash2,
   ChevronDown,
-  Search
+  ChevronRight,
+  Clock,
+  FileText,
+  Info,
+  Filter
 } from 'lucide-react';
 import {
   supabaseServiceClient,
