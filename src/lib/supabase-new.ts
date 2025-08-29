@@ -1,4 +1,5 @@
 import { supabaseClient } from './supabase-real';
+import { supabaseServiceClient } from './supabase-real';
 import type { 
   Tenant, 
   NewUser, 
@@ -229,7 +230,7 @@ export const getTenantDocumentos = async (tenantId: string): Promise<NewDocument
 export const getManualUploadQueue = async (tenantId: string): Promise<ManualUploadQueue[]> => {
   try {
     // Direct query without joins to avoid RLS issues
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServiceClient
       .from('manual_upload_queue')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -245,21 +246,21 @@ export const getManualUploadQueue = async (tenantId: string): Promise<ManualUplo
       (data || []).map(async (item) => {
         try {
           // Get documento details
-          const { data: documento } = await supabase
+          const { data: documento } = await supabaseServiceClient
             .from('documentos')
             .select('file, categoria, estado')
             .eq('id', item.documento_id)
             .single();
 
           // Get empresa details
-          const { data: empresa } = await supabase
+          const { data: empresa } = await supabaseServiceClient
             .from('empresas')
             .select('razon_social')
             .eq('id', item.empresa_id)
             .single();
 
           // Get obra details
-          const { data: obra } = await supabase
+          const { data: obra } = await supabaseServiceClient
             .from('obras')
             .select('nombre_obra, codigo_obra')
             .eq('id', item.obra_id)
