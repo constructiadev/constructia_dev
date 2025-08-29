@@ -15,6 +15,9 @@ import { getManualUploadQueue } from './supabase-new';
 // Constante UUID válida para desarrollo
 export const TEST_USER_UUID = '00000000-0000-0000-0000-000000000001';
 
+// Export DEV_TENANT_ID for use in other modules
+export { DEV_TENANT_ID };
+
 // Use centralized client
 export const supabase = supabaseClient;
 
