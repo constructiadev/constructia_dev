@@ -328,7 +328,28 @@ export const getAllTenantDocumentsNoRLS = async (tenantId: string = DEV_TENANT_I
   try {
     const { data, error } = await supabase
       .from('documentos')
-      .select('*')
+      .select(`
+        id,
+        tenant_id,
+        entidad_tipo,
+        entidad_id,
+        categoria,
+        file,
+        mime,
+        size_bytes,
+        hash_sha256,
+        version,
+        estado,
+        caducidad,
+        emisor,
+        observaciones,
+        metadatos,
+        origen,
+        sensible,
+        virtual_path,
+        created_at,
+        updated_at
+      `)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
