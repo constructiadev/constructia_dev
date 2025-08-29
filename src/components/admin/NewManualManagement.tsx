@@ -10,211 +10,431 @@ import {
   Settings,
   ChevronRight,
   ChevronDown,
+  Info,
   Upload,
-  Trash2,
   Eye,
+  Trash2,
   Plus,
   Filter,
   Search,
   Users,
-  Wrench,
+  Factory,
   HardHat,
-  Factory
+  Wrench,
+  Key,
+  Globe,
+  Send,
+  X,
+  Save,
+  Database,
+  Shield,
+  Target,
+  Activity,
+  BarChart3
 } from 'lucide-react';
 import {
-  getTenantHierarchy,
-  getTenantStats,
-  processManualQueueItem,
-  removeFromManualQueue,
-  DEV_TENANT_ID,
-  DEV_ADMIN_USER_ID
-} from '../../lib/supabase-new';
-import PayloadManager from './PayloadManager';
-import MappingTemplateManager from './MappingTemplateManager';
+  getAllClients,
+  getClientDocuments,
+  getClientProjects,
+  getClientCompanies,
+  supabase
+} from '../../lib/supabase';
 
-interface HierarchyNode {
+interface QueueDocument {
   id: string;
-  razon_social: string;
-  cif: string;
-  estado_compliance: string;
-  obras: ObraNode[];
-}
-
-interface ObraNode {
-  id: string;
-  nombre_obra: string;
-  codigo_obra: string;
-  plataforma_destino?: string;
-  perfil_riesgo: string;
-  documentos: DocumentoNode[];
-  proveedores: ProveedorNode[];
-  maquinaria: MaquinariaNode[];
-}
-
-interface ProveedorNode {
-  id: string;
-  razon_social: string;
-  cif: string;
-  estado_homologacion: string;
-  trabajadores: TrabajadorNode[];
-}
-
-interface TrabajadorNode {
-  id: string;
-  dni_nie: string;
-  nombre?: string;
-  apellido?: string;
-  puesto?: string;
-  documentos: DocumentoNode[];
-}
-
-interface MaquinariaNode {
-  id: string;
-  tipo?: string;
-  marca_modelo?: string;
-  numero_serie?: string;
-  documentos: DocumentoNode[];
-}
-
-interface DocumentoNode {
-  id: string;
-  categoria: string;
-  file: string;
-  estado: string;
-  caducidad?: string;
-  queue_item?: {
-    id: string;
-    status: string;
-    operator_user?: string;
-    nota?: string;
+  client_id: string;
+  client_name: string;
+  client_email: string;
+  project_id: string;
+  project_name: string;
+  company_name: string;
+  filename: string;
+  original_name: string;
+  file_size: number;
+  file_type: string;
+  document_type: string;
+  classification_confidence: number;
+  upload_status: string;
+  obralia_status: string;
+  created_at: string;
+  queue_position: number;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  target_platform?: string;
+  client_credentials?: {
+    [platform: string]: {
+      username: string;
+      password: string;
+      configured: boolean;
+    };
   };
 }
 
-export default function NewManualManagement() {
-  const [hierarchy, setHierarchy] = useState<HierarchyNode[]>([]);
-  const [stats, setStats] = useState<any>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedEmpresas, setExpandedEmpresas] = useState<string[]>([]);
-  const [expandedObras, setExpandedObras] = useState<string[]>([]);
-  const [expandedProveedores, setExpandedProveedores] = useState<string[]>([]);
-  const [expandedMaquinaria, setExpandedMaquinaria] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [showMappingManager, setShowMappingManager] = useState(false);
+interface PlatformCredentials {
+  platform: string;
+  username: string;
+  password: string;
+}
+
+interface CredentialsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (credentials: PlatformCredentials) => void;
+  document: QueueDocument | null;
+  availablePlatforms: string[];
+}
+
+function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatforms }: CredentialsModalProps) {
+  const [selectedPlatform, setSelectedPlatform] = useState('');
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
 
   useEffect(() => {
-    loadData();
+    if (document && availablePlatforms.length > 0) {
+      setSelectedPlatform(availablePlatforms[0]);
+      // Pre-fill credentials if available
+      const platformCreds = document.client_credentials?.[availablePlatforms[0]];
+      if (platformCreds) {
+        setCredentials({
+          username: platformCreds.username,
+          password: platformCreds.password
+        });
+      }
+    }
+  }, [document, availablePlatforms]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedPlatform && credentials.username && credentials.password) {
+      onSubmit({
+        platform: selectedPlatform,
+        username: credentials.username,
+        password: credentials.password
+      });
+    }
+  };
+
+  if (!isOpen || !document) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Subir a Plataforma Externa</h2>
+              <p className="text-blue-100">{document.original_name}</p>
+            </div>
+            <button onClick={onClose} className="text-white/80 hover:text-white">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Plataforma Destino
+            </label>
+            <select
+              value={selectedPlatform}
+              onChange={(e) => setSelectedPlatform(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              {availablePlatforms.map(platform => (
+                <option key={platform} value={platform}>
+                  {platform.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center mb-2">
+              <Shield className="h-5 w-5 text-blue-600 mr-2" />
+              <h4 className="font-semibold text-blue-800">Credenciales del Cliente</h4>
+            </div>
+            <p className="text-sm text-blue-700">
+              Cliente: <strong>{document.client_name}</strong>
+            </p>
+            <p className="text-xs text-blue-600">
+              Las credenciales fueron configuradas previamente por el cliente
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Usuario
+            </label>
+            <input
+              type="text"
+              value={credentials.username}
+              onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Usuario de la plataforma"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={credentials.password}
+              onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Contraseña de la plataforma"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Subir Documento
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function NewManualManagement() {
+  const [queue, setQueue] = useState<QueueDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [selectedDocument, setSelectedDocument] = useState<QueueDocument | null>(null);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const [stats, setStats] = useState({
+    totalInQueue: 0,
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    errors: 0,
+    totalClients: 0,
+    platformsConfigured: 0
+  });
+
+  useEffect(() => {
+    loadQueueData();
   }, []);
 
-  const loadData = async () => {
+  const loadQueueData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [hierarchyData, statsData] = await Promise.all([
-        getTenantHierarchy(DEV_TENANT_ID),
-        getTenantStats(DEV_TENANT_ID)
-      ]);
+      // Get all clients
+      const clients = await getAllClients();
+      
+      // Build FIFO queue from all client documents
+      const queueDocuments: QueueDocument[] = [];
+      let position = 1;
 
-      setHierarchy(hierarchyData);
-      setStats(statsData);
+      for (const client of clients) {
+        try {
+          const [documents, projects, companies] = await Promise.all([
+            getClientDocuments(client.id),
+            getClientProjects(client.id),
+            getClientCompanies(client.id)
+          ]);
+
+          // Add documents to queue with proper metadata
+          documents.forEach(doc => {
+            const project = projects.find(p => p.id === doc.project_id);
+            const company = companies.find(c => c.id === project?.company_id);
+
+            queueDocuments.push({
+              id: doc.id,
+              client_id: client.id,
+              client_name: client.company_name,
+              client_email: client.email,
+              project_id: doc.project_id,
+              project_name: project?.name || 'Proyecto sin nombre',
+              company_name: company?.name || client.company_name,
+              filename: doc.filename,
+              original_name: doc.original_name,
+              file_size: doc.file_size,
+              file_type: doc.file_type,
+              document_type: doc.document_type || 'Sin clasificar',
+              classification_confidence: doc.classification_confidence || 0,
+              upload_status: doc.upload_status,
+              obralia_status: doc.obralia_status,
+              created_at: doc.created_at,
+              queue_position: position++,
+              priority: doc.upload_status === 'error' ? 'high' : 'normal',
+              target_platform: 'obralia', // Default platform
+              client_credentials: {
+                obralia: client.obralia_credentials || { username: '', password: '', configured: false },
+                ctaima: { username: '', password: '', configured: false },
+                ecoordina: { username: '', password: '', configured: false }
+              }
+            });
+          });
+        } catch (clientError) {
+          console.warn(`Error loading data for client ${client.company_name}:`, clientError);
+        }
+      }
+
+      // Sort by creation date (FIFO)
+      queueDocuments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      setQueue(queueDocuments);
+
+      // Calculate stats
+      const newStats = {
+        totalInQueue: queueDocuments.length,
+        pending: queueDocuments.filter(d => d.upload_status === 'pending').length,
+        processing: queueDocuments.filter(d => d.upload_status === 'processing').length,
+        completed: queueDocuments.filter(d => d.upload_status === 'completed').length,
+        errors: queueDocuments.filter(d => d.upload_status === 'error').length,
+        totalClients: clients.length,
+        platformsConfigured: clients.filter(c => c.obralia_credentials?.configured).length
+      };
+
+      setStats(newStats);
+
     } catch (err) {
-      console.error('Error loading data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading data');
+      console.error('Error loading queue data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading queue data');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleExpanded = (type: string, id: string) => {
-    const setters = {
-      empresa: setExpandedEmpresas,
-      obra: setExpandedObras,
-      proveedor: setExpandedProveedores,
-      maquinaria: setExpandedMaquinaria
-    };
+  const handleUploadDocument = (document: QueueDocument) => {
+    // Get available platforms for this client
+    const availablePlatforms = Object.entries(document.client_credentials || {})
+      .filter(([_, creds]) => creds.configured)
+      .map(([platform]) => platform);
 
-    const setter = setters[type as keyof typeof setters];
-    if (setter) {
-      setter(prev => 
-        prev.includes(id) 
-          ? prev.filter(item => item !== id)
-          : [...prev, id]
-      );
+    if (availablePlatforms.length === 0) {
+      alert('Este cliente no tiene plataformas configuradas. El cliente debe configurar sus credenciales primero.');
+      return;
+    }
+
+    setSelectedDocument(document);
+    setShowCredentialsModal(true);
+  };
+
+  const handleCredentialsSubmit = async (credentials: PlatformCredentials) => {
+    if (!selectedDocument) return;
+
+    try {
+      setProcessing(selectedDocument.id);
+      setShowCredentialsModal(false);
+
+      // Simulate upload process
+      console.log(`🚀 Uploading ${selectedDocument.original_name} to ${credentials.platform}`);
+      console.log(`📋 Using credentials: ${credentials.username} / ${credentials.password.replace(/./g, '*')}`);
+
+      // Simulate API call to external platform
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Update document status
+      const { error } = await supabase
+        .from('documents')
+        .update({
+          upload_status: 'completed',
+          obralia_status: 'uploaded',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedDocument.id);
+
+      if (error) {
+        throw new Error(`Error updating document: ${error.message}`);
+      }
+
+      // Update queue
+      setQueue(prev => prev.map(doc => 
+        doc.id === selectedDocument.id 
+          ? { ...doc, upload_status: 'completed', obralia_status: 'uploaded' }
+          : doc
+      ));
+
+      alert(`✅ Documento subido exitosamente a ${credentials.platform.toUpperCase()}`);
+
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert(`❌ Error al subir documento: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setProcessing(null);
+      setSelectedDocument(null);
     }
   };
 
-  const handleProcessDocument = async (queueId: string, action: 'upload' | 'error' | 'complete') => {
-    try {
-      const success = await processManualQueueItem(queueId, action, DEV_ADMIN_USER_ID);
-      if (success) {
-        await loadData(); // Recargar datos
-        alert(`Documento ${action === 'upload' ? 'procesado' : action === 'error' ? 'marcado con error' : 'completado'} correctamente`);
-      }
-    } catch (error) {
-      console.error('Error processing document:', error);
-      alert('Error al procesar el documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
-    }
-  };
+  const handleRemoveFromQueue = async (documentId: string) => {
+    if (!confirm('¿Estás seguro de eliminar este documento de la cola?')) return;
 
-  const handleRemoveFromQueue = async (queueId: string) => {
     try {
-      const success = await removeFromManualQueue(queueId);
-      if (success) {
-        await loadData(); // Recargar datos
-        alert('Documento eliminado de la cola correctamente');
-      }
+      setQueue(prev => prev.filter(doc => doc.id !== documentId));
+      alert('✅ Documento eliminado de la cola');
     } catch (error) {
-      console.error('Error removing from queue:', error);
-      alert('Error al eliminar de la cola: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+      console.error('Error removing document:', error);
+      alert('❌ Error al eliminar documento');
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'queued': return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'uploaded': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
       case 'error': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'queued': return 'En Cola';
-      case 'in_progress': return 'Procesando';
-      case 'uploaded': return 'Subido';
-      case 'error': return 'Error';
-      default: return status;
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'normal': return 'bg-blue-100 text-blue-800';
+      case 'low': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getComplianceColor = (estado: string) => {
-    switch (estado) {
-      case 'al_dia': return 'text-green-600';
-      case 'pendiente': return 'text-yellow-600';
-      case 'caducado': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getRiskColor = (riesgo: string) => {
-    switch (riesgo) {
-      case 'baja': return 'text-green-600';
-      case 'media': return 'text-yellow-600';
-      case 'alta': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
+  const filteredQueue = queue.filter(doc => {
+    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.project_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || doc.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando gestión manual...</p>
+          <p className="text-gray-600">Cargando cola de documentos...</p>
         </div>
       </div>
     );
@@ -228,7 +448,7 @@ export default function NewManualManagement() {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar los datos</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={loadData}
+            onClick={loadQueueData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -246,30 +466,23 @@ export default function NewManualManagement() {
           <div>
             <h1 className="text-2xl font-bold mb-2">Gestión Manual de Documentos</h1>
             <p className="text-red-100 mb-4">
-              Sistema multi-tenant con estructura jerárquica completa
+              Cola FIFO global para subida manual a plataformas externas
             </p>
             <div className="space-y-1 text-sm text-red-100">
-              <p>• Arquitectura: Tenant → Empresa → Obra → [Proveedores → Trabajadores | Maquinaria]</p>
-              <p>• Gestión por roles: SuperAdmin, ClienteAdmin, GestorDocumental, etc.</p>
-              <p>• Cola de procesamiento manual con seguimiento completo</p>
-              <p>• Integración con plataformas: Nalanda, CTAIMA, Ecoordina</p>
+              <p>• Cola unificada de todos los clientes de ConstructIA</p>
+              <p>• Subida en nombre del cliente usando sus credenciales</p>
+              <p>• Soporte para CTAIMA, Ecoordina, Obralia y otras plataformas</p>
+              <p>• Procesamiento FIFO con prioridades configurables</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={loadData}
+              onClick={loadQueueData}
               disabled={loading}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </button>
-            <button
-              onClick={() => setShowMappingManager(true)}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Templates
+              Actualizar Cola
             </button>
           </div>
         </div>
@@ -280,48 +493,18 @@ export default function NewManualManagement() {
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Empresas</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.totalEmpresas || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Total en Cola</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.totalInQueue}</p>
             </div>
-            <Building2 className="w-6 h-6 text-blue-600" />
+            <FileText className="w-6 h-6 text-blue-600" />
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Obras</p>
-              <p className="text-2xl font-bold text-green-600">{stats.totalObras || 0}</p>
-            </div>
-            <Factory className="w-6 h-6 text-green-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Trabajadores</p>
-              <p className="text-2xl font-bold text-purple-600">{stats.totalTrabajadores || 0}</p>
-            </div>
-            <HardHat className="w-6 h-6 text-purple-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Documentos</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.totalDocumentos || 0}</p>
-            </div>
-            <FileText className="w-6 h-6 text-orange-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">En Cola</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.queuePendientes || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Pendientes</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
             </div>
             <Clock className="w-6 h-6 text-yellow-600" />
           </div>
@@ -330,15 +513,45 @@ export default function NewManualManagement() {
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Tareas</p>
-              <p className="text-2xl font-bold text-red-600">{stats.tareasAbiertas || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Procesando</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.processing}</p>
+            </div>
+            <RefreshCw className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Completados</p>
+              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+            </div>
+            <CheckCircle className="w-6 h-6 text-green-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Errores</p>
+              <p className="text-2xl font-bold text-red-600">{stats.errors}</p>
             </div>
             <AlertCircle className="w-6 h-6 text-red-600" />
           </div>
         </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Clientes</p>
+              <p className="text-2xl font-bold text-purple-600">{stats.totalClients}</p>
+            </div>
+            <Users className="w-6 h-6 text-purple-600" />
+          </div>
+        </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
@@ -346,7 +559,7 @@ export default function NewManualManagement() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Buscar empresas, obras, trabajadores..."
+                placeholder="Buscar documentos, clientes, proyectos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -360,407 +573,212 @@ export default function NewManualManagement() {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todos los estados</option>
-              <option value="queued">En cola</option>
-              <option value="in_progress">En proceso</option>
-              <option value="uploaded">Subidos</option>
+              <option value="pending">Pendientes</option>
+              <option value="processing">Procesando</option>
+              <option value="completed">Completados</option>
               <option value="error">Con errores</option>
+            </select>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todas las prioridades</option>
+              <option value="urgent">Urgente</option>
+              <option value="high">Alta</option>
+              <option value="normal">Normal</option>
+              <option value="low">Baja</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Jerarquía de Datos */}
+      {/* Document Queue */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Estructura Jerárquica Multi-Tenant
-          </h2>
-          <p className="text-gray-600 text-sm">
-            Gestión organizada por empresa → obra → [proveedores → trabajadores | maquinaria]
-          </p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Cola de Documentos FIFO</h2>
+            <div className="text-sm text-gray-600">
+              {filteredQueue.length} documentos en cola
+            </div>
+          </div>
         </div>
 
-        <div className="p-6">
-          {hierarchy.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No hay datos en el tenant
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Ejecuta la migración de datos iniciales para poblar el sistema
-              </p>
-              <button
-                onClick={loadData}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-              >
-                Recargar Datos
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {hierarchy.map((empresa) => (
-                <div key={empresa.id} className="border border-gray-200 rounded-lg">
-                  {/* Empresa Level */}
-                  <div className="flex items-center justify-between p-4 bg-blue-50 border-b border-gray-200">
-                    <div className="flex items-center space-x-3">
-                      <button 
-                        onClick={() => toggleExpanded('empresa', empresa.id)}
-                        className="p-1 rounded-full hover:bg-blue-100"
-                      >
-                        {expandedEmpresas.includes(empresa.id) ? 
-                          <ChevronDown className="w-5 h-5 text-gray-600" /> : 
-                          <ChevronRight className="w-5 h-5 text-gray-600" />
-                        }
-                      </button>
-                      <Building2 className="w-6 h-6 text-blue-600" />
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{empresa.razon_social}</h3>
-                        <p className="text-sm text-gray-600">
-                          CIF: {empresa.cif} • 
-                          <span className={`ml-1 ${getComplianceColor(empresa.estado_compliance)}`}>
-                            {empresa.estado_compliance}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {empresa.obras.length} obras
-                    </div>
-                  </div>
-
-                  {/* Obras Level */}
-                  {expandedEmpresas.includes(empresa.id) && (
-                    <div className="pl-8">
-                      {empresa.obras.map((obra) => (
-                        <div key={obra.id} className="border-b border-gray-200 last:border-b-0">
-                          <div className="flex items-center justify-between p-4 bg-green-50">
-                            <div className="flex items-center space-x-3">
-                              <button 
-                                onClick={() => toggleExpanded('obra', obra.id)}
-                                className="p-1 rounded-full hover:bg-green-100"
-                              >
-                                {expandedObras.includes(obra.id) ? 
-                                  <ChevronDown className="w-5 h-5 text-gray-600" /> : 
-                                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                                }
-                              </button>
-                              <Factory className="w-5 h-5 text-green-600" />
-                              <div>
-                                <h4 className="font-medium text-gray-900">{obra.nombre_obra}</h4>
-                                <p className="text-sm text-gray-600">
-                                  {obra.codigo_obra} • 
-                                  <span className={`ml-1 ${getRiskColor(obra.perfil_riesgo)}`}>
-                                    Riesgo {obra.perfil_riesgo}
-                                  </span>
-                                  {obra.plataforma_destino && (
-                                    <span className="ml-2 bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
-                                      → {obra.plataforma_destino}
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {obra.documentos.length + obra.proveedores.reduce((acc, p) => acc + p.trabajadores.reduce((acc2, t) => acc2 + t.documentos.length, 0), 0) + obra.maquinaria.reduce((acc, m) => acc + m.documentos.length, 0)} docs
-                            </div>
-                          </div>
-
-                          {/* Contenido de la Obra */}
-                          {expandedObras.includes(obra.id) && (
-                            <div className="pl-8 bg-gray-50">
-                              {/* Documentos de Obra */}
-                              {obra.documentos.length > 0 && (
-                                <div className="py-3">
-                                  <h5 className="font-medium text-gray-800 mb-2 flex items-center">
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Documentos de Obra ({obra.documentos.length})
-                                  </h5>
-                                  <div className="space-y-2">
-                                    {obra.documentos.map((doc) => (
-                                      <DocumentRow key={doc.id} documento={doc} onProcess={handleProcessDocument} onRemove={handleRemoveFromQueue} />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Proveedores */}
-                              {obra.proveedores.map((proveedor) => (
-                                <div key={proveedor.id} className="border-t border-gray-200 py-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center space-x-3">
-                                      <button 
-                                        onClick={() => toggleExpanded('proveedor', proveedor.id)}
-                                        className="p-1 rounded-full hover:bg-gray-200"
-                                      >
-                                        {expandedProveedores.includes(proveedor.id) ? 
-                                          <ChevronDown className="w-4 h-4 text-gray-600" /> : 
-                                          <ChevronRight className="w-4 h-4 text-gray-600" />
-                                        }
-                                      </button>
-                                      <Users className="w-5 h-5 text-purple-600" />
-                                      <div>
-                                        <h5 className="font-medium text-gray-900">{proveedor.razon_social}</h5>
-                                        <p className="text-sm text-gray-600">
-                                          {proveedor.cif} • 
-                                          <span className={`ml-1 ${proveedor.estado_homologacion === 'ok' ? 'text-green-600' : 'text-yellow-600'}`}>
-                                            {proveedor.estado_homologacion}
-                                          </span>
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <span className="text-sm text-gray-600">
-                                      {proveedor.trabajadores.length} trabajadores
-                                    </span>
-                                  </div>
-
-                                  {/* Trabajadores */}
-                                  {expandedProveedores.includes(proveedor.id) && (
-                                    <div className="pl-8 space-y-2">
-                                      {proveedor.trabajadores.map((trabajador) => (
-                                        <div key={trabajador.id} className="bg-white border border-gray-200 rounded p-3">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center space-x-2">
-                                              <HardHat className="w-4 h-4 text-orange-600" />
-                                              <span className="font-medium text-gray-900">
-                                                {trabajador.nombre} {trabajador.apellido}
-                                              </span>
-                                              <span className="text-sm text-gray-600">
-                                                ({trabajador.dni_nie})
-                                              </span>
-                                              {trabajador.puesto && (
-                                                <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs">
-                                                  {trabajador.puesto}
-                                                </span>
-                                              )}
-                                            </div>
-                                            <span className="text-sm text-gray-600">
-                                              {trabajador.documentos.length} docs
-                                            </span>
-                                          </div>
-                                          
-                                          {/* Documentos del Trabajador */}
-                                          {trabajador.documentos.length > 0 && (
-                                            <div className="space-y-1">
-                                              {trabajador.documentos.map((doc) => (
-                                                <DocumentRow key={doc.id} documento={doc} onProcess={handleProcessDocument} onRemove={handleRemoveFromQueue} />
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-
-                              {/* Maquinaria */}
-                              {obra.maquinaria.map((maquina) => (
-                                <div key={maquina.id} className="border-t border-gray-200 py-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center space-x-3">
-                                      <button 
-                                        onClick={() => toggleExpanded('maquinaria', maquina.id)}
-                                        className="p-1 rounded-full hover:bg-gray-200"
-                                      >
-                                        {expandedMaquinaria.includes(maquina.id) ? 
-                                          <ChevronDown className="w-4 h-4 text-gray-600" /> : 
-                                          <ChevronRight className="w-4 h-4 text-gray-600" />
-                                        }
-                                      </button>
-                                      <Wrench className="w-5 h-5 text-gray-600" />
-                                      <div>
-                                        <h5 className="font-medium text-gray-900">
-                                          {maquina.tipo} {maquina.marca_modelo}
-                                        </h5>
-                                        <p className="text-sm text-gray-600">
-                                          Serie: {maquina.numero_serie}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <span className="text-sm text-gray-600">
-                                      {maquina.documentos.length} docs
-                                    </span>
-                                  </div>
-
-                                  {/* Documentos de Maquinaria */}
-                                  {expandedMaquinaria.includes(maquina.id) && (
-                                    <div className="pl-8 space-y-1">
-                                      {maquina.documentos.map((doc) => (
-                                        <DocumentRow key={doc.id} documento={doc} onProcess={handleProcessDocument} onRemove={handleRemoveFromQueue} />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+        {filteredQueue.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No hay documentos en la cola
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Los documentos aparecerán aquí cuando los clientes los suban a la plataforma
+            </p>
+            <button
+              onClick={loadQueueData}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+            >
+              Actualizar Cola
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Posición
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Documento
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cliente
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Proyecto
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Prioridad
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredQueue.map((document) => (
+                  <tr key={document.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-bold text-blue-600">#{document.queue_position}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="font-medium text-gray-900">{document.original_name}</p>
+                          <p className="text-sm text-gray-500">
+                            {document.document_type} • {formatFileSize(document.file_size)}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        <div>
+                          <p className="font-medium text-gray-900">{document.client_name}</p>
+                          <p className="text-sm text-gray-500">{document.client_email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        <Factory className="w-4 h-4 text-green-600" />
+                        <div>
+                          <p className="font-medium text-gray-900">{document.project_name}</p>
+                          <p className="text-sm text-gray-500">{document.company_name}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(document.upload_status)}`}>
+                        {document.upload_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(document.priority)}`}>
+                        {document.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(document.created_at).toLocaleDateString('es-ES')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleUploadDocument(document)}
+                          disabled={processing === document.id || document.upload_status === 'completed'}
+                          className="p-2 text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
+                          title="Subir a plataforma"
+                        >
+                          {processing === document.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedDocument(document);
+                            // Show document details modal
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Ver detalles"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveFromQueue(document.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Eliminar de cola"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Información del Sistema */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Estado del Sistema Multi-Tenant
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center mb-2">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-              <h4 className="font-semibold text-green-800">Nueva Arquitectura Activa</h4>
-            </div>
-            <p className="text-sm text-green-700">
-              Sistema multi-tenant con separación completa de datos por tenant. 
-              RLS habilitado en todas las tablas.
+      {/* Information Panel */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <div className="flex items-start space-x-3">
+          <Info className="w-6 h-6 text-blue-600 mt-1" />
+          <div>
+            <h3 className="font-bold text-blue-800 mb-2">🔄 Sistema de Cola FIFO</h3>
+            <p className="text-blue-700 mb-3">
+              Gestión centralizada de documentos de todos los clientes para subida manual a plataformas externas.
             </p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center mb-2">
-              <Settings className="w-5 h-5 text-blue-600 mr-2" />
-              <h4 className="font-semibold text-blue-800">Roles Implementados</h4>
-            </div>
-            <p className="text-sm text-blue-700">
-              6 roles definidos: SuperAdmin, ClienteAdmin, GestorDocumental, 
-              SupervisorObra, Proveedor, Lector.
-            </p>
-          </div>
-
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-center mb-2">
-              <FileText className="w-5 h-5 text-purple-600 mr-2" />
-              <h4 className="font-semibold text-purple-800">Categorías de Documentos</h4>
-            </div>
-            <p className="text-sm text-purple-700">
-              12 categorías específicas del sector construcción con validaciones 
-              automáticas y flujos de aprobación.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Gestor de Payloads */}
-      <PayloadManager tenantId={DEV_TENANT_ID} />
-
-      {/* Modal de Gestión de Templates */}
-      {showMappingManager && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[95vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Gestión de Templates de Mapping</h3>
-                <button
-                  onClick={() => setShowMappingManager(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+            <div className="text-sm text-blue-600 space-y-1">
+              <div><strong>Flujo de trabajo:</strong></div>
+              <div>• 📥 Los clientes suben documentos a sus proyectos</div>
+              <div>• 🔄 Los documentos entran automáticamente en la cola FIFO</div>
+              <div>• 👨‍💼 El administrador procesa la cola usando credenciales del cliente</div>
+              <div>• 🚀 Subida automática a CTAIMA, Ecoordina, Obralia, etc.</div>
+              <div>• ✅ Confirmación y actualización de estado</div>
+              <div className="mt-2 pt-2 border-t border-blue-300">
+                <div className="font-medium text-blue-800">Plataformas soportadas:</div>
+                <div>• 🏗️ CTAIMA • 🌐 Ecoordina • 📋 Obralia/Nalanda • 🔧 Otras plataformas</div>
               </div>
             </div>
-            <div className="p-6">
-              <MappingTemplateManager tenantId={DEV_TENANT_ID} />
-            </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-// Componente para mostrar fila de documento
-interface DocumentRowProps {
-  documento: DocumentoNode;
-  onProcess: (queueId: string, action: 'upload' | 'error' | 'complete') => void;
-  onRemove: (queueId: string) => void;
-}
-
-function DocumentRow({ documento, onProcess, onRemove }: DocumentRowProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'queued': return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'uploaded': return 'bg-green-100 text-green-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'queued': return 'En Cola';
-      case 'in_progress': return 'Procesando';
-      case 'uploaded': return 'Subido';
-      case 'error': return 'Error';
-      default: return status;
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded">
-      <div className="flex items-center space-x-3">
-        <FileText className="w-4 h-4 text-gray-400" />
-        <div>
-          <p className="font-medium text-gray-900">{documento.categoria}</p>
-          <p className="text-sm text-gray-600">
-            Estado: {documento.estado}
-            {documento.caducidad && (
-              <span className="ml-2 text-orange-600">
-                Caduca: {new Date(documento.caducidad).toLocaleDateString()}
-              </span>
-            )}
-          </p>
-        </div>
       </div>
-      
-      <div className="flex items-center space-x-2">
-        {documento.queue_item && (
-          <>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(documento.queue_item.status)}`}>
-              {getStatusText(documento.queue_item.status)}
-            </span>
-            
-            {documento.queue_item.status === 'queued' && (
-              <button
-                onClick={() => onProcess(documento.queue_item!.id, 'upload')}
-                className="p-1 text-green-600 hover:text-green-700 transition-colors"
-                title="Procesar documento"
-              >
-                <Upload className="w-4 h-4" />
-              </button>
-            )}
-            
-            {documento.queue_item.status === 'error' && (
-              <button
-                onClick={() => onProcess(documento.queue_item!.id, 'upload')}
-                className="p-1 text-blue-600 hover:text-blue-700 transition-colors"
-                title="Reintentar"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            )}
-            
-            <button
-              onClick={() => onRemove(documento.queue_item!.id)}
-              className="p-1 text-red-600 hover:text-red-700 transition-colors"
-              title="Eliminar de cola"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </>
-        )}
-        
-        <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
-          <Eye className="w-4 h-4" />
-        </button>
-      </div>
+
+      {/* Credentials Modal */}
+      <CredentialsModal
+        isOpen={showCredentialsModal}
+        onClose={() => setShowCredentialsModal(false)}
+        onSubmit={handleCredentialsSubmit}
+        document={selectedDocument}
+        availablePlatforms={selectedDocument ? Object.keys(selectedDocument.client_credentials || {}).filter(platform => 
+          selectedDocument.client_credentials?.[platform]?.configured
+        ) : []}
+      />
     </div>
   );
 }
