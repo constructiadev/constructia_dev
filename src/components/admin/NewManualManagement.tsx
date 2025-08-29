@@ -15,11 +15,7 @@ import {
   FolderOpen,
   Settings,
   Info,
-  ChevronDown,
-  ChevronRight,
-  Plus,
-  X,
-  Save,
+  Package,
   BarChart3,
   Calendar,
   Target,
@@ -34,7 +30,6 @@ import {
   DollarSign,
   TrendingUp,
   Download,
-  Package,
   Zap,
   Server,
   Monitor,
@@ -47,13 +42,10 @@ import {
   Play,
   Pause
 } from 'lucide-react';
-import {
-  getManualUploadQueue,
-  getTenantStats,
-  supabaseNew,
-  logAuditoria
-} from '../../lib/supabase-new';
-import { DEV_TENANT_ID, DEV_ADMIN_USER_ID } from '../../lib/supabase-real';
+import { supabaseServiceClient } from '../../lib/supabase-real';
+
+const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
 
 interface ManualUploadItem {
   id: string;
@@ -114,13 +106,88 @@ export default function NewManualManagement() {
       setLoading(true);
       setError(null);
 
-      const [queueData, statsData] = await Promise.all([
-        getManualUploadQueue(DEV_TENANT_ID),
-        getTenantStats(DEV_TENANT_ID)
+      // Get manual upload queue using service client to bypass RLS
+      const { data: queueData, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select('*')
+        .eq('tenant_id', DEV_TENANT_ID)
+        .order('created_at', { ascending: false });
+
+      if (queueError) {
+        console.error('Error fetching queue:', queueError);
+        throw new Error(`Error fetching queue: ${queueError.message}`);
+      }
+
+      // Get related data separately to avoid join issues
+      const queueWithDetails = await Promise.all(
+        (queueData || []).map(async (item) => {
+          try {
+            // Get documento details
+            const { data: documento } = await supabaseServiceClient
+              .from('documentos')
+              .select('file, categoria, estado')
+              .eq('id', item.documento_id)
+              .single();
+
+            // Get empresa details
+            const { data: empresa } = await supabaseServiceClient
+              .from('empresas')
+              .select('razon_social')
+              .eq('id', item.empresa_id)
+              .single();
+
+            // Get obra details
+            const { data: obra } = await supabaseServiceClient
+              .from('obras')
+              .select('nombre_obra, codigo_obra')
+              .eq('id', item.obra_id)
+              .single();
+
+            return {
+              ...item,
+              documentos: documento,
+              empresas: empresa,
+              obras: obra
+            };
+          } catch (e) {
+            console.warn('Error fetching related data for queue item:', e);
+            return {
+              ...item,
+              documentos: { file: 'unknown.pdf', categoria: 'OTROS', estado: 'pendiente' },
+              empresas: { razon_social: 'Empresa Desconocida' },
+              obras: { nombre_obra: 'Obra Desconocida', codigo_obra: 'UNK' }
+            };
+          }
+        })
+      );
+
+      setQueueItems(queueWithDetails);
+
+      // Get tenant stats using service client
+      const [
+        { count: totalEmpresas },
+        { count: totalObras },
+        { count: totalDocumentos },
+        { count: documentosPendientes },
+        { count: documentosAprobados },
+        { count: queuePendientes }
+      ] = await Promise.all([
+        supabaseServiceClient.from('empresas').select('*', { count: 'exact', head: true }).eq('tenant_id', DEV_TENANT_ID),
+        supabaseServiceClient.from('obras').select('*', { count: 'exact', head: true }).eq('tenant_id', DEV_TENANT_ID),
+        supabaseServiceClient.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', DEV_TENANT_ID),
+        supabaseServiceClient.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', DEV_TENANT_ID).eq('estado', 'pendiente'),
+        supabaseServiceClient.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', DEV_TENANT_ID).eq('estado', 'aprobado'),
+        supabaseServiceClient.from('manual_upload_queue').select('*', { count: 'exact', head: true }).eq('tenant_id', DEV_TENANT_ID).eq('status', 'queued')
       ]);
 
-      setQueueItems(queueData);
-      setStats(statsData);
+      setStats({
+        totalEmpresas: totalEmpresas || 0,
+        totalObras: totalObras || 0,
+        totalDocumentos: totalDocumentos || 0,
+        documentosPendientes: documentosPendientes || 0,
+        documentosAprobados: documentosAprobados || 0,
+        queuePendientes: queuePendientes || 0
+      });
 
     } catch (err) {
       console.error('Error loading manual management data:', err);
@@ -132,12 +199,13 @@ export default function NewManualManagement() {
 
   const handleProcessItem = async (itemId: string, action: 'upload' | 'error' | 'complete') => {
     try {
-      // Update item status
-      const { error } = await supabaseNew
+      const newStatus = action === 'upload' ? 'in_progress' : 
+                       action === 'error' ? 'error' : 'uploaded';
+
+      const { error } = await supabaseServiceClient
         .from('manual_upload_queue')
         .update({
-          status: action === 'upload' ? 'in_progress' : 
-                  action === 'error' ? 'error' : 'uploaded',
+          status: newStatus,
           operator_user: DEV_ADMIN_USER_ID,
           updated_at: new Date().toISOString()
         })
@@ -148,14 +216,17 @@ export default function NewManualManagement() {
       }
 
       // Log audit event
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        `manual_queue.${action}`,
-        'manual_upload_queue',
-        itemId,
-        { action }
-      );
+      await supabaseServiceClient
+        .from('auditoria')
+        .insert({
+          tenant_id: DEV_TENANT_ID,
+          actor_user: DEV_ADMIN_USER_ID,
+          accion: `manual_queue.${action}`,
+          entidad: 'manual_upload_queue',
+          entidad_id: itemId,
+          ip: '127.0.0.1',
+          detalles: { action }
+        });
 
       // Reload data
       await loadData();
@@ -181,7 +252,7 @@ export default function NewManualManagement() {
         if (action === 'upload') {
           await handleProcessItem(itemId, 'upload');
         } else {
-          await supabaseNew
+          await supabaseServiceClient
             .from('manual_upload_queue')
             .delete()
             .eq('id', itemId);
@@ -522,7 +593,6 @@ export default function NewManualManagement() {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => {
-                            // View item details
                             alert(`Detalles del elemento:\n\nEmpresa: ${item.empresas?.razon_social}\nObra: ${item.obras?.nombre_obra}\nDocumento: ${item.documentos?.categoria}\nEstado: ${item.status}\nNota: ${item.nota || 'Sin notas'}`);
                           }}
                           className="text-blue-600 hover:text-blue-700"
@@ -548,7 +618,7 @@ export default function NewManualManagement() {
                         <button
                           onClick={() => {
                             if (confirm('¿Estás seguro de eliminar este elemento?')) {
-                              supabaseNew
+                              supabaseServiceClient
                                 .from('manual_upload_queue')
                                 .delete()
                                 .eq('id', item.id)
