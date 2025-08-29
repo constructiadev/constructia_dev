@@ -410,10 +410,7 @@ export const getAllReceipts = async () => {
   try {
     const { data, error } = await supabaseClient
       .from('receipts')
-      .select(`
-        *,
-        empresas(razon_social, contacto_email)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -421,13 +418,13 @@ export const getAllReceipts = async () => {
       return [];
     }
     
-    // Transform receipts to include client info from empresas
+    // Transform receipts to include mock client info
     const receipts = (data || []).map(receipt => ({
       ...receipt,
       clients: {
-        company_name: receipt.empresas?.razon_social || 'Empresa',
-        contact_name: receipt.empresas?.contacto_email?.split('@')[0] || 'Contacto',
-        email: receipt.empresas?.contacto_email || 'contacto@empresa.com'
+        company_name: 'Empresa Cliente',
+        contact_name: 'Contacto',
+        email: 'contacto@empresa.com'
       }
     }));
     

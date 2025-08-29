@@ -277,11 +277,7 @@ export const getAllTenantDocuments = async (tenantId: string = DEV_TENANT_ID) =>
   try {
     const { data, error } = await supabase
       .from('documentos')
-      .select(`
-        *,
-        obras!left(nombre_obra, codigo_obra),
-        empresas!left(razon_social)
-      `)
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
