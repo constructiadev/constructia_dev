@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Centralized Supabase client - single instance for entire app
+export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -12,8 +13,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Re-export as supabase for backward compatibility
+export const supabase = supabaseClient;
+
 // Development tenant ID
 export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+export const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
 
 // Real data functions - NO MOCK DATA
 

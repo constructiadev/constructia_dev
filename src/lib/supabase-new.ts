@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseClient } from './supabase-real';
 import type { 
   Tenant, 
   NewUser, 
@@ -17,17 +17,8 @@ import type {
   JobIntegracion
 } from '../types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const supabaseNew = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-    flowType: 'pkce'
-  }
-});
+// Use centralized client
+export const supabaseNew = supabaseClient;
 
 // Constantes para desarrollo
 export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
