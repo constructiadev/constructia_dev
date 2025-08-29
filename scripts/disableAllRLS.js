@@ -31,10 +31,14 @@ async function disableAllRLS() {
   try {
     // Get all tables in public schema
     const { data: tables, error: tablesError } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .eq('table_schema', 'public')
-      .eq('table_type', 'BASE TABLE');
+      .rpc('sql', {
+        query: `
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_type = 'BASE TABLE'
+        `
+      });
 
     if (tablesError) {
       console.error('❌ Could not fetch tables:', tablesError);
