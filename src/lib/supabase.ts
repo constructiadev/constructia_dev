@@ -988,7 +988,7 @@ export const createAIInsight = async (insight: Partial<AIInsight>) => {
 export const updatePaymentGateway = async (gatewayId: string, gatewayData: Partial<PaymentGateway>) => {
   try {
     // Filter out properties that don't exist in the database schema
-    const { logo_base64, color, transactions, volume, ...validData } = gatewayData;
+    const { logo_base64, color, transactions, volume, description, updated_at, commission_periods, ...validData } = gatewayData;
     
     const { data, error } = await supabaseClient
       .from('payment_gateways')
