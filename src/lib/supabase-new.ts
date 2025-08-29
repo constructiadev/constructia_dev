@@ -1,5 +1,5 @@
 import { supabaseClient } from './supabase-real';
-import { supabaseServiceClient } from './supabase-real';
+import { supabaseServiceClient, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from './supabase-real';
 import type { 
   Tenant, 
   NewUser, 
@@ -21,9 +21,8 @@ import type {
 // Use centralized client
 export const supabaseNew = supabaseClient;
 
-// Constantes para desarrollo
-export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
-export const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
+// Re-export constants from supabase-real
+export { DEV_TENANT_ID, DEV_ADMIN_USER_ID };
 
 // Helper para obtener tenant actual del usuario
 export const getCurrentUserTenant = async (userId: string): Promise<string | null> => {
