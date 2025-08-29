@@ -63,9 +63,18 @@ async function populateTestData() {
       }
     ];
 
-    const { error: usersError } = await supabase
-      .from('users')
-      .upsert(testUsers);
+    // Insert users one by one to handle any conflicts
+    for (const user of testUsers) {
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert(user);
+      
+      if (userError) {
+        console.warn(`⚠️ Could not create user ${user.email}:`, userError.message);
+      } else {
+        console.log(`✅ Created user: ${user.email}`);
+      }
+    }
 
     if (usersError) {
       console.warn('⚠️ Users creation error:', usersError.message);

@@ -30,30 +30,64 @@ async function disableAllRLS() {
 
 
   try {
-    // 0. First, disable RLS on users table specifically to break recursion
-    console.log('0️⃣ Breaking recursive RLS on users table...');
+    // 0. CRITICAL: First disable RLS on users table to break infinite recursion
+    console.log('0️⃣ CRITICAL: Breaking infinite recursion on users table...');
+    
+    // Use direct SQL execution to bypass RLS completely
     const { error: usersRLSError } = await supabase.rpc('exec_sql', {
       sql: `
+        -- Disable RLS completely on users table
         ALTER TABLE IF EXISTS public.users DISABLE ROW LEVEL SECURITY;
-        DROP POLICY IF EXISTS "Users can access own tenant data" ON public.users;
+        
+        -- Drop ALL policies on users table
+        DO $$ 
+        DECLARE 
+          pol RECORD;
+        BEGIN 
+          FOR pol IN (
+            SELECT policyname 
+            FROM pg_policies 
+            WHERE tablename = 'users' AND schemaname = 'public'
+          ) LOOP
+            EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(pol.policyname) || ' ON public.users';
+          END LOOP;
+        END $$;
+        
+        -- Grant full permissions to all roles
         GRANT ALL ON public.users TO anon;
         GRANT ALL ON public.users TO authenticated;
         GRANT ALL ON public.users TO service_role;
+        
+        -- Also grant usage on sequence if exists
+        GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
+        GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+        GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO service_role;
       `
     });
 
     if (usersRLSError) {
-      console.warn('⚠️ Could not disable users RLS via RPC, trying direct SQL...');
-      
-      // Try direct SQL execution
-      try {
-        await supabase.from('users').select('id').limit(1);
-        console.log('✅ Users table accessible');
-      } catch (directError) {
-        console.error('❌ Users table still has issues:', directError);
-      }
+      console.error('❌ CRITICAL: Could not disable users RLS:', usersRLSError);
+      throw new Error('Failed to disable users RLS - manual intervention required');
     } else {
-      console.log('✅ Users RLS disabled successfully');
+      console.log('✅ Users table RLS disabled successfully');
+    }
+
+    // Test users table access immediately
+    try {
+      const { data: testUsers, error: testError } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Users table still not accessible:', testError);
+        throw new Error('Users table access test failed');
+      } else {
+        console.log('✅ Users table access confirmed');
+      }
+    } catch (testError) {
+      console.error('❌ Users table test failed:', testError);
+      throw new Error('Users table verification failed');
     }
 
     const tables = [
