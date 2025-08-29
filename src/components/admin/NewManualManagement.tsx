@@ -32,15 +32,20 @@ import {
   Activity,
   BarChart3,
   FolderOpen
+} from 'lucide-react';
+import {
   AlertCircle,
   CheckCircle,
   Building2,
   User,
   Settings,
   ChevronDown,
-  Search,
+  Search
+} from 'lucide-react';
+import {
   supabaseServiceClient,
-  DEV_TENANT_ID,
+  DEV_TENANT_ID
+} from '../lib/supabase';
 
 interface DocumentNode {
   id: string;
