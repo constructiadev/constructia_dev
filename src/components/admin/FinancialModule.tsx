@@ -38,9 +38,9 @@ import {
   calculateDynamicKPIs,
   getCommissionStatsByGateway,
   calculateIntelligentCommission,
-  supabase,
   DEV_TENANT_ID
 } from '../../lib/supabase';
+import { supabaseServiceClient } from '../../lib/supabase-real';
 import { geminiAI } from '../../lib/gemini';
 import type { PaymentGateway } from '../../types';
 
@@ -281,7 +281,7 @@ const FinancialModule: React.FC = () => {
       const systemUptime = processingSuccessRate;
 
       // Obtener conteos de obras
-      const { count: totalObras } = await supabase
+      const { count: totalObras } = await supabaseServiceClient
         .from('obras')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', DEV_TENANT_ID);
