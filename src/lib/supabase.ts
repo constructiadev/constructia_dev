@@ -987,8 +987,15 @@ export const createAIInsight = async (insight: Partial<AIInsight>) => {
 // Helper para actualizar pasarela de pago
 export const updatePaymentGateway = async (gatewayId: string, gatewayData: Partial<PaymentGateway>) => {
   try {
-    // Filter out properties that don't exist in the database schema
-    const { logo_base64, color, transactions, volume, description, updated_at, commission_periods, ...validData } = gatewayData;
+    // Filter out properties that don't exist in the payment_gateways schema
+    const { 
+      logo_base64, 
+      color, 
+      transactions, 
+      volume, 
+      commission_periods,
+      ...validData 
+    } = gatewayData;
     
     const { data, error } = await supabaseClient
       .from('payment_gateways')
@@ -1007,6 +1014,33 @@ export const updatePaymentGateway = async (gatewayId: string, gatewayData: Parti
     return data;
   } catch (error) {
     console.error('Error updating payment gateway:', error);
+    throw error;
+  }
+};
+
+// Helper para guardar logo de pasarela en la tabla correcta
+export const savePaymentGatewayLogo = async (gatewayId: string, logoBase64: string) => {
+  try {
+    // Usar la tabla checkout_providers que sí tiene logo_base64
+    const { data, error } = await supabaseClient
+      .from('checkout_providers')
+      .upsert({
+        tenant_id: DEV_TENANT_ID,
+        proveedor: 'custom', // Mapear según el tipo de gateway
+        logo_base64: logoBase64,
+        config: { gateway_id: gatewayId },
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error saving gateway logo: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error saving gateway logo:', error);
     throw error;
   }
 };
