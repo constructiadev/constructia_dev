@@ -195,28 +195,8 @@ export const getClientCompanies = async (clientId: string) => {
 export const getAllTenantDocumentsNoRLS = async (tenantId: string) => {
   try {
     // Use service role client for direct access without RLS
+    const { data, error } = await supabaseServiceClient
       .from('documentos')
-      .select(`
-        id,
-        tenant_id,
-        entidad_tipo,
-        entidad_id,
-        categoria,
-        file,
-        mime,
-        size_bytes,
-        hash_sha256,
-        version,
-        estado,
-        caducidad,
-        emisor,
-        observaciones,
-        metadatos,
-        origen,
-        sensible,
-        virtual_path,
-        created_at,
-        updated_at
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
