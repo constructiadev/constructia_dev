@@ -70,20 +70,19 @@ async function disableAllRLS() {
     for (const table of tables) {
       try {
         // Get all policies for this table
-        const { data: policies, error: policiesError } = await supabase.rpc('exec_sql', {
-          sql: `
-            SELECT policyname 
-            FROM pg_policies 
-            WHERE tablename = '${table}' AND schemaname = 'public';
-          `
-        });
+        const { data: policies, error: policiesError } = await supabase
+          .from('pg_policies')
+          .select('policyname')
+          .eq('tablename', table)
+          .eq('schemaname', 'public');
 
-        if (!policiesError && policies) {
+        if (!policiesError && policies && policies.length > 0) {
           // Drop each policy
           for (const policy of policies) {
             try {
-              const { error: dropError } = await supabase.rpc('exec_sql', {
-                sql: `DROP POLICY IF EXISTS "${policy.policyname}" ON public.${table};`
+              const { error: dropError } = await supabase.rpc('drop_policy', {
+                table_name: table,
+                policy_name: policy.policyname
               });
 
               if (dropError) {
@@ -95,6 +94,8 @@ async function disableAllRLS() {
               console.warn(`⚠️ Error dropping policy ${policy.policyname}:`, e.message);
             }
           }
+        } else if (policiesError) {
+          console.warn(`⚠️ Could not get policies for ${table}: ${policiesError.message}`);
         }
       } catch (e) {
         console.warn(`⚠️ Error getting policies for ${table}:`, e.message);
@@ -106,8 +107,9 @@ async function disableAllRLS() {
     for (const table of tables) {
       try {
         // Grant all permissions to anon role
-        const { error: anonError } = await supabase.rpc('exec_sql', {
-          sql: `GRANT ALL ON public.${table} TO anon;`
+        const { error: anonError } = await supabase.rpc('grant_permissions', {
+          table_name: table,
+          role_name: 'anon'
         });
 
         if (anonError) {
@@ -117,8 +119,9 @@ async function disableAllRLS() {
         }
 
         // Grant all permissions to authenticated role
-        const { error: authError } = await supabase.rpc('exec_sql', {
-          sql: `GRANT ALL ON public.${table} TO authenticated;`
+        const { error: authError } = await supabase.rpc('grant_permissions', {
+          table_name: table,
+          role_name: 'authenticated'
         });
 
         if (authError) {

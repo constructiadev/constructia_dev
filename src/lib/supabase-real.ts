@@ -49,6 +49,38 @@ export const getCurrentUserTenant = async (): Promise<string | null> => {
 // Get all companies for current tenant
 export const getTenantEmpresas = async (tenantId: string = DEV_TENANT_ID) => {
   try {
+    const { data, error } = await supabase.rpc('get_tenant_empresas', {
+      tenant_id_param: tenantId
+    });
+
+    if (error) {
+      console.error('Error fetching empresas via RPC:', error);
+      // Fallback to direct query without RLS
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('empresas')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('razon_social');
+
+      if (fallbackError) {
+        console.error('Error with fallback query:', fallbackError);
+        return [];
+      }
+
+      return fallbackData || [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching empresas:', error);
+    // Final fallback - return empty array to prevent crashes
+    return [];
+  }
+};
+
+// Fallback function without RLS
+export const getTenantEmpresasNoRLS = async (tenantId: string = DEV_TENANT_ID) => {
+  try {
     const { data, error } = await supabase
       .from('empresas')
       .select('*')
@@ -70,12 +102,40 @@ export const getTenantEmpresas = async (tenantId: string = DEV_TENANT_ID) => {
 // Get all obras for current tenant
 export const getTenantObras = async (tenantId: string = DEV_TENANT_ID) => {
   try {
+    const { data, error } = await supabase.rpc('get_tenant_obras', {
+      tenant_id_param: tenantId
+    });
+
+    if (error) {
+      console.error('Error fetching obras via RPC:', error);
+      // Fallback to direct query
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('obras')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (fallbackError) {
+        console.error('Error with obras fallback query:', fallbackError);
+        return [];
+      }
+
+      return fallbackData || [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching obras:', error);
+    return [];
+  }
+};
+
+// Fallback function without RLS
+export const getTenantObrasNoRLS = async (tenantId: string = DEV_TENANT_ID) => {
+  try {
     const { data, error } = await supabase
       .from('obras')
-      .select(`
-        *,
-        empresas!inner(razon_social)
-      `)
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
@@ -274,6 +334,37 @@ export const getObraDocuments = async (obraId: string, tenantId: string = DEV_TE
 
 // Get all documents for tenant
 export const getAllTenantDocuments = async (tenantId: string = DEV_TENANT_ID) => {
+  try {
+    const { data, error } = await supabase.rpc('get_tenant_documentos', {
+      tenant_id_param: tenantId
+    });
+
+    if (error) {
+      console.error('Error fetching documents via RPC:', error);
+      // Fallback to direct query
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('documentos')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (fallbackError) {
+        console.error('Error with documents fallback query:', fallbackError);
+        return [];
+      }
+
+      return fallbackData || [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching all documents:', error);
+    return [];
+  }
+};
+
+// Fallback function without RLS
+export const getAllTenantDocumentsNoRLS = async (tenantId: string = DEV_TENANT_ID) => {
   try {
     const { data, error } = await supabase
       .from('documentos')

@@ -207,14 +207,10 @@ export const getTenantDocumentos = async (tenantId: string): Promise<NewDocument
 // Helper para obtener cola de subida manual
 export const getManualUploadQueue = async (tenantId: string): Promise<ManualUploadQueue[]> => {
   try {
-    const { data, error } = await supabaseNew
+    // Direct query without joins to avoid RLS issues
+    const { data, error } = await supabase
       .from('manual_upload_queue')
-      .select(`
-        *,
-        documentos!inner(file, categoria, estado),
-        empresas!inner(razon_social),
-        obras!inner(nombre_obra, codigo_obra)
-      `)
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
@@ -223,7 +219,50 @@ export const getManualUploadQueue = async (tenantId: string): Promise<ManualUplo
       return [];
     }
 
-    return data || [];
+    // Get related data separately to avoid join issues
+    const queueWithDetails = await Promise.all(
+      (data || []).map(async (item) => {
+        try {
+          // Get documento details
+          const { data: documento } = await supabase
+            .from('documentos')
+            .select('file, categoria, estado')
+            .eq('id', item.documento_id)
+            .single();
+
+          // Get empresa details
+          const { data: empresa } = await supabase
+            .from('empresas')
+            .select('razon_social')
+            .eq('id', item.empresa_id)
+            .single();
+
+          // Get obra details
+          const { data: obra } = await supabase
+            .from('obras')
+            .select('nombre_obra, codigo_obra')
+            .eq('id', item.obra_id)
+            .single();
+
+          return {
+            ...item,
+            documentos: documento,
+            empresas: empresa,
+            obras: obra
+          };
+        } catch (e) {
+          console.warn('Error fetching related data for queue item:', e);
+          return {
+            ...item,
+            documentos: { file: 'unknown.pdf', categoria: 'OTROS', estado: 'pendiente' },
+            empresas: { razon_social: 'Empresa Desconocida' },
+            obras: { nombre_obra: 'Obra Desconocida', codigo_obra: 'UNK' }
+          };
+        }
+      })
+    );
+
+    return queueWithDetails;
   } catch (error) {
     console.error('Error getting manual upload queue:', error);
     return [];

@@ -79,7 +79,7 @@ export const getAllClients = async () => {
   try {
     // Get all empresas from new schema as "clients"
     const tenantId = DEV_TENANT_ID;
-    const empresas = await getTenantEmpresas(tenantId);
+    const empresas = await getTenantEmpresasNoRLS(tenantId);
 
     // Transform empresas to client format for backward compatibility
     const clients = empresas.map((empresa, index) => ({
@@ -122,7 +122,7 @@ export const getClientProjects = async (clientId: string) => {
 
     // Get obras from new schema
     const tenantId = DEV_TENANT_ID;
-    const obras = await getTenantObras(tenantId);
+    const obras = await getTenantObrasNoRLS(tenantId);
 
     // Transform obras to project format
     const projects = obras.map(obra => ({
@@ -160,7 +160,7 @@ export const getClientCompanies = async (clientId: string) => {
 
     // Get empresas from new schema
     const tenantId = DEV_TENANT_ID;
-    const empresas = await getTenantEmpresas(tenantId);
+    const empresas = await getTenantEmpresasNoRLS(tenantId);
 
     // Transform empresas to company format
     const companies = empresas.map(empresa => ({
@@ -191,7 +191,7 @@ export const getClientDocuments = async (clientId: string) => {
 
     // Get documentos from new schema
     const tenantId = DEV_TENANT_ID;
-    const documentos = await getAllTenantDocuments(tenantId);
+    const documentos = await getAllTenantDocumentsNoRLS(tenantId);
 
     // Transform documentos to document format
     const documents = documentos.map(documento => ({
@@ -440,7 +440,7 @@ export const getClientStats = async () => {
   try {
     // Get empresas as client stats
     const tenantId = DEV_TENANT_ID;
-    const empresas = await getTenantEmpresas(tenantId);
+    const empresas = await getTenantEmpresasNoRLS(tenantId);
 
     // Transform to client stats format
     const clientStats = empresas.map((empresa, index) => ({
@@ -463,7 +463,7 @@ export const getDocumentStats = async () => {
   try {
     // Get documentos from new schema
     const tenantId = DEV_TENANT_ID;
-    const documentos = await getAllTenantDocuments(tenantId);
+    const documentos = await getAllTenantDocumentsNoRLS(tenantId);
 
     // Transform to document stats format
     const documentStats = documentos.map(documento => ({
@@ -488,7 +488,7 @@ export const calculateDynamicKPIs = async () => {
     const tenantId = DEV_TENANT_ID;
     const [stats, documentos, receipts] = await Promise.all([
       getTenantStats(tenantId),
-      getAllTenantDocuments(tenantId),
+      getAllTenantDocumentsNoRLS(tenantId),
       getAllReceipts()
     ]);
 
