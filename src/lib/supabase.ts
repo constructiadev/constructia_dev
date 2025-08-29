@@ -882,7 +882,7 @@ export const getCommissionStatsByGateway = async () => {
         const commission = calculateIntelligentCommission(
           gateway,
           receipt.amount,
-          receipt.payment_date
+          receipt.payment_date || receipt.created_at
         );
         totalCommissions += commission;
         totalVolume += receipt.amount;
@@ -897,7 +897,9 @@ export const getCommissionStatsByGateway = async () => {
         total_volume: totalVolume,
         transaction_count: transactionCount,
         avg_commission_rate: totalVolume > 0 ? (totalCommissions / totalVolume) * 100 : 0,
-        status: gateway.status
+        status: gateway.status,
+        current_percentage: gateway.commission_percentage || 0,
+        current_fixed: gateway.commission_fixed || 0
       };
     });
 

@@ -545,6 +545,133 @@ async function populateTestData() {
       console.log('✅ Test receipts created');
     }
 
+    // 11. Crear pasarelas de pago con períodos de comisión
+    console.log('1️⃣1️⃣ Creando pasarelas de pago...');
+    const paymentGateways = [
+      {
+        name: 'Stripe Principal',
+        type: 'stripe',
+        status: 'active',
+        commission_type: 'mixed',
+        commission_percentage: 2.9,
+        commission_fixed: 0.30,
+        commission_periods: [
+          {
+            start_date: '2024-01-01',
+            end_date: '2024-06-30',
+            percentage: 3.2,
+            fixed: 0.35,
+            description: 'Tarifa inicial'
+          },
+          {
+            start_date: '2024-07-01',
+            end_date: '2024-12-31',
+            percentage: 2.9,
+            fixed: 0.30,
+            description: 'Tarifa estándar'
+          },
+          {
+            start_date: '2025-01-01',
+            end_date: '2025-12-31',
+            percentage: 2.7,
+            fixed: 0.25,
+            description: 'Tarifa promocional 2025'
+          }
+        ],
+        api_key: 'pk_test_...',
+        secret_key: 'sk_test_...',
+        webhook_url: 'https://constructia.com/webhooks/stripe',
+        supported_currencies: ['EUR', 'USD'],
+        min_amount: 1,
+        max_amount: 10000,
+        description: 'Pasarela principal para tarjetas de crédito'
+      },
+      {
+        name: 'SEPA Directo',
+        type: 'sepa',
+        status: 'active',
+        commission_type: 'fixed',
+        commission_percentage: 0,
+        commission_fixed: 0.50,
+        commission_periods: [
+          {
+            start_date: '2024-01-01',
+            end_date: '2024-12-31',
+            percentage: 0,
+            fixed: 0.60,
+            description: 'Tarifa 2024'
+          },
+          {
+            start_date: '2025-01-01',
+            end_date: '2025-12-31',
+            percentage: 0,
+            fixed: 0.50,
+            description: 'Tarifa reducida 2025'
+          }
+        ],
+        supported_currencies: ['EUR'],
+        min_amount: 10,
+        max_amount: 50000,
+        description: 'Domiciliación bancaria SEPA'
+      },
+      {
+        name: 'PayPal Business',
+        type: 'paypal',
+        status: 'active',
+        commission_type: 'percentage',
+        commission_percentage: 3.4,
+        commission_fixed: 0,
+        commission_periods: [
+          {
+            start_date: '2024-01-01',
+            end_date: '2025-12-31',
+            percentage: 3.4,
+            fixed: 0,
+            description: 'Tarifa estándar PayPal'
+          }
+        ],
+        supported_currencies: ['EUR', 'USD'],
+        min_amount: 1,
+        max_amount: 5000,
+        description: 'Pagos con PayPal'
+      },
+      {
+        name: 'Bizum Empresas',
+        type: 'bizum',
+        status: 'active',
+        commission_type: 'fixed',
+        commission_percentage: 0,
+        commission_fixed: 0.25,
+        commission_periods: [
+          {
+            start_date: '2024-01-01',
+            end_date: '2025-12-31',
+            percentage: 0,
+            fixed: 0.25,
+            description: 'Tarifa fija Bizum'
+          }
+        ],
+        supported_currencies: ['EUR'],
+        min_amount: 1,
+        max_amount: 1000,
+        description: 'Pagos instantáneos con Bizum'
+      }
+    ];
+
+    const { error: gatewaysError } = await supabase
+      .from('payment_gateways')
+      .upsert(paymentGateways.map(gateway => ({
+        ...gateway,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })));
+
+    if (gatewaysError) {
+      console.error('❌ Error creating payment gateways:', gatewaysError);
+      throw gatewaysError;
+    }
+    console.log(`✅ ${paymentGateways.length} pasarelas de pago creadas exitosamente`);
+
     console.log('\n🎉 Test data population completed successfully!');
     console.log('📊 Data created:');
     console.log('   • 1 Tenant (ConstructIA Development)');
