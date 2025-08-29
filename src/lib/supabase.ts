@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { supabaseClient, DEV_TENANT_ID } from './supabase-real';
+import { supabaseClient, supabaseServiceClient, DEV_TENANT_ID } from './supabase-real';
 import { 
   getTenantEmpresas,
   getTenantEmpresasNoRLS,
