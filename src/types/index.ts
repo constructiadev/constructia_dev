@@ -546,12 +546,6 @@ export interface PaymentGateway {
     fixed?: number;
     description?: string;
   }[];
-  commission_periods?: {
-    start_date: string;
-    end_date: string;
-    percentage?: number;
-    fixed?: number;
-  }[];
   api_key?: string;
   secret_key?: string;
   webhook_url?: string;
@@ -563,8 +557,6 @@ export interface PaymentGateway {
   volume?: string;
   color?: string;
   created_at: string;
-  updated_at: string;
-  description: string;
   updated_at: string;
 }
 
