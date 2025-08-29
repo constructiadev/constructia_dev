@@ -5,8 +5,6 @@ import {
   getTenantUsersNoRLS,
   getTenantObras,
   getTenantObrasNoRLS, 
-  getAllTenantDocuments,
-  getAllTenantDocumentsNoRLS,
   getTenantStats,
   getCurrentUserTenant
 } from './supabase-real';
@@ -186,6 +184,48 @@ export const getClientCompanies = async (clientId: string) => {
   } catch (error) {
     console.error('Error fetching companies:', error);
     return [];
+  }
+};
+
+// Helper para obtener todos los documentos del tenant sin RLS
+export const getAllTenantDocumentsNoRLS = async (tenantId: string) => {
+  try {
+    const { data, error } = await supabaseClient
+      .from('documentos')
+      .select(`
+        id,
+        tenant_id,
+        entidad_tipo,
+        entidad_id,
+        categoria,
+        file,
+        mime,
+        size_bytes,
+        hash_sha256,
+        version,
+        estado,
+        caducidad,
+        emisor,
+        observaciones,
+        metadatos,
+        origen,
+        sensible,
+        virtual_path,
+        created_at,
+        updated_at
+      `)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching tenant documents:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getAllTenantDocumentsNoRLS:', error);
+    throw error;
   }
 };
 
