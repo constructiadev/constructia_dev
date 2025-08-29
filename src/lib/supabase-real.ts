@@ -37,7 +37,7 @@ export const getCurrentUserTenant = async (): Promise<string | null> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServiceClient
       .from('users')
       .select('tenant_id')
       .eq('id', user.id)
