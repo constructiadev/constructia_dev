@@ -983,3 +983,30 @@ export const createAIInsight = async (insight: Partial<AIInsight>) => {
     throw error;
   }
 };
+
+// Helper para actualizar pasarela de pago
+export const updatePaymentGateway = async (gatewayId: string, gatewayData: Partial<PaymentGateway>) => {
+  try {
+    // Filter out properties that don't exist in the database schema
+    const { logo_base64, color, transactions, volume, ...validData } = gatewayData;
+    
+    const { data, error } = await supabaseClient
+      .from('payment_gateways')
+      .update({
+        ...validData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', gatewayId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error updating payment gateway: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error updating payment gateway:', error);
+    throw error;
+  }
+};
