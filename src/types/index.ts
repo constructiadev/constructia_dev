@@ -559,18 +559,11 @@ export interface PaymentGateway {
   min_amount?: number;
   max_amount?: number;
   description: string;
-  logo_base64?: string;
   transactions?: number;
   volume?: string;
   color?: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface SystemSettings {
-  id: string;
-  key: string;
-  value: any;
   description: string;
   updated_at: string;
 }
