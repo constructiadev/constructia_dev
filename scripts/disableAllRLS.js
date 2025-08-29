@@ -29,33 +29,54 @@ async function disableAllRLS() {
   console.log('🚀 Disabling ALL RLS policies for full permissive access...\n');
 
   try {
-    // Get all tables in public schema
-    const { data: tables, error: tablesError } = await supabase
-      .rpc('sql', {
-        query: `
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_type = 'BASE TABLE'
-        `
-      });
+    // Hardcode table names since we can't query information_schema via RPC
+    const tableNames = [
+      'subscriptions',
+      'system_settings', 
+      'clients',
+      'companies',
+      'projects',
+      'documents',
+      'manual_document_queue',
+      'manual_upload_sessions',
+      'audit_logs',
+      'sepa_mandates',
+      'payment_gateways',
+      'payments',
+      'receipts',
+      'kpis',
+      'tenants',
+      'users',
+      'empresas',
+      'obras',
+      'proveedores',
+      'trabajadores',
+      'ai_insights',
+      'maquinaria',
+      'documentos',
+      'tareas',
+      'requisitos_plataforma',
+      'mapping_templates',
+      'adaptadores',
+      'jobs_integracion',
+      'suscripciones',
+      'auditoria',
+      'mensajes',
+      'reportes',
+      'token_transactions',
+      'checkout_providers',
+      'mandatos_sepa',
+      'manual_upload_queue'
+    ];
 
-    if (tablesError) {
-      console.error('❌ Could not fetch tables:', tablesError);
-      throw new Error('Failed to fetch tables');
-    }
-
-    console.log(`📋 Found ${tables?.length || 0} tables to process`);
-
-    // Process each table individually using direct SQL queries
-    const tableNames = tables?.map(t => t.table_name) || [];
+    console.log(`📋 Processing ${tableNames.length} tables`);
     
     for (const tableName of tableNames) {
       console.log(`🔧 Processing table: ${tableName}`);
       
       try {
         // Disable RLS for this table using raw SQL
-        const { error: disableError } = await supabase.rpc('sql', {
+        const { error: disableError } = await supabase.rpc('exec_sql', {
           query: `ALTER TABLE public.${tableName} DISABLE ROW LEVEL SECURITY;`
         });
 
@@ -66,7 +87,7 @@ async function disableAllRLS() {
         }
 
         // Grant permissions using raw SQL
-        const { error: grantError } = await supabase.rpc('sql', {
+        const { error: grantError } = await supabase.rpc('exec_sql', {
           query: `
             GRANT ALL ON public.${tableName} TO anon;
             GRANT ALL ON public.${tableName} TO authenticated;
