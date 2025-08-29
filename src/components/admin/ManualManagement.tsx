@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
+  FileText,
+  Clock,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  User,
+  Building2,
+  Settings,
+  Eye,
+  Upload,
+  Trash2,
+  Info
 } from 'lucide-react';
 import {
   getAllClients,
