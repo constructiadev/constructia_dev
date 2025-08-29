@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { supabaseClient, DEV_TENANT_ID } from './supabase-real';
 import { 
   getTenantEmpresas,
@@ -193,7 +194,7 @@ export const getClientCompanies = async (clientId: string) => {
 // Helper para obtener todos los documentos del tenant sin RLS
 export const getAllTenantDocumentsNoRLS = async (tenantId: string) => {
   try {
-    const { data, error } = await supabaseClient
+    // Use service role client for direct access without RLS
       .from('documentos')
       .select(`
         id,
@@ -216,7 +217,7 @@ export const getAllTenantDocumentsNoRLS = async (tenantId: string) => {
         virtual_path,
         created_at,
         updated_at
-      `)
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
@@ -286,6 +287,7 @@ export const getAuditLogs = async () => {
         *,
         users(email, role),
         empresas(razon_social)
+      )
       `)
       .eq('tenant_id', DEV_TENANT_ID)
       .order('created_at', { ascending: false })
@@ -438,14 +440,14 @@ export const updateSystemSetting = async (key: string, value: any, description?:
       .upsert({
         key,
         value,
-        description: description || `Configuración para ${key}`,
+        description: description || \`Configuración para ${key}`,
         updated_at: new Date().toISOString()
       })
       .select()
       .single();
 
     if (error) {
-      throw new Error(`Error updating system setting: ${error.message}`);
+      throw new Error(\`Error updating system setting: ${error.message}`);
     }
     
     return data;
@@ -670,7 +672,7 @@ export const createTestClient = async () => {
       .single();
 
     if (error) {
-      throw new Error(`Error creating test client: ${error.message}`);
+      throw new Error(\`Error creating test client: ${error.message}`);
     }
     
     return data;
@@ -691,7 +693,7 @@ export const createTestData = async () => {
       .maybeSingle();
 
     if (checkError && checkError.code !== 'PGRST116') {
-      throw new Error(`Error checking for existing user: ${checkError.message}`);
+      throw new Error(\`Error checking for existing user: ${checkError.message}`);
     }
 
     // Si el usuario no existe, crearlo
@@ -705,7 +707,7 @@ export const createTestData = async () => {
         });
 
       if (userError) {
-        throw new Error(`Error creating test user: ${userError.message}`);
+        throw new Error(\`Error creating test user: ${userError.message}`);
       }
     }
 
@@ -969,7 +971,7 @@ export const removeFile = async (documentId: string) => {
       .eq('id', documentId);
 
     if (error) {
-      throw new Error(`Error removing document: ${error.message}`);
+      throw new Error(\`Error removing document: ${error.message}`);
     }
     
     return true;
@@ -993,7 +995,7 @@ export const createAIInsight = async (insight: Partial<AIInsight>) => {
       .single();
 
     if (error) {
-      throw new Error(`Error creating AI insight: ${error.message}`);
+      throw new Error(\`Error creating AI insight: ${error.message}`);
     }
     
     return data;
@@ -1002,3 +1004,5 @@ export const createAIInsight = async (insight: Partial<AIInsight>) => {
     throw error;
   }
 };
+  }
+}

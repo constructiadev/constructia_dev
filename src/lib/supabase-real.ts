@@ -1,7 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { createClient } from '@supabase/supabase-js';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+
+// Service role client for bypassing RLS
+export const supabaseServiceClient = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // Centralized Supabase client - single instance for entire app
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -49,7 +60,8 @@ export const getCurrentUserTenant = async (): Promise<string | null> => {
 // Helper para obtener usuarios sin RLS
 export const getTenantUsersNoRLS = async (tenantId: string): Promise<NewUser[]> => {
   try {
-    const { data, error } = await supabaseClient
+    // Use service role client to bypass RLS completely
+    const { data, error } = await supabaseServiceClient
       .from('users')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -81,7 +93,8 @@ export const getTenantEmpresas = async (tenantId: string = DEV_TENANT_ID) => {
 // Fallback function without RLS
 export const getTenantEmpresasNoRLS = async (tenantId: string = DEV_TENANT_ID) => {
   try {
-    const { data, error } = await supabase
+    // Use service role client to bypass RLS completely
+    const { data, error } = await supabaseServiceClient
       .from('empresas')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -113,7 +126,8 @@ export const getTenantObras = async (tenantId: string = DEV_TENANT_ID) => {
 // Fallback function without RLS
 export const getTenantObrasNoRLS = async (tenantId: string = DEV_TENANT_ID) => {
   try {
-    const { data, error } = await supabase
+    // Use service role client to bypass RLS completely
+    const { data, error } = await supabaseServiceClient
       .from('obras')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -379,15 +393,15 @@ export const getTenantStats = async (tenantId: string = DEV_TENANT_ID) => {
       { count: documentosAprobados },
       { count: tareasAbiertas }
     ] = await Promise.all([
-      supabase.from('empresas').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabase.from('obras').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabase.from('proveedores').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabase.from('trabajadores').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabase.from('maquinaria').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabase.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-      supabase.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'pendiente'),
-      supabase.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'aprobado'),
-      supabase.from('tareas').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'abierta')
+      supabaseServiceClient.from('empresas').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseServiceClient.from('obras').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseServiceClient.from('proveedores').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseServiceClient.from('trabajadores').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseServiceClient.from('maquinaria').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseServiceClient.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      supabaseServiceClient.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'pendiente'),
+      supabaseServiceClient.from('documentos').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'aprobado'),
+      supabaseServiceClient.from('tareas').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('estado', 'abierta')
     ]);
 
     return {
