@@ -46,6 +46,27 @@ export const getCurrentUserTenant = async (): Promise<string | null> => {
   }
 };
 
+// Helper para obtener usuarios sin RLS
+export const getTenantUsersNoRLS = async (tenantId: string): Promise<NewUser[]> => {
+  try {
+    const { data, error } = await supabaseClient
+      .from('users')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('name');
+
+    if (error) {
+      console.error('Error getting tenant users (NoRLS):', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting tenant users (NoRLS):', error);
+    return [];
+  }
+};
+
 // Get all companies for current tenant
 export const getTenantEmpresas = async (tenantId: string = DEV_TENANT_ID) => {
   try {

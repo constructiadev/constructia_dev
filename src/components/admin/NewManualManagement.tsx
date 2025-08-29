@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCw,
   FileText,
@@ -39,7 +39,8 @@ import {
   supabaseNew,
   DEV_TENANT_ID,
   DEV_ADMIN_USER_ID,
-  logAuditoria
+  logAuditoria,
+  getTenantUsersNoRLS
 } from '../../lib/supabase-new';
 
 interface DocumentNode {
@@ -300,33 +301,26 @@ export default function NewManualManagement() {
     platformsConfigured: 0
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    console.log('🔍 [NewManualManagement] Loading hierarchical data...');
+    
     try {
-      setLoading(true);
-      setError(null);
+      // Get users (clients) using NoRLS function to avoid recursion
+      const usersData = await getTenantUsersNoRLS(DEV_TENANT_ID);
+      const clientUsers = usersData.filter(user => user.role === 'ClienteAdmin');
+      
+      console.log(`✅ [NewManualManagement] Fetched ${clientUsers.length} client users.`);
 
       // Get tenant hierarchy with all data
       const hierarchy = await getTenantHierarchy(DEV_TENANT_ID);
       const tenantStats = await getTenantStats(DEV_TENANT_ID);
 
-      // Get users for this tenant
-      const { data: users, error: usersError } = await supabaseNew
-        .from('users')
-        .select('*')
-        .eq('tenant_id', DEV_TENANT_ID);
-
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
-      }
-
       // Build client nodes with hierarchical structure
-      const clientNodes: ClientNode[] = (users || []).map(user => {
+      const clientNodes: ClientNode[] = clientUsers.map(user => {
         // Find empresas for this user (simulate ownership)
-        const userEmpresas = hierarchy.filter((_, index) => index % (users?.length || 1) === (users?.indexOf(user) || 0));
+        const userEmpresas = hierarchy.filter((_, index) => index % (clientUsers?.length || 1) === (clientUsers?.indexOf(user) || 0));
 
         return {
           id: user.id,
@@ -409,7 +403,11 @@ export default function NewManualManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleUploadDocument = (document: DocumentNode, client: ClientNode) => {
     // Get available platforms for this client
