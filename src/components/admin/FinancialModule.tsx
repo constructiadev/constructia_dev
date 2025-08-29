@@ -27,7 +27,11 @@ import {
   X,
   FileText,
   Brain,
-  Building2
+  Building2,
+  Upload,
+  Image,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -84,27 +88,107 @@ interface CommissionEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   gateway: PaymentGateway | null;
-  onSave: (gatewayId: string, percentage: number, fixed: number) => Promise<void>;
+  onSave: (gatewayId: string, periods: any[], logoBase64?: string) => Promise<void>;
 }
 
 function CommissionEditModal({ isOpen, onClose, gateway, onSave }: CommissionEditModalProps) {
-  const [percentage, setPercentage] = useState(0);
-  const [fixed, setFixed] = useState(0);
+  const [periods, setPeriods] = useState<any[]>([]);
+  const [logoBase64, setLogoBase64] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'periods' | 'logo'>('periods');
 
   useEffect(() => {
     if (gateway) {
-      setPercentage(gateway.commission_percentage || 0);
-      setFixed(gateway.commission_fixed || 0);
+      // Load existing periods or create default
+      if (gateway.commission_periods && gateway.commission_periods.length > 0) {
+        setPeriods(gateway.commission_periods);
+      } else {
+        // Create default period with current commission
+        setPeriods([{
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+          percentage: gateway.commission_percentage || 0,
+          fixed: gateway.commission_fixed || 0,
+          description: 'Configuración actual'
+        }]);
+      }
+      setLogoBase64(gateway.logo_base64 || '');
     }
   }, [gateway]);
+
+  const addPeriod = () => {
+    const lastPeriod = periods[periods.length - 1];
+    const startDate = lastPeriod 
+      ? new Date(new Date(lastPeriod.end_date).getTime() + 24 * 60 * 60 * 1000)
+      : new Date();
+    
+    const newPeriod = {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: new Date(startDate.getFullYear(), 11, 31).toISOString().split('T')[0],
+      percentage: gateway?.commission_percentage || 0,
+      fixed: gateway?.commission_fixed || 0,
+      description: ''
+    };
+
+    setPeriods([...periods, newPeriod]);
+  };
+
+  const removePeriod = (index: number) => {
+    if (periods.length > 1) {
+      setPeriods(periods.filter((_, i) => i !== index));
+    }
+  };
+
+  const updatePeriod = (index: number, field: string, value: any) => {
+    const updatedPeriods = periods.map((period, i) => 
+      i === index ? { ...period, [field]: value } : period
+    );
+    setPeriods(updatedPeriods);
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        setLogoBase64(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const calculateCurrentMonthCommission = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const activePeriod = periods.find(period => 
+      period.start_date <= today && period.end_date >= today
+    );
+    
+    if (activePeriod) {
+      return {
+        percentage: activePeriod.percentage || 0,
+        fixed: activePeriod.fixed || 0
+      };
+    }
+    
+    return {
+      percentage: gateway?.commission_percentage || 0,
+      fixed: gateway?.commission_fixed || 0
+    };
+  };
+
+  const calculateExampleCommission = (period: any, amount: number = 100) => {
+    const percentageCommission = amount * (period.percentage || 0) / 100;
+    const fixedCommission = period.fixed || 0;
+    return percentageCommission + fixedCommission;
+  };
 
   const handleSave = async () => {
     if (!gateway) return;
     
     setSaving(true);
     try {
-      await onSave(gateway.id, percentage, fixed);
+      await onSave(gateway.id, periods, logoBase64);
       onClose();
     } catch (error) {
       console.error('Error saving commission:', error);
@@ -115,14 +199,16 @@ function CommissionEditModal({ isOpen, onClose, gateway, onSave }: CommissionEdi
 
   if (!isOpen || !gateway) return null;
 
+  const currentCommission = calculateCurrentMonthCommission();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-t-xl">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold">Configurar Comisión</h2>
-              <p className="text-green-100">{gateway.name}</p>
+              <h2 className="text-xl font-bold">Configuración Avanzada de Comisiones</h2>
+              <p className="text-green-100">{gateway.name} - Gestión por períodos</p>
             </div>
             <button onClick={onClose} className="text-white/80 hover:text-white">
               <X className="h-6 w-6" />
@@ -130,52 +216,226 @@ function CommissionEditModal({ isOpen, onClose, gateway, onSave }: CommissionEdi
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Comisión Porcentual (%)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={percentage}
-                onChange={(e) => setPercentage(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
+        <div className="p-6">
+          {/* Tabs */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
+            <button
+              onClick={() => setActiveTab('periods')}
+              className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'periods' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Calendar className="w-4 h-4 inline mr-2" />
+              Períodos de Comisión
+            </button>
+            <button
+              onClick={() => setActiveTab('logo')}
+              className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'logo' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Image className="w-4 h-4 inline mr-2" />
+              Logo y Branding
+            </button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Comisión Fija (€)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={fixed}
-                onChange={(e) => setFixed(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              <Euro className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
-          </div>
+          {/* Tab Content */}
+          {activeTab === 'periods' && (
+            <div className="space-y-6">
+              {/* Current Month Commission Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-800 mb-2">Comisión Mes Actual</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-blue-700">Porcentaje:</span>
+                    <span className="ml-2 font-bold text-blue-900">{currentCommission.percentage}%</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">Fijo:</span>
+                    <span className="ml-2 font-bold text-blue-900">€{currentCommission.fixed}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="bg-gray-50 rounded-lg p-3">
-            <h5 className="font-medium text-gray-800 mb-2">Ejemplo (€100)</h5>
-            <div className="text-sm text-gray-600">
-              <p>Comisión porcentual: €{(percentage * 100 / 100).toFixed(2)}</p>
-              <p>Comisión fija: €{fixed.toFixed(2)}</p>
-              <p className="font-medium text-gray-800 border-t pt-2 mt-2">
-                Total: €{(percentage * 100 / 100 + fixed).toFixed(2)}
-              </p>
+              {/* Periods Configuration */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Períodos de Comisión</h3>
+                  <button
+                    type="button"
+                    onClick={addPeriod}
+                    className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Añadir Período
+                  </button>
+                </div>
+
+                {periods.map((period, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-gray-900">Período {index + 1}</h4>
+                      {periods.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePeriod(index)}
+                          className="text-red-600 hover:text-red-700 p-1"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Fecha de Inicio *
+                        </label>
+                        <input
+                          type="date"
+                          value={period.start_date}
+                          onChange={(e) => updatePeriod(index, 'start_date', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Fecha de Fin *
+                        </label>
+                        <input
+                          type="date"
+                          value={period.end_date}
+                          onChange={(e) => updatePeriod(index, 'end_date', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Comisión Porcentual (%)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={period.percentage || ''}
+                            onChange={(e) => updatePeriod(index, 'percentage', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="0.00"
+                          />
+                          <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Comisión Fija (€)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={period.fixed || ''}
+                            onChange={(e) => updatePeriod(index, 'fixed', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="0.00"
+                          />
+                          <Euro className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Descripción
+                      </label>
+                      <input
+                        type="text"
+                        value={period.description || ''}
+                        onChange={(e) => updatePeriod(index, 'description', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ej: Promoción de lanzamiento, Tarifa estándar..."
+                      />
+                    </div>
+
+                    {/* Ejemplo de Cálculo */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <h5 className="font-medium text-gray-800 mb-2">Ejemplo de Cálculo (€100)</h5>
+                      <div className="text-sm text-gray-600">
+                        <p>Comisión porcentual: €{((period.percentage || 0) * 100 / 100).toFixed(2)}</p>
+                        <p>Comisión fija: €{(period.fixed || 0).toFixed(2)}</p>
+                        <p className="font-medium text-gray-800 border-t pt-2 mt-2">
+                          Total: €{calculateExampleCommission(period, 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {activeTab === 'logo' && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Logo de la Pasarela</h3>
+                
+                {/* Current Logo Preview */}
+                <div className="mb-6">
+                  {logoBase64 ? (
+                    <div className="inline-block p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <img 
+                        src={logoBase64} 
+                        alt={`Logo ${gateway.name}`}
+                        className="h-16 w-auto max-w-32 object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="inline-block p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                      <Image className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-500">Sin logo configurado</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload Button */}
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <label
+                    htmlFor="logo-upload"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-colors"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Subir Logo
+                  </label>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Formatos: PNG, JPG, SVG (máx. 2MB)
+                  </p>
+                </div>
+
+                {/* Logo Guidelines */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
+                  <h4 className="font-semibold text-yellow-800 mb-2">Recomendaciones</h4>
+                  <ul className="text-sm text-yellow-700 space-y-1 text-left">
+                    <li>• Tamaño recomendado: 200x80px o similar</li>
+                    <li>• Fondo transparente preferible</li>
+                    <li>• Formato PNG para mejor calidad</li>
+                    <li>• Logo oficial de la plataforma de pagos</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
@@ -510,13 +770,13 @@ const FinancialModule: React.FC = () => {
     setShowCommissionModal(true);
   };
 
-  const handleSaveCommission = async (gatewayId: string, percentage: number, fixed: number) => {
+  const handleSaveCommission = async (gatewayId: string, periods: any[], logoBase64?: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseServiceClient
         .from('payment_gateways')
         .update({
-          commission_percentage: percentage,
-          commission_fixed: fixed,
+          commission_periods: periods,
+          logo_base64: logoBase64,
           updated_at: new Date().toISOString()
         })
         .eq('id', gatewayId);
@@ -526,10 +786,10 @@ const FinancialModule: React.FC = () => {
       }
 
       await loadFinancialData();
-      alert('Comisión actualizada correctamente');
+      alert('Configuración de comisiones actualizada correctamente');
     } catch (error) {
       console.error('Error saving commission:', error);
-      alert('Error al guardar la comisión: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+      alert('Error al guardar la configuración: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 
@@ -669,8 +929,16 @@ const FinancialModule: React.FC = () => {
               <div key={stat.gateway_id} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
-                    <div className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center mr-3`}>
-                      <Icon className="h-5 w-5 text-white" />
+                    <div className={`w-12 h-12 ${color} rounded-lg flex items-center justify-center mr-3 relative overflow-hidden`}>
+                      {gateways.find(g => g.id === stat.gateway_id)?.logo_base64 ? (
+                        <img 
+                          src={gateways.find(g => g.id === stat.gateway_id)?.logo_base64} 
+                          alt={stat.gateway_name}
+                          className="w-full h-full object-contain p-1"
+                        />
+                      ) : (
+                        <Icon className="h-6 w-6 text-white" />
+                      )}
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">{stat.gateway_name}</h4>
@@ -688,18 +956,42 @@ const FinancialModule: React.FC = () => {
                   </button>
                 </div>
                 
-                <div className="text-center mb-4">
-                  <div className="text-3xl font-bold text-green-600 mb-1">
-                    €{stat.total_commissions.toFixed(0)}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      €{stat.total_commissions.toFixed(0)}
+                    </div>
+                    <div className="text-xs text-gray-600">Total Acumulado</div>
                   </div>
-                  <div className="text-sm text-gray-600">Total comisiones</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">
+                      €{(stat.total_commissions * 0.3).toFixed(0)}
+                    </div>
+                    <div className="text-xs text-gray-600">Este Mes</div>
+                  </div>
+                </div>
+                
+                <div className="text-center mb-4 p-3 bg-green-50 rounded-lg">
+                  <div className="text-3xl font-bold text-green-600 mb-1">
+                    {stat.avg_commission_rate.toFixed(2)}%
+                  </div>
+                  <div className="text-sm text-gray-600">Tasa Promedio</div>
                 </div>
                 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Comisión actual:</span>
+                    <span className="text-gray-600">Período actual:</span>
                     <span className="font-medium text-purple-600">
-                      {stat.current_percentage}% + €{stat.current_fixed}
+                      {(() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const gateway = gateways.find(g => g.id === stat.gateway_id);
+                        const activePeriod = gateway?.commission_periods?.find((p: any) => 
+                          p.start_date <= today && p.end_date >= today
+                        );
+                        return activePeriod 
+                          ? `${activePeriod.percentage}% + €${activePeriod.fixed}`
+                          : `${stat.current_percentage}% + €${stat.current_fixed}`;
+                      })()}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -709,6 +1001,12 @@ const FinancialModule: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Transacciones:</span>
                     <span className="font-medium text-gray-900">{stat.transaction_count}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Períodos config.:</span>
+                    <span className="font-medium text-gray-900">
+                      {gateways.find(g => g.id === stat.gateway_id)?.commission_periods?.length || 1}
+                    </span>
                   </div>
                 </div>
                 

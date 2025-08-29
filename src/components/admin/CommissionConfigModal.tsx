@@ -142,6 +142,23 @@ export default function CommissionConfigModal({
     return percentageCommission + fixedCommission;
   };
 
+  const calculateTotalCommissionForAmount = (amount: number = 100) => {
+    // Calculate commission based on current date and active period
+    const today = new Date().toISOString().split('T')[0];
+    const activePeriod = periods.find(period => 
+      period.start_date <= today && period.end_date >= today
+    );
+    
+    if (activePeriod) {
+      return calculateExampleCommission(activePeriod, amount);
+    }
+    
+    // Fallback to gateway default
+    const percentageCommission = amount * (gateway?.commission_percentage || 0) / 100;
+    const fixedCommission = gateway?.commission_fixed || 0;
+    return percentageCommission + fixedCommission;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
