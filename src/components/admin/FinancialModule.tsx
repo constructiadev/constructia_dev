@@ -776,7 +776,6 @@ const FinancialModule: React.FC = () => {
         .from('payment_gateways')
         .update({
           commission_periods: periods,
-          logo_base64: logoBase64,
           updated_at: new Date().toISOString()
         })
         .eq('id', gatewayId);
