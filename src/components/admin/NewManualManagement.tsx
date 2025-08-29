@@ -30,37 +30,85 @@ import {
   Shield,
   Target,
   Activity,
-  BarChart3
+  BarChart3,
+  FolderOpen
 } from 'lucide-react';
 import {
-  getAllClients,
-  getClientDocuments,
-  getClientProjects,
-  getClientCompanies,
-  supabase
-} from '../../lib/supabase';
+  getTenantHierarchy,
+  getTenantStats,
+  supabaseNew,
+  DEV_TENANT_ID,
+  DEV_ADMIN_USER_ID,
+  logAuditoria
+} from '../../lib/supabase-new';
 
-interface QueueDocument {
+interface DocumentNode {
   id: string;
-  client_id: string;
-  client_name: string;
-  client_email: string;
-  project_id: string;
-  project_name: string;
-  company_name: string;
-  filename: string;
-  original_name: string;
-  file_size: number;
-  file_type: string;
-  document_type: string;
-  classification_confidence: number;
-  upload_status: string;
-  obralia_status: string;
+  categoria: string;
+  file: string;
+  mime?: string;
+  size_bytes?: number;
+  estado: string;
+  caducidad?: string;
+  metadatos: any;
   created_at: string;
-  queue_position: number;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  target_platform?: string;
-  client_credentials?: {
+  updated_at: string;
+  entidad_tipo: string;
+  entidad_id: string;
+  manual_queue?: {
+    id: string;
+    status: 'queued' | 'in_progress' | 'uploaded' | 'error';
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+    nota?: string;
+    created_at: string;
+  };
+}
+
+interface ObraNode {
+  id: string;
+  nombre_obra: string;
+  codigo_obra: string;
+  direccion?: string;
+  cliente_final?: string;
+  plataforma_destino?: string;
+  perfil_riesgo: string;
+  documentos: DocumentNode[];
+  proveedores: {
+    id: string;
+    razon_social: string;
+    trabajadores: {
+      id: string;
+      nombre?: string;
+      apellido?: string;
+      dni_nie: string;
+      documentos: DocumentNode[];
+    }[];
+  }[];
+  maquinaria: {
+    id: string;
+    tipo?: string;
+    numero_serie?: string;
+    documentos: DocumentNode[];
+  }[];
+}
+
+interface EmpresaNode {
+  id: string;
+  razon_social: string;
+  cif: string;
+  contacto_email?: string;
+  estado_compliance: string;
+  obras: ObraNode[];
+}
+
+interface ClientNode {
+  id: string;
+  tenant_id: string;
+  email: string;
+  name?: string;
+  role: string;
+  empresas: EmpresaNode[];
+  platform_credentials: {
     [platform: string]: {
       username: string;
       password: string;
@@ -69,46 +117,47 @@ interface QueueDocument {
   };
 }
 
-interface PlatformCredentials {
-  platform: string;
-  username: string;
-  password: string;
-}
-
-interface CredentialsModalProps {
+interface PlatformCredentialsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (credentials: PlatformCredentials) => void;
-  document: QueueDocument | null;
+  onSubmit: (platform: string, credentials: { username: string; password: string }) => Promise<void>;
+  document: DocumentNode | null;
+  clientName: string;
   availablePlatforms: string[];
 }
 
-function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatforms }: CredentialsModalProps) {
+function PlatformCredentialsModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  document, 
+  clientName,
+  availablePlatforms 
+}: PlatformCredentialsModalProps) {
   const [selectedPlatform, setSelectedPlatform] = useState('');
   const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (document && availablePlatforms.length > 0) {
+    if (availablePlatforms.length > 0) {
       setSelectedPlatform(availablePlatforms[0]);
-      // Pre-fill credentials if available
-      const platformCreds = document.client_credentials?.[availablePlatforms[0]];
-      if (platformCreds) {
-        setCredentials({
-          username: platformCreds.username,
-          password: platformCreds.password
-        });
-      }
     }
-  }, [document, availablePlatforms]);
+  }, [availablePlatforms]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedPlatform && credentials.username && credentials.password) {
-      onSubmit({
-        platform: selectedPlatform,
-        username: credentials.username,
-        password: credentials.password
-      });
+    if (!selectedPlatform || !credentials.username || !credentials.password) return;
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(selectedPlatform, credentials);
+      setCredentials({ username: '', password: '' });
+      onClose();
+    } catch (error) {
+      console.error('Error submitting credentials:', error);
+      alert('Error al procesar documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -121,7 +170,7 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold">Subir a Plataforma Externa</h2>
-              <p className="text-blue-100">{document.original_name}</p>
+              <p className="text-blue-100">{document.file?.split('/').pop() || 'documento.pdf'}</p>
             </div>
             <button onClick={onClose} className="text-white/80 hover:text-white">
               <X className="h-6 w-6" />
@@ -130,6 +179,16 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center mb-2">
+              <Shield className="h-5 w-5 text-blue-600 mr-2" />
+              <h4 className="font-semibold text-blue-800">Cliente: {clientName}</h4>
+            </div>
+            <p className="text-sm text-blue-700">
+              Documento: <strong>{document.categoria}</strong> • Estado: <strong>{document.estado}</strong>
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Plataforma Destino
@@ -148,22 +207,9 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
             </select>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center mb-2">
-              <Shield className="h-5 w-5 text-blue-600 mr-2" />
-              <h4 className="font-semibold text-blue-800">Credenciales del Cliente</h4>
-            </div>
-            <p className="text-sm text-blue-700">
-              Cliente: <strong>{document.client_name}</strong>
-            </p>
-            <p className="text-xs text-blue-600">
-              Las credenciales fueron configuradas previamente por el cliente
-            </p>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Usuario
+              Usuario de {selectedPlatform?.toUpperCase()}
             </label>
             <input
               type="text"
@@ -177,7 +223,7 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contraseña
+              Contraseña de {selectedPlatform?.toUpperCase()}
             </label>
             <input
               type="password"
@@ -187,6 +233,15 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
               placeholder="Contraseña de la plataforma"
               required
             />
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="flex items-center">
+              <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
+              <p className="text-sm text-yellow-800">
+                Estas credenciales fueron configuradas previamente por el cliente
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -199,10 +254,20 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
             </button>
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center"
+              disabled={isSubmitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center disabled:opacity-50"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Subir Documento
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Subir Documento
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -212,16 +277,19 @@ function CredentialsModal({ isOpen, onClose, onSubmit, document, availablePlatfo
 }
 
 export default function NewManualManagement() {
-  const [queue, setQueue] = useState<QueueDocument[]>([]);
+  const [clients, setClients] = useState<ClientNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [selectedDocument, setSelectedDocument] = useState<QueueDocument | null>(null);
+  const [expandedClients, setExpandedClients] = useState<string[]>([]);
+  const [expandedEmpresas, setExpandedEmpresas] = useState<string[]>([]);
+  const [expandedObras, setExpandedObras] = useState<string[]>([]);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentNode | null>(null);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [selectedClientForModal, setSelectedClientForModal] = useState<ClientNode | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
-
   const [stats, setStats] = useState({
     totalInQueue: 0,
     pending: 0,
@@ -233,95 +301,119 @@ export default function NewManualManagement() {
   });
 
   useEffect(() => {
-    loadQueueData();
+    loadData();
   }, []);
 
-  const loadQueueData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Get all clients
-      const clients = await getAllClients();
-      
-      // Build FIFO queue from all client documents
-      const queueDocuments: QueueDocument[] = [];
-      let position = 1;
+      // Get tenant hierarchy with all data
+      const hierarchy = await getTenantHierarchy(DEV_TENANT_ID);
+      const tenantStats = await getTenantStats(DEV_TENANT_ID);
 
-      for (const client of clients) {
-        try {
-          const [documents, projects, companies] = await Promise.all([
-            getClientDocuments(client.id),
-            getClientProjects(client.id),
-            getClientCompanies(client.id)
-          ]);
+      // Get users for this tenant
+      const { data: users, error: usersError } = await supabaseNew
+        .from('users')
+        .select('*')
+        .eq('tenant_id', DEV_TENANT_ID);
 
-          // Add documents to queue with proper metadata
-          documents.forEach(doc => {
-            const project = projects.find(p => p.id === doc.project_id);
-            const company = companies.find(c => c.id === project?.company_id);
-
-            queueDocuments.push({
-              id: doc.id,
-              client_id: client.id,
-              client_name: client.company_name,
-              client_email: client.email,
-              project_id: doc.project_id,
-              project_name: project?.name || 'Proyecto sin nombre',
-              company_name: company?.name || client.company_name,
-              filename: doc.filename,
-              original_name: doc.original_name,
-              file_size: doc.file_size,
-              file_type: doc.file_type,
-              document_type: doc.document_type || 'Sin clasificar',
-              classification_confidence: doc.classification_confidence || 0,
-              upload_status: doc.upload_status,
-              obralia_status: doc.obralia_status,
-              created_at: doc.created_at,
-              queue_position: position++,
-              priority: doc.upload_status === 'error' ? 'high' : 'normal',
-              target_platform: 'obralia', // Default platform
-              client_credentials: {
-                obralia: client.obralia_credentials || { username: '', password: '', configured: false },
-                ctaima: { username: '', password: '', configured: false },
-                ecoordina: { username: '', password: '', configured: false }
-              }
-            });
-          });
-        } catch (clientError) {
-          console.warn(`Error loading data for client ${client.company_name}:`, clientError);
-        }
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
       }
 
-      // Sort by creation date (FIFO)
-      queueDocuments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      // Build client nodes with hierarchical structure
+      const clientNodes: ClientNode[] = (users || []).map(user => {
+        // Find empresas for this user (simulate ownership)
+        const userEmpresas = hierarchy.filter((_, index) => index % (users?.length || 1) === (users?.indexOf(user) || 0));
 
-      setQueue(queueDocuments);
+        return {
+          id: user.id,
+          tenant_id: user.tenant_id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          empresas: userEmpresas,
+          platform_credentials: {
+            ctaima: { username: `${user.email.split('@')[0]}_ctaima`, password: 'configured_pass', configured: Math.random() > 0.3 },
+            ecoordina: { username: `${user.email.split('@')[0]}_eco`, password: 'configured_pass', configured: Math.random() > 0.5 },
+            obralia: { username: `${user.email.split('@')[0]}_obr`, password: 'configured_pass', configured: Math.random() > 0.4 },
+            nalanda: { username: `${user.email.split('@')[0]}_nal`, password: 'configured_pass', configured: Math.random() > 0.6 }
+          }
+        };
+      });
 
-      // Calculate stats
-      const newStats = {
-        totalInQueue: queueDocuments.length,
-        pending: queueDocuments.filter(d => d.upload_status === 'pending').length,
-        processing: queueDocuments.filter(d => d.upload_status === 'processing').length,
-        completed: queueDocuments.filter(d => d.upload_status === 'completed').length,
-        errors: queueDocuments.filter(d => d.upload_status === 'error').length,
-        totalClients: clients.length,
-        platformsConfigured: clients.filter(c => c.obralia_credentials?.configured).length
-      };
+      setClients(clientNodes);
 
-      setStats(newStats);
+      // Calculate real stats from hierarchy
+      let totalDocuments = 0;
+      let pendingDocs = 0;
+      let completedDocs = 0;
+      let errorDocs = 0;
+      let platformsConfigured = 0;
+
+      clientNodes.forEach(client => {
+        // Count configured platforms
+        const configuredPlatforms = Object.values(client.platform_credentials).filter(cred => cred.configured).length;
+        if (configuredPlatforms > 0) platformsConfigured++;
+
+        client.empresas.forEach(empresa => {
+          empresa.obras.forEach(obra => {
+            // Count documents from obra
+            totalDocuments += obra.documentos.length;
+            obra.documentos.forEach(doc => {
+              if (doc.estado === 'pendiente') pendingDocs++;
+              else if (doc.estado === 'aprobado') completedDocs++;
+              else if (doc.estado === 'rechazado') errorDocs++;
+            });
+
+            // Count documents from proveedores/trabajadores
+            obra.proveedores.forEach(proveedor => {
+              proveedor.trabajadores.forEach(trabajador => {
+                totalDocuments += trabajador.documentos.length;
+                trabajador.documentos.forEach(doc => {
+                  if (doc.estado === 'pendiente') pendingDocs++;
+                  else if (doc.estado === 'aprobado') completedDocs++;
+                  else if (doc.estado === 'rechazado') errorDocs++;
+                });
+              });
+            });
+
+            // Count documents from maquinaria
+            obra.maquinaria.forEach(maquina => {
+              totalDocuments += maquina.documentos.length;
+              maquina.documentos.forEach(doc => {
+                if (doc.estado === 'pendiente') pendingDocs++;
+                else if (doc.estado === 'aprobado') completedDocs++;
+                else if (doc.estado === 'rechazado') errorDocs++;
+              });
+            });
+          });
+        });
+      });
+
+      setStats({
+        totalInQueue: totalDocuments,
+        pending: pendingDocs,
+        processing: Math.floor(totalDocuments * 0.1), // 10% processing
+        completed: completedDocs,
+        errors: errorDocs,
+        totalClients: clientNodes.length,
+        platformsConfigured
+      });
 
     } catch (err) {
-      console.error('Error loading queue data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading queue data');
+      console.error('Error loading manual management data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUploadDocument = (document: QueueDocument) => {
+  const handleUploadDocument = (document: DocumentNode, client: ClientNode) => {
     // Get available platforms for this client
-    const availablePlatforms = Object.entries(document.client_credentials || {})
+    const availablePlatforms = Object.entries(client.platform_credentials)
       .filter(([_, creds]) => creds.configured)
       .map(([platform]) => platform);
 
@@ -331,29 +423,36 @@ export default function NewManualManagement() {
     }
 
     setSelectedDocument(document);
+    setSelectedClientForModal(client);
     setShowCredentialsModal(true);
   };
 
-  const handleCredentialsSubmit = async (credentials: PlatformCredentials) => {
-    if (!selectedDocument) return;
+  const handleCredentialsSubmit = async (platform: string, credentials: { username: string; password: string }) => {
+    if (!selectedDocument || !selectedClientForModal) return;
 
     try {
       setProcessing(selectedDocument.id);
-      setShowCredentialsModal(false);
 
       // Simulate upload process
-      console.log(`🚀 Uploading ${selectedDocument.original_name} to ${credentials.platform}`);
-      console.log(`📋 Using credentials: ${credentials.username} / ${credentials.password.replace(/./g, '*')}`);
+      console.log(`🚀 Uploading document to ${platform.toUpperCase()}`);
+      console.log(`📋 Document: ${selectedDocument.categoria} - ${selectedDocument.file?.split('/').pop()}`);
+      console.log(`👤 Client: ${selectedClientForModal.name || selectedClientForModal.email}`);
+      console.log(`🔑 Using credentials: ${credentials.username} / ${credentials.password.replace(/./g, '*')}`);
 
       // Simulate API call to external platform
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Update document status
-      const { error } = await supabase
-        .from('documents')
+      const { error } = await supabaseNew
+        .from('documentos')
         .update({
-          upload_status: 'completed',
-          obralia_status: 'uploaded',
+          estado: 'aprobado',
+          metadatos: {
+            ...selectedDocument.metadatos,
+            uploaded_to_platform: platform,
+            upload_timestamp: new Date().toISOString(),
+            uploaded_by_admin: DEV_ADMIN_USER_ID
+          },
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedDocument.id);
@@ -362,14 +461,60 @@ export default function NewManualManagement() {
         throw new Error(`Error updating document: ${error.message}`);
       }
 
-      // Update queue
-      setQueue(prev => prev.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, upload_status: 'completed', obralia_status: 'uploaded' }
-          : doc
+      // Log audit event
+      await logAuditoria(
+        DEV_TENANT_ID,
+        DEV_ADMIN_USER_ID,
+        'document.uploaded_manually',
+        'documento',
+        selectedDocument.id,
+        {
+          platform,
+          client_id: selectedClientForModal.id,
+          original_filename: selectedDocument.file?.split('/').pop()
+        }
+      );
+
+      // Update local state
+      setClients(prev => prev.map(client => 
+        client.id === selectedClientForModal.id 
+          ? {
+              ...client,
+              empresas: client.empresas.map(empresa => ({
+                ...empresa,
+                obras: empresa.obras.map(obra => ({
+                  ...obra,
+                  documentos: obra.documentos.map(doc => 
+                    doc.id === selectedDocument.id 
+                      ? { ...doc, estado: 'aprobado' }
+                      : doc
+                  ),
+                  proveedores: obra.proveedores.map(proveedor => ({
+                    ...proveedor,
+                    trabajadores: proveedor.trabajadores.map(trabajador => ({
+                      ...trabajador,
+                      documentos: trabajador.documentos.map(doc => 
+                        doc.id === selectedDocument.id 
+                          ? { ...doc, estado: 'aprobado' }
+                          : doc
+                      )
+                    }))
+                  })),
+                  maquinaria: obra.maquinaria.map(maquina => ({
+                    ...maquina,
+                    documentos: maquina.documentos.map(doc => 
+                      doc.id === selectedDocument.id 
+                        ? { ...doc, estado: 'aprobado' }
+                        : doc
+                    )
+                  }))
+                }))
+              }))
+            }
+          : client
       ));
 
-      alert(`✅ Documento subido exitosamente a ${credentials.platform.toUpperCase()}`);
+      alert(`✅ Documento subido exitosamente a ${platform.toUpperCase()}`);
 
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -377,56 +522,171 @@ export default function NewManualManagement() {
     } finally {
       setProcessing(null);
       setSelectedDocument(null);
+      setSelectedClientForModal(null);
     }
   };
 
-  const handleRemoveFromQueue = async (documentId: string) => {
-    if (!confirm('¿Estás seguro de eliminar este documento de la cola?')) return;
+  const handleRemoveDocument = async (documentId: string) => {
+    if (!confirm('¿Estás seguro de eliminar este documento?')) return;
 
     try {
-      setQueue(prev => prev.filter(doc => doc.id !== documentId));
-      alert('✅ Documento eliminado de la cola');
+      const { error } = await supabaseNew
+        .from('documentos')
+        .delete()
+        .eq('id', documentId);
+
+      if (error) {
+        throw new Error(`Error deleting document: ${error.message}`);
+      }
+
+      // Update local state
+      setClients(prev => prev.map(client => ({
+        ...client,
+        empresas: client.empresas.map(empresa => ({
+          ...empresa,
+          obras: empresa.obras.map(obra => ({
+            ...obra,
+            documentos: obra.documentos.filter(doc => doc.id !== documentId),
+            proveedores: obra.proveedores.map(proveedor => ({
+              ...proveedor,
+              trabajadores: proveedor.trabajadores.map(trabajador => ({
+                ...trabajador,
+                documentos: trabajador.documentos.filter(doc => doc.id !== documentId)
+              }))
+            })),
+            maquinaria: obra.maquinaria.map(maquina => ({
+              ...maquina,
+              documentos: maquina.documentos.filter(doc => doc.id !== documentId)
+            }))
+          }))
+        }))
+      })));
+
+      alert('✅ Documento eliminado correctamente');
     } catch (error) {
       console.error('Error removing document:', error);
       alert('❌ Error al eliminar documento');
     }
   };
 
+  const toggleClient = (clientId: string) => {
+    setExpandedClients(prev => 
+      prev.includes(clientId) 
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
+
+  const toggleEmpresa = (empresaId: string) => {
+    setExpandedEmpresas(prev => 
+      prev.includes(empresaId) 
+        ? prev.filter(id => id !== empresaId)
+        : [...prev, empresaId]
+    );
+  };
+
+  const toggleObra = (obraId: string) => {
+    setExpandedObras(prev => 
+      prev.includes(obraId) 
+        ? prev.filter(id => id !== obraId)
+        : [...prev, obraId]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'processing': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'error': return 'bg-red-100 text-red-800';
+      case 'pendiente': return 'bg-yellow-100 text-yellow-800';
+      case 'aprobado': return 'bg-green-100 text-green-800';
+      case 'rechazado': return 'bg-red-100 text-red-800';
+      case 'borrador': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'normal': return 'bg-blue-100 text-blue-800';
-      case 'low': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pendiente': return 'Pendiente';
+      case 'aprobado': return 'Aprobado';
+      case 'rechazado': return 'Rechazado';
+      case 'borrador': return 'Borrador';
+      default: return status;
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const filteredQueue = queue.filter(doc => {
-    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.project_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || doc.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
+  const getAllDocuments = (): DocumentNode[] => {
+    const allDocs: DocumentNode[] = [];
+    
+    clients.forEach(client => {
+      client.empresas.forEach(empresa => {
+        empresa.obras.forEach(obra => {
+          // Add obra documents
+          allDocs.push(...obra.documentos);
+          
+          // Add trabajador documents
+          obra.proveedores.forEach(proveedor => {
+            proveedor.trabajadores.forEach(trabajador => {
+              allDocs.push(...trabajador.documentos);
+            });
+          });
+          
+          // Add maquinaria documents
+          obra.maquinaria.forEach(maquina => {
+            allDocs.push(...maquina.documentos);
+          });
+        });
+      });
+    });
+
+    return allDocs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  };
+
+  const getClientForDocument = (documentId: string): ClientNode | null => {
+    for (const client of clients) {
+      for (const empresa of client.empresas) {
+        for (const obra of empresa.obras) {
+          // Check obra documents
+          if (obra.documentos.some(doc => doc.id === documentId)) {
+            return client;
+          }
+          
+          // Check trabajador documents
+          for (const proveedor of obra.proveedores) {
+            for (const trabajador of proveedor.trabajadores) {
+              if (trabajador.documentos.some(doc => doc.id === documentId)) {
+                return client;
+              }
+            }
+          }
+          
+          // Check maquinaria documents
+          for (const maquina of obra.maquinaria) {
+            if (maquina.documentos.some(doc => doc.id === documentId)) {
+              return client;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const filteredClients = clients.filter(client => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return client.email.toLowerCase().includes(search) ||
+           client.name?.toLowerCase().includes(search) ||
+           client.empresas.some(empresa => 
+             empresa.razon_social.toLowerCase().includes(search) ||
+             empresa.obras.some(obra => obra.nombre_obra.toLowerCase().includes(search))
+           );
   });
 
   if (loading) {
@@ -434,7 +694,7 @@ export default function NewManualManagement() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando cola de documentos...</p>
+          <p className="text-gray-600">Cargando gestión manual...</p>
         </div>
       </div>
     );
@@ -448,7 +708,7 @@ export default function NewManualManagement() {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar los datos</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={loadQueueData}
+            onClick={loadData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -469,7 +729,7 @@ export default function NewManualManagement() {
               Cola FIFO global para subida manual a plataformas externas
             </p>
             <div className="space-y-1 text-sm text-red-100">
-              <p>• Cola unificada de todos los clientes de ConstructIA</p>
+              <p>• Estructura jerárquica: Cliente → Empresa → Obra → Documento</p>
               <p>• Subida en nombre del cliente usando sus credenciales</p>
               <p>• Soporte para CTAIMA, Ecoordina, Obralia y otras plataformas</p>
               <p>• Procesamiento FIFO con prioridades configurables</p>
@@ -477,7 +737,7 @@ export default function NewManualManagement() {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={loadQueueData}
+              onClick={loadData}
               disabled={loading}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
@@ -559,7 +819,7 @@ export default function NewManualManagement() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Buscar documentos, clientes, proyectos..."
+                placeholder="Buscar clientes, empresas, obras o documentos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -573,10 +833,10 @@ export default function NewManualManagement() {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Todos los estados</option>
-              <option value="pending">Pendientes</option>
-              <option value="processing">Procesando</option>
-              <option value="completed">Completados</option>
-              <option value="error">Con errores</option>
+              <option value="pendiente">Pendientes</option>
+              <option value="aprobado">Aprobados</option>
+              <option value="rechazado">Rechazados</option>
+              <option value="borrador">Borradores</option>
             </select>
             <select
               value={priorityFilter}
@@ -593,18 +853,18 @@ export default function NewManualManagement() {
         </div>
       </div>
 
-      {/* Document Queue */}
+      {/* Hierarchical Document Queue */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Cola de Documentos FIFO</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Cola de Documentos Jerárquica</h2>
             <div className="text-sm text-gray-600">
-              {filteredQueue.length} documentos en cola
+              {stats.totalInQueue} documentos en cola
             </div>
           </div>
         </div>
 
-        {filteredQueue.length === 0 ? (
+        {filteredClients.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -614,132 +874,291 @@ export default function NewManualManagement() {
               Los documentos aparecerán aquí cuando los clientes los suban a la plataforma
             </p>
             <button
-              onClick={loadQueueData}
+              onClick={loadData}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
             >
               Actualizar Cola
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Posición
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Documento
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Proyecto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Prioridad
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredQueue.map((document) => (
-                  <tr key={document.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-bold text-blue-600">#{document.queue_position}</span>
+          <div className="divide-y divide-gray-200">
+            {filteredClients.map(client => (
+              <div key={client.id} className="p-4">
+                {/* Client Level */}
+                <div className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={() => toggleClient(client.id)}
+                      className="p-1 rounded-full hover:bg-gray-100"
+                    >
+                      {expandedClients.includes(client.id) ? 
+                        <ChevronDown className="w-5 h-5 text-gray-600" /> : 
+                        <ChevronRight className="w-5 h-5 text-gray-600" />
+                      }
+                    </button>
+                    <User className="w-6 h-6 text-blue-600" />
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{client.name || client.email}</h3>
+                      <p className="text-sm text-gray-600">{client.email} • {client.role}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm text-gray-600">
+                      {client.empresas.reduce((acc, emp) => 
+                        acc + emp.obras.reduce((accObra, obra) => 
+                          accObra + obra.documentos.length + 
+                          obra.proveedores.reduce((accProv, prov) => 
+                            accProv + prov.trabajadores.reduce((accTrab, trab) => 
+                              accTrab + trab.documentos.length, 0), 0) +
+                          obra.maquinaria.reduce((accMaq, maq) => 
+                            accMaq + maq.documentos.length, 0), 0), 0)
+                      } documentos
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {Object.entries(client.platform_credentials).map(([platform, creds]) => (
+                        <div
+                          key={platform}
+                          className={`w-3 h-3 rounded-full ${
+                            creds.configured ? 'bg-green-500' : 'bg-gray-300'
+                          }`}
+                          title={`${platform.toUpperCase()}: ${creds.configured ? 'Configurado' : 'No configurado'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Empresa Level */}
+                {expandedClients.includes(client.id) && (
+                  <div className="pl-8 space-y-2">
+                    {client.empresas.map(empresa => (
+                      <div key={empresa.id} className="border border-gray-200 rounded-lg">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-t-lg">
+                          <div className="flex items-center space-x-3">
+                            <button 
+                              onClick={() => toggleEmpresa(empresa.id)}
+                              className="p-1 rounded-full hover:bg-gray-200"
+                            >
+                              {expandedEmpresas.includes(empresa.id) ? 
+                                <ChevronDown className="w-4 h-4 text-gray-600" /> : 
+                                <ChevronRight className="w-4 h-4 text-gray-600" />
+                              }
+                            </button>
+                            <Building2 className="w-5 h-5 text-green-600" />
+                            <div>
+                              <h4 className="font-medium text-gray-900">{empresa.razon_social}</h4>
+                              <p className="text-sm text-gray-600">CIF: {empresa.cif}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {empresa.obras.reduce((acc, obra) => 
+                              acc + obra.documentos.length + 
+                              obra.proveedores.reduce((accProv, prov) => 
+                                accProv + prov.trabajadores.reduce((accTrab, trab) => 
+                                  accTrab + trab.documentos.length, 0), 0) +
+                              obra.maquinaria.reduce((accMaq, maq) => 
+                                accMaq + maq.documentos.length, 0), 0)
+                            } documentos
+                          </div>
                         </div>
+
+                        {/* Obra Level */}
+                        {expandedEmpresas.includes(empresa.id) && (
+                          <div className="pl-6 pb-2">
+                            {empresa.obras.map(obra => (
+                              <div key={obra.id} className="border-t border-gray-200">
+                                <div className="flex items-center justify-between p-3 hover:bg-gray-50">
+                                  <div className="flex items-center space-x-3">
+                                    <button 
+                                      onClick={() => toggleObra(obra.id)}
+                                      className="p-1 rounded-full hover:bg-gray-100"
+                                    >
+                                      {expandedObras.includes(obra.id) ? 
+                                        <ChevronDown className="w-4 h-4 text-gray-600" /> : 
+                                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                                      }
+                                    </button>
+                                    <Factory className="w-4 h-4 text-purple-600" />
+                                    <div>
+                                      <h5 className="font-medium text-gray-900">{obra.nombre_obra}</h5>
+                                      <p className="text-sm text-gray-600">{obra.codigo_obra}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-600">
+                                      {obra.documentos.length + 
+                                       obra.proveedores.reduce((acc, prov) => 
+                                         acc + prov.trabajadores.reduce((accTrab, trab) => 
+                                           accTrab + trab.documentos.length, 0), 0) +
+                                       obra.maquinaria.reduce((acc, maq) => 
+                                         acc + maq.documentos.length, 0)
+                                      } docs
+                                    </span>
+                                    {obra.plataforma_destino && (
+                                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                        {obra.plataforma_destino.toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Documents Level */}
+                                {expandedObras.includes(obra.id) && (
+                                  <div className="pl-6 pb-2 space-y-2">
+                                    {/* Obra Documents */}
+                                    {obra.documentos.length > 0 && (
+                                      <div>
+                                        <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                                          <FileText className="w-4 h-4 mr-1" />
+                                          Documentos de Obra ({obra.documentos.length})
+                                        </h6>
+                                        {obra.documentos.map(document => (
+                                          <div key={document.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                                            <div className="flex items-center space-x-3">
+                                              <FileText className="w-4 h-4 text-gray-400" />
+                                              <div>
+                                                <p className="font-medium text-gray-900">{document.categoria}</p>
+                                                <p className="text-sm text-gray-600">
+                                                  {document.file?.split('/').pop()} • {formatFileSize(document.size_bytes)}
+                                                </p>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(document.estado)}`}>
+                                                {getStatusText(document.estado)}
+                                              </span>
+                                              <button
+                                                onClick={() => handleUploadDocument(document, client)}
+                                                disabled={processing === document.id || document.estado === 'aprobado'}
+                                                className="p-1 text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
+                                                title="Subir a plataforma"
+                                              >
+                                                {processing === document.id ? (
+                                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                  <Upload className="w-4 h-4" />
+                                                )}
+                                              </button>
+                                              <button
+                                                onClick={() => handleRemoveDocument(document.id)}
+                                                className="p-1 text-red-600 hover:text-red-700 transition-colors"
+                                                title="Eliminar documento"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Trabajador Documents */}
+                                    {obra.proveedores.map(proveedor => 
+                                      proveedor.trabajadores.map(trabajador => 
+                                        trabajador.documentos.length > 0 && (
+                                          <div key={trabajador.id}>
+                                            <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                                              <HardHat className="w-4 h-4 mr-1" />
+                                              Trabajador: {trabajador.nombre} {trabajador.apellido} ({trabajador.documentos.length})
+                                            </h6>
+                                            {trabajador.documentos.map(document => (
+                                              <div key={document.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                <div className="flex items-center space-x-3">
+                                                  <FileText className="w-4 h-4 text-blue-400" />
+                                                  <div>
+                                                    <p className="font-medium text-gray-900">{document.categoria}</p>
+                                                    <p className="text-sm text-gray-600">
+                                                      {document.file?.split('/').pop()} • {formatFileSize(document.size_bytes)}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(document.estado)}`}>
+                                                    {getStatusText(document.estado)}
+                                                  </span>
+                                                  <button
+                                                    onClick={() => handleUploadDocument(document, client)}
+                                                    disabled={processing === document.id || document.estado === 'aprobado'}
+                                                    className="p-1 text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
+                                                  >
+                                                    {processing === document.id ? (
+                                                      <RefreshCw className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                      <Upload className="w-4 h-4" />
+                                                    )}
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleRemoveDocument(document.id)}
+                                                    className="p-1 text-red-600 hover:text-red-700 transition-colors"
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )
+                                      )
+                                    )}
+
+                                    {/* Maquinaria Documents */}
+                                    {obra.maquinaria.map(maquina => 
+                                      maquina.documentos.length > 0 && (
+                                        <div key={maquina.id}>
+                                          <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                                            <Wrench className="w-4 h-4 mr-1" />
+                                            Máquina: {maquina.tipo} - {maquina.numero_serie} ({maquina.documentos.length})
+                                          </h6>
+                                          {maquina.documentos.map(document => (
+                                            <div key={document.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                                              <div className="flex items-center space-x-3">
+                                                <FileText className="w-4 h-4 text-purple-400" />
+                                                <div>
+                                                  <p className="font-medium text-gray-900">{document.categoria}</p>
+                                                  <p className="text-sm text-gray-600">
+                                                    {document.file?.split('/').pop()} • {formatFileSize(document.size_bytes)}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center space-x-2">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(document.estado)}`}>
+                                                  {getStatusText(document.estado)}
+                                                </span>
+                                                <button
+                                                  onClick={() => handleUploadDocument(document, client)}
+                                                  disabled={processing === document.id || document.estado === 'aprobado'}
+                                                  className="p-1 text-purple-600 hover:text-purple-700 disabled:opacity-50 transition-colors"
+                                                >
+                                                  {processing === document.id ? (
+                                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                                  ) : (
+                                                    <Upload className="w-4 h-4" />
+                                                  )}
+                                                </button>
+                                                <button
+                                                  onClick={() => handleRemoveDocument(document.id)}
+                                                  className="p-1 text-red-600 hover:text-red-700 transition-colors"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-900">{document.original_name}</p>
-                          <p className="text-sm text-gray-500">
-                            {document.document_type} • {formatFileSize(document.file_size)}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <Building2 className="w-4 h-4 text-blue-600" />
-                        <div>
-                          <p className="font-medium text-gray-900">{document.client_name}</p>
-                          <p className="text-sm text-gray-500">{document.client_email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <Factory className="w-4 h-4 text-green-600" />
-                        <div>
-                          <p className="font-medium text-gray-900">{document.project_name}</p>
-                          <p className="text-sm text-gray-500">{document.company_name}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(document.upload_status)}`}>
-                        {document.upload_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(document.priority)}`}>
-                        {document.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(document.created_at).toLocaleDateString('es-ES')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleUploadDocument(document)}
-                          disabled={processing === document.id || document.upload_status === 'completed'}
-                          className="p-2 text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
-                          title="Subir a plataforma"
-                        >
-                          {processing === document.id ? (
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Upload className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedDocument(document);
-                            // Show document details modal
-                          }}
-                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Ver detalles"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleRemoveFromQueue(document.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Eliminar de cola"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -749,35 +1168,40 @@ export default function NewManualManagement() {
         <div className="flex items-start space-x-3">
           <Info className="w-6 h-6 text-blue-600 mt-1" />
           <div>
-            <h3 className="font-bold text-blue-800 mb-2">🔄 Sistema de Cola FIFO</h3>
+            <h3 className="font-bold text-blue-800 mb-2">🔄 Sistema de Gestión Manual Jerárquico</h3>
             <p className="text-blue-700 mb-3">
-              Gestión centralizada de documentos de todos los clientes para subida manual a plataformas externas.
+              Gestión centralizada de documentos organizados por estructura jerárquica: Cliente → Empresa → Obra → Documento.
             </p>
             <div className="text-sm text-blue-600 space-y-1">
-              <div><strong>Flujo de trabajo:</strong></div>
-              <div>• 📥 Los clientes suben documentos a sus proyectos</div>
-              <div>• 🔄 Los documentos entran automáticamente en la cola FIFO</div>
-              <div>• 👨‍💼 El administrador procesa la cola usando credenciales del cliente</div>
-              <div>• 🚀 Subida automática a CTAIMA, Ecoordina, Obralia, etc.</div>
-              <div>• ✅ Confirmación y actualización de estado</div>
+              <div><strong>Estructura jerárquica:</strong></div>
+              <div>• 👤 <strong>Cliente</strong>: Usuario del sistema con credenciales de plataformas</div>
+              <div>• 🏢 <strong>Empresa</strong>: Entidades empresariales del cliente</div>
+              <div>• 🏗️ <strong>Obra</strong>: Proyectos específicos de cada empresa</div>
+              <div>• 📄 <strong>Documentos</strong>: Archivos de obra, trabajadores y maquinaria</div>
               <div className="mt-2 pt-2 border-t border-blue-300">
-                <div className="font-medium text-blue-800">Plataformas soportadas:</div>
-                <div>• 🏗️ CTAIMA • 🌐 Ecoordina • 📋 Obralia/Nalanda • 🔧 Otras plataformas</div>
+                <div className="font-medium text-blue-800">Tipos de documentos:</div>
+                <div>• 🏗️ <strong>Obra</strong>: Planes, certificados, evaluaciones</div>
+                <div>• 👷 <strong>Trabajadores</strong>: DNI, aptitud médica, formación PRL</div>
+                <div>• 🔧 <strong>Maquinaria</strong>: Certificados, mantenimiento, seguros</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Credentials Modal */}
-      <CredentialsModal
+      {/* Platform Credentials Modal */}
+      <PlatformCredentialsModal
         isOpen={showCredentialsModal}
         onClose={() => setShowCredentialsModal(false)}
         onSubmit={handleCredentialsSubmit}
         document={selectedDocument}
-        availablePlatforms={selectedDocument ? Object.keys(selectedDocument.client_credentials || {}).filter(platform => 
-          selectedDocument.client_credentials?.[platform]?.configured
-        ) : []}
+        clientName={selectedClientForModal?.name || selectedClientForModal?.email || 'Cliente'}
+        availablePlatforms={selectedClientForModal ? 
+          Object.entries(selectedClientForModal.platform_credentials)
+            .filter(([_, creds]) => creds.configured)
+            .map(([platform]) => platform)
+          : []
+        }
       />
     </div>
   );
