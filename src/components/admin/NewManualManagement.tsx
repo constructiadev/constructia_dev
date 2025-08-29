@@ -4,7 +4,7 @@ import {
   FileText,
   AlertCircle,
   CheckCircle,
-  Clock,
+import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
   Building2,
   User,
   Settings,
