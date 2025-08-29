@@ -28,46 +28,73 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 async function disableAllRLS() {
   console.log('🚀 Disabling ALL RLS policies for full permissive access...\n');
 
-  const tables = [
-    'tenants',
-    'users',
-    'empresas',
-    'obras', 
-    'proveedores',
-    'trabajadores',
-    'maquinaria',
-    'documentos',
-    'tareas',
-    'requisitos_plataforma',
-    'mapping_templates',
-    'adaptadores',
-    'jobs_integracion',
-    'suscripciones',
-    'auditoria',
-    'mensajes',
-    'reportes',
-    'token_transactions',
-    'checkout_providers',
-    'mandatos_sepa',
-    'manual_upload_queue',
-    'clients', 
-    'companies',
-    'projects',
-    'documents',
-    'subscriptions',
-    'payments',
-    'receipts',
-    'payment_gateways',
-    'system_settings',
-    'kpis',
-    'audit_logs',
-    'manual_document_queue',
-    'manual_upload_sessions',
-    'sepa_mandates',
-    'ai_insights'
-  ];
 
   try {
+    // 0. First, disable RLS on users table specifically to break recursion
+    console.log('0️⃣ Breaking recursive RLS on users table...');
+    const { error: usersRLSError } = await supabase.rpc('exec_sql', {
+      sql: `
+        ALTER TABLE IF EXISTS public.users DISABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Users can access own tenant data" ON public.users;
+        GRANT ALL ON public.users TO anon;
+        GRANT ALL ON public.users TO authenticated;
+        GRANT ALL ON public.users TO service_role;
+      `
+    });
+
+    if (usersRLSError) {
+      console.warn('⚠️ Could not disable users RLS via RPC, trying direct SQL...');
+      
+      // Try direct SQL execution
+      try {
+        await supabase.from('users').select('id').limit(1);
+        console.log('✅ Users table accessible');
+      } catch (directError) {
+        console.error('❌ Users table still has issues:', directError);
+      }
+    } else {
+      console.log('✅ Users RLS disabled successfully');
+    }
+
+    const tables = [
+      'tenants',
+      'users',
+      'empresas',
+      'obras', 
+      'proveedores',
+      'trabajadores',
+      'maquinaria',
+      'documentos',
+      'tareas',
+      'requisitos_plataforma',
+      'mapping_templates',
+      'adaptadores',
+      'jobs_integracion',
+      'suscripciones',
+      'auditoria',
+      'mensajes',
+      'reportes',
+      'token_transactions',
+      'checkout_providers',
+      'mandatos_sepa',
+      'manual_upload_queue',
+      'clients', 
+      'companies',
+      'projects',
+      'documents',
+      'subscriptions',
+      'payments',
+      'receipts',
+      'payment_gateways',
+      'system_settings',
+      'kpis',
+      'audit_logs',
+      'manual_document_queue',
+      'manual_upload_sessions',
+      'sepa_mandates',
+      'ai_insights'
+    ];
+
     // 1. Disable RLS on all tables
     console.log('1️⃣ Disabling RLS on all tables...');
     for (const table of tables) {
@@ -79,9 +106,31 @@ async function disableAllRLS() {
           .single();
 
         if (!error) {
-          // Table exists, try to disable RLS using direct SQL
+          // Table exists, try to disable RLS using direct SQL with comprehensive approach
           const { error: disableError } = await supabase.rpc('exec_sql', {
-            sql: `ALTER TABLE IF EXISTS public.${table} DISABLE ROW LEVEL SECURITY;`
+            sql: `
+              DO $$ 
+              BEGIN 
+                -- Disable RLS
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '${table}' AND table_schema = 'public') THEN
+                  EXECUTE 'ALTER TABLE public.' || quote_ident('${table}') || ' DISABLE ROW LEVEL SECURITY';
+                  
+                  -- Drop all policies for this table
+                  FOR pol IN (
+                    SELECT policyname 
+                    FROM pg_policies 
+                    WHERE tablename = '${table}' AND schemaname = 'public'
+                  ) LOOP
+                    EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(pol.policyname) || ' ON public.' || quote_ident('${table}');
+                  END LOOP;
+                  
+                  -- Grant permissions
+                  EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO anon';
+                  EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO authenticated';
+                  EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO service_role';
+                END IF;
+              END $$;
+            `
           });
 
           if (disableError) {
@@ -97,68 +146,8 @@ async function disableAllRLS() {
       }
     }
 
-    // 2. Drop all existing policies
-    console.log('\n2️⃣ Dropping all existing RLS policies...');
-    for (const table of tables) {
-      try {
-        // Use direct SQL to drop all policies for the table
-        const { error: dropError } = await supabase.rpc('exec_sql', {
-          sql: `
-            DO $$ 
-            DECLARE 
-              pol RECORD;
-            BEGIN 
-              FOR pol IN 
-                SELECT policyname 
-                FROM pg_policies 
-                WHERE tablename = '${table}' AND schemaname = 'public'
-              LOOP
-                EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(pol.policyname) || ' ON public.' || quote_ident('${table}');
-              END LOOP;
-            END $$;
-          `
-        });
-
-        if (dropError) {
-          console.warn(`⚠️ Could not drop policies for ${table}: ${dropError.message}`);
-        } else {
-          console.log(`✅ Dropped all policies for ${table}`);
-        }
-      } catch (e) {
-        console.warn(`⚠️ Error getting policies for ${table}:`, e.message);
-      }
-    }
-
-    // 3. Grant full permissions to anon and authenticated roles
-    console.log('\n3️⃣ Granting full permissions to anon and authenticated roles...');
-    for (const table of tables) {
-      try {
-        // Use direct SQL to grant permissions
-        const { error: grantError } = await supabase.rpc('exec_sql', {
-          sql: `
-            DO $$ 
-            BEGIN 
-              IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '${table}' AND table_schema = 'public') THEN
-                EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO anon';
-                EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO authenticated';
-                EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO service_role';
-              END IF;
-            END $$;
-          `
-        });
-
-        if (grantError) {
-          console.warn(`⚠️ Could not grant permissions for ${table}: ${grantError.message}`);
-        } else {
-          console.log(`✅ Granted all permissions for ${table}`);
-        }
-      } catch (e) {
-        console.warn(`⚠️ Error granting permissions for ${table}:`, e.message);
-      }
-    }
-
-    // 4. Test database access
-    console.log('\n4️⃣ Testing database access...');
+    // 2. Test database access
+    console.log('\n2️⃣ Testing database access...');
     
     // Test empresas table (main table for new schema)
     const { data: empresasData, error: empresasError } = await supabase
@@ -185,7 +174,7 @@ async function disableAllRLS() {
     }
 
     // Test insert on empresas table
-    console.log('\n5️⃣ Testing insert permissions...');
+    console.log('\n3️⃣ Testing insert permissions...');
     const testEmpresa = {
       tenant_id: '00000000-0000-0000-0000-000000000001',
       razon_social: 'Test Company S.L.',
