@@ -32,16 +32,15 @@ import {
   Activity,
   BarChart3,
   FolderOpen
-} from 'lucide-react';
-import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
-import {
-  getTenantHierarchy,
-  getTenantStats,
-  supabaseNew,
+  AlertCircle,
+  CheckCircle,
+  Building2,
+  User,
+  Settings,
+  ChevronDown,
+  Search,
+  supabaseServiceClient,
   DEV_TENANT_ID,
-  DEV_ADMIN_USER_ID,
-  logAuditoria
-} from '../../lib/supabase-new';
 
 interface DocumentNode {
   id: string;
