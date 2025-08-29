@@ -29,7 +29,27 @@ async function disableAllRLS() {
   console.log('🚀 Disabling ALL RLS policies for full permissive access...\n');
 
   const tables = [
+    'tenants',
     'users',
+    'empresas',
+    'obras', 
+    'proveedores',
+    'trabajadores',
+    'maquinaria',
+    'documentos',
+    'tareas',
+    'requisitos_plataforma',
+    'mapping_templates',
+    'adaptadores',
+    'jobs_integracion',
+    'suscripciones',
+    'auditoria',
+    'mensajes',
+    'reportes',
+    'token_transactions',
+    'checkout_providers',
+    'mandatos_sepa',
+    'manual_upload_queue',
     'clients', 
     'companies',
     'projects',
@@ -43,7 +63,8 @@ async function disableAllRLS() {
     'audit_logs',
     'manual_document_queue',
     'manual_upload_sessions',
-    'sepa_mandates'
+    'sepa_mandates',
+    'ai_insights'
   ];
 
   try {
@@ -51,14 +72,25 @@ async function disableAllRLS() {
     console.log('1️⃣ Disabling RLS on all tables...');
     for (const table of tables) {
       try {
-        const { error } = await supabase.rpc('exec_sql', {
-          sql: `ALTER TABLE public.${table} DISABLE ROW LEVEL SECURITY;`
-        });
+        const { error } = await supabase
+          .from('pg_class')
+          .select('relname')
+          .eq('relname', table)
+          .single();
 
-        if (error) {
-          console.warn(`⚠️ Could not disable RLS for ${table}: ${error.message}`);
+        if (!error) {
+          // Table exists, try to disable RLS using direct SQL
+          const { error: disableError } = await supabase.rpc('exec_sql', {
+            sql: `ALTER TABLE IF EXISTS public.${table} DISABLE ROW LEVEL SECURITY;`
+          });
+
+          if (disableError) {
+            console.warn(`⚠️ Could not disable RLS for ${table}: ${disableError.message}`);
+          } else {
+            console.log(`✅ RLS disabled for ${table}`);
+          }
         } else {
-          console.log(`✅ RLS disabled for ${table}`);
+          console.warn(`⚠️ Table ${table} does not exist, skipping...`);
         }
       } catch (e) {
         console.warn(`⚠️ Error with table ${table}:`, e.message);
@@ -69,33 +101,28 @@ async function disableAllRLS() {
     console.log('\n2️⃣ Dropping all existing RLS policies...');
     for (const table of tables) {
       try {
-        // Get all policies for this table
-        const { data: policies, error: policiesError } = await supabase
-          .from('pg_policies')
-          .select('policyname')
-          .eq('tablename', table)
-          .eq('schemaname', 'public');
+        // Use direct SQL to drop all policies for the table
+        const { error: dropError } = await supabase.rpc('exec_sql', {
+          sql: `
+            DO $$ 
+            DECLARE 
+              pol RECORD;
+            BEGIN 
+              FOR pol IN 
+                SELECT policyname 
+                FROM pg_policies 
+                WHERE tablename = '${table}' AND schemaname = 'public'
+              LOOP
+                EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(pol.policyname) || ' ON public.' || quote_ident('${table}');
+              END LOOP;
+            END $$;
+          `
+        });
 
-        if (!policiesError && policies && policies.length > 0) {
-          // Drop each policy
-          for (const policy of policies) {
-            try {
-              const { error: dropError } = await supabase.rpc('drop_policy', {
-                table_name: table,
-                policy_name: policy.policyname
-              });
-
-              if (dropError) {
-                console.warn(`⚠️ Could not drop policy ${policy.policyname} on ${table}: ${dropError.message}`);
-              } else {
-                console.log(`✅ Dropped policy ${policy.policyname} on ${table}`);
-              }
-            } catch (e) {
-              console.warn(`⚠️ Error dropping policy ${policy.policyname}:`, e.message);
-            }
-          }
-        } else if (policiesError) {
-          console.warn(`⚠️ Could not get policies for ${table}: ${policiesError.message}`);
+        if (dropError) {
+          console.warn(`⚠️ Could not drop policies for ${table}: ${dropError.message}`);
+        } else {
+          console.log(`✅ Dropped all policies for ${table}`);
         }
       } catch (e) {
         console.warn(`⚠️ Error getting policies for ${table}:`, e.message);
@@ -106,28 +133,24 @@ async function disableAllRLS() {
     console.log('\n3️⃣ Granting full permissions to anon and authenticated roles...');
     for (const table of tables) {
       try {
-        // Grant all permissions to anon role
-        const { error: anonError } = await supabase.rpc('grant_permissions', {
-          table_name: table,
-          role_name: 'anon'
+        // Use direct SQL to grant permissions
+        const { error: grantError } = await supabase.rpc('exec_sql', {
+          sql: `
+            DO $$ 
+            BEGIN 
+              IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '${table}' AND table_schema = 'public') THEN
+                EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO anon';
+                EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO authenticated';
+                EXECUTE 'GRANT ALL ON public.' || quote_ident('${table}') || ' TO service_role';
+              END IF;
+            END $$;
+          `
         });
 
-        if (anonError) {
-          console.warn(`⚠️ Could not grant permissions to anon for ${table}: ${anonError.message}`);
+        if (grantError) {
+          console.warn(`⚠️ Could not grant permissions for ${table}: ${grantError.message}`);
         } else {
-          console.log(`✅ Granted all permissions to anon for ${table}`);
-        }
-
-        // Grant all permissions to authenticated role
-        const { error: authError } = await supabase.rpc('grant_permissions', {
-          table_name: table,
-          role_name: 'authenticated'
-        });
-
-        if (authError) {
-          console.warn(`⚠️ Could not grant permissions to authenticated for ${table}: ${authError.message}`);
-        } else {
-          console.log(`✅ Granted all permissions to authenticated for ${table}`);
+          console.log(`✅ Granted all permissions for ${table}`);
         }
       } catch (e) {
         console.warn(`⚠️ Error granting permissions for ${table}:`, e.message);
@@ -137,45 +160,43 @@ async function disableAllRLS() {
     // 4. Test database access
     console.log('\n4️⃣ Testing database access...');
     
-    // Test users table
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
+    // Test empresas table (main table for new schema)
+    const { data: empresasData, error: empresasError } = await supabase
+      .from('empresas')
       .select('*')
       .limit(5);
 
-    if (usersError) {
-      console.error('❌ Error accessing users table:', usersError);
+    if (empresasError) {
+      console.error('❌ Error accessing empresas table:', empresasError);
     } else {
-      console.log(`✅ Users table accessible. Found ${usersData?.length || 0} users`);
+      console.log(`✅ Empresas table accessible. Found ${empresasData?.length || 0} empresas`);
     }
 
-    // Test clients table
-    const { data: clientsData, error: clientsError } = await supabase
-      .from('clients')
+    // Test documentos table
+    const { data: documentosData, error: documentosError } = await supabase
+      .from('documentos')
       .select('*')
       .limit(5);
 
-    if (clientsError) {
-      console.error('❌ Error accessing clients table:', clientsError);
+    if (documentosError) {
+      console.error('❌ Error accessing documentos table:', documentosError);
     } else {
-      console.log(`✅ Clients table accessible. Found ${clientsData?.length || 0} clients`);
+      console.log(`✅ Documentos table accessible. Found ${documentosData?.length || 0} documentos`);
     }
 
-    // Test insert on clients table
+    // Test insert on empresas table
     console.log('\n5️⃣ Testing insert permissions...');
-    const testClient = {
-      user_id: '00000000-0000-0000-0000-000000000001',
-      client_id: 'TEST-CLIENT-001',
-      company_name: 'Test Company',
-      contact_name: 'Test User',
-      email: 'test@example.com',
-      subscription_plan: 'basic',
-      subscription_status: 'active'
+    const testEmpresa = {
+      tenant_id: '00000000-0000-0000-0000-000000000001',
+      razon_social: 'Test Company S.L.',
+      cif: 'B99999999',
+      direccion: 'Test Address',
+      contacto_email: 'test@example.com'
     };
 
     const { data: insertData, error: insertError } = await supabase
-      .from('clients')
-      .upsert(testClient)
+      .from('empresas')
+      .upsert(testEmpresa)
       .select();
 
     if (insertError) {
@@ -185,9 +206,8 @@ async function disableAllRLS() {
       
       // Clean up test record
       await supabase
-        .from('clients')
-        .delete()
-        .eq('client_id', 'TEST-CLIENT-001');
+        .from('empresas')
+        .eq('cif', 'B99999999');
     }
 
     console.log('\n🎉 All RLS policies disabled successfully!');

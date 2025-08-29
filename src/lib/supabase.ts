@@ -1,8 +1,11 @@
 import { supabaseClient, DEV_TENANT_ID } from './supabase-real';
 import { 
-  getTenantEmpresas, 
-  getTenantObras, 
+  getTenantEmpresas,
+  getTenantEmpresasNoRLS,
+  getTenantObras,
+  getTenantObrasNoRLS, 
   getAllTenantDocuments,
+  getAllTenantDocumentsNoRLS,
   getTenantStats,
   getCurrentUserTenant
 } from './supabase-real';
