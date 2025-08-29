@@ -31,7 +31,7 @@ import {
   Target,
   Activity,
   BarChart3,
-  FolderOpen
+  FolderOpen,
   Search,
   RefreshCw,
   Upload,
