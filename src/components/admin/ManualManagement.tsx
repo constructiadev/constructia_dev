@@ -58,7 +58,8 @@ import {
   ChevronDown, 
   ChevronRight, 
   ExternalLink, 
-  Copy 
+  Copy,
+  Clock
 } from 'lucide-react';
 import { 
   manualManagementService, 
