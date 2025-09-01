@@ -1,5 +1,6 @@
 // ConstructIA - Procesador de Documentos con Gemini AI
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { appConfig } from '../config/app-config';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -44,6 +45,12 @@ export class GeminiDocumentProcessor {
     fileName: string,
     mimeType: string
   ): Promise<DocumentExtractionResult> {
+    // Check if we should simulate in development
+    if (appConfig.settings.IA.simulate_in_dev) {
+      console.log('🤖 [Gemini] Using simulation mode to avoid quota issues');
+      return this.getMockExtraction(fileName);
+    }
+
     if (!this.model) {
       return this.getMockExtraction(fileName);
     }
