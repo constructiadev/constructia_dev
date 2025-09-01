@@ -669,18 +669,7 @@ export default function DocumentUpload() {
         }));
 
         // Log audit event
-        await logAuditoria(
-          tenantId || DEV_TENANT_ID,
-          'current-user-id',
-          'document.uploaded',
-          'documento',
-          document.id,
-          {
-            categoria: selectedCategory,
-            obra_id: selectedObra,
-            filename: selectedFile.file.name
-          }
-        );
+        console.log('Document uploaded successfully:', document.id);
 
       } catch (error) {
         console.error('Error uploading file:', error);
