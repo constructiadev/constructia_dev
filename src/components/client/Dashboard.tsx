@@ -46,10 +46,24 @@ export default function ClientDashboard() {
         .from('clients')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (clientError || !clientData) {
-        throw new Error('No se encontraron datos del cliente');
+      if (clientError) {
+        throw new Error(`Error al obtener datos del cliente: ${clientError.message}`);
+      }
+      
+      if (!clientData) {
+        // No hay datos del cliente, mostrar estado inicial
+        setStats({
+          totalProjects: 0,
+          totalCompanies: 0,
+          totalDocuments: 0,
+          documentsProcessed: 0,
+          storageUsed: 0,
+          storageLimit: 0
+        });
+        setClientData(null);
+        return;
       }
       
       setClientData(clientData);
