@@ -271,8 +271,13 @@ export default function Companies() {
             <button
               onClick={() => setShowCreateModal(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg inline-flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva Empresa
+            </button>
+          )}
+        </div>
       )}
-      </div>
     </div>
   );
 }
