@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient, supabaseServiceClient, DEV_TENANT_ID } from './supabase-real';
 import { 
-  getTenantEmpresas,
   getTenantEmpresasNoRLS,
   getTenantUsersNoRLS,
-  getTenantObras,
   getTenantObrasNoRLS, 
   getTenantStats,
   getCurrentUserTenant
@@ -15,6 +13,9 @@ export const TEST_USER_UUID = '00000000-0000-0000-0000-000000000001';
 
 // Export DEV_TENANT_ID for use in other modules
 export { DEV_TENANT_ID };
+
+// Export service client for admin operations
+export { supabaseServiceClient };
 
 // Export functions from supabase-real for use in other modules
 export { getTenantEmpresasNoRLS, getTenantUsersNoRLS, getTenantObrasNoRLS, getTenantStats };
