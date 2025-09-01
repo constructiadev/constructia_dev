@@ -20,6 +20,7 @@ import APIManagement from './admin/APIManagement';
 import AuditModule from './admin/AuditModule';
 import SettingsModule from './admin/SettingsModule';
 import MessagingModule from './admin/MessagingModule';
+import ManualManagement from './admin/ManualManagement';
 
 // Client pages
 import ClientDashboard from './client/Dashboard';
@@ -69,6 +70,7 @@ export default function Router() {
           <Route path="audit" element={<AuditModule />} />
           <Route path="settings" element={<SettingsModule />} />
           <Route path="messaging" element={<MessagingModule />} />
+          <Route path="manual" element={<ManualManagement />} />
         </Route>
 
         {/* Client routes - Sin protección temporal */}

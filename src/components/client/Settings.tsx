@@ -12,6 +12,7 @@ import {
 import { getAllClients, updateClientObraliaCredentials } from '../../lib/supabase';
 
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
+import PlatformCredentialsManager from './PlatformCredentialsManager';
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
@@ -321,6 +322,19 @@ export default function Settings() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Platform Credentials Management */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <Globe className="w-6 h-6 text-gray-600" />
+            <h2 className="text-xl font-semibold text-gray-900">Credenciales de Plataformas CAE</h2>
+          </div>
+          
+          <PlatformCredentialsManager 
+            clientId={clientData?.id || ''}
+            onCredentialsUpdated={loadClientData}
+          />
         </div>
 
         {/* Información de Integración */}

@@ -27,6 +27,7 @@ const navigation = [
   { name: 'API Management', href: '/admin/api', icon: BarChart3 },
   { name: 'Auditoría', href: '/admin/audit', icon: Activity },
   { name: 'Mensajería', href: '/admin/messaging', icon: Mail },
+  { name: 'Gestión Manual', href: '/admin/manual', icon: FileText },
   { name: 'Configuración', href: '/admin/settings', icon: Settings },
 ];
 
