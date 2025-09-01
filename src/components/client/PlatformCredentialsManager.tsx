@@ -43,19 +43,22 @@ export default function PlatformCredentialsManager({
       type: 'nalanda' as const, 
       name: 'Nalanda/Obralia', 
       color: 'bg-blue-600',
-      description: 'Plataforma principal de gestión CAE'
+      description: 'Plataforma principal de gestión CAE',
+      loginUrl: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth?ui_locales=es+en+pt&scope=openid&response_type=code&redirect_uri=https%3A%2F%2Fapp.nalandaglobal.com%2Fsso%2Fcallback.action&state=iWjiywv5BdzdX9IagNMFTYQgz_0QJMlNxfowDD_XeSY&nonce=_wBHFNRC1xlSpdE_2Uq7UxLzCCD1Amy29V3LjcDk7iE&client_id=nalanda-app'
     },
     { 
       type: 'ctaima' as const, 
       name: 'CTAIMA', 
       color: 'bg-green-600',
-      description: 'Sistema de coordinación de actividades'
+      description: 'Sistema de coordinación de actividades',
+      loginUrl: 'https://login.ctaima.com/Account/Login?ReturnUrl=%2Fconnect%2Fauthorize%2Fcallback%3Fclient_id%3Dmy_account_local%26redirect_uri%3Dhttps%253A%252F%252Fmyaccount.ctaima.com%26response_type%3Did_token%2520token%26scope%3Dopenid%2520profile%2520email%2520Abacus.read_product%26nonce%3DN0.405965576346192241756710652344%26state%3D17567106520800.5509632605791698'
     },
     { 
       type: 'ecoordina' as const, 
       name: 'Ecoordina', 
       color: 'bg-purple-600',
-      description: 'Plataforma de coordinación empresarial'
+      description: 'Plataforma de coordinación empresarial',
+      loginUrl: 'https://login.welcometotwind.io/junoprod.onmicrosoft.com/b2c_1a_signup_signin/oauth2/v2.0/authorize?client_id=b2a08c2d-92b8-48c6-8fef-b7358a110496&scope=openid%20profile%20offline_access&redirect_uri=https%3A%2F%2Fwelcometotwind.io%2F&client-request-id=76a43f68-c14b-40f3-b69c-0fb721c597f8&response_mode=fragment&response_type=code&x-client-SKU=msal.js.browser&x-client-VER=2.38.0&client_info=1&code_challenge=v5ig0AtC6pVVrqljy_BylnvEbolLoaYEwgkG_kjpdro&code_challenge_method=S256&nonce=4e4dccec-a6ff-4193-8c19-285a4908d6be&state=eyJpZCI6ImNmNTRiY2IwLTAzMTctNDNhMC1hYjU0LWRjNTUzMTk5YjBjMiIsIm1ldGEiOnsiaW50ZXJhY3Rpb25UeXBlIjoicmVkaXJlY3QifX0%3D'
     }
   ];
 

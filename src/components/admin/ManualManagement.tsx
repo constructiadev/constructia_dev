@@ -642,6 +642,24 @@ export default function ManualManagement() {
   const [processingBatch, setProcessingBatch] = useState(false);
   const [currentSession, setCurrentSession] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<string[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [selectedClientForCredentials, setSelectedClientForCredentials] = useState<string | null>(null);
+  const [showDestinationSelector, setShowDestinationSelector] = useState(false);
+  const [selectedDestination, setSelectedDestination] = useState<{
+    clientId: string;
+    clientName: string;
+    empresaId: string;
+    empresaName: string;
+    proyectoId: string;
+    proyectoName: string;
+  } | null>(null);
+  const [newDocument, setNewDocument] = useState({
+    category: '',
+    priority: 'normal' as const,
+    platform_target: 'nalanda' as const,
+    files: [] as File[]
+  });
 
   useEffect(() => {
     loadData();
@@ -679,6 +697,40 @@ export default function ManualManagement() {
       setError(error instanceof Error ? error.message : 'Error loading data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addDocumentToQueue = async () => {
+    if (!selectedDestination || !newDocument.category || newDocument.files.length === 0) {
+      alert('Por favor seleccione destino, categoría y archivos');
+      return;
+    }
+
+    try {
+      for (const file of newDocument.files) {
+        await manualManagementService.addDocumentToQueue(
+          selectedDestination.clientId,
+          selectedDestination.empresaId,
+          selectedDestination.proyectoId,
+          file,
+          newDocument.priority,
+          newDocument.platform_target
+        );
+      }
+      
+      await loadData();
+      setShowAddModal(false);
+      setSelectedDestination(null);
+      setNewDocument({
+        category: '',
+        priority: 'normal',
+        platform_target: 'nalanda',
+        files: []
+      });
+      alert('✅ Documentos añadidos a la cola exitosamente');
+    } catch (error) {
+      console.error('Error adding documents:', error);
+      alert('❌ Error al añadir documentos a la cola');
     }
   };
 
@@ -1265,6 +1317,196 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
         </div>
       </div>
 
+      {/* Modal de Añadir Documentos */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">Añadir Documentos a Cola</h2>
+                  <p className="text-blue-100">Subir documentos para procesamiento manual</p>
+                </div>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <form className="space-y-6">
+                {/* Selección de Destino */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Destino *</label>
+                  {!selectedDestination ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDestinationSelector(true)}
+                      className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors text-center"
+                    >
+                      <div className="text-gray-600">
+                        <Building2 className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p className="font-medium">Seleccionar Destino</p>
+                        <p className="text-sm">Cliente → Empresa → Proyecto</p>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-blue-900">
+                            {selectedDestination.clientName} → {selectedDestination.empresaName} → {selectedDestination.proyectoName}
+                          </p>
+                          <p className="text-sm text-blue-700">Destino seleccionado</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDestination(null)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Categoría */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Categoría del Documento *
+                  </label>
+                  <select
+                    value={newDocument.category}
+                    onChange={(e) => setNewDocument(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar categoría...</option>
+                    <option value="PRL">PRL</option>
+                    <option value="APTITUD_MEDICA">Aptitud Médica</option>
+                    <option value="DNI">DNI</option>
+                    <option value="ALTA_SS">Alta SS</option>
+                    <option value="CONTRATO">Contrato</option>
+                    <option value="SEGURO_RC">Seguro RC</option>
+                    <option value="REA">REA</option>
+                    <option value="FORMACION_PRL">Formación PRL</option>
+                    <option value="EVAL_RIESGOS">Evaluación de Riesgos</option>
+                    <option value="CERT_MAQUINARIA">Certificado Maquinaria</option>
+                    <option value="PLAN_SEGURIDAD">Plan de Seguridad</option>
+                    <option value="OTROS">Otros</option>
+                  </select>
+                </div>
+
+                {/* Prioridad */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prioridad
+                  </label>
+                  <select
+                    value={newDocument.priority}
+                    onChange={(e) => setNewDocument(prev => ({ ...prev, priority: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="low">Baja</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">Alta</option>
+                    <option value="urgent">Urgente</option>
+                  </select>
+                </div>
+
+                {/* Plataforma Destino */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Plataforma Destino
+                  </label>
+                  <select
+                    value={newDocument.platform_target}
+                    onChange={(e) => setNewDocument(prev => ({ ...prev, platform_target: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="nalanda">Nalanda/Obralia</option>
+                    <option value="ctaima">CTAIMA</option>
+                    <option value="ecoordina">Ecoordina</option>
+                  </select>
+                </div>
+
+                {/* Archivos */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Archivos *
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600 mb-2">
+                      Arrastra archivos aquí o haz clic para seleccionar
+                    </p>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setNewDocument(prev => ({ ...prev, files: Array.from(e.target.files!) }));
+                        }
+                      }}
+                      className="hidden"
+                      id="file-upload-add"
+                    />
+                    <label
+                      htmlFor="file-upload-add"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block"
+                    >
+                      Seleccionar Archivos
+                    </label>
+                  </div>
+                  
+                  {newDocument.files.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm text-gray-600 mb-2">
+                        {newDocument.files.length} archivo(s) seleccionado(s):
+                      </p>
+                      <div className="space-y-1">
+                        {newDocument.files.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
+                            <span>{file.name}</span>
+                            <span className="text-gray-500">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Botones */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addDocumentToQueue}
+                    className="flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Añadir a Cola
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Modal */}
       <UploadModal
         isOpen={showUploadModal}
@@ -1280,6 +1522,246 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
         onSave={handleSavePlatformCredentials}
         clientGroup={selectedClient}
       />
+
+      {/* Modal de Selección de Destino Jerárquico */}
+      {showDestinationSelector && (
+        <HierarchicalDestinationSelector
+          isOpen={showDestinationSelector}
+          onClose={() => setShowDestinationSelector(false)}
+          onSelect={(destination) => {
+            setSelectedDestination(destination);
+            setShowDestinationSelector(false);
+          }}
+          clientGroups={clientGroups}
+        />
+      )}
+    </div>
+  );
+}
+
+// Componente para selección jerárquica de destino
+interface HierarchicalDestinationSelectorProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (destination: {
+    clientId: string;
+    clientName: string;
+    empresaId: string;
+    empresaName: string;
+    proyectoId: string;
+    proyectoName: string;
+  }) => void;
+  clientGroups: any[];
+}
+
+function HierarchicalDestinationSelector({ 
+  isOpen, 
+  onClose, 
+  onSelect, 
+  clientGroups 
+}: HierarchicalDestinationSelectorProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
+  const [expandedClients, setExpandedClients] = useState<string[]>([]);
+  const [expandedEmpresas, setExpandedEmpresas] = useState<string[]>([]);
+
+  const filteredClients = clientGroups.filter(client =>
+    client.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.client_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.companies.some((company: any) => 
+      company.company_name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const toggleClient = (clientId: string) => {
+    if (expandedClients.includes(clientId)) {
+      setExpandedClients(prev => prev.filter(id => id !== clientId));
+    } else {
+      setExpandedClients(prev => [...prev, clientId]);
+    }
+  };
+
+  const toggleEmpresa = (empresaId: string) => {
+    if (expandedEmpresas.includes(empresaId)) {
+      setExpandedEmpresas(prev => prev.filter(id => id !== empresaId));
+    } else {
+      setExpandedEmpresas(prev => [...prev, empresaId]);
+    }
+  };
+
+  const handleProjectSelect = (
+    clientId: string,
+    clientName: string,
+    empresaId: string,
+    empresaName: string,
+    proyectoId: string,
+    proyectoName: string
+  ) => {
+    onSelect({
+      clientId,
+      clientName,
+      empresaId,
+      empresaName,
+      proyectoId,
+      proyectoName
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold">Seleccionar Destino</h3>
+              <p className="text-blue-100">Cliente → Empresa → Proyecto</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar cliente, empresa o proyecto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {searchTerm && (
+            <p className="text-sm text-gray-500 mt-2">
+              Mostrando {filteredClients.length} de {clientGroups.length} clientes
+            </p>
+          )}
+        </div>
+
+        {/* Hierarchical List */}
+        <div className="p-4 max-h-96 overflow-y-auto">
+          {filteredClients.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">
+                {searchTerm ? `No se encontraron resultados para "${searchTerm}"` : 'No hay clientes disponibles'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredClients.map((client) => (
+                <div key={client.client_id} className="border border-gray-200 rounded-lg">
+                  {/* Cliente */}
+                  <div 
+                    className={`flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 ${
+                      selectedClient === client.client_id ? 'bg-blue-50' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedClient(client.client_id);
+                      toggleClient(client.client_id);
+                    }}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <button className="p-1">
+                        {expandedClients.includes(client.client_id) ? 
+                          <ChevronDown className="w-4 h-4 text-gray-600" /> : 
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                        }
+                      </button>
+                      <Users className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <h4 className="font-medium text-gray-900">{client.client_name}</h4>
+                        <p className="text-sm text-gray-600">{client.client_email}</p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {client.total_documents} docs
+                    </div>
+                  </div>
+
+                  {/* Empresas */}
+                  {expandedClients.includes(client.client_id) && (
+                    <div className="pl-8 pb-2">
+                      {client.companies.map((empresa: any) => (
+                        <div key={empresa.company_id} className="border-l-2 border-gray-200 ml-4">
+                          <div 
+                            className={`flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50 ${
+                              selectedEmpresa === empresa.company_id ? 'bg-green-50' : ''
+                            }`}
+                            onClick={() => {
+                              setSelectedEmpresa(empresa.company_id);
+                              toggleEmpresa(empresa.company_id);
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <button className="p-1">
+                                {expandedEmpresas.includes(empresa.company_id) ? 
+                                  <ChevronDown className="w-3 h-3 text-gray-600" /> : 
+                                  <ChevronRight className="w-3 h-3 text-gray-600" />
+                                }
+                              </button>
+                              <Building2 className="w-4 h-4 text-green-600" />
+                              <div>
+                                <h5 className="font-medium text-gray-800">{empresa.company_name}</h5>
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {empresa.total_documents} docs
+                            </div>
+                          </div>
+
+                          {/* Proyectos */}
+                          {expandedEmpresas.includes(empresa.company_id) && (
+                            <div className="pl-6">
+                              {empresa.projects.map((proyecto: any) => (
+                                <div 
+                                  key={proyecto.project_id}
+                                  className="flex items-center justify-between p-2 cursor-pointer hover:bg-purple-50 rounded border-l-2 border-purple-200 ml-2"
+                                  onClick={() => handleProjectSelect(
+                                    client.client_id,
+                                    client.client_name,
+                                    empresa.company_id,
+                                    empresa.company_name,
+                                    proyecto.project_id,
+                                    proyecto.project_name
+                                  )}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <FolderOpen className="w-4 h-4 text-purple-600" />
+                                    <div>
+                                      <h6 className="font-medium text-gray-800">{proyecto.project_name}</h6>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-500">{proyecto.total_documents} docs</span>
+                                    <button className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm">
+                                      Seleccionar
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
