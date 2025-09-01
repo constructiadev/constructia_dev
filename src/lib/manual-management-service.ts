@@ -198,6 +198,7 @@ export class ManualManagementService {
   // Get documents in queue for a specific project
   async getQueueDocumentsForProject(projectId: string): Promise<ManualDocument[]> {
     try {
+      // Obtener documentos reales de la cola manual para este proyecto
       const { data, error } = await supabaseServiceClient
         .from('manual_upload_queue')
         .select(`
@@ -208,20 +209,21 @@ export class ManualManagementService {
             file,
             mime,
             size_bytes,
+            estado,
             metadatos,
             created_at
           )
         `)
         .eq('tenant_id', this.tenantId)
         .eq('obra_id', projectId)
-        .order('created_at');
+        .order('created_at', { ascending: true }); // Más antiguos primero
 
       if (error) {
         console.error('Error fetching queue documents:', error);
         return [];
       }
 
-      // Transform to ManualDocument format
+      // Transformar a formato ManualDocument con datos reales
       return (data || []).map((item, index) => ({
         id: item.id,
         tenant_id: item.tenant_id,
@@ -232,20 +234,21 @@ export class ManualManagementService {
         file_size: item.documentos?.size_bytes || 1024000,
         file_type: item.documentos?.mime || 'application/pdf',
         classification: item.documentos?.categoria || 'OTROS',
-        confidence: Math.floor(Math.random() * 30) + 70,
+        confidence: item.documentos?.metadatos?.ai_extraction?.confianza?.categoria_probable * 100 || 85,
         corruption_detected: false,
-        integrity_score: Math.floor(Math.random() * 20) + 80,
+        integrity_score: 100, // Documentos en cola son íntegros
         status: item.status === 'queued' ? 'pending' : 
                 item.status === 'in_progress' ? 'uploading' :
                 item.status === 'uploaded' ? 'uploaded' : 'error',
-        priority: ['low', 'normal', 'high', 'urgent'][index % 4] as any,
+        priority: this.calculatePriority(item.documentos?.categoria, item.created_at),
         queue_position: index + 1,
-        retry_count: item.status === 'error' ? Math.floor(Math.random() * 3) + 1 : 0,
-        last_error: item.status === 'error' ? 'Connection timeout' : undefined,
-        admin_notes: item.nota || '',
-        platform_target: 'nalanda',
+        retry_count: 0, // Se resetea en cada intento
+        last_error: item.status === 'error' ? 'Error de conexión con plataforma' : undefined,
+        nota: item.nota || '',
+        platform_target: 'nalanda', // Por defecto, se puede configurar por obra
         company_id: item.empresa_id,
         project_id: item.obra_id,
+        estimated_processing_time: this.estimateProcessingTime(item.documentos?.size_bytes),
         created_at: item.created_at,
         updated_at: item.updated_at
       }));
@@ -253,6 +256,36 @@ export class ManualManagementService {
       console.error('Error getting queue documents:', error);
       return [];
     }
+  }
+
+  // Calcular prioridad basada en tipo de documento y antigüedad
+  private calculatePriority(categoria: string, createdAt: string): 'low' | 'normal' | 'high' | 'urgent' {
+    const daysSinceCreated = Math.floor((new Date().getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Documentos críticos
+    if (['APTITUD_MEDICA', 'FORMACION_PRL', 'SEGURO_RC'].includes(categoria)) {
+      return daysSinceCreated > 7 ? 'urgent' : 'high';
+    }
+    
+    // Documentos importantes
+    if (['DNI', 'CONTRATO', 'REA'].includes(categoria)) {
+      return daysSinceCreated > 14 ? 'high' : 'normal';
+    }
+    
+    // Documentos estándar
+    return daysSinceCreated > 30 ? 'normal' : 'low';
+  }
+
+  // Estimar tiempo de procesamiento basado en tamaño de archivo
+  private estimateProcessingTime(sizeBytes?: number): string {
+    if (!sizeBytes) return '2 min';
+    
+    const sizeMB = sizeBytes / (1024 * 1024);
+    
+    if (sizeMB < 1) return '1 min';
+    if (sizeMB < 5) return '2 min';
+    if (sizeMB < 10) return '3 min';
+    return '5 min';
   }
 
   // Add document to manual queue

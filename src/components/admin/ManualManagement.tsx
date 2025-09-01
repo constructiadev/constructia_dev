@@ -1203,7 +1203,7 @@ export default function ManualManagement() {
       documentId, 
       newStatus as ManualDocument['upload_status']
     );
-    
+        `Estado cambiado por administrador a ${newStatus} - ${new Date().toLocaleString()}`
     // Update local state
     setClientGroups(prev => prev.map(client => ({
       ...client,
@@ -1239,7 +1239,11 @@ export default function ManualManagement() {
       );
     }
     
-    alert(`📁 ${files.length} archivo(s) añadido(s) a la cola`);
+        if (newStatus === 'uploaded') {
+          alert(`✅ Documento subido exitosamente y removido de la cola`);
+        } else {
+          alert(`✅ Estado actualizado a ${newStatus}`);
+        }
     await loadData(); // Refresh data
   };
 
