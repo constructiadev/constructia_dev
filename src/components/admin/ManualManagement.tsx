@@ -37,7 +37,8 @@ import {
   Edit,
   Copy,
   ExternalLink,
-  Loader2
+  Loader2,
+  EyeOff
 } from 'lucide-react';
 import { manualManagementService, type ClientGroup, type ManualDocument } from '../../lib/manual-management-service';
 
