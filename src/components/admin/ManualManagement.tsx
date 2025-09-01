@@ -415,7 +415,7 @@ function ClientRow({ client, isExpanded, onToggle, onConnectPlatform, onStatusCh
   );
 
   const pendingDocuments = allDocuments.filter(doc => 
-    doc.upload_status === 'pending' || doc.upload_status === 'error'
+    doc.status === 'pending' || doc.status === 'error'
   );
 
   const handleSelectAll = () => {
@@ -662,7 +662,7 @@ function DocumentRow({ document, isSelected, onSelect, onStatusChange }: Documen
     }
   };
 
-  const canSelect = document.upload_status === 'pending' || document.upload_status === 'error';
+  const canSelect = document.status === 'pending' || document.status === 'error';
 
   return (
     <tr className={`hover:bg-gray-50 ${
@@ -730,11 +730,11 @@ function DocumentRow({ document, isSelected, onSelect, onStatusChange }: Documen
       {/* Status */}
       <td className="px-6 py-3">
         <div className="flex items-center justify-center">
-          {getStatusIcon(document.upload_status)}
+          {getStatusIcon(document.status)}
           <select
-            value={document.upload_status}
+            value={document.status}
             onChange={(e) => onStatusChange(document.id, e.target.value)}
-            className={`ml-2 px-2 py-1 rounded-full text-xs font-medium border-0 ${getStatusColor(document.upload_status)}`}
+            className={`ml-2 px-2 py-1 rounded-full text-xs font-medium border-0 ${getStatusColor(document.status)}`}
           >
             <option value="pending">⏳ Pendiente</option>
             <option value="uploading">📤 Subiendo</option>
@@ -859,7 +859,7 @@ export default function ManualManagement() {
           ...project,
           documents: project.documents.map(doc => 
             documentIds.includes(doc.id) 
-              ? { ...doc, upload_status: 'uploaded' as const, updated_at: new Date().toISOString() }
+              ? { ...doc, status: 'uploaded' as const, updated_at: new Date().toISOString() }
               : doc
           )
         }))
@@ -891,7 +891,7 @@ export default function ManualManagement() {
           ...project,
           documents: project.documents.map(doc => 
             doc.id === documentId 
-              ? { ...doc, upload_status: newStatus as any, updated_at: new Date().toISOString() }
+              ? { ...doc, status: newStatus as any, updated_at: new Date().toISOString() }
               : doc
           )
         }))

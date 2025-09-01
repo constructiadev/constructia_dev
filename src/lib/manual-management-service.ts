@@ -1,5 +1,5 @@
 // ConstructIA - Manual Management Service
-import { supabaseNew, logAuditoria, DEV_TENANT_ID } from './supabase-new';
+import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID } from './supabase-real';
 import { geminiProcessor } from './gemini-document-processor';
 
 export interface ManualDocument {
@@ -15,7 +15,7 @@ export interface ManualDocument {
   confidence: number;
   corruption_detected: boolean;
   integrity_score: number;
-  upload_status: 'pending' | 'uploading' | 'uploaded' | 'validated' | 'error' | 'corrupted';
+  status: 'pending' | 'uploading' | 'uploaded' | 'validated' | 'error' | 'corrupted';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   queue_position: number;
   retry_count: number;
@@ -87,7 +87,7 @@ export class ManualManagementService {
   async getClientGroups(): Promise<ClientGroup[]> {
     try {
       // Get all clients from empresas table
-      const { data: empresas, error: empresasError } = await supabaseNew
+      const { data: empresas, error: empresasError } = await supabaseServiceClient
         .from('empresas')
         .select(`
           id,
@@ -111,7 +111,7 @@ export class ManualManagementService {
         const credentials = await this.getPlatformCredentials(empresa.id);
 
         // Get obras (projects) for this empresa
-        const { data: obras, error: obrasError } = await supabaseNew
+        const { data: obras, error: obrasError } = await supabaseServiceClient
           .from('obras')
           .select('*')
           .eq('tenant_id', this.tenantId)
@@ -169,7 +169,7 @@ export class ManualManagementService {
   // Get platform credentials for a client
   async getPlatformCredentials(clientId: string): Promise<PlatformCredential[]> {
     try {
-      const { data, error } = await supabaseNew
+      const { data, error } = await supabaseServiceClient
         .from('platform_credentials')
         .select('*')
         .eq('tenant_id', this.tenantId)
@@ -199,7 +199,7 @@ export class ManualManagementService {
   // Get documents in queue for a specific project
   async getQueueDocumentsForProject(projectId: string): Promise<ManualDocument[]> {
     try {
-      const { data, error } = await supabaseNew
+      const { data, error } = await supabaseServiceClient
         .from('manual_document_queue')
         .select('*')
         .eq('tenant_id', this.tenantId)
@@ -262,7 +262,10 @@ export class ManualManagementService {
 
       const { data, error } = await supabaseNew
         .from('manual_document_queue')
-        .insert(documentData)
+        .insert({
+          ...documentData,
+          status: 'pending'
+        })
         .select()
         .single();
 
@@ -291,13 +294,13 @@ export class ManualManagementService {
   // Update document status
   async updateDocumentStatus(
     documentId: string,
-    newStatus: ManualDocument['upload_status'],
+    newStatus: ManualDocument['status'],
     adminNotes?: string,
     errorMessage?: string
   ): Promise<boolean> {
     try {
       const updateData: any = {
-        upload_status: newStatus,
+        status: newStatus,
         updated_at: new Date().toISOString()
       };
 
@@ -307,10 +310,10 @@ export class ManualManagementService {
 
       if (errorMessage) {
         updateData.last_error = errorMessage;
-        updateData.retry_count = supabaseNew.rpc('increment_retry_count', { doc_id: documentId });
+        updateData.retry_count = 1; // Increment retry count
       }
 
-      const { error } = await supabaseNew
+      const { error } = await supabaseServiceClient
         .from('manual_document_queue')
         .update(updateData)
         .eq('id', documentId)
@@ -341,7 +344,7 @@ export class ManualManagementService {
   // Start upload session
   async startUploadSession(adminUserId: string): Promise<string | null> {
     try {
-      const { data, error } = await supabaseNew
+      const { data, error } = await supabaseServiceClient
         .from('manual_upload_sessions')
         .insert({
           admin_user_id: adminUserId,
@@ -367,7 +370,7 @@ export class ManualManagementService {
   async endUploadSession(sessionId: string, notes?: string): Promise<boolean> {
     try {
       // Get session stats
-      const { data: sessionData, error: sessionError } = await supabaseNew
+      const { data: sessionData, error: sessionError } = await supabaseServiceClient
         .from('manual_upload_sessions')
         .select('*')
         .eq('id', sessionId)
@@ -379,25 +382,25 @@ export class ManualManagementService {
       }
 
       // Count documents processed in this session
-      const { count: documentsProcessed } = await supabaseNew
+      const { count: documentsProcessed } = await supabaseServiceClient
         .from('upload_logs')
         .select('*', { count: 'exact', head: true })
         .eq('session_id', sessionId);
 
-      const { count: documentsUploaded } = await supabaseNew
+      const { count: documentsUploaded } = await supabaseServiceClient
         .from('upload_logs')
         .select('*', { count: 'exact', head: true })
         .eq('session_id', sessionId)
         .eq('status', 'success');
 
-      const { count: documentsWithErrors } = await supabaseNew
+      const { count: documentsWithErrors } = await supabaseServiceClient
         .from('upload_logs')
         .select('*', { count: 'exact', head: true })
         .eq('session_id', sessionId)
         .eq('status', 'error');
 
       // Update session
-      const { error } = await supabaseNew
+      const { error } = await supabaseServiceClient
         .from('manual_upload_sessions')
         .update({
           session_end: new Date().toISOString(),
@@ -431,7 +434,7 @@ export class ManualManagementService {
     try {
       const encryptedPassword = this.encryptPassword(password);
 
-      const { error } = await supabaseNew
+      const { error } = await supabaseServiceClient
         .from('platform_credentials')
         .upsert({
           tenant_id: this.tenantId,
@@ -468,9 +471,9 @@ export class ManualManagementService {
   // Get queue statistics
   async getQueueStats() {
     try {
-      const { data: stats, error } = await supabaseNew
+      const { data: stats, error } = await supabaseServiceClient
         .from('manual_document_queue')
-        .select('upload_status, priority, corruption_detected')
+        .select('status, priority, corruption_detected')
         .eq('tenant_id', this.tenantId);
 
       if (error) {
@@ -494,11 +497,11 @@ export class ManualManagementService {
 
       return {
         total: documents.length,
-        pending: documents.filter(d => d.upload_status === 'pending').length,
-        uploading: documents.filter(d => d.upload_status === 'uploading').length,
-        uploaded: documents.filter(d => d.upload_status === 'uploaded').length,
-        validated: documents.filter(d => d.upload_status === 'validated').length,
-        errors: documents.filter(d => d.upload_status === 'error').length,
+        pending: documents.filter(d => d.status === 'pending').length,
+        uploading: documents.filter(d => d.status === 'uploading').length,
+        uploaded: documents.filter(d => d.status === 'uploaded').length,
+        validated: documents.filter(d => d.status === 'validated').length,
+        errors: documents.filter(d => d.status === 'error').length,
         corrupted: documents.filter(d => d.corruption_detected).length,
         urgent: documents.filter(d => d.priority === 'urgent').length,
         high: documents.filter(d => d.priority === 'high').length,
@@ -525,7 +528,7 @@ export class ManualManagementService {
     for (const documentId of documentIds) {
       try {
         // Get document details
-        const { data: document, error: docError } = await supabaseNew
+        const { data: document, error: docError } = await supabaseServiceClient
           .from('manual_document_queue')
           .select('*')
           .eq('id', documentId)
@@ -543,7 +546,7 @@ export class ManualManagementService {
         }
 
         // Simulate upload process
-        await this.updateDocumentStatus(documentId, 'uploading');
+        await this.updateDocumentStatus(documentId, 'uploading' as any);
         
         // Simulate processing time
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
@@ -552,7 +555,7 @@ export class ManualManagementService {
         const success = Math.random() > 0.1;
 
         if (success) {
-          await this.updateDocumentStatus(documentId, 'uploaded', 'Uploaded successfully by admin');
+          await this.updateDocumentStatus(documentId, 'uploaded' as any, 'Uploaded successfully by admin');
           results.success++;
           results.details.push({
             document_id: documentId,
@@ -562,7 +565,7 @@ export class ManualManagementService {
         } else {
           await this.updateDocumentStatus(
             documentId, 
-            'error', 
+            'error' as any, 
             'Upload failed', 
             'Connection timeout to platform'
           );
@@ -604,7 +607,7 @@ export class ManualManagementService {
       console.log('🌱 Populating manual management test data...');
 
       // Get existing empresas
-      const { data: empresas, error: empresasError } = await supabaseNew
+      const { data: empresas, error: empresasError } = await supabaseServiceClient
         .from('empresas')
         .select('id, razon_social')
         .eq('tenant_id', this.tenantId)
@@ -617,7 +620,7 @@ export class ManualManagementService {
 
       // Get obras for each empresa
       for (const empresa of empresas) {
-        const { data: obras, error: obrasError } = await supabaseNew
+        const { data: obras, error: obrasError } = await supabaseServiceClient
           .from('obras')
           .select('id, nombre_obra')
           .eq('tenant_id', this.tenantId)
@@ -660,7 +663,7 @@ export class ManualManagementService {
 
             await supabaseNew
               .from('manual_document_queue')
-              .insert({
+              .insert([{
                 tenant_id: this.tenantId,
                 client_id: empresa.id,
                 document_id: `DOC-${Date.now()}-${i}`,
@@ -671,7 +674,7 @@ export class ManualManagementService {
                 classification: docType,
                 confidence,
                 priority,
-                upload_status: status,
+                status: status,
                 platform_target: 'nalanda',
                 company_id: empresa.id,
                 project_id: obra.id,
@@ -680,7 +683,7 @@ export class ManualManagementService {
                 retry_count: status === 'error' ? Math.floor(Math.random() * 3) : 0,
                 last_error: status === 'error' ? 'Simulated upload error' : null,
                 admin_notes: `Test document for ${obra.nombre_obra}`
-              });
+              }]);
           }
         }
       }
@@ -718,7 +721,7 @@ export class ManualManagementService {
     details: any = {}
   ): Promise<void> {
     try {
-      await supabaseNew
+      await supabaseServiceClient
         .from('upload_logs')
         .insert({
           tenant_id: this.tenantId,
