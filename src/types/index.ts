@@ -323,6 +323,7 @@ export interface ManualUploadQueue {
   obra_id: string;
   documento_id: string;
   status: QueueStatus;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
   operator_user?: string;
   nota?: string;
   created_at: string;

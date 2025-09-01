@@ -470,7 +470,7 @@ export class ManualManagementService {
     try {
       const { data: stats, error } = await supabaseServiceClient
         .from('manual_upload_queue')
-        .select('status, priority, corruption_detected')
+        .select('status')
         .eq('tenant_id', this.tenantId);
 
       if (error) {
@@ -478,11 +478,9 @@ export class ManualManagementService {
         return {
           total: 0,
           pending: 0,
-          uploading: 0,
+          in_progress: 0,
           uploaded: 0,
-          validated: 0,
           errors: 0,
-          corrupted: 0,
           urgent: 0,
           high: 0,
           normal: 0,
@@ -494,22 +492,20 @@ export class ManualManagementService {
 
       return {
         total: documents.length,
-        pending: documents.filter(d => d.status === 'pending').length,
-        uploading: documents.filter(d => d.status === 'uploading').length,
+        pending: documents.filter(d => d.status === 'queued').length,
+        in_progress: documents.filter(d => d.status === 'in_progress').length,
         uploaded: documents.filter(d => d.status === 'uploaded').length,
-        validated: documents.filter(d => d.status === 'validated').length,
         errors: documents.filter(d => d.status === 'error').length,
-        corrupted: documents.filter(d => d.corruption_detected).length,
-        urgent: documents.filter(d => d.priority === 'urgent').length,
-        high: documents.filter(d => d.priority === 'high').length,
-        normal: documents.filter(d => d.priority === 'normal').length,
-        low: documents.filter(d => d.priority === 'low').length
+        urgent: 0, // Will be populated after migration
+        high: 0,
+        normal: 0,
+        low: 0
       };
     } catch (error) {
       console.error('Error getting queue stats:', error);
       return {
-        total: 0, pending: 0, uploading: 0, uploaded: 0, validated: 0,
-        errors: 0, corrupted: 0, urgent: 0, high: 0, normal: 0, low: 0
+        total: 0, pending: 0, in_progress: 0, uploaded: 0,
+        errors: 0, urgent: 0, high: 0, normal: 0, low: 0
       };
     }
   }
