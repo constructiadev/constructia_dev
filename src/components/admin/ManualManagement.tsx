@@ -537,6 +537,7 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
               )}
             </button>
           </div>
+        </div>
         </form>
       </div>
     </div>
