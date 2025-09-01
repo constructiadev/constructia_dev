@@ -4,6 +4,7 @@ import {
   Building2, 
   CreditCard, 
   Key, 
+  Globe,
   Save,
   AlertCircle,
   CheckCircle,
