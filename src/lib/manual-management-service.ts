@@ -297,7 +297,7 @@ export class ManualManagementService {
         admin_notes: `Añadido por administrador - ${new Date().toLocaleString()}`
       };
 
-      const { data, error } = await supabaseNew
+      const { data, error } = await supabaseServiceClient
         .from('manual_document_queue')
         .insert({
           ...documentData,
@@ -687,6 +687,7 @@ export class ManualManagementService {
 
       // Create 150 test documents
       const documentosData = [];
+      for (const empresa of empresas) {
         const empresaObras = obras.filter(o => o.empresa_id === empresa.id);
         const docsPerEmpresa = Math.floor(Math.random() * 30) + 20; // 20-50 docs per empresa
         
@@ -790,15 +791,6 @@ export class ManualManagementService {
       }
 
       console.log(`✅ Created ${documentosData.length} documentos and ${queueData.length} queue entries`);
-    } catch (error) {
-      console.error('Error populating test data:', error);
-      throw error;
-    }
-  }
-          }
-        }
-      }
-
       console.log('✅ Test data populated successfully');
     } catch (error) {
       console.error('Error populating test data:', error);
