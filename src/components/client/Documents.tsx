@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
 import { getAllClients, getClientDocuments } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface Document {
   id: string;
