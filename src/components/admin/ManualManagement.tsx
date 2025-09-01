@@ -306,6 +306,7 @@ function UploadModal({ isOpen, onClose, onUpload, clientGroups }: UploadModalPro
                 </>
               )}
             </button>
+          </div>
         </form>
       </div>
     </div>
@@ -536,7 +537,6 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
               )}
             </button>
           </div>
-        </div>
         </form>
       </div>
     </div>
