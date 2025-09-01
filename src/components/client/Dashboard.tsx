@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { supabase, getCurrentClientData } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -41,50 +41,55 @@ export default function ClientDashboard() {
         throw new Error('Usuario no autenticado');
       }
       
-      // Obtener datos del cliente usando helper
-      const clientData = await getCurrentClientData(user.id);
+      // Obtener datos del cliente autenticado
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-      if (!clientData) {
-        console.log('⚠️ No client data found, showing empty state');
-        setStats({
-          totalProjects: 0,
-          totalCompanies: 0,
-          totalDocuments: 0,
-          documentsProcessed: 0,
-          storageUsed: 0,
-          storageLimit: 0
-        });
-        setClientData(null);
-        return;
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
       }
       
       setClientData(clientData);
 
       // Obtener SOLO los datos de este cliente específico
       const [
-        { data: projects, error: projectsError },
-        { data: companies, error: companiesError },
-        { data: documents, error: documentsError }
+        projectsResponse,
+        companiesResponse,
+        documentsResponse
       ] = await Promise.all([
         supabase.from('projects').select('*').eq('client_id', clientData.id),
         supabase.from('companies').select('*').eq('client_id', clientData.id),
         supabase.from('documents').select('*').eq('client_id', clientData.id)
       ]);
 
-      if (projectsError) console.warn('Error loading projects:', projectsError);
-      if (companiesError) console.warn('Error loading companies:', companiesError);
-      if (documentsError) console.warn('Error loading documents:', documentsError);
+      const projects = projectsResponse.data || [];
+      const companies = companiesResponse.data || [];
+      const documents = documentsResponse.data || [];
+
+      if (projectsResponse.error) console.warn('Error loading projects:', projectsResponse.error);
+      if (companiesResponse.error) console.warn('Error loading companies:', companiesResponse.error);
+      if (documentsResponse.error) console.warn('Error loading documents:', documentsResponse.error);
 
       const newStats = {
-        totalProjects: projects?.length || 0,
-        totalCompanies: companies?.length || 0,
-        totalDocuments: documents?.length || 0,
-        documentsProcessed: documents?.filter(d => d.upload_status === 'completed').length || 0,
+        totalProjects: projects.length,
+        totalCompanies: companies.length,
+        totalDocuments: documents.length,
+        documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
         storageUsed: clientData.storage_used || 0,
         storageLimit: clientData.storage_limit || 1073741824
       };
 
       setStats(newStats);
+      
+      console.log('✅ Dashboard data loaded:', {
+        client: clientData.company_name,
+        projects: projects.length,
+        companies: companies.length,
+        documents: documents.length
+      });
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError(err instanceof Error ? err.message : 'Error loading dashboard data');
