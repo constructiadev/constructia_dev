@@ -789,7 +789,6 @@ function ClientRow({ client, isExpanded, onToggle, onConnectPlatform, onStatusCh
             </React.Fragment>
           ))}
         </React.Fragment>
-      ))}
     </>
   );
 }
