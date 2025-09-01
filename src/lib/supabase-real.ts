@@ -592,7 +592,7 @@ export const subscribeToTenantChanges = (tenantId: string, callback: (payload: a
 };
 
 // Audit logging
-export const logAuditEvent = async (
+export const logAuditoria = async (
   tenantId: string,
   userId: string,
   accion: string,

@@ -1,5 +1,5 @@
 import { supabaseClient } from './supabase-real';
-import { supabaseServiceClient, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from './supabase-real';
+import { supabaseServiceClient, DEV_TENANT_ID, DEV_ADMIN_USER_ID, logAuditoria } from './supabase-real';
 import type { 
   Tenant, 
   NewUser, 
@@ -393,31 +393,8 @@ export const checkRolePermission = (userRole: UserRole, action: string, resource
          userPermissions.includes(wildcardPermission);
 };
 
-// Helper para logging de auditoría
-export const logAuditoria = async (
-  tenantId: string,
-  actorUserId: string,
-  accion: string,
-  entidad?: string,
-  entidadId?: string,
-  detalles?: any
-) => {
-  try {
-    await supabaseNew
-      .from('auditoria')
-      .insert({
-        tenant_id: tenantId,
-        actor_user: actorUserId,
-        accion,
-        entidad,
-        entidad_id: entidadId,
-        ip: '127.0.0.1', // En desarrollo
-        detalles: detalles || {}
-      });
-  } catch (error) {
-    console.error('Error logging audit:', error);
-  }
-};
+// Re-export logAuditoria from supabase-real
+export { logAuditoria };
 
 // Helper para obtener estadísticas del tenant
 export const getTenantStats = async (tenantId: string) => {

@@ -20,7 +20,7 @@ import {
   createObra, 
   uploadDocumentToObra,
   getCurrentUserTenant,
-  logAuditEvent,
+  logAuditoria,
   DEV_TENANT_ID 
 } from '../../lib/supabase-real';
 
@@ -121,7 +121,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
       setShowCreateEmpresa(false);
       
       // Log audit event
-      await logAuditEvent(
+      await logAuditoria(
         tenantId || DEV_TENANT_ID,
         'current-user-id', // In production, get from auth
         'empresa.created',
@@ -154,7 +154,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
       setShowCreateObra(false);
       
       // Log audit event
-      await logAuditEvent(
+      await logAuditoria(
         tenantId || DEV_TENANT_ID,
         'current-user-id',
         'obra.created',
@@ -572,7 +572,7 @@ export default function DocumentUpload() {
         }));
 
         // Log audit event
-        await logAuditEvent(
+        await logAuditoria(
           tenantId || DEV_TENANT_ID,
           'current-user-id',
           'document.uploaded',
