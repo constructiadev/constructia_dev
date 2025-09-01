@@ -1132,21 +1132,6 @@ export default function ManualManagement() {
         manualManagementService.getQueueStats()
       ]);
       
-          selectedClient,
-          selectedCompany,
-          selectedProject,
-          file,
-          'normal',
-          'nalanda'
-        );
-        
-        if (queueEntryId) {
-          console.log('✅ Document added to queue:', queueEntryId);
-        } else {
-          console.error('❌ Failed to add document to queue');
-        }
-      }
-      
       setClientGroups(groups);
       setQueueStats(stats);
 
@@ -1260,7 +1245,9 @@ export default function ManualManagement() {
       );
       
       if (queueEntryId) {
-        // Refresh queue data after successful upload
+        console.log('✅ Document added to queue:', queueEntryId);
+      } else {
+        console.error('❌ Failed to add document to queue');
       }
     }
     
