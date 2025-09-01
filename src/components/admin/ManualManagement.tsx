@@ -1133,14 +1133,10 @@ export default function ManualManagement() {
       ]);
       
       setClientGroups(groups);
-        const queueEntryId = await manualManagementService.addDocumentToQueue(
-          selectedClient?.client_id || '',
-          selectedCompany?.company_id || '',
-          project.project_id,
-          file,
-          'normal',
-          'nalanda'
-        );
+      setQueueStats(stats);
+      
+      // If no data exists, populate test data
+      if (groups.length === 0) {
         await manualManagementService.populateTestData();
         
         // Reload after populating
