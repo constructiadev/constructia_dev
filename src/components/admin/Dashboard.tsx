@@ -246,7 +246,7 @@ const AdminDashboard: React.FC = () => {
           monthlyRevenue,
           totalRevenue
         },
-        queue: queue.length
+        queue: realTimeStats.queueSize || 0
       };
 
       const [insights, summary] = await Promise.all([
