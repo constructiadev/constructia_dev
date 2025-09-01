@@ -306,7 +306,6 @@ function UploadModal({ isOpen, onClose, onUpload, clientGroups }: UploadModalPro
                 </>
               )}
             </button>
-          </div>
         </form>
       </div>
     </div>
