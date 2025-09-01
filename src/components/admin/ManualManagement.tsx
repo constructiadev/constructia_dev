@@ -630,6 +630,7 @@ function PlatformConnectionModal({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -1280,6 +1281,7 @@ export default function ManualManagement() {
   }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-6 text-white">
