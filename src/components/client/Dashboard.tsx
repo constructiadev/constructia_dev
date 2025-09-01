@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getCurrentClientData } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -41,19 +41,11 @@ export default function ClientDashboard() {
         throw new Error('Usuario no autenticado');
       }
       
-      // Obtener datos específicos del cliente autenticado
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Obtener datos del cliente usando helper
+      const clientData = await getCurrentClientData(user.id);
 
-      if (clientError) {
-        throw new Error(`Error al obtener datos del cliente: ${clientError.message}`);
-      }
-      
       if (!clientData) {
-        // No hay datos del cliente, mostrar estado inicial
+        console.log('⚠️ No client data found, showing empty state');
         setStats({
           totalProjects: 0,
           totalCompanies: 0,
