@@ -20,7 +20,7 @@ export interface ManualDocument {
   queue_position: number;
   retry_count: number;
   last_error?: string;
-  admin_notes: string;
+  nota: string;
   platform_target: 'nalanda' | 'ctaima' | 'ecoordina';
   company_id?: string;
   project_id?: string;
@@ -294,7 +294,7 @@ export class ManualManagementService {
         platform_target: platformTarget,
         company_id: companyId,
         project_id: projectId,
-        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()}`
+        nota: `Añadido por administrador - ${new Date().toLocaleString()}`
       };
 
       const { data, error } = await supabaseServiceClient
@@ -342,7 +342,7 @@ export class ManualManagementService {
       };
 
       if (adminNotes) {
-        updateData.admin_notes = adminNotes;
+        updateData.nota = adminNotes;
       }
 
       if (errorMessage) {
