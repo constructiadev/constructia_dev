@@ -10,7 +10,7 @@ import {
   CheckCircle,
   Settings as SettingsIcon
 } from 'lucide-react';
-import { getAllClients, updateClientObraliaCredentials } from '../../lib/supabase';
+import { getAllClients, updateClientObraliaCredentials, supabase } from '../../lib/supabase';
 
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
