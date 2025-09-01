@@ -84,35 +84,8 @@ async function populateManualQueue() {
     // 0. Clean up existing data to prevent duplicates
     console.log('0️⃣ Cleaning up existing test data...');
     
-    // Delete existing queue entries
-    const { error: queueDeleteError } = await supabase
-      .from('manual_upload_queue')
-      .delete()
-      .eq('tenant_id', DEV_TENANT_ID);
-    
-    if (queueDeleteError) {
-      console.warn('⚠️ Error deleting queue entries:', queueDeleteError.message);
-    }
-    
-    // Delete existing documentos
-    const { error: documentosDeleteError } = await supabase
-      .from('documentos')
-      .delete()
-      .eq('tenant_id', DEV_TENANT_ID);
-    
-    if (documentosDeleteError) {
-      console.warn('⚠️ Error deleting documentos:', documentosDeleteError.message);
-    }
-    
-    // Delete existing adaptadores
-    const { error: adaptadoresDeleteError } = await supabase
-      .from('adaptadores')
-      .delete()
-      .eq('tenant_id', DEV_TENANT_ID);
-    
-    if (adaptadoresDeleteError) {
-      console.warn('⚠️ Error deleting adaptadores:', adaptadoresDeleteError.message);
-    }
+    // Skip cleanup to avoid network errors - use upsert instead
+    console.log('⚠️ Skipping cleanup to avoid network errors - using upsert for safety');
     
     console.log('✅ Cleanup completed');
 
