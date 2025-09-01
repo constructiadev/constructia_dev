@@ -1151,6 +1151,7 @@ export default function ManualManagement() {
       setError(error instanceof Error ? error.message : 'Error loading data');
     } finally {
       setLoading(false);
+    }
   };
 
   const toggleClientExpansion = (clientId: string) => {
