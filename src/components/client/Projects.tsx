@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
+import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter, AlertCircle } from 'lucide-react';
 import { getAllClients, getClientProjects } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface Project {
   id: string;
