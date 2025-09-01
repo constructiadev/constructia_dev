@@ -452,7 +452,7 @@ function PlatformConnectionModal({
                   <p className="text-sm">No hay documentos seleccionados</p>
                   <p className="text-xs">Selecciona documentos de la tabla o arrastra archivos aquí</p>
                 </div>
-                )}
+              )}
             </div>
 
             {/* Temporary Directory */}
@@ -545,7 +545,6 @@ function PlatformConnectionModal({
                   </div>
                 )}
               </div>
-            </div>
               <div className="mt-3 text-xs text-orange-700">
                 <p><strong>💡 Uso del Directorio Temporal:</strong></p>
                 <p>• Arrastra archivos desde tu sistema o desde la cola de documentos</p>
@@ -630,7 +629,6 @@ function PlatformConnectionModal({
         </div>
       </div>
     </div>
-    </>
   );
 }
 
@@ -1281,7 +1279,6 @@ export default function ManualManagement() {
   }
 
   return (
-    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-6 text-white">
