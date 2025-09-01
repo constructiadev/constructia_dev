@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building } from 'lucide-react';
-import { getAllClients } from '../../lib/supabase';
+import { getAllClients, supabase } from '../../lib/supabase';
 
 interface SubscriptionData {
   id: string;
