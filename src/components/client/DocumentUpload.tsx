@@ -14,14 +14,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { 
-  getTenantEmpresas, 
-  getEmpresaObras, 
-  createEmpresa, 
-  createObra, 
-  uploadDocumentToObra,
-  getCurrentUserTenant,
-  logAuditoria,
-  DEV_TENANT_ID 
+  supabase
 } from '../../lib/supabase-real';
 
 interface Empresa {
@@ -80,11 +73,41 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
   const loadEmpresas = async () => {
     try {
       setLoading(true);
-      const tenantId = await getCurrentUserTenant();
-      const empresasData = await getTenantEmpresas(tenantId || DEV_TENANT_ID);
+      
+      // Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Get client data for this specific user
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+      
+      // Get ONLY companies that belong to this specific client
+      const { data: empresasData, error: empresasError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('client_id', clientData.id)
+        .order('name');
+
+      if (empresasError) {
+        console.error('Error loading client companies:', empresasError);
+        setEmpresas([]);
+        return;
+      }
+      
       setEmpresas(empresasData);
     } catch (error) {
       console.error('Error loading empresas:', error);
+      setEmpresas([]);
     } finally {
       setLoading(false);
     }
@@ -92,11 +115,41 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
 
   const loadObras = async (empresaId: string) => {
     try {
-      const tenantId = await getCurrentUserTenant();
-      const obrasData = await getEmpresaObras(empresaId, tenantId || DEV_TENANT_ID);
+      // Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Get client data for this specific user
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+      
+      // Get ONLY projects that belong to this specific client AND company
+      const { data: obrasData, error: obrasError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('client_id', clientData.id)
+        .eq('company_id', empresaId)
+        .order('name');
+
+      if (obrasError) {
+        console.error('Error loading client projects:', obrasError);
+        setObras(prev => ({ ...prev, [empresaId]: [] }));
+        return;
+      }
+      
       setObras(prev => ({ ...prev, [empresaId]: obrasData }));
     } catch (error) {
       console.error('Error loading obras:', error);
+      setObras(prev => ({ ...prev, [empresaId]: [] }));
     }
   };
 
@@ -114,21 +167,44 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
   const handleCreateEmpresa = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const tenantId = await getCurrentUserTenant();
-      const empresa = await createEmpresa(newEmpresa, tenantId || DEV_TENANT_ID);
+      // Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Get client data for this specific user
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+      
+      // Create company for this specific client only
+      const { data: empresa, error: empresaError } = await supabase
+        .from('companies')
+        .insert({
+          client_id: clientData.id,
+          name: newEmpresa.razon_social,
+          cif: newEmpresa.cif,
+          address: newEmpresa.direccion,
+          phone: '+34 600 000 000',
+          email: newEmpresa.contacto_email
+        })
+        .select()
+        .single();
+
+      if (empresaError) {
+        throw new Error(`Error creating company: ${empresaError.message}`);
+      }
+      
       setEmpresas(prev => [...prev, empresa]);
       setNewEmpresa({ razon_social: '', cif: '', direccion: '', contacto_email: '' });
       setShowCreateEmpresa(false);
-      
-      // Log audit event
-      await logAuditoria(
-        tenantId || DEV_TENANT_ID,
-        'current-user-id', // In production, get from auth
-        'empresa.created',
-        'empresa',
-        empresa.id,
-        { razon_social: empresa.razon_social }
-      );
     } catch (error) {
       console.error('Error creating empresa:', error);
       alert('Error al crear empresa: ' + (error instanceof Error ? error.message : 'Error desconocido'));
@@ -140,11 +216,42 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
     if (!selectedEmpresa) return;
 
     try {
-      const tenantId = await getCurrentUserTenant();
-      const obra = await createObra({
-        ...newObra,
-        empresa_id: selectedEmpresa
-      }, tenantId || DEV_TENANT_ID);
+      // Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      // Get client data for this specific user
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+      
+      // Create project for this specific client only
+      const { data: obra, error: obraError } = await supabase
+        .from('projects')
+        .insert({
+          client_id: clientData.id,
+          company_id: selectedEmpresa,
+          name: newObra.nombre_obra,
+          description: `Proyecto: ${newObra.nombre_obra}`,
+          status: 'planning',
+          progress: 0,
+          location: newObra.direccion,
+          budget: 0
+        })
+        .select()
+        .single();
+
+      if (obraError) {
+        throw new Error(`Error creating project: ${obraError.message}`);
+      }
       
       setObras(prev => ({
         ...prev,
@@ -152,16 +259,6 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
       }));
       setNewObra({ nombre_obra: '', codigo_obra: '', direccion: '', cliente_final: '' });
       setShowCreateObra(false);
-      
-      // Log audit event
-      await logAuditoria(
-        tenantId || DEV_TENANT_ID,
-        'current-user-id',
-        'obra.created',
-        'obra',
-        obra.id,
-        { nombre_obra: obra.nombre_obra }
-      );
     } catch (error) {
       console.error('Error creating obra:', error);
       alert('Error al crear obra: ' + (error instanceof Error ? error.message : 'Error desconocido'));
