@@ -39,9 +39,12 @@ import {
   ExternalLink,
   Loader2,
   EyeOff,
-  Lock
+  Lock,
+  ChevronDown,
+  ChevronRight,
+  Building
 } from 'lucide-react';
-import { manualManagementService, type ClientGroup, type ManualDocument } from '../../lib/manual-management-service';
+import { manualManagementService, type ClientGroup, type ManualDocument, type PlatformCredential } from '../../lib/manual-management-service';
 
 interface QueueStats {
   total: number;
@@ -316,63 +319,80 @@ function UploadModal({ isOpen, onClose, onUpload, clientGroups }: UploadModalPro
 interface PlatformConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (platform: string, credentials: { username: string; password: string }) => Promise<void>;
+  onSave: (credentials: any) => Promise<void>;
+  clientGroup: ClientGroup | null;
 }
 
-function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnectionModalProps) {
+function PlatformConnectionModal({ isOpen, onClose, onSave, clientGroup }: PlatformConnectionModalProps) {
   const [selectedPlatform, setSelectedPlatform] = useState('nalanda');
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [saving, setSaving] = useState(false);
+  const [platformCredentials, setPlatformCredentials] = useState<PlatformCredential[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const platforms = [
-    { 
-      value: 'nalanda', 
-      label: 'Nalanda/Obralia', 
-      color: 'bg-blue-600',
-      url: 'https://www.nalanda.com',
-      description: 'Plataforma principal de gestión CAE'
-    },
-    { 
-      value: 'ctaima', 
-      label: 'CTAIMA', 
-      color: 'bg-green-600',
-      url: 'https://www.ctaima.com',
-      description: 'Sistema de coordinación de actividades empresariales'
-    },
-    { 
-      value: 'ecoordina', 
-      label: 'Ecoordina', 
-      color: 'bg-purple-600',
-      url: 'https://www.ecoordina.com',
-      description: 'Plataforma de coordinación empresarial'
+  useEffect(() => {
+    if (isOpen && clientGroup) {
+      loadClientCredentials();
     }
-  ];
+  }, [isOpen, clientGroup]);
 
-  const selectedPlatformData = platforms.find(p => p.value === selectedPlatform);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const loadClientCredentials = async () => {
+    if (!clientGroup) return;
     
-    if (!credentials.username || !credentials.password) {
-      alert('Por favor completa todos los campos');
-      return;
-    }
-
     try {
-      setSaving(true);
-      await onSave(selectedPlatform, credentials);
-      setCredentials({ username: '', password: '' });
-      onClose();
+      setLoading(true);
+      // Cargar credenciales del cliente desde la base de datos
+      const credentials = await manualManagementService.getPlatformCredentials(clientGroup.client_id);
+      setPlatformCredentials(credentials);
     } catch (error) {
-      console.error('Error saving platform credentials:', error);
-      alert('Error al guardar credenciales: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+      console.error('Error loading client credentials:', error);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
+  const platforms = [
+    {
+      id: 'nalanda',
+      name: 'Nalanda/Obralia',
+      description: 'Plataforma principal de gestión CAE',
+      url: 'https://nalanda.obralia.com/login',
+      color: 'bg-blue-600'
+    },
+    {
+      id: 'ctaima',
+      name: 'CTAIMA',
+      description: 'Sistema de coordinación de actividades',
+      url: 'https://www.ctaima.com/login',
+      color: 'bg-green-600'
+    },
+    {
+      id: 'ecoordina',
+      name: 'Ecoordina',
+      description: 'Plataforma de coordinación empresarial',
+      url: 'https://www.ecoordina.com/login',
+      color: 'bg-purple-600'
+    }
+  ];
+
+  const getCurrentCredentials = () => {
+    return platformCredentials.find(cred => cred.platform_type === selectedPlatform);
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`${field} copiado al portapapeles`);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // El administrador no guarda credenciales, solo las copia
+    onClose();
+  };
+
   if (!isOpen) return null;
+
+  const currentCredentials = getCurrentCredentials();
+  const selectedPlatformInfo = platforms.find(p => p.id === selectedPlatform);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -381,7 +401,7 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold">Conectar Plataforma</h2>
-              <p className="text-green-100">Configurar credenciales de acceso</p>
+              <p className="text-green-100">Credenciales del cliente para acceso</p>
             </div>
             <button
               onClick={onClose}
@@ -392,8 +412,21 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Platform Selection with Access Link */}
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {/* Client Info */}
+          {clientGroup && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center">
+                <Building2 className="h-5 w-5 text-blue-600 mr-2" />
+                <div>
+                  <p className="font-semibold text-blue-800">{clientGroup.client_name}</p>
+                  <p className="text-sm text-blue-600">{clientGroup.client_email}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Plataforma *
@@ -404,140 +437,177 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             >
               {platforms.map(platform => (
-                <option key={platform.value} value={platform.value}>
-                  {platform.label}
+                <option key={platform.id} value={platform.id}>
+                  {platform.name}
                 </option>
               ))}
             </select>
-            
-            {/* Platform Info and Access Link */}
-            {selectedPlatformData && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">{selectedPlatformData.label}</p>
-                    <p className="text-xs text-blue-600">{selectedPlatformData.description}</p>
-                  </div>
-                  <a
-                    href={selectedPlatformData.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
-                  >
-                    <ExternalLink className="w-3 h-3 mr-1" />
-                    Acceder
-                  </a>
-                </div>
-                <div className="mt-2 text-xs text-blue-700">
-                  💡 <strong>Tip:</strong> Accede a la plataforma para obtener tus credenciales y cópialas aquí
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Platform Info and Access */}
+          {selectedPlatformInfo && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <Globe className="h-5 w-5 text-blue-600 mr-2" />
+                  <span className="font-medium text-blue-800">{selectedPlatformInfo.name}</span>
+                </div>
+                <a
+                  href={selectedPlatformInfo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center"
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Acceder
+                </a>
+              </div>
+              <p className="text-sm text-blue-700">{selectedPlatformInfo.description}</p>
+            </div>
+          )}
 
           {/* Instructions */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <Info className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
+            <h4 className="font-semibold text-yellow-800 mb-2">📋 Instrucciones</h4>
+            <ol className="text-sm text-yellow-700 space-y-1">
+              <li>1. Haz clic en "Acceder" para abrir {selectedPlatformInfo?.name}</li>
+              <li>2. Usa las credenciales del cliente mostradas abajo</li>
+              <li>3. Inicia sesión en la plataforma</li>
+              <li>4. Comienza a subir documentos manualmente</li>
+            </ol>
+          </div>
+
+          {/* Client Credentials Display */}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-5 h-5 animate-spin text-blue-600 mr-2" />
+              <span className="text-gray-600">Cargando credenciales del cliente...</span>
+            </div>
+          ) : currentCredentials ? (
+            <div className="space-y-4">
               <div>
-                <h4 className="font-semibold text-yellow-800 mb-1">Instrucciones</h4>
-                <ol className="text-sm text-yellow-700 space-y-1">
-                  <li>1. Haz clic en "Acceder" para abrir la plataforma</li>
-                  <li>2. Inicia sesión en tu cuenta de la plataforma</li>
-                  <li>3. Copia tus credenciales desde la plataforma</li>
-                  <li>4. Pega las credenciales en los campos de abajo</li>
-                </ol>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Usuario de la Plataforma
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    value={currentCredentials.username}
+                    readOnly
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(currentCredentials.username, 'Usuario')}
+                    className="ml-2 p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                    title="Copiar usuario"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Credencial configurada por el cliente
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contraseña de la Plataforma
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={currentCredentials.password}
+                    readOnly
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="ml-2 p-2 text-gray-600 hover:text-gray-600 transition-colors"
+                    title="Mostrar/ocultar contraseña"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(currentCredentials.password, 'Contraseña')}
+                    className="ml-1 p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                    title="Copiar contraseña"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Credencial configurada por el cliente
+                </p>
+              </div>
+
+              {/* Validation Status */}
+              <div className="flex items-center space-x-2">
+                {currentCredentials.validation_status === 'valid' ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm text-green-600">Credenciales validadas</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                    <span className="text-sm text-yellow-600">Credenciales pendientes de validación</span>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Usuario de la Plataforma *
-            </label>
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                value={credentials.username}
-                onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="Copia tu usuario desde la plataforma"
-                required
-              />
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-red-600 mr-3" />
+                <div>
+                  <h4 className="font-semibold text-red-800">Credenciales No Configuradas</h4>
+                  <p className="text-sm text-red-700">
+                    El cliente debe configurar sus credenciales de {selectedPlatformInfo?.name} primero.
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Copia exactamente el usuario desde tu cuenta en {selectedPlatformData?.label}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contraseña de la Plataforma *
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={credentials.password}
-                onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="Copia tu contraseña desde la plataforma"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Copia exactamente la contraseña desde tu cuenta en {selectedPlatformData?.label}
-            </p>
-          </div>
+          )}
 
           {/* Security Notice */}
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-start">
-              <Shield className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+            <div className="flex items-center">
+              <Shield className="h-4 w-4 text-green-600 mr-2" />
               <div>
-                <p className="text-sm text-green-800">
-                  <strong>Seguridad:</strong> Las credenciales se almacenan de forma segura y encriptada. 
-                  Solo se usan para la integración automática con la plataforma seleccionada.
+                <p className="text-xs text-green-800">
+                  <strong>Seguridad:</strong> Las credenciales están almacenadas de forma segura y encriptada. 
+                  Solo úsalas para acceder a la plataforma y subir documentos.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          {/* Footer */}
+          <div className="flex justify-between items-center pt-4">
+            {currentCredentials && selectedPlatformInfo && (
+              <a
+                href={selectedPlatformInfo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir {selectedPlatformInfo.name}
+              </a>
+            )}
+            
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Guardando...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Guardar Credenciales
-                </>
-              )}
+              Cerrar
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -565,11 +635,13 @@ export default function ManualManagement() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPlatformModal, setShowPlatformModal] = useState(false);
-  const [selectedClientForPlatform, setSelectedClientForPlatform] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<ManualDocument | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientGroup | null>(null);
+  const [uploadingDocuments, setUploadingDocuments] = useState<string[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [processingBatch, setProcessingBatch] = useState(false);
+  const [currentSession, setCurrentSession] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<string[]>([]);
-  const [expandedCompanies, setExpandedCompanies] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -709,21 +781,44 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
     }
   };
 
-  const handleUpdateDocumentStatus = async (
-    documentId: string,
-    newStatus: ManualDocument['status'],
-    notes?: string
-  ) => {
+  const handleUploadDocument = async (documentId: string) => {
     try {
+      setUploadingDocuments(prev => [...prev, documentId]);
+      
+      // Simulate upload process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       const success = await manualManagementService.updateDocumentStatus(
         documentId,
-        newStatus,
-        notes
+        'uploaded',
+        'Subido manualmente por administrador'
       );
 
       if (success) {
-        await loadData(); // Reload to reflect changes
-        console.log('✅ Document status updated:', documentId, newStatus);
+        await loadData();
+        console.log('✅ Document uploaded:', documentId);
+      } else {
+        alert('Error al subir documento');
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Error al subir documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setUploadingDocuments(prev => prev.filter(id => id !== documentId));
+    }
+  };
+
+  const handleUpdateStatus = async (documentId: string, status: ManualDocument['status']) => {
+    try {
+      const success = await manualManagementService.updateDocumentStatus(
+        documentId,
+        status,
+        `Estado actualizado manualmente a ${status}`
+      );
+
+      if (success) {
+        await loadData();
+        console.log('✅ Document status updated:', documentId, status);
       } else {
         alert('Error al actualizar estado del documento');
       }
@@ -733,72 +828,18 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
     }
   };
 
-  const handleBatchProcess = async () => {
-    if (selectedDocuments.length === 0) {
-      alert('Selecciona al menos un documento para procesar');
-      return;
-    }
-
-    try {
-      setProcessingBatch(true);
-      
-      // Start upload session
-      const sessionId = await manualManagementService.startUploadSession('admin-user-id');
-      
-      if (!sessionId) {
-        throw new Error('No se pudo iniciar la sesión de subida');
-      }
-
-      // Process documents in batch
-      const results = await manualManagementService.processDocumentsBatch(
-        selectedDocuments,
-        sessionId,
-        'admin-user-id'
-      );
-
-      // End session
-      await manualManagementService.endUploadSession(
-        sessionId,
-        `Batch processing completed: ${results.success} success, ${results.errors} errors`
-      );
-
-      // Show results
-      alert(`Procesamiento completado:\n✅ ${results.success} exitosos\n❌ ${results.errors} errores`);
-
-      // Clear selection and reload
-      setSelectedDocuments([]);
-      await loadData();
-    } catch (error) {
-      console.error('Error in batch processing:', error);
-      alert('Error en procesamiento por lotes: ' + (error instanceof Error ? error.message : 'Error desconocido'));
-    } finally {
-      setProcessingBatch(false);
-    }
+  const handleCloseUploadModal = () => {
+    setShowUploadModal(false);
   };
 
-  const handleShowPlatformModal = (clientId: string) => {
-    setSelectedClientForPlatform(clientId);
+  const handleConnectPlatform = (client: ClientGroup) => {
+    setSelectedClient(client);
     setShowPlatformModal(true);
   };
 
-  const handleSavePlatformCredentials = async (platform: string, credentials: { username: string; password: string }) => {
-    try {
-      const success = await manualManagementService.savePlatformCredentials(
-        platform as any,
-        credentials.username,
-        credentials.password
-      );
-
-      if (success) {
-        alert('✅ Credenciales guardadas correctamente');
-        await loadData(); // Reload to reflect changes
-      } else {
-        alert('❌ Error al guardar credenciales');
-      }
-    } catch (error) {
-      console.error('Error saving platform credentials:', error);
-      alert('Error al guardar credenciales: ' + (error instanceof Error ? error.message : 'Error desconocido'));
-    }
+  const handleSavePlatformCredentials = async (credentials: any) => {
+    // Platform credentials are handled in the modal
+    setShowPlatformModal(false);
   };
 
   const toggleClientExpansion = (clientId: string) => {
@@ -809,54 +850,35 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
     );
   };
 
-  const toggleCompanyExpansion = (companyId: string) => {
-    setExpandedCompanies(prev => 
-      prev.includes(companyId) 
-        ? prev.filter(id => id !== companyId)
-        : [...prev, companyId]
-    );
-  };
-
-  const toggleDocumentSelection = (documentId: string) => {
-    setSelectedDocuments(prev => 
-      prev.includes(documentId)
-        ? prev.filter(id => id !== documentId)
-        : [...prev, documentId]
-    );
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'uploading': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'uploaded': return 'bg-green-100 text-green-800 border-green-200';
-      case 'validated': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'error': return 'bg-red-100 text-red-800 border-red-200';
-      case 'corrupted': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'uploading': return 'bg-blue-100 text-blue-800';
+      case 'uploaded': return 'bg-green-100 text-green-800';
+      case 'validated': return 'bg-emerald-100 text-emerald-800';
+      case 'error': return 'bg-red-100 text-red-800';
+      case 'corrupted': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'normal': return 'bg-blue-500';
-      case 'low': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+      case 'urgent': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'normal': return 'bg-blue-100 text-blue-800';
+      case 'low': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'uploading': return <Upload className="w-4 h-4" />;
-      case 'uploaded': return <CheckCircle className="w-4 h-4" />;
-      case 'validated': return <CheckCircle className="w-4 h-4" />;
-      case 'error': return <AlertTriangle className="w-4 h-4" />;
-      case 'corrupted': return <AlertTriangle className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
+  const formatFileSize = (bytes: number) => {
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  };
+
+  const getClientName = (clientId: string) => {
+    const client = clientGroups.find(c => c.client_id === clientId);
+    return client?.client_name || 'Cliente desconocido';
   };
 
   // Get all documents from all clients for filtering
@@ -939,13 +961,6 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
               Actualizar
             </button>
             <button
-              onClick={() => setShowPlatformModal(true)}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <Globe className="w-4 h-4 mr-2" />
-              Conectar Plataforma
-            </button>
-            <button
               onClick={() => setShowUploadModal(true)}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
@@ -1019,7 +1034,7 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
         </div>
       </div>
 
-      {/* Filters and Actions */}
+      {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border">
         <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
           <div className="flex flex-col sm:flex-row gap-4 flex-1">
@@ -1067,23 +1082,6 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                 {selectedDocuments.length} seleccionados
               </span>
               <button
-                onClick={handleBatchProcess}
-                disabled={processingBatch}
-                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {processingBatch ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Procesar Lote
-                  </>
-                )}
-              </button>
-              <button
                 onClick={() => setSelectedDocuments([])}
                 className="text-gray-600 hover:text-gray-800 px-2 py-2"
               >
@@ -1094,14 +1092,18 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
         </div>
       </div>
 
-      {/* Documents Table */}
+      {/* Documents List - Grouped by Client */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Cola de Documentos ({filteredDocuments.length})
-            </h3>
-            <div className="flex items-center space-x-2">
+            <h3 className="text-lg font-semibold text-gray-900">Cola de Documentos por Cliente</h3>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={loadData}
+                className="text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
               <span className="text-sm text-gray-600">
                 {queueStats.pending} pendientes • {queueStats.uploaded} subidos
               </span>
@@ -1109,235 +1111,149 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
           </div>
         </div>
 
-        {filteredDocuments.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' 
-                ? 'No se encontraron documentos' 
-                : 'No hay documentos en la cola'
-              }
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-                ? 'Intenta ajustar los filtros de búsqueda'
-                : 'Añade documentos para comenzar el procesamiento manual'
-              }
-            </p>
-            {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && (
+        <div className="p-6">
+          {clientGroups.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay clientes con documentos en cola</h3>
+              <p className="text-gray-600 mb-6">Los documentos aparecerán aquí agrupados por cliente</p>
               <button
                 onClick={() => setShowUploadModal(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
               >
                 Añadir Primer Documento
               </button>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selectedDocuments.length === filteredDocuments.length && filteredDocuments.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedDocuments(filteredDocuments.map(d => d.id));
-                        } else {
-                          setSelectedDocuments([]);
-                        }
-                      }}
-                      className="rounded text-blue-600"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pos.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documento</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proyecto</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredDocuments.map((document) => (
-                  <tr key={document.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedDocuments.includes(document.id)}
-                        onChange={() => toggleDocumentSelection(document.id)}
-                        className="rounded text-blue-600"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      #{document.queue_position}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <div className="font-medium text-gray-900">{document.original_name}</div>
-                          <div className="text-sm text-gray-500">
-                            {document.classification} • {(document.file_size / 1024 / 1024).toFixed(2)} MB
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Confianza: {document.confidence}%
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>
-                        <div className="font-medium text-gray-900">{document.client_name}</div>
-                        <div className="text-sm text-gray-500">{document.company_name}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{document.project_name}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(document.status)}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(document.status)}`}>
-                          {document.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${getPriorityColor(document.priority)}`}></div>
-                        <span className="text-sm text-gray-900 capitalize">{document.priority}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleDownloadDocument(document)}
-                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Descargar documento"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleUpdateDocumentStatus(document.id, 'uploaded', 'Subido manualmente por administrador')}
-                          className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                          title="Marcar como subido"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleUpdateDocumentStatus(document.id, 'error', 'Error marcado manualmente')}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Marcar como error"
-                        >
-                          <AlertTriangle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Client Groups Hierarchy */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Estructura Jerárquica de Clientes</h3>
-        </div>
-        <div className="p-6">
-          {clientGroups.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No hay clientes con documentos en cola</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {clientGroups.map((client) => (
-                <div key={client.client_id} className="border border-gray-200 rounded-lg">
+              {clientGroups.map((clientGroup) => (
+                <div key={clientGroup.client_id} className="border border-gray-200 rounded-lg">
+                  {/* Client Header */}
                   <div 
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-                    onClick={() => toggleClientExpansion(client.client_id)}
+                    className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleClientExpansion(clientGroup.client_id)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="flex items-center">
-                        {expandedClients.includes(client.client_id) ? 
-                          <ArrowDown className="w-4 h-4 text-gray-600" /> : 
-                          <ArrowUp className="w-4 h-4 text-gray-600" />
+                      <button className="p-1">
+                        {expandedClients.includes(clientGroup.client_id) ? 
+                          <ChevronDown className="w-4 h-4 text-gray-600" /> : 
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
                         }
-                      </div>
-                      <Users className="w-5 h-5 text-blue-600" />
+                      </button>
+                      <Building2 className="w-6 h-6 text-blue-600" />
                       <div>
-                        <h4 className="font-medium text-gray-900">{client.client_name}</h4>
-                        <p className="text-sm text-gray-600">{client.client_email}</p>
+                        <h4 className="font-semibold text-gray-900">{clientGroup.client_name}</h4>
+                        <p className="text-sm text-gray-600">{clientGroup.client_email}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900">
-                          {client.total_documents} documentos
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {client.documents_per_hour} docs/hora
-                        </div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {clientGroup.total_documents} documentos
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {clientGroup.documents_per_hour} docs/hora
+                        </p>
                       </div>
-                      <div className="flex space-x-1">
-                        {client.platform_credentials.map(cred => (
-                          <div
-                            key={cred.id}
-                            className={`w-2 h-2 rounded-full ${
-                              cred.is_active ? 'bg-green-500' : 'bg-red-500'
-                            }`}
-                            title={`${cred.platform_type}: ${cred.is_active ? 'Activo' : 'Inactivo'}`}
-                          ></div>
-                        ))}
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConnectPlatform(clientGroup);
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                      >
+                        <Globe className="w-4 h-4 inline mr-1" />
+                        Conectar
+                      </button>
                     </div>
                   </div>
 
-                  {expandedClients.includes(client.client_id) && (
-                    <div className="border-t border-gray-200 p-4 bg-gray-50">
-                      {client.companies.map((company) => (
-                        <div key={company.company_id} className="mb-4 last:mb-0">
-                          <div 
-                            className="flex items-center justify-between p-3 bg-white rounded-lg cursor-pointer hover:bg-gray-50"
-                            onClick={() => toggleCompanyExpansion(company.company_id)}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div className="flex items-center">
-                                {expandedCompanies.includes(company.company_id) ? 
-                                  <ArrowDown className="w-4 h-4 text-gray-600" /> : 
-                                  <ArrowUp className="w-4 h-4 text-gray-600" />
-                                }
-                              </div>
-                              <Building2 className="w-4 h-4 text-green-600" />
-                              <span className="font-medium text-gray-900">{company.company_name}</span>
-                            </div>
-                            <span className="text-sm text-gray-600">
-                              {company.total_documents} documentos
-                            </span>
-                          </div>
-
-                          {expandedCompanies.includes(company.company_id) && (
-                            <div className="mt-2 ml-6 space-y-2">
-                              {company.projects.map((project) => (
-                                <div key={project.project_id} className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                                  <div className="flex items-center space-x-2">
-                                    <FolderOpen className="w-4 h-4 text-blue-600" />
-                                    <span className="text-sm font-medium text-gray-900">{project.project_name}</span>
+                  {/* Client Documents */}
+                  {expandedClients.includes(clientGroup.client_id) && (
+                    <div className="p-4 border-t border-gray-200">
+                      {clientGroup.companies.map((company) => (
+                        <div key={company.company_id} className="mb-4">
+                          <h5 className="font-medium text-gray-800 mb-2 flex items-center">
+                            <Building className="w-4 h-4 mr-2 text-gray-600" />
+                            {company.company_name} ({company.total_documents} documentos)
+                          </h5>
+                          
+                          {company.projects.map((project) => (
+                            <div key={project.project_id} className="ml-6 mb-3">
+                              <h6 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                                <FolderOpen className="w-4 h-4 mr-2 text-gray-500" />
+                                {project.project_name} ({project.total_documents} documentos)
+                              </h6>
+                              
+                              <div className="ml-6 space-y-2">
+                                {project.documents.map((document) => (
+                                  <div key={document.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center space-x-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedDocuments.includes(document.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedDocuments(prev => [...prev, document.id]);
+                                          } else {
+                                            setSelectedDocuments(prev => prev.filter(id => id !== document.id));
+                                          }
+                                        }}
+                                        className="rounded border-gray-300"
+                                      />
+                                      <FileText className="w-4 h-4 text-gray-400" />
+                                      <div>
+                                        <div className="text-sm font-medium text-gray-900">
+                                          {document.original_name}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {document.classification} • {formatFileSize(document.file_size)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-3">
+                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(document.status)}`}>
+                                        {document.status}
+                                      </span>
+                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(document.priority)}`}>
+                                        {document.priority}
+                                      </span>
+                                      
+                                      <div className="flex items-center space-x-1">
+                                        <button
+                                          onClick={() => handleDownloadDocument(document)}
+                                          className="text-blue-600 hover:text-blue-700 p-1"
+                                          title="Descargar documento"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleUploadDocument(document.id)}
+                                          disabled={uploadingDocuments.includes(document.id)}
+                                          className="text-purple-600 hover:text-purple-700 disabled:opacity-50 p-1"
+                                          title="Subir a plataforma"
+                                        >
+                                          {uploadingDocuments.includes(document.id) ? (
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                          ) : (
+                                            <Upload className="w-4 h-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateStatus(document.id, 'error')}
+                                          className="text-red-600 hover:text-red-700 p-1"
+                                          title="Marcar como error"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <span className="text-xs text-gray-600">
-                                    {project.total_documents} docs
-                                  </span>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          )}
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -1352,7 +1268,7 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
       {/* Upload Modal */}
       <UploadModal
         isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
+        onClose={handleCloseUploadModal}
         onUpload={handleUploadDocuments}
         clientGroups={clientGroups}
       />
@@ -1362,6 +1278,7 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
         isOpen={showPlatformModal}
         onClose={() => setShowPlatformModal(false)}
         onSave={handleSavePlatformCredentials}
+        clientGroup={selectedClient}
       />
     </div>
   );
