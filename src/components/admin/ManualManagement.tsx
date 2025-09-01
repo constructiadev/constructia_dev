@@ -446,6 +446,13 @@ function PlatformConnectionModal({
                   </span>
                 </div>
               ))}
+              {documentsToUpload.length === 0 && (
+                <div className="text-center py-6 text-gray-500">
+                  <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">No hay documentos seleccionados</p>
+                  <p className="text-xs">Selecciona documentos de la tabla o arrastra archivos aquí</p>
+                </div>
+                )}
             </div>
 
             {/* Temporary Directory */}
@@ -592,12 +599,6 @@ function PlatformConnectionModal({
               <p className="text-xs text-gray-600 mt-1">
                 Procesando {documentsToUpload.length + tempFiles.length} documentos...
               </p>
-                <div className="text-center py-6 text-gray-500">
-                  <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm">No hay documentos seleccionados</p>
-                  <p className="text-xs">Selecciona documentos de la tabla o arrastra archivos aquí</p>
-                </div>
-              )}
             </div>
           )}
 
