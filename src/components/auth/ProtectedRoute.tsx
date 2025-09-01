@@ -32,7 +32,7 @@ export default function ProtectedRoute({
       }
 
       // Get user profile to check role
-      const { data: userProfile, error: profileError } = await supabaseServiceClient
+      const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
