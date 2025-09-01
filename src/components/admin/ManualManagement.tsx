@@ -345,7 +345,23 @@ function PlatformConnectionModal({
             <h4 className="font-semibold text-gray-800 mb-3">
               📁 Documentos a Subir ({documentsToUpload.length})
             </h4>
-            <div className="max-h-48 overflow-y-auto space-y-2">
+            <div 
+              className="max-h-48 overflow-y-auto space-y-2 border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const files = Array.from(e.dataTransfer.files);
+                if (files.length > 0) {
+                  // Add dropped files to the upload list
+                  console.log('Files dropped on upload area:', files.length);
+                  alert(`📁 ${files.length} archivo(s) añadido(s) para subir a ${selectedPlatform.toUpperCase()}`);
+                }
+              }}
+            >
+              <div className="text-center mb-3 text-gray-600">
+                <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm">⬇️ Arrastra documentos aquí para subirlos a {selectedPlatform.toUpperCase()}</p>
+              </div>
               {documentsToUpload.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center">
@@ -367,6 +383,13 @@ function PlatformConnectionModal({
                   </span>
                 </div>
               ))}
+              {documentsToUpload.length === 0 && (
+                <div className="text-center py-6 text-gray-500">
+                  <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">No hay documentos seleccionados</p>
+                  <p className="text-xs">Selecciona documentos de la tabla o arrastra archivos aquí</p>
+                </div>
+              )}
             </div>
           </div>
 
