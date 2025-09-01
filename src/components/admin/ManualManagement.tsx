@@ -587,6 +587,11 @@ export default function ManualManagement() {
 
   const handleDownloadDocument = async (document: ManualDocument) => {
     try {
+      // Check if document and createElement are available
+      if (typeof window === 'undefined' || !window.document || typeof window.document.createElement !== 'function') {
+        throw new Error('Document API not available');
+      }
+
       // Create a mock file for download since we don't have actual file storage
       const mockContent = `Documento: ${document.original_name}
 Categoría: ${document.classification}
@@ -602,12 +607,12 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
       const blob = new Blob([mockContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = `${document.original_name}.txt`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       console.log('✅ Document downloaded:', document.original_name);
