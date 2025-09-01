@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    hmr: {
+      overlay: false
+    }
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
