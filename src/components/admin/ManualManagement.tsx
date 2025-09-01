@@ -128,6 +128,9 @@ function PlatformConnectionModal({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected');
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
+  const [tempFiles, setTempFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [showTempDirectory, setShowTempDirectory] = useState(false);
 
   const platformUrls = {
     nalanda: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth?ui_locales=es+en+pt&scope=openid&response_type=code&redirect_uri=https%3A%2F%2Fapp.nalandaglobal.com%2Fsso%2Fcallback.action&state=iWjiywv5BdzdX9IagNMFTYQgz_0QJMlNxfowDD_XeSY&nonce=_wBHFNRC1xlSpdE_2Uq7UxLzCCD1Amy29V3LjcDk7iE&client_id=nalanda-app',
@@ -137,6 +140,63 @@ function PlatformConnectionModal({
 
   const selectedCredential = clientCredentials.find(cred => cred.platform_type === selectedPlatform);
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setTempFiles(prev => [...prev, ...files]);
+      alert(`📁 ${files.length} archivo(s) añadido(s) al directorio temporal`);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setTempFiles(prev => [...prev, ...files]);
+      alert(`📁 ${files.length} archivo(s) añadido(s) al directorio temporal`);
+    }
+  };
+
+  const removeTempFile = (index: number) => {
+    setTempFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearTempDirectory = () => {
+    setTempFiles([]);
+    alert('🗑️ Directorio temporal limpiado');
+  };
+
+  const downloadTempFiles = async () => {
+    if (tempFiles.length === 0) return;
+    
+    // Create a temporary directory structure for download
+    const zip = new JSZip();
+    
+    for (const file of tempFiles) {
+      const arrayBuffer = await file.arrayBuffer();
+      zip.file(file.name, arrayBuffer);
+    }
+    
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documentos_${selectedPlatform}_${new Date().toISOString().split('T')[0]}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const openPlatform = () => {
     const url = platformUrls[selectedPlatform];
     const platformWindow = window.open(
@@ -203,13 +263,29 @@ function PlatformConnectionModal({
     setUploadProgress(0);
     
     try {
+      const totalDocuments = documentsToUpload.length + tempFiles.length;
+      let processed = 0;
+      
+      // Process queue documents
       for (let i = 0; i < documentsToUpload.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 1500));
-        setUploadProgress(((i + 1) / documentsToUpload.length) * 100);
+        processed++;
+        setUploadProgress((processed / totalDocuments) * 100);
+      }
+      
+      // Process temp files
+      for (let i = 0; i < tempFiles.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        processed++;
+        setUploadProgress((processed / totalDocuments) * 100);
       }
       
       onUploadComplete(documentsToUpload.map(d => d.id));
-      alert(`✅ ${documentsToUpload.length} documentos subidos exitosamente a ${selectedPlatform.toUpperCase()}`);
+      
+      // Clear temp directory after successful upload
+      setTempFiles([]);
+      
+      alert(`✅ ${totalDocuments} documentos subidos exitosamente a ${selectedPlatform.toUpperCase()}`);
       onClose();
     } catch (error) {
       alert('❌ Error durante la subida de documentos');
@@ -343,25 +419,12 @@ function PlatformConnectionModal({
           {/* Documents to Upload */}
           <div>
             <h4 className="font-semibold text-gray-800 mb-3">
-              📁 Documentos a Subir ({documentsToUpload.length})
+              📁 Documentos a Subir ({documentsToUpload.length + tempFiles.length})
             </h4>
-            <div 
-              className="max-h-48 overflow-y-auto space-y-2 border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const files = Array.from(e.dataTransfer.files);
-                if (files.length > 0) {
-                  // Add dropped files to the upload list
-                  console.log('Files dropped on upload area:', files.length);
-                  alert(`📁 ${files.length} archivo(s) añadido(s) para subir a ${selectedPlatform.toUpperCase()}`);
-                }
-              }}
-            >
-              <div className="text-center mb-3 text-gray-600">
-                <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-                <p className="text-sm">⬇️ Arrastra documentos aquí para subirlos a {selectedPlatform.toUpperCase()}</p>
-              </div>
+            
+            {/* Queue Documents */}
+            <div className="max-h-32 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50 mb-4">
+              <h5 className="text-sm font-medium text-gray-700 mb-2">📋 Documentos de la Cola ({documentsToUpload.length})</h5>
               {documentsToUpload.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center">
@@ -383,14 +446,134 @@ function PlatformConnectionModal({
                   </span>
                 </div>
               ))}
-              {documentsToUpload.length === 0 && (
-                <div className="text-center py-6 text-gray-500">
-                  <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm">No hay documentos seleccionados</p>
-                  <p className="text-xs">Selecciona documentos de la tabla o arrastra archivos aquí</p>
-                </div>
-              )}
             </div>
+
+            {/* Temporary Directory */}
+            <div className="border-2 border-dashed border-orange-300 rounded-lg p-4 bg-orange-50">
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="text-sm font-medium text-orange-800">
+                  🗂️ Directorio Temporal ({tempFiles.length} archivos)
+                </h5>
+                <div className="flex space-x-2">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="temp-file-upload"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  />
+                  <label
+                    htmlFor="temp-file-upload"
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-xs cursor-pointer flex items-center"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Añadir
+                  </label>
+                  {tempFiles.length > 0 && (
+                    <>
+                      <button
+                        onClick={downloadTempFiles}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Descargar ZIP
+                      </button>
+                      <button
+                        onClick={clearTempDirectory}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs flex items-center"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Limpiar
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div 
+                className={`min-h-24 max-h-32 overflow-y-auto transition-all ${
+                  isDragOver 
+                    ? 'bg-orange-200 border-2 border-dashed border-orange-500 transform scale-105' 
+                    : 'bg-white border border-orange-200'
+                } rounded-lg p-3`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {tempFiles.length === 0 ? (
+                  <div className="text-center py-4 text-orange-600">
+                    <Upload className="h-6 w-6 mx-auto mb-2" />
+                    <p className="text-sm">
+                      {isDragOver 
+                        ? '⬇️ Suelta los archivos aquí' 
+                        : '📁 Arrastra archivos aquí o usa el botón "Añadir"'
+                      }
+                    </p>
+                    <p className="text-xs text-orange-500 mt-1">
+                      Para plataformas que no soportan drag & drop directo
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {tempFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-orange-100 rounded">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 text-orange-600 mr-2" />
+                          <div>
+                            <span className="text-sm font-medium text-orange-900">{file.name}</span>
+                            <p className="text-xs text-orange-700">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeTempFile(index)}
+                          className="text-red-600 hover:text-red-700 p-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-3 text-xs text-orange-700">
+                <p><strong>💡 Uso del Directorio Temporal:</strong></p>
+                <p>• Arrastra archivos desde tu sistema o desde la cola de documentos</p>
+                <p>• Descarga como ZIP para subir manualmente a plataformas</p>
+                <p>• Se limpia automáticamente al completar la subida</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Platform Support Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h5 className="font-medium text-blue-800 mb-2">
+              🌐 Soporte de {selectedPlatform.toUpperCase()}
+            </h5>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-blue-700">
+                  <strong>Drag & Drop:</strong> {
+                    selectedPlatform === 'nalanda' ? '✅ Soportado' :
+                    selectedPlatform === 'ctaima' ? '⚠️ Limitado' :
+                    '❌ No soportado'
+                  }
+                </p>
+              </div>
+              <div>
+                <p className="text-blue-700">
+                  <strong>Subida Manual:</strong> ✅ Siempre disponible
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              {selectedPlatform === 'nalanda' && 'Puedes arrastrar directamente o usar el directorio temporal'}
+              {selectedPlatform === 'ctaima' && 'Recomendado usar directorio temporal para mejor compatibilidad'}
+              {selectedPlatform === 'ecoordina' && 'Usa el directorio temporal y descarga ZIP para subida manual'}
+            </p>
           </div>
 
           {/* Upload Progress */}
@@ -406,6 +589,15 @@ function PlatformConnectionModal({
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Procesando {documentsToUpload.length + tempFiles.length} documentos...
+              </p>
+                <div className="text-center py-6 text-gray-500">
+                  <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">No hay documentos seleccionados</p>
+                  <p className="text-xs">Selecciona documentos de la tabla o arrastra archivos aquí</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -417,12 +609,21 @@ function PlatformConnectionModal({
             >
               Cancelar
             </button>
+            {tempFiles.length > 0 && (
+              <button
+                onClick={downloadTempFiles}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Descargar ZIP
+              </button>
+            )}
             <button
               onClick={uploadDocuments}
-              disabled={!selectedCredential || isUploading}
+              disabled={!selectedCredential || isUploading || (documentsToUpload.length === 0 && tempFiles.length === 0)}
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg disabled:opacity-50"
             >
-              {isUploading ? '📤 Subiendo...' : `📤 Subir a ${selectedPlatform.toUpperCase()}`}
+              {isUploading ? '📤 Subiendo...' : `📤 Subir ${documentsToUpload.length + tempFiles.length} a ${selectedPlatform.toUpperCase()}`}
             </button>
           </div>
         </div>
@@ -621,6 +822,19 @@ function ProjectDropZone({ project, onDrop }: ProjectDropZoneProps) {
     }
   };
 
+  const handleAddFiles = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      if (files.length > 0) {
+        onDrop(files);
+      }
+    };
+    input.click();
+  };
   return (
     <div 
       onDragOver={handleDragOver}
@@ -643,11 +857,22 @@ function ProjectDropZone({ project, onDrop }: ProjectDropZoneProps) {
       </div>
       <div className="flex items-center space-x-2">
         <span className="text-sm text-purple-700">📊 {project.total_documents} documentos</span>
-        {isDragOver ? (
-          <Upload className="h-4 w-4 text-purple-600 animate-bounce" />
-        ) : (
-          <Plus className="h-4 w-4 text-purple-600" />
-        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddFiles();
+          }}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs flex items-center"
+        >
+          {isDragOver ? (
+            <Upload className="h-3 w-3 animate-bounce" />
+          ) : (
+            <>
+              <Plus className="h-3 w-3 mr-1" />
+              Añadir
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
@@ -661,6 +886,8 @@ interface DocumentRowProps {
 }
 
 function DocumentRow({ document, isSelected, onSelect, onStatusChange }: DocumentRowProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -697,10 +924,30 @@ function DocumentRow({ document, isSelected, onSelect, onStatusChange }: Documen
 
   const canSelect = document.status === 'pending' || document.status === 'error';
 
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragging(true);
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      id: document.id,
+      name: document.original_name,
+      type: 'queue-document'
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
   return (
-    <tr className={`hover:bg-gray-50 ${
+    <tr 
+      draggable={canSelect}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className={`hover:bg-gray-50 transition-all ${
       document.corruption_detected ? 'bg-red-50' : ''
-    } ${isSelected ? 'bg-blue-50' : ''}`}>
+    } ${isSelected ? 'bg-blue-50' : ''} ${
+      isDragging ? 'opacity-50 transform scale-95' : ''
+    } ${canSelect ? 'cursor-grab active:cursor-grabbing' : ''}`}
+    >
       {/* Selection */}
       <td className="px-6 py-3">
         <input
@@ -710,6 +957,11 @@ function DocumentRow({ document, isSelected, onSelect, onStatusChange }: Documen
           disabled={!canSelect}
           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
         />
+        {canSelect && (
+          <div className="text-xs text-gray-500 mt-1">
+            🖱️ Arrastra
+          </div>
+        )}
       </td>
 
       {/* Document Info */}
