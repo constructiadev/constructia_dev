@@ -800,6 +800,40 @@ interface ProjectDropZoneProps {
   onDrop: (files: File[]) => void;
 }
 
+interface ProjectGroup {
+  project_id: string;
+  project_name: string;
+  documents: ManualDocument[];
+  total_documents: number;
+}
+
+interface ManualDocument {
+  id: string;
+  tenant_id: string;
+  client_id: string;
+  document_id: string;
+  filename: string;
+  original_name: string;
+  file_size: number;
+  file_type: string;
+  classification: string;
+  confidence: number;
+  corruption_detected: boolean;
+  integrity_score: number;
+  status: 'pending' | 'uploading' | 'uploaded' | 'validated' | 'error' | 'corrupted';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  queue_position: number;
+  retry_count: number;
+  last_error?: string;
+  nota: string;
+  platform_target: 'nalanda' | 'ctaima' | 'ecoordina';
+  company_id?: string;
+  project_id?: string;
+  estimated_processing_time?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 function ProjectDropZone({ project, onDrop }: ProjectDropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
