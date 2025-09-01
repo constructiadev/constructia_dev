@@ -685,8 +685,10 @@ export class ManualManagementService {
       const priorities = ['low', 'normal', 'high', 'urgent'];
       const statuses = ['queued', 'in_progress', 'uploaded', 'error'];
 
-      // Create 150 test documents
+      // Create documentos data array
       const documentosData = [];
+      
+      // Create 150 test documents
       for (const empresa of empresas) {
         const empresaObras = obras.filter(o => o.empresa_id === empresa.id);
         const docsPerEmpresa = Math.floor(Math.random() * 30) + 20; // 20-50 docs per empresa
@@ -695,7 +697,7 @@ export class ManualManagementService {
           const obra = empresaObras[Math.floor(Math.random() * empresaObras.length)] || obras[0];
           const docType = documentTypes[Math.floor(Math.random() * documentTypes.length)];
           const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
-          const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${i}.${fileExtension}`;
+          const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${empresa.id.substring(0, 8)}_${i}.${fileExtension}`;
           
           documentosData.push({
             tenant_id: this.tenantId,
@@ -705,7 +707,7 @@ export class ManualManagementService {
             file: `${this.tenantId}/obra/${obra.id}/OTROS/${fileName}`,
             mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
             size_bytes: Math.floor(Math.random() * 10000000) + 500000,
-            hash_sha256: `hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
+            hash_sha256: `hash_${empresa.id}_${obra.id}_${i}_${Math.random().toString(36).substr(2, 9)}`,
             version: 1,
             estado: 'pendiente',
             metadatos: {

@@ -81,36 +81,8 @@ async function populateManualQueue() {
   console.log('🚀 Populating manual upload queue with test documents...\n');
 
   try {
-    // 1. Disable RLS for development
-    console.log('1️⃣ Disabling RLS for development...');
-    const tables = [
-      'manual_upload_queue',
-      'empresas',
-      'obras',
-      'documentos',
-      'adaptadores',
-      'users',
-      'tenants'
-    ];
-
-    for (const table of tables) {
-      try {
-        const { error } = await supabase.rpc('exec_sql', {
-          sql: `ALTER TABLE public.${table} DISABLE ROW LEVEL SECURITY;`
-        });
-
-        if (error) {
-          console.warn(`⚠️ Could not disable RLS for ${table}: ${error.message}`);
-        } else {
-          console.log(`✅ RLS disabled for ${table}`);
-        }
-      } catch (e) {
-        console.warn(`⚠️ Error with table ${table}:`, e.message);
-      }
-    }
-
-    // 2. Get existing empresas and obras
-    console.log('\n2️⃣ Getting existing empresas and obras...');
+    // 1. Get existing empresas and obras
+    console.log('1️⃣ Getting existing empresas and obras...');
     const { data: empresas, error: empresasError } = await supabase
       .from('empresas')
       .select('*')
@@ -145,8 +117,8 @@ async function populateManualQueue() {
 
     console.log(`✅ Found ${obras.length} obras`);
 
-    // 3. Create platform credentials for each empresa
-    console.log('\n3️⃣ Creating platform credentials...');
+    // 2. Create platform credentials for each empresa
+    console.log('\n2️⃣ Creating platform credentials...');
     const credentialsData = [];
 
     for (const empresa of empresas) {
@@ -176,8 +148,8 @@ async function populateManualQueue() {
       console.log(`✅ Created ${credentialsData.length} platform credentials`);
     }
 
-    // 4. Create documentos in the documentos table first
-    console.log('\n4️⃣ Creating documentos...');
+    // 3. Create documentos in the documentos table first
+    console.log('\n3️⃣ Creating documentos...');
     const documentosData = [];
 
     for (let i = 0; i < 150; i++) {
@@ -185,7 +157,7 @@ async function populateManualQueue() {
       const obra = obras.find(o => o.empresa_id === empresa.id) || getRandomElement(obras);
       const docType = getRandomElement(documentTypes);
       const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
-      const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${i + 1}.${fileExtension}`;
+      const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${empresa.id.substring(0, 8)}_${i + 1}.${fileExtension}`;
       
       documentosData.push({
         tenant_id: DEV_TENANT_ID,
@@ -195,7 +167,7 @@ async function populateManualQueue() {
         file: `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/${fileName}`,
         mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
         size_bytes: generateRandomFileSize(),
-        hash_sha256: `hash_${Date.now()}_${i}`,
+        hash_sha256: `hash_${empresa.id}_${obra.id}_${i}_${Math.random().toString(36).substr(2, 9)}`,
         version: 1,
         estado: 'pendiente',
         metadatos: {
@@ -223,8 +195,8 @@ async function populateManualQueue() {
 
     console.log(`✅ Created ${createdDocumentos.length} documentos`);
 
-    // 5. Create manual upload queue entries
-    console.log('\n5️⃣ Creating manual upload queue entries...');
+    // 4. Create manual upload queue entries
+    console.log('\n4️⃣ Creating manual upload queue entries...');
     const queueData = [];
 
     for (let i = 0; i < createdDocumentos.length; i++) {
@@ -255,8 +227,8 @@ async function populateManualQueue() {
 
     console.log(`✅ Created ${queueData.length} queue entries`);
 
-    // 6. Verification
-    console.log('\n6️⃣ Verification...');
+    // 5. Verification
+    console.log('\n5️⃣ Verification...');
     
     const { count: totalQueue } = await supabase
       .from('manual_upload_queue')
@@ -280,8 +252,8 @@ async function populateManualQueue() {
     console.log(`   - Empresas: ${empresas.length}`);
     console.log(`   - Obras: ${obras.length}`);
 
-    // 7. Test queue access
-    console.log('\n7️⃣ Testing queue access...');
+    // 6. Test queue access
+    console.log('\n6️⃣ Testing queue access...');
     const { data: queueTest, error: queueTestError } = await supabase
       .from('manual_upload_queue')
       .select('*')
