@@ -32,7 +32,6 @@ import {
 } from 'lucide-react';
 import { 
   getAllClients, 
-  getManualProcessingQueue, 
   calculateDynamicKPIs,
   getAllReceipts,
   getDocumentStats,
@@ -72,9 +71,8 @@ const AdminDashboard: React.FC = () => {
       setError(null);
 
       // Cargar TODOS los datos reales de la base de datos
-      const [clients, queue, dynamicKPIs, receipts, documents, clientStats] = await Promise.all([
+      const [clients, dynamicKPIs, receipts, documents, clientStats] = await Promise.all([
         getAllClients(),
-        getManualProcessingQueue(),
         calculateDynamicKPIs(),
         getAllReceipts(),
         getDocumentStats(),
@@ -137,7 +135,7 @@ const AdminDashboard: React.FC = () => {
         churnRate: Math.round(churnRate * 10) / 10,
         ltv,
         systemUptime: Math.round(systemUptime * 10) / 10,
-        queueSize: queue.length
+        queueSize: 0
       });
 
       // Generar KPIs ejecutivos con datos REALES de la base de datos

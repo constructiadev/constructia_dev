@@ -3,7 +3,6 @@ import { Brain, Activity, Clock, AlertTriangle, CheckCircle, XCircle, Settings, 
 import { 
   getKPIs, 
   getAPIIntegrations, 
-  getManualProcessingQueue, 
   getDocumentStats,
   calculateDynamicKPIs 
 } from '../../lib/supabase';
@@ -57,10 +56,9 @@ const AIIntegrationModule: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [kpisData, integrationsData, queueData, dynamicKPIs] = await Promise.all([
+      const [kpisData, integrationsData, dynamicKPIs] = await Promise.all([
         getKPIs(),
         getAPIIntegrations(),
-        getManualProcessingQueue(),
         calculateDynamicKPIs()
       ]);
 
@@ -99,7 +97,7 @@ const AIIntegrationModule: React.FC = () => {
         {
           id: 'queue-size',
           name: 'Cola Manual',
-          value: queueData.length.toString(),
+          value: '0',
           change: -12.5,
           trend: 'down' as const,
           period: 'daily',

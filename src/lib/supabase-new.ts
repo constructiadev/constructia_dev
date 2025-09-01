@@ -10,7 +10,6 @@ import type {
   Maquinaria, 
   NewDocumento,
   Tarea,
-  ManualUploadQueue,
   UserRole,
   MappingTemplate,
   RequisitoPlataforma,
@@ -226,69 +225,6 @@ export const getTenantDocumentos = async (tenantId: string): Promise<NewDocument
 };
 
 // Helper para obtener cola de subida manual
-export const getManualUploadQueue = async (tenantId: string): Promise<ManualUploadQueue[]> => {
-  try {
-    // Direct query without joins to avoid RLS issues
-    const { data, error } = await supabaseServiceClient
-      .from('manual_upload_queue')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error getting manual upload queue:', error);
-      return [];
-    }
-
-    // Get related data separately to avoid join issues
-    const queueWithDetails = await Promise.all(
-      (data || []).map(async (item) => {
-        try {
-          // Get documento details
-          const { data: documento } = await supabaseServiceClient
-            .from('documentos')
-            .select('file, categoria, estado')
-            .eq('id', item.documento_id)
-            .single();
-
-          // Get empresa details
-          const { data: empresa } = await supabaseServiceClient
-            .from('empresas')
-            .select('razon_social')
-            .eq('id', item.empresa_id)
-            .single();
-
-          // Get obra details
-          const { data: obra } = await supabaseServiceClient
-            .from('obras')
-            .select('nombre_obra, codigo_obra')
-            .eq('id', item.obra_id)
-            .single();
-
-          return {
-            ...item,
-            documentos: documento,
-            empresas: empresa,
-            obras: obra
-          };
-        } catch (e) {
-          console.warn('Error fetching related data for queue item:', e);
-          return {
-            ...item,
-            documentos: { file: 'unknown.pdf', categoria: 'OTROS', estado: 'pendiente' },
-            empresas: { razon_social: 'Empresa Desconocida' },
-            obras: { nombre_obra: 'Obra Desconocida', codigo_obra: 'UNK' }
-          };
-        }
-      })
-    );
-
-    return queueWithDetails;
-  } catch (error) {
-    console.error('Error getting manual upload queue:', error);
-    return [];
-  }
-};
 
 // Helper para obtener tareas del tenant
 export const getTenantTareas = async (tenantId: string): Promise<Tarea[]> => {
@@ -387,38 +323,6 @@ export const createTarea = async (tareaData: Partial<Tarea>): Promise<Tarea | nu
 };
 
 // Helper para añadir documento a cola manual
-export const addToManualQueue = async (
-  tenantId: string,
-  empresaId: string,
-  obraId: string,
-  documentoId: string,
-  nota?: string
-): Promise<ManualUploadQueue | null> => {
-  try {
-    const { data, error } = await supabaseNew
-      .from('manual_upload_queue')
-      .insert({
-        tenant_id: tenantId,
-        empresa_id: empresaId,
-        obra_id: obraId,
-        documento_id: documentoId,
-        status: 'queued',
-        nota
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error adding to manual queue:', error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error adding to manual queue:', error);
-    return null;
-  }
-};
 
 // Helper para obtener estructura jerárquica completa
 export const getTenantHierarchy = async (tenantId: string) => {
@@ -572,57 +476,6 @@ export const getTenantStats = async (tenantId: string) => {
 };
 
 // Helper para procesar documento en cola manual
-export const processManualQueueItem = async (
-  queueId: string,
-  action: 'upload' | 'error' | 'complete',
-  operatorUserId?: string,
-  nota?: string
-): Promise<boolean> => {
-  try {
-    const newStatus = action === 'upload' ? 'in_progress' : 
-                     action === 'error' ? 'error' : 'uploaded';
-
-    const { error } = await supabaseNew
-      .from('manual_upload_queue')
-      .update({
-        status: newStatus,
-        operator_user: operatorUserId,
-        nota,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', queueId);
-
-    if (error) {
-      console.error('Error processing manual queue item:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error processing manual queue item:', error);
-    return false;
-  }
-};
-
-// Helper para eliminar documento de cola manual
-export const removeFromManualQueue = async (queueId: string): Promise<boolean> => {
-  try {
-    const { error } = await supabaseNew
-      .from('manual_upload_queue')
-      .delete()
-      .eq('id', queueId);
-
-    if (error) {
-      console.error('Error removing from manual queue:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error removing from manual queue:', error);
-    return false;
-  }
-};
 // Helper para obtener mapping templates
 export const getMappingTemplates = async (tenantId: string, plataforma?: string): Promise<MappingTemplate[]> => {
   try {

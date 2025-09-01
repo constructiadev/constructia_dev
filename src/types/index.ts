@@ -328,8 +328,6 @@ export interface ManualUploadQueue {
   created_at: string;
   updated_at: string;
 }
-
-// Tipos existentes (mantener compatibilidad)
 export interface User {
   id: string;
   email: string;

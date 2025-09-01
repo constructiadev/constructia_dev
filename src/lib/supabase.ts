@@ -9,7 +9,6 @@ import {
   getTenantStats,
   getCurrentUserTenant
 } from './supabase-real';
-import { getManualUploadQueue } from './supabase-new';
 
 // Constante UUID válida para desarrollo
 export const TEST_USER_UUID = '00000000-0000-0000-0000-000000000001';
@@ -345,51 +344,6 @@ export const getAllPaymentGateways = async () => {
 };
 
 // Helper para obtener cola de procesamiento manual
-export const getManualProcessingQueue = async () => {
-  try {
-    // Use new manual upload queue
-    const tenantId = DEV_TENANT_ID;
-    const queueData = await getManualUploadQueue(tenantId);
-
-    // Transform to expected format
-    const queue = queueData.map(item => ({
-      id: item.id,
-      document_id: item.documento_id,
-      client_id: item.empresa_id, // Use empresa as client
-      company_id: item.empresa_id,
-      project_id: item.obra_id,
-      queue_position: Math.floor(Math.random() * 100) + 1,
-      priority: item.status === 'error' ? 'high' : 'normal',
-      manual_status: item.status === 'queued' ? 'pending' : 
-                    item.status === 'in_progress' ? 'in_progress' :
-                    item.status === 'uploaded' ? 'uploaded' : 'error',
-      ai_analysis: {},
-      admin_notes: item.nota || '',
-      processed_by: item.operator_user,
-      processed_at: item.updated_at,
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-      documents: {
-        filename: item.documentos?.file?.split('/').pop() || 'documento.pdf',
-        original_name: item.documentos?.file?.split('/').pop() || 'documento.pdf'
-      },
-      clients: {
-        company_name: item.empresas?.razon_social || 'Empresa'
-      },
-      companies: {
-        name: item.empresas?.razon_social || 'Empresa'
-      },
-      projects: {
-        name: item.obras?.nombre_obra || 'Proyecto'
-      }
-    }));
-    
-    return queue;
-  } catch (error) {
-    console.error('Error fetching manual processing queue:', error);
-    return [];
-  }
-};
 
 // Helper para obtener configuraciones del sistema
 export const getSystemSettings = async () => {

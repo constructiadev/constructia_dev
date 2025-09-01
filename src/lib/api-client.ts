@@ -190,23 +190,6 @@ export class APIClient {
   }
 
   // Gestión manual
-  async getObraliaCredentials(tenantId: string): Promise<APIResponse> {
-    return this.request(`/admin/manual-upload/credentials/${tenantId}`, {
-      method: 'GET'
-    });
-  }
-
-  async moveBetweenBuckets(queueId: string, toBucket: string, newOrder: number): Promise<APIResponse> {
-    return this.request('/admin/manual-upload/move', {
-      method: 'POST',
-      body: JSON.stringify({
-        queue_id: queueId,
-        to_bucket: toBucket,
-        new_order: newOrder
-      })
-    });
-  }
-
   // Integraciones
   async buildPackage(obraId: string, plataforma: string): Promise<APIResponse> {
     return this.request('/integrations/build-package', {
