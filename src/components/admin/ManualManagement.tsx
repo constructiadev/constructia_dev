@@ -10,7 +10,7 @@ import {
   Upload, 
   CheckCircle, 
   AlertTriangle, 
-  Clock, 
+import { logAuditoria } from '../../lib/supabase-new';
   Brain, 
   Settings, 
   RefreshCw, 
