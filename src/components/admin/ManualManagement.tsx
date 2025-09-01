@@ -197,6 +197,7 @@ function PlatformConnectionModal({
     a.click();
     URL.revokeObjectURL(url);
   };
+  
   const openPlatform = () => {
     const url = platformUrls[selectedPlatform];
     const platformWindow = window.open(
@@ -835,6 +836,7 @@ function ProjectDropZone({ project, onDrop }: ProjectDropZoneProps) {
     };
     input.click();
   };
+  
   return (
     <div 
       onDragOver={handleDragOver}
@@ -937,6 +939,7 @@ function DocumentRow({ document, isSelected, onSelect, onStatusChange }: Documen
   const handleDragEnd = () => {
     setIsDragging(false);
   };
+  
   return (
     <tr 
       draggable={canSelect}
