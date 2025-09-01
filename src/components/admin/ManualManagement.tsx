@@ -1117,6 +1117,7 @@ export default function ManualManagement() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [queueStats, setQueueStats] = useState<any>({});
   const [currentSession, setCurrentSession] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -1148,11 +1149,6 @@ export default function ManualManagement() {
     } catch (error) {
       console.error('Error loading data:', error);
       setError(error instanceof Error ? error.message : 'Error loading data');
-    } finally {
-      setLoading(false);
-    }
-    } catch (error) {
-      console.error('Error loading manual management data:', error);
     } finally {
       setLoading(false);
     }
