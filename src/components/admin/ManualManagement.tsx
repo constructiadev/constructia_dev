@@ -1117,6 +1117,7 @@ export default function ManualManagement() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [queueStats, setQueueStats] = useState<any>({});
   const [currentSession, setCurrentSession] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -1131,20 +1132,19 @@ export default function ManualManagement() {
         manualManagementService.getClientGroups(),
         manualManagementService.getQueueStats()
       ]);
-        const queueEntryId = await manualManagementService.addDocumentToQueue(
+      
       setClientGroups(groups);
       setQueueStats(stats);
 
       // If no data exists, populate test data
       if (groups.length === 0) {
-        if (queueEntryId) {
         await manualManagementService.populateTestData();
         
         // Reload after populating
         const newGroups = await manualManagementService.getClientGroups();
         const newStats = await manualManagementService.getQueueStats();
         setClientGroups(newGroups);
-      // Refresh queue data after successful upload
+        setQueueStats(newStats);
       }
     } catch (error) {
       console.error('Error loading manual management data:', error);
@@ -1203,7 +1203,7 @@ export default function ManualManagement() {
       documentId, 
       newStatus as ManualDocument['upload_status']
     );
-        `Estado cambiado por administrador a ${newStatus} - ${new Date().toLocaleString()}`
+    
     // Update local state
     setClientGroups(prev => prev.map(client => ({
       ...client,
@@ -1226,25 +1226,46 @@ export default function ManualManagement() {
   };
 
   const handleFileDrop = async (files: File[], clientId: string, companyId: string, projectId: string) => {
-    console.log('Files dropped:', files.length, 'for project:', projectId);
-    
-    for (const file of files) {
-      await manualManagementService.addDocumentToQueue(
-        clientId,
-        companyId,
-        projectId,
-        file,
-        'normal',
-        'nalanda'
-      );
-    }
-    
-        if (newStatus === 'uploaded') {
-          alert(`✅ Documento subido exitosamente y removido de la cola`);
-        } else {
-          alert(`✅ Estado actualizado a ${newStatus}`);
+    try {
+      setUploading(true);
+      
+      for (const file of files) {
+        // Validar archivo antes de añadir a la cola
+        if (file.size > 20 * 1024 * 1024) { // 20MB máximo
+          alert(`❌ Archivo ${file.name} excede el tamaño máximo de 20MB`);
+          continue;
         }
-    await loadData(); // Refresh data
+        
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+        if (!allowedTypes.includes(file.type)) {
+          alert(`❌ Tipo de archivo no permitido: ${file.type}`);
+          continue;
+        }
+
+        const queueId = await manualManagementService.addDocumentToQueue(
+          clientId,
+          companyId,
+          projectId,
+          file,
+          'normal',
+          'nalanda' // Plataforma por defecto
+        );
+
+        if (queueId) {
+          console.log(`✅ Archivo ${file.name} añadido a la cola con ID: ${queueId}`);
+        } else {
+          alert(`❌ Error añadiendo ${file.name} a la cola`);
+        }
+      }
+      
+      await loadData(); // Recargar datos después de añadir archivos
+      alert(`✅ ${files.length} archivo(s) procesado(s) y añadido(s) a la cola`);
+    } catch (error) {
+      console.error('Error adding document to queue:', error);
+      alert('❌ Error procesando archivos');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const startProcessingSession = async () => {
