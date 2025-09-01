@@ -1117,7 +1117,6 @@ export default function ManualManagement() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [queueStats, setQueueStats] = useState<any>({});
   const [currentSession, setCurrentSession] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -1201,7 +1200,7 @@ export default function ManualManagement() {
   const handleStatusChange = async (documentId: string, newStatus: string) => {
     await manualManagementService.updateDocumentStatus(
       documentId, 
-      newStatus as ManualDocument['upload_status']
+      newStatus as ManualDocument['status']
     );
     
     // Update local state
@@ -1226,46 +1225,25 @@ export default function ManualManagement() {
   };
 
   const handleFileDrop = async (files: File[], clientId: string, companyId: string, projectId: string) => {
-    try {
-      setUploading(true);
+    console.log('Files dropped:', files.length, 'for project:', projectId);
+    
+    for (const file of files) {
+      const queueEntryId = await manualManagementService.addDocumentToQueue(
+        clientId,
+        companyId,
+        projectId,
+        file,
+        'normal',
+        'nalanda'
+      );
       
-      for (const file of files) {
-        // Validar archivo antes de añadir a la cola
-        if (file.size > 20 * 1024 * 1024) { // 20MB máximo
-          alert(`❌ Archivo ${file.name} excede el tamaño máximo de 20MB`);
-          continue;
-        }
-        
-        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-        if (!allowedTypes.includes(file.type)) {
-          alert(`❌ Tipo de archivo no permitido: ${file.type}`);
-          continue;
-        }
-
-        const queueId = await manualManagementService.addDocumentToQueue(
-          clientId,
-          companyId,
-          projectId,
-          file,
-          'normal',
-          'nalanda' // Plataforma por defecto
-        );
-
-        if (queueId) {
-          console.log(`✅ Archivo ${file.name} añadido a la cola con ID: ${queueId}`);
-        } else {
-          alert(`❌ Error añadiendo ${file.name} a la cola`);
-        }
+      if (queueEntryId) {
+        // Refresh queue data after successful upload
       }
-      
-      await loadData(); // Recargar datos después de añadir archivos
-      alert(`✅ ${files.length} archivo(s) procesado(s) y añadido(s) a la cola`);
-    } catch (error) {
-      console.error('Error adding document to queue:', error);
-      alert('❌ Error procesando archivos');
-    } finally {
-      setUploading(false);
     }
+    
+    alert(`📁 ${files.length} archivo(s) añadido(s) a la cola`);
+    await loadData(); // Refresh data
   };
 
   const startProcessingSession = async () => {
