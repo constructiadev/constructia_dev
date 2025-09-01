@@ -1200,9 +1200,10 @@ export default function ManualManagement() {
   const handleStatusChange = async (documentId: string, newStatus: string) => {
     await manualManagementService.updateDocumentStatus(
       documentId, 
-      newStatus as ManualDocument['status']
+      newStatus as ManualDocument['status'],
+      `Estado cambiado por administrador a ${newStatus} - ${new Date().toLocaleString()}`
     );
-    
+
     // Update local state
     setClientGroups(prev => prev.map(client => ({
       ...client,
@@ -1222,6 +1223,12 @@ export default function ManualManagement() {
     // Refresh stats
     const newStats = await manualManagementService.getQueueStats();
     setQueueStats(newStats);
+
+    if (newStatus === 'uploaded') {
+      alert(`✅ Documento subido exitosamente y removido de la cola`);
+    } else {
+      alert(`✅ Estado actualizado a ${newStatus}`);
+    }
   };
 
   const handleFileDrop = async (files: File[], clientId: string, companyId: string, projectId: string) => {
@@ -1242,7 +1249,6 @@ export default function ManualManagement() {
       }
     }
     
-    alert(`📁 ${files.length} archivo(s) añadido(s) a la cola`);
     await loadData(); // Refresh data
   };
 
