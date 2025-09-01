@@ -151,7 +151,7 @@ export class ManualManagementService {
           client_id: empresa.id,
           client_name: empresa.razon_social,
           client_email: empresa.contacto_email || `contacto@${empresa.razon_social.toLowerCase().replace(/\s+/g, '')}.com`,
-          platform_credentials: credentials,
+          platform_credentials: await this.getPlatformCredentials(empresa.id),
           companies,
           total_documents: totalDocuments,
           documents_per_hour: Math.floor(Math.random() * 10) + 5,
@@ -170,11 +170,10 @@ export class ManualManagementService {
   async getPlatformCredentials(clientId: string): Promise<PlatformCredential[]> {
     try {
       const { data, error } = await supabaseServiceClient
-        .from('platform_credentials')
+        .from('adaptadores')
         .select('*')
         .eq('tenant_id', this.tenantId)
-        .eq('client_id', clientId)
-        .eq('is_active', true);
+        .eq('estado', 'ready');
 
       if (error) {
         console.error('Error fetching platform credentials:', error);
@@ -184,11 +183,11 @@ export class ManualManagementService {
       return (data || []).map(cred => ({
         id: cred.id,
         platform_type: cred.platform_type,
-        username: cred.username,
-        password: this.decryptPassword(cred.password_encrypted),
-        is_active: cred.is_active,
-        validation_status: cred.validation_status,
-        last_validated: cred.last_validated
+        username: cred.credenciales?.username || '',
+        password: cred.credenciales?.password || '',
+        is_active: cred.estado === 'ready',
+        validation_status: cred.estado === 'ready' ? 'valid' : 'pending',
+        last_validated: cred.updated_at
       }));
     } catch (error) {
       console.error('Error getting platform credentials:', error);
@@ -200,11 +199,11 @@ export class ManualManagementService {
   async getQueueDocumentsForProject(projectId: string): Promise<ManualDocument[]> {
     try {
       const { data, error } = await supabaseServiceClient
-        .from('manual_document_queue')
+        .from('manual_upload_queue')
         .select('*')
         .eq('tenant_id', this.tenantId)
-        .eq('project_id', projectId)
-        .order('queue_position');
+        .eq('obra_id', projectId)
+        .order('created_at');
 
       if (error) {
         console.error('Error fetching queue documents:', error);
@@ -314,7 +313,7 @@ export class ManualManagementService {
       }
 
       const { error } = await supabaseServiceClient
-        .from('manual_document_queue')
+        .from('manual_upload_queue')
         .update(updateData)
         .eq('id', documentId)
         .eq('tenant_id', this.tenantId);
@@ -426,24 +425,22 @@ export class ManualManagementService {
 
   // Save platform credentials
   async savePlatformCredentials(
-    clientId: string,
     platformType: 'nalanda' | 'ctaima' | 'ecoordina',
     username: string,
     password: string
   ): Promise<boolean> {
     try {
-      const encryptedPassword = this.encryptPassword(password);
-
       const { error } = await supabaseServiceClient
-        .from('platform_credentials')
+        .from('adaptadores')
         .upsert({
           tenant_id: this.tenantId,
-          client_id: clientId,
-          platform_type: platformType,
-          username,
-          password_encrypted: encryptedPassword,
-          is_active: true,
-          validation_status: 'pending'
+          plataforma: platformType,
+          alias: `${platformType}-default`,
+          credenciales: {
+            username,
+            password
+          },
+          estado: 'ready'
         });
 
       if (error) {
@@ -456,8 +453,8 @@ export class ManualManagementService {
         this.tenantId,
         'admin',
         'credentials.saved',
-        'platform_credentials',
-        clientId,
+        'adaptadores',
+        null,
         { platform_type: platformType, username }
       );
 
@@ -472,7 +469,7 @@ export class ManualManagementService {
   async getQueueStats() {
     try {
       const { data: stats, error } = await supabaseServiceClient
-        .from('manual_document_queue')
+        .from('manual_upload_queue')
         .select('status, priority, corruption_detected')
         .eq('tenant_id', this.tenantId);
 
@@ -631,7 +628,6 @@ export class ManualManagementService {
 
         // Create platform credentials for each empresa
         await this.savePlatformCredentials(
-          empresa.id,
           'nalanda',
           `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@nalanda.com`,
           `${empresa.razon_social.substring(0, 8)}2024!`
@@ -661,28 +657,16 @@ export class ManualManagementService {
             const confidence = Math.floor(Math.random() * 30) + 70; // 70-100%
             const fileSize = Math.floor(Math.random() * 10000000) + 500000; // 0.5-10MB
 
-            await supabaseNew
-              .from('manual_document_queue')
+            await supabaseServiceClient
+              .from('manual_upload_queue')
               .insert([{
                 tenant_id: this.tenantId,
-                client_id: empresa.id,
-                document_id: `DOC-${Date.now()}-${i}`,
-                filename: `${docType.toLowerCase().replace(/\s+/g, '_')}_${i}.pdf`,
-                original_name: `${docType} ${i + 1}.pdf`,
-                file_size: fileSize,
-                file_type: 'application/pdf',
-                classification: docType,
-                confidence,
+                empresa_id: empresa.id,
+                obra_id: obra.id,
+                documento_id: `DOC-${Date.now()}-${i}`,
                 priority,
                 status: status,
-                platform_target: 'nalanda',
-                company_id: empresa.id,
-                project_id: obra.id,
-                corruption_detected: Math.random() < 0.05, // 5% corruption rate
-                integrity_score: confidence,
-                retry_count: status === 'error' ? Math.floor(Math.random() * 3) : 0,
-                last_error: status === 'error' ? 'Simulated upload error' : null,
-                admin_notes: `Test document for ${obra.nombre_obra}`
+                nota: `Test document for ${obra.nombre_obra}: ${docType}`
               }]);
           }
         }
@@ -714,26 +698,22 @@ export class ManualManagementService {
 
   private async logUploadAction(
     sessionId: string | null,
-    documentQueueId: string,
+    documentId: string,
     action: string,
     status: 'success' | 'error' | 'warning' | 'info',
     message: string,
     details: any = {}
   ): Promise<void> {
     try {
-      await supabaseServiceClient
-        .from('upload_logs')
-        .insert({
-          tenant_id: this.tenantId,
-          session_id: sessionId,
-          document_queue_id: documentQueueId,
-          admin_user_id: 'admin-user-id', // In production, get from auth
-          action,
-          status,
-          message,
-          details,
-          processing_time_ms: Math.floor(Math.random() * 5000) + 500
-        });
+      // Log to auditoria table instead since upload_logs doesn't exist
+      await logAuditoria(
+        this.tenantId,
+        'admin',
+        action,
+        'manual_upload_queue',
+        documentId,
+        { status, message, ...details }
+      );
     } catch (error) {
       console.error('Error logging upload action:', error);
     }

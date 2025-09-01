@@ -84,7 +84,6 @@ export default function PlatformCredentialsManager({
     try {
       setSaving(true);
       const success = await manualManagementService.savePlatformCredentials(
-        clientId,
         newCredential.platform_type,
         newCredential.username,
         newCredential.password
