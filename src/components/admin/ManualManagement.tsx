@@ -565,6 +565,7 @@ export default function ManualManagement() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPlatformModal, setShowPlatformModal] = useState(false);
+  const [selectedClientForPlatform, setSelectedClientForPlatform] = useState<string | null>(null);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [processingBatch, setProcessingBatch] = useState(false);
   const [expandedClients, setExpandedClients] = useState<string[]>([]);
@@ -773,6 +774,11 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
     } finally {
       setProcessingBatch(false);
     }
+  };
+
+  const handleShowPlatformModal = (clientId: string) => {
+    setSelectedClientForPlatform(clientId);
+    setShowPlatformModal(true);
   };
 
   const handleSavePlatformCredentials = async (platform: string, credentials: { username: string; password: string }) => {
