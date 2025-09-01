@@ -8,7 +8,7 @@ export default defineConfig({
     host: true,
     hmr: {
       clientPort: 5173,
-      protocol: 'wss'
+      protocol: 'ws'
     }
   },
   optimizeDeps: {
