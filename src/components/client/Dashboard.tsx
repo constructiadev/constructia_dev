@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments, getAllClients, supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface DashboardStats {
   totalProjects: number;
@@ -35,31 +35,47 @@ export default function ClientDashboard() {
       setLoading(true);
       setError(null);
 
-      // Obtener el primer cliente disponible de la base de datos
-      const allClients = await getAllClients();
-      
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos. Ejecuta el script de población primero.');
+      // Obtener usuario autenticado actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
       }
       
-      // Usar el primer cliente activo disponible
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      setClientData(activeClient);
+      // Obtener datos específicos del cliente autenticado
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-      // Obtener estadísticas
-      const [projects, companies, documents] = await Promise.all([
-        getClientProjects(activeClient.id),
-        getClientCompanies(activeClient.id),
-        getClientDocuments(activeClient.id)
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
+      
+      setClientData(clientData);
+
+      // Obtener SOLO los datos de este cliente específico
+      const [
+        { data: projects, error: projectsError },
+        { data: companies, error: companiesError },
+        { data: documents, error: documentsError }
+      ] = await Promise.all([
+        supabase.from('projects').select('*').eq('client_id', clientData.id),
+        supabase.from('companies').select('*').eq('client_id', clientData.id),
+        supabase.from('documents').select('*').eq('client_id', clientData.id)
       ]);
 
+      if (projectsError) console.warn('Error loading projects:', projectsError);
+      if (companiesError) console.warn('Error loading companies:', companiesError);
+      if (documentsError) console.warn('Error loading documents:', documentsError);
+
       const newStats = {
-        totalProjects: projects.length,
-        totalCompanies: companies.length,
-        totalDocuments: documents.length,
-        documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
-        storageUsed: activeClient.storage_used || 0,
-        storageLimit: activeClient.storage_limit || 1073741824
+        totalProjects: projects?.length || 0,
+        totalCompanies: companies?.length || 0,
+        totalDocuments: documents?.length || 0,
+        documentsProcessed: documents?.filter(d => d.upload_status === 'completed').length || 0,
+        storageUsed: clientData.storage_used || 0,
+        storageLimit: clientData.storage_limit || 1073741824
       };
 
       setStats(newStats);

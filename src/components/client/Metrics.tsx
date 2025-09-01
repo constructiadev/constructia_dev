@@ -49,43 +49,62 @@ export default function Metrics() {
       setLoading(true);
       setError(null);
       
-      // Obtener el primer cliente disponible
-      const allClients = await getAllClients();
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+      // Obtener usuario autenticado actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
       }
       
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      // Obtener datos del cliente autenticado
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
       
-      // Obtener documentos del cliente
-      const documents = await getClientDocuments(activeClient.id);
+      // Obtener SOLO los documentos de este cliente específico
+      const { data: documents, error: documentsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('client_id', clientData.id)
+        .order('created_at', { ascending: false });
+
+      if (documentsError) {
+        console.warn('Error loading documents:', documentsError);
+        setDocuments([]);
+        return;
+      }
       
       // Calcular métricas reales
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      const documentsThisMonth = documents.filter(doc => {
+      const documentsThisMonth = (documents || []).filter(doc => {
         const docDate = new Date(doc.created_at);
         return docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear;
       }).length;
       
-      const avgConfidence = documents.length > 0 
-        ? documents.reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / documents.length 
+      const avgConfidence = (documents || []).length > 0 
+        ? (documents || []).reduce((sum, d) => sum + (d.classification_confidence || 0), 0) / (documents || []).length 
         : 0;
       
-      const completedDocs = documents.filter(d => d.upload_status === 'completed').length;
-      const successRate = documents.length > 0 ? (completedDocs / documents.length) * 100 : 0;
+      const completedDocs = (documents || []).filter(d => d.upload_status === 'completed').length;
+      const successRate = (documents || []).length > 0 ? (completedDocs / (documents || []).length) * 100 : 0;
       
       // Agrupar por tipo
       const documentsByType: { [key: string]: number } = {};
-      documents.forEach(doc => {
+      (documents || []).forEach(doc => {
         const type = doc.document_type || 'Sin clasificar';
         documentsByType[type] = (documentsByType[type] || 0) + 1;
       });
       
       // Agrupar por estado
       const documentsByStatus: { [key: string]: number } = {};
-      documents.forEach(doc => {
+      (documents || []).forEach(doc => {
         const status = doc.upload_status;
         documentsByStatus[status] = (documentsByStatus[status] || 0) + 1;
       });
@@ -96,7 +115,7 @@ export default function Metrics() {
         const targetDate = new Date();
         targetDate.setMonth(targetDate.getMonth() - i);
         
-        const docsInMonth = documents.filter(doc => {
+        const docsInMonth = (documents || []).filter(doc => {
           const docDate = new Date(doc.created_at);
           return docDate.getMonth() === targetDate.getMonth() && 
                  docDate.getFullYear() === targetDate.getFullYear();
@@ -106,7 +125,7 @@ export default function Metrics() {
       }
       
       setMetrics({
-        totalDocuments: documents.length,
+        totalDocuments: (documents || []).length,
         documentsThisMonth,
         avgConfidence: Math.round(avgConfidence * 10) / 10,
         processingTime: 2.3, // Valor estimado
