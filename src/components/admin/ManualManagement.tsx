@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logAuditoria } from '../../lib/supabase-new';
 import { 
   FileText, 
   Users, 
@@ -10,7 +11,6 @@ import {
   Upload, 
   CheckCircle, 
   AlertTriangle, 
-import { logAuditoria } from '../../lib/supabase-new';
   Brain, 
   Settings, 
   RefreshCw, 
