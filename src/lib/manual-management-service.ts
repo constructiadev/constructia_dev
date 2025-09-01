@@ -263,7 +263,7 @@ export class ManualManagementService {
     file: File,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
     platformTarget: 'nalanda' | 'ctaima' | 'ecoordina' = 'nalanda'
-  ): Promise<ManualDocument | null> {
+  ): Promise<string | null> {
     try {
       // Process file with AI
       const fileBuffer = await file.arrayBuffer();
@@ -279,49 +279,68 @@ export class ManualManagementService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-      // Create document record
-      const documentData = {
+      // First, create document record in documentos table
+      const documentoData = {
         tenant_id: this.tenantId,
-        client_id: clientId,
-        document_id: `DOC-${Date.now()}`,
-        filename: `${hash}.${file.name.split('.').pop()}`,
-        original_name: file.name,
-        file_size: file.size,
-        file_type: file.type,
-        classification: extraction.categoria_probable,
-        confidence: Math.round((extraction.confianza.categoria_probable || 0) * 100),
-        priority,
-        platform_target: platformTarget,
-        company_id: companyId,
-        project_id: projectId,
-        nota: `Añadido por administrador - ${new Date().toLocaleString()}`
+        entidad_tipo: 'obra' as const,
+        entidad_id: projectId,
+        categoria: 'OTROS' as const,
+        file: `${this.tenantId}/obra/${projectId}/OTROS/${hash}.${file.name.split('.').pop()}`,
+        mime: file.type,
+        size_bytes: file.size,
+        hash_sha256: hash,
+        version: 1,
+        estado: 'pendiente' as const,
+        metadatos: {
+          original_filename: file.name,
+          ai_extraction: extraction,
+          upload_timestamp: new Date().toISOString()
+        },
+        origen: 'usuario' as const,
+        sensible: false
       };
 
-      const { data, error } = await supabaseServiceClient
-        .from('manual_document_queue')
+      const { data: documento, error: docError } = await supabaseServiceClient
+        .from('documentos')
+        .insert(documentoData)
+        .select()
+        .single();
+
+      if (docError) {
+        console.error('Error creating document:', docError);
+        return null;
+      }
+
+      // Then, add to manual upload queue
+      const { data: queueEntry, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
         .insert({
-          ...documentData,
-          status: 'pending'
+          tenant_id: this.tenantId,
+          empresa_id: companyId,
+          obra_id: projectId,
+          documento_id: documento.id,
+          status: 'queued',
+          nota: `Añadido por administrador - ${new Date().toLocaleString()}`
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Error adding document to queue:', error);
+      if (queueError) {
+        console.error('Error adding to queue:', queueError);
         return null;
       }
 
       // Log the action
       await this.logUploadAction(
         null,
-        data.id,
+        queueEntry.id,
         'document_added',
         'success',
         `Document ${file.name} added to queue`,
-        { file_size: file.size, classification: extraction.categoria_probable }
+        { file_size: file.size, categoria: extraction.categoria_probable }
       );
 
-      return data;
+      return queueEntry.id;
     } catch (error) {
       console.error('Error adding document to queue:', error);
       return null;

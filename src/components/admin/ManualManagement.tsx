@@ -1131,20 +1131,20 @@ export default function ManualManagement() {
         manualManagementService.getClientGroups(),
         manualManagementService.getQueueStats()
       ]);
-
+        const queueEntryId = await manualManagementService.addDocumentToQueue(
       setClientGroups(groups);
       setQueueStats(stats);
 
       // If no data exists, populate test data
       if (groups.length === 0) {
-        console.log('No data found, populating test data...');
+        if (queueEntryId) {
         await manualManagementService.populateTestData();
         
         // Reload after populating
         const newGroups = await manualManagementService.getClientGroups();
         const newStats = await manualManagementService.getQueueStats();
         setClientGroups(newGroups);
-        setQueueStats(newStats);
+      // Refresh queue data after successful upload
       }
     } catch (error) {
       console.error('Error loading manual management data:', error);
