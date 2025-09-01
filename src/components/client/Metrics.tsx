@@ -11,7 +11,7 @@ import {
   Target,
   Activity
 } from 'lucide-react';
-import { getAllClients, getClientDocuments } from '../../lib/supabase';
+import { getAllClients, getClientDocuments, supabase } from '../../lib/supabase';
 
 interface MetricsData {
   totalDocuments: number;
