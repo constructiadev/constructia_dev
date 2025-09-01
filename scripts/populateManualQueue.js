@@ -80,12 +80,32 @@ function generateRandomDate(daysAgo) {
 async function populateManualQueue() {
   console.log('🚀 Populating manual upload queue with test documents...\n');
 
+  const createdDocumentos = [];
+
   try {
-    // 0. Clean up existing data to prevent duplicates
+    // 0. Clean up existing test data to prevent duplicates
     console.log('0️⃣ Cleaning up existing test data...');
     
-    // Skip cleanup to avoid network errors - use upsert instead
-    console.log('⚠️ Skipping cleanup to avoid network errors - using upsert for safety');
+    // Delete manual upload queue entries
+    await supabase
+      .from('manual_upload_queue')
+      .delete()
+      .eq('tenant_id', DEV_TENANT_ID);
+    
+    // Delete test documentos (only OTROS category from obra entities)
+    await supabase
+      .from('documentos')
+      .delete()
+      .eq('tenant_id', DEV_TENANT_ID)
+      .eq('entidad_tipo', 'obra')
+      .eq('categoria', 'OTROS');
+    
+    // Delete test adaptadores (only those with test aliases)
+    await supabase
+      .from('adaptadores')
+      .delete()
+      .eq('tenant_id', DEV_TENANT_ID)
+      .like('alias', '%-test-%');
     
     console.log('✅ Cleanup completed');
 
@@ -131,10 +151,12 @@ async function populateManualQueue() {
 
     for (const empresa of empresas) {
       for (const platform of platforms) {
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substr(2, 5);
         credentialsData.push({
           tenant_id: DEV_TENANT_ID,
           plataforma: platform,
-          alias: `${platform}-${empresa.razon_social.substring(0, 10)}`,
+          alias: `${platform}-test-${timestamp}-${randomSuffix}`,
           credenciales: {
             username: `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@${platform}.com`,
             password: `${empresa.cif}${platform}2025!`,
@@ -158,16 +180,17 @@ async function populateManualQueue() {
 
     // 3. Create documentos in the documentos table first
     console.log('\n3️⃣ Creating documentos...');
-    const documentosData = [];
 
     for (let i = 0; i < 150; i++) {
       const empresa = getRandomElement(empresas);
       const obra = obras.find(o => o.empresa_id === empresa.id) || getRandomElement(obras);
       const docType = getRandomElement(documentTypes);
       const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substr(2, 9);
       const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${empresa.id.substring(0, 8)}_${i + 1}.${fileExtension}`;
       
-      documentosData.push({
+      const documentoData = {
         tenant_id: DEV_TENANT_ID,
         entidad_tipo: 'obra',
         entidad_id: obra.id,
@@ -175,8 +198,8 @@ async function populateManualQueue() {
         file: `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/${fileName}`,
         mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
         size_bytes: generateRandomFileSize(),
-        hash_sha256: `hash_${empresa.id}_${obra.id}_${i}_${Math.random().toString(36).substr(2, 9)}`,
-        version: 1,
+        hash_sha256: `hash_${timestamp}_${randomId}_${i}`,
+        version: i + 1, // Use unique version for each document
         estado: 'pendiente',
         metadatos: {
           original_filename: fileName,
@@ -188,22 +211,30 @@ async function populateManualQueue() {
         origen: 'usuario',
         sensible: Math.random() > 0.7,
         created_at: generateRandomDate(30)
-      });
+      };
+
+      // Insert each documento individually to handle conflicts better
+      const { data: createdDocumento, error: documentoError } = await supabase
+        .from('documentos')
+        .insert(documentoData)
+        .select()
+        .single();
+
+      if (documentoError) {
+        console.warn(`⚠️ Skipping documento ${i + 1}: ${documentoError.message}`);
+        continue;
+      }
+
+      if (createdDocumento) {
+        createdDocumentos.push(createdDocumento);
+      }
+
+      // Progress indicator
+      if ((i + 1) % 25 === 0) {
+        console.log(`📝 Processed ${i + 1}/150 documentos...`);
+      }
     }
 
-    console.log(`📝 Inserting ${documentosData.length} documentos...`);
-    
-    const { data: createdDocumentos, error: documentosError } = await supabase
-      .from('documentos')
-      .insert(documentosData)
-      .select();
-
-    if (documentosError) {
-      console.error('❌ Error creating documentos:', documentosError);
-      throw documentosError;
-    }
-
-    console.log(`✅ Created ${createdDocumentos.length} documentos`);
 
     // 4. Create manual upload queue entries
     console.log('\n4️⃣ Creating manual upload queue entries...');
