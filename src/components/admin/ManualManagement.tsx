@@ -38,7 +38,8 @@ import {
   Copy,
   ExternalLink,
   Loader2,
-  EyeOff
+  EyeOff,
+  Lock
 } from 'lucide-react';
 import { manualManagementService, type ClientGroup, type ManualDocument } from '../../lib/manual-management-service';
 
@@ -476,27 +477,12 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={credentials.username}
-              onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              placeholder="usuario@plataforma.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contraseña *
-            </label>
-            <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={credentials.password}
                 onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="••••••••"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                placeholder="Copia tu contraseña desde la plataforma"
                 required
               />
               <button
@@ -506,6 +492,22 @@ function PlatformConnectionModal({ isOpen, onClose, onSave }: PlatformConnection
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Copia exactamente la contraseña desde tu cuenta en {selectedPlatformData?.label}
+            </p>
+          </div>
+
+          {/* Security Notice */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-start">
+              <Shield className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+              <div>
+                <p className="text-sm text-green-800">
+                  <strong>Seguridad:</strong> Las credenciales se almacenan de forma segura y encriptada. 
+                  Solo se usan para la integración automática con la plataforma seleccionada.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1018,10 +1020,10 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar documentos, clientes, empresas..."
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="Copia tu contraseña desde la plataforma"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -1051,28 +1053,38 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
               <option value="normal">Normal</option>
               <option value="low">Baja</option>
             </select>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Procesando...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 mr-2" />
-                      Procesar Lote
-                    </>
-            <p className="mt-1 text-xs text-gray-500">
-              Copia exactamente la contraseña desde tu cuenta en {selectedPlatformData?.label}
-            </p>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedDocuments([])}
-                  className="text-gray-600 hover:text-gray-800 px-2 py-2"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
           </div>
+
+          {selectedDocuments.length > 0 && (
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600">
+                {selectedDocuments.length} seleccionados
+              </span>
+              <button
+                onClick={handleBatchProcess}
+                disabled={processingBatch}
+                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {processingBatch ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Procesar Lote
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedDocuments([])}
+                className="text-gray-600 hover:text-gray-800 px-2 py-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1211,7 +1223,7 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                           <CheckCircle className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleUpdateDocumentStatus(document.id, 'error', 'Error marcado manualmente', 'Error de procesamiento manual')}
+                          onClick={() => handleUpdateDocumentStatus(document.id, 'error', 'Error marcado manualmente')}
                           className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                           title="Marcar como error"
                         >
@@ -1317,19 +1329,6 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                                     {project.total_documents} docs
                                   </span>
                                 </div>
-          {/* Security Notice */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-start">
-              <Shield className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
-              <div>
-                <p className="text-sm text-green-800">
-                  <strong>Seguridad:</strong> Las credenciales se almacenan de forma segura y encriptada. 
-                  Solo se usan para la integración automática con la plataforma seleccionada.
-                </p>
-              </div>
-            </div>
-          </div>
-
                               ))}
                             </div>
                           )}
