@@ -289,6 +289,15 @@ function PlatformConnectionModal({
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Abrir {selectedPlatform.toUpperCase()}
                 </button>
+                <a
+                  href={platformUrls[selectedPlatform]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
+                >
+                  <Globe className="h-4 w-4 mr-2" />
+                  Link Directo
+                </a>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
