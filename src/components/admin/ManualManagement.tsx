@@ -545,7 +545,7 @@ function PlatformConnectionModal({
                   </div>
                 )}
               </div>
-              
+            </div>
               <div className="mt-3 text-xs text-orange-700">
                 <p><strong>💡 Uso del Directorio Temporal:</strong></p>
                 <p>• Arrastra archivos desde tu sistema o desde la cola de documentos</p>
