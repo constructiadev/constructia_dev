@@ -191,9 +191,11 @@ async function populateManualQueue() {
       });
     }
 
+    console.log(`📝 Inserting ${documentosData.length} documentos...`);
+    
     const { data: createdDocumentos, error: documentosError } = await supabase
       .from('documentos')
-      .upsert(documentosData)
+      .insert(documentosData)
       .select();
 
     if (documentosError) {
