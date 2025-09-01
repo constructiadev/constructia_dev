@@ -1146,6 +1146,12 @@ export default function ManualManagement() {
         setQueueStats(newStats);
       }
     } catch (error) {
+      console.error('Error loading data:', error);
+      setError(error instanceof Error ? error.message : 'Error loading data');
+    } finally {
+      setLoading(false);
+    }
+    } catch (error) {
       console.error('Error loading manual management data:', error);
     } finally {
       setLoading(false);
