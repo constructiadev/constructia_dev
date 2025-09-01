@@ -36,7 +36,6 @@ async function disableRLSForDevelopment() {
     'kpis',
     'audit_logs',
     'manual_document_queue',
-    'manual_upload_sessions',
     'sepa_mandates'
   ];
 

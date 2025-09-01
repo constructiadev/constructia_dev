@@ -25,6 +25,7 @@ import {
   Calendar,
   Target,
   Layers
+  X
 } from 'lucide-react';
 import { PayloadService } from '../../lib/payload-service';
 import { getTenantObras, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from '../../lib/supabase-new';

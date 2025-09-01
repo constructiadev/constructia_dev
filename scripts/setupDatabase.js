@@ -48,7 +48,7 @@ async function setupDatabase() {
       'users', 'clients', 'companies', 'projects', 'documents',
       'subscriptions', 'payments', 'receipts', 'payment_gateways',
       'system_settings', 'kpis', 'audit_logs', 'manual_document_queue',
-      'manual_upload_sessions', 'sepa_mandates'
+      'sepa_mandates'
     ];
 
     for (const table of tables) {
