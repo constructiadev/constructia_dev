@@ -355,6 +355,11 @@ export class ManualManagementService {
     errorMessage?: string
   ): Promise<boolean> {
     try {
+      // Si el documento se marca como subido, removerlo de la cola
+      if (newStatus === 'uploaded') {
+        return await this.removeFromQueueAndLog(documentId, adminNotes);
+      }
+
       const updateData: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
@@ -393,6 +398,95 @@ export class ManualManagementService {
       return true;
     } catch (error) {
       console.error('Error updating document status:', error);
+      return false;
+    }
+  }
+
+  // Remover documento de la cola y crear log detallado
+  private async removeFromQueueAndLog(
+    queueItemId: string,
+    adminNotes?: string
+  ): Promise<boolean> {
+    try {
+      // Obtener datos completos del documento antes de eliminarlo
+      const { data: queueItem, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          documentos!inner(
+            id,
+            categoria,
+            file,
+            mime,
+            size_bytes,
+            metadatos,
+            created_at
+          ),
+          empresas!inner(razon_social),
+          obras!inner(nombre_obra, codigo_obra)
+        `)
+        .eq('id', queueItemId)
+        .eq('tenant_id', this.tenantId)
+        .single();
+
+      if (queueError || !queueItem) {
+        console.error('Error getting queue item for removal:', queueError);
+        return false;
+      }
+
+      // Actualizar estado del documento a aprobado
+      const { error: docUpdateError } = await supabaseServiceClient
+        .from('documentos')
+        .update({
+          estado: 'aprobado',
+          observaciones: `Subido a plataforma por administrador. ${adminNotes || ''}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', queueItem.documento_id);
+
+      if (docUpdateError) {
+        console.error('Error updating document status:', docUpdateError);
+        return false;
+      }
+
+      // Crear log detallado en auditoría
+      await logAuditoria(
+        this.tenantId,
+        'admin-manual-upload',
+        'document.uploaded_to_platform',
+        'documento',
+        queueItem.documento_id,
+        {
+          queue_item_id: queueItemId,
+          empresa: queueItem.empresas?.razon_social,
+          obra: queueItem.obras?.nombre_obra,
+          codigo_obra: queueItem.obras?.codigo_obra,
+          categoria: queueItem.documentos?.categoria,
+          filename: queueItem.documentos?.metadatos?.original_filename,
+          file_size: queueItem.documentos?.size_bytes,
+          upload_timestamp: new Date().toISOString(),
+          admin_notes: adminNotes,
+          platform_target: 'nalanda', // Por defecto
+          processing_time_seconds: Math.floor((new Date().getTime() - new Date(queueItem.created_at).getTime()) / 1000)
+        }
+      );
+
+      // Remover de la cola manual
+      const { error: removeError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .delete()
+        .eq('id', queueItemId)
+        .eq('tenant_id', this.tenantId);
+
+      if (removeError) {
+        console.error('Error removing from queue:', removeError);
+        return false;
+      }
+
+      console.log(`✅ Documento ${queueItem.documentos?.metadatos?.original_filename} subido y removido de cola`);
+      return true;
+    } catch (error) {
+      console.error('Error removing from queue and logging:', error);
       return false;
     }
   }
