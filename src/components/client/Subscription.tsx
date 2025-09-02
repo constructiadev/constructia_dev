@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building } from 'lucide-react';
-import { getAllClients, supabase } from '../../lib/supabase';
+import { getAllClients } from '../../lib/supabase';
 
 interface SubscriptionData {
   id: string;
@@ -36,30 +36,20 @@ export default function Subscription() {
       setLoading(true);
       setError(null);
       
-      // Obtener usuario autenticado actual
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error('Usuario no autenticado');
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
       }
       
-      // Obtener datos específicos del cliente autenticado
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (clientError || !clientData) {
-        throw new Error('No se encontraron datos del cliente');
-      }
-      
-      setClientData(clientData);
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      setClientData(activeClient);
       
       // Simular datos de suscripción basados en el cliente real
       const mockSubscription = {
-        id: `sub_${clientData.id}`,
-        plan: clientData.subscription_plan,
-        status: clientData.subscription_status,
+        id: `sub_${activeClient.id}`,
+        plan: activeClient.subscription_plan,
+        status: activeClient.subscription_status,
         current_period_start: new Date().toISOString().split('T')[0],
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       };

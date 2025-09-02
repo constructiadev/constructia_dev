@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter, AlertCircle } from 'lucide-react';
+import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
 import { getAllClients, getClientProjects } from '../../lib/supabase';
-import { supabase } from '../../lib/supabase';
 
 interface Project {
   id: string;
@@ -52,53 +51,21 @@ export default function Projects() {
       setLoading(true);
       setError(null);
       
-      // Obtener usuario autenticado actual
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error('Usuario no autenticado');
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
       }
       
-      // Obtener datos del cliente autenticado
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (clientError || !clientData) {
-        throw new Error('No se encontraron datos del cliente');
-      }
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
       
-      // Obtener SOLO los proyectos de este cliente específico
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          companies!inner(name)
-        `)
-        .eq('client_id', clientData.id)
-        .order('created_at', { ascending: false });
-
-      if (projectsError) {
-        console.warn('Error loading projects:', projectsError);
-        setProjects([]);
-      } else {
-        setProjects(projectsData || []);
-      }
+      // Obtener proyectos del cliente
+      const projectsData = await getClientProjects(activeClient.id);
+      setProjects(projectsData || []);
       
-      // Obtener SOLO las empresas de este cliente específico
-      const { data: companiesData, error: companiesError } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('client_id', clientData.id)
-        .order('name');
-
-      if (companiesError) {
-        console.warn('Error loading companies:', companiesError);
-        setCompanies([]);
-      } else {
-        setCompanies(companiesData || []);
-      }
+      // Obtener empresas del cliente
+      const companiesData = await getClientCompanies(activeClient.id);
+      setCompanies(companiesData || []);
       
     } catch (err) {
       console.error('Error loading projects:', err);

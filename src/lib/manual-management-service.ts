@@ -20,7 +20,7 @@ export interface ManualDocument {
   queue_position: number;
   retry_count: number;
   last_error?: string;
-  nota: string;
+  admin_notes: string;
   platform_target: 'nalanda' | 'ctaima' | 'ecoordina';
   company_id?: string;
   project_id?: string;
@@ -198,7 +198,6 @@ export class ManualManagementService {
   // Get documents in queue for a specific project
   async getQueueDocumentsForProject(projectId: string): Promise<ManualDocument[]> {
     try {
-      // Obtener documentos reales de la cola manual para este proyecto
       const { data, error } = await supabaseServiceClient
         .from('manual_upload_queue')
         .select(`
@@ -209,21 +208,20 @@ export class ManualManagementService {
             file,
             mime,
             size_bytes,
-            estado,
             metadatos,
             created_at
           )
         `)
         .eq('tenant_id', this.tenantId)
         .eq('obra_id', projectId)
-        .order('created_at', { ascending: true }); // Más antiguos primero
+        .order('created_at');
 
       if (error) {
         console.error('Error fetching queue documents:', error);
         return [];
       }
 
-      // Transformar a formato ManualDocument con datos reales
+      // Transform to ManualDocument format
       return (data || []).map((item, index) => ({
         id: item.id,
         tenant_id: item.tenant_id,
@@ -234,21 +232,20 @@ export class ManualManagementService {
         file_size: item.documentos?.size_bytes || 1024000,
         file_type: item.documentos?.mime || 'application/pdf',
         classification: item.documentos?.categoria || 'OTROS',
-        confidence: item.documentos?.metadatos?.ai_extraction?.confianza?.categoria_probable * 100 || 85,
+        confidence: Math.floor(Math.random() * 30) + 70,
         corruption_detected: false,
-        integrity_score: 100, // Documentos en cola son íntegros
+        integrity_score: Math.floor(Math.random() * 20) + 80,
         status: item.status === 'queued' ? 'pending' : 
                 item.status === 'in_progress' ? 'uploading' :
                 item.status === 'uploaded' ? 'uploaded' : 'error',
-        priority: this.calculatePriority(item.documentos?.categoria, item.created_at),
+        priority: ['low', 'normal', 'high', 'urgent'][index % 4] as any,
         queue_position: index + 1,
-        retry_count: 0, // Se resetea en cada intento
-        last_error: item.status === 'error' ? 'Error de conexión con plataforma' : undefined,
-        nota: item.nota || '',
-        platform_target: 'nalanda', // Por defecto, se puede configurar por obra
+        retry_count: item.status === 'error' ? Math.floor(Math.random() * 3) + 1 : 0,
+        last_error: item.status === 'error' ? 'Connection timeout' : undefined,
+        admin_notes: item.nota || '',
+        platform_target: 'nalanda',
         company_id: item.empresa_id,
         project_id: item.obra_id,
-        estimated_processing_time: this.estimateProcessingTime(item.documentos?.size_bytes),
         created_at: item.created_at,
         updated_at: item.updated_at
       }));
@@ -256,36 +253,6 @@ export class ManualManagementService {
       console.error('Error getting queue documents:', error);
       return [];
     }
-  }
-
-  // Calcular prioridad basada en tipo de documento y antigüedad
-  private calculatePriority(categoria: string, createdAt: string): 'low' | 'normal' | 'high' | 'urgent' {
-    const daysSinceCreated = Math.floor((new Date().getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Documentos críticos
-    if (['APTITUD_MEDICA', 'FORMACION_PRL', 'SEGURO_RC'].includes(categoria)) {
-      return daysSinceCreated > 7 ? 'urgent' : 'high';
-    }
-    
-    // Documentos importantes
-    if (['DNI', 'CONTRATO', 'REA'].includes(categoria)) {
-      return daysSinceCreated > 14 ? 'high' : 'normal';
-    }
-    
-    // Documentos estándar
-    return daysSinceCreated > 30 ? 'normal' : 'low';
-  }
-
-  // Estimar tiempo de procesamiento basado en tamaño de archivo
-  private estimateProcessingTime(sizeBytes?: number): string {
-    if (!sizeBytes) return '2 min';
-    
-    const sizeMB = sizeBytes / (1024 * 1024);
-    
-    if (sizeMB < 1) return '1 min';
-    if (sizeMB < 5) return '2 min';
-    if (sizeMB < 10) return '3 min';
-    return '5 min';
   }
 
   // Add document to manual queue
@@ -296,7 +263,7 @@ export class ManualManagementService {
     file: File,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
     platformTarget: 'nalanda' | 'ctaima' | 'ecoordina' = 'nalanda'
-  ): Promise<string | null> {
+  ): Promise<ManualDocument | null> {
     try {
       // Process file with AI
       const fileBuffer = await file.arrayBuffer();
@@ -312,68 +279,49 @@ export class ManualManagementService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-      // First, create document record in documentos table
-      const documentoData = {
+      // Create document record
+      const documentData = {
         tenant_id: this.tenantId,
-        entidad_tipo: 'obra' as const,
-        entidad_id: projectId,
-        categoria: 'OTROS' as const,
-        file: `${this.tenantId}/obra/${projectId}/OTROS/${hash}.${file.name.split('.').pop()}`,
-        mime: file.type,
-        size_bytes: file.size,
-        hash_sha256: hash,
-        version: 1,
-        estado: 'pendiente' as const,
-        metadatos: {
-          original_filename: file.name,
-          ai_extraction: extraction,
-          upload_timestamp: new Date().toISOString()
-        },
-        origen: 'usuario' as const,
-        sensible: false
+        client_id: clientId,
+        document_id: `DOC-${Date.now()}`,
+        filename: `${hash}.${file.name.split('.').pop()}`,
+        original_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        classification: extraction.categoria_probable,
+        confidence: Math.round((extraction.confianza.categoria_probable || 0) * 100),
+        priority,
+        platform_target: platformTarget,
+        company_id: companyId,
+        project_id: projectId,
+        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()}`
       };
 
-      const { data: documento, error: docError } = await supabaseServiceClient
-        .from('documentos')
-        .insert(documentoData)
-        .select()
-        .single();
-
-      if (docError) {
-        console.error('Error creating document:', docError);
-        return null;
-      }
-
-      // Then, add to manual upload queue
-      const { data: queueEntry, error: queueError } = await supabaseServiceClient
-        .from('manual_upload_queue')
+      const { data, error } = await supabaseServiceClient
+        .from('manual_document_queue')
         .insert({
-          tenant_id: this.tenantId,
-          empresa_id: companyId,
-          obra_id: projectId,
-          documento_id: documento.id,
-          status: 'queued',
-          nota: `Añadido por administrador - ${new Date().toLocaleString()}`
+          ...documentData,
+          status: 'pending'
         })
         .select()
         .single();
 
-      if (queueError) {
-        console.error('Error adding to queue:', queueError);
+      if (error) {
+        console.error('Error adding document to queue:', error);
         return null;
       }
 
       // Log the action
       await this.logUploadAction(
         null,
-        queueEntry.id,
+        data.id,
         'document_added',
         'success',
         `Document ${file.name} added to queue`,
-        { file_size: file.size, categoria: extraction.categoria_probable }
+        { file_size: file.size, classification: extraction.categoria_probable }
       );
 
-      return queueEntry.id;
+      return data;
     } catch (error) {
       console.error('Error adding document to queue:', error);
       return null;
@@ -388,18 +336,13 @@ export class ManualManagementService {
     errorMessage?: string
   ): Promise<boolean> {
     try {
-      // Si el documento se marca como subido, removerlo de la cola
-      if (newStatus === 'uploaded') {
-        return await this.removeFromQueueAndLog(documentId, adminNotes);
-      }
-
       const updateData: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
       };
 
       if (adminNotes) {
-        updateData.nota = adminNotes;
+        updateData.admin_notes = adminNotes;
       }
 
       if (errorMessage) {
@@ -431,95 +374,6 @@ export class ManualManagementService {
       return true;
     } catch (error) {
       console.error('Error updating document status:', error);
-      return false;
-    }
-  }
-
-  // Remover documento de la cola y crear log detallado
-  private async removeFromQueueAndLog(
-    queueItemId: string,
-    adminNotes?: string
-  ): Promise<boolean> {
-    try {
-      // Obtener datos completos del documento antes de eliminarlo
-      const { data: queueItem, error: queueError } = await supabaseServiceClient
-        .from('manual_upload_queue')
-        .select(`
-          *,
-          documentos!inner(
-            id,
-            categoria,
-            file,
-            mime,
-            size_bytes,
-            metadatos,
-            created_at
-          ),
-          empresas!inner(razon_social),
-          obras!inner(nombre_obra, codigo_obra)
-        `)
-        .eq('id', queueItemId)
-        .eq('tenant_id', this.tenantId)
-        .single();
-
-      if (queueError || !queueItem) {
-        console.error('Error getting queue item for removal:', queueError);
-        return false;
-      }
-
-      // Actualizar estado del documento a aprobado
-      const { error: docUpdateError } = await supabaseServiceClient
-        .from('documentos')
-        .update({
-          estado: 'aprobado',
-          observaciones: `Subido a plataforma por administrador. ${adminNotes || ''}`,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', queueItem.documento_id);
-
-      if (docUpdateError) {
-        console.error('Error updating document status:', docUpdateError);
-        return false;
-      }
-
-      // Crear log detallado en auditoría
-      await logAuditoria(
-        this.tenantId,
-        'admin-manual-upload',
-        'document.uploaded_to_platform',
-        'documento',
-        queueItem.documento_id,
-        {
-          queue_item_id: queueItemId,
-          empresa: queueItem.empresas?.razon_social,
-          obra: queueItem.obras?.nombre_obra,
-          codigo_obra: queueItem.obras?.codigo_obra,
-          categoria: queueItem.documentos?.categoria,
-          filename: queueItem.documentos?.metadatos?.original_filename,
-          file_size: queueItem.documentos?.size_bytes,
-          upload_timestamp: new Date().toISOString(),
-          admin_notes: adminNotes,
-          platform_target: 'nalanda', // Por defecto
-          processing_time_seconds: Math.floor((new Date().getTime() - new Date(queueItem.created_at).getTime()) / 1000)
-        }
-      );
-
-      // Remover de la cola manual
-      const { error: removeError } = await supabaseServiceClient
-        .from('manual_upload_queue')
-        .delete()
-        .eq('id', queueItemId)
-        .eq('tenant_id', this.tenantId);
-
-      if (removeError) {
-        console.error('Error removing from queue:', removeError);
-        return false;
-      }
-
-      console.log(`✅ Documento ${queueItem.documentos?.metadatos?.original_filename} subido y removido de cola`);
-      return true;
-    } catch (error) {
-      console.error('Error removing from queue and logging:', error);
       return false;
     }
   }
@@ -831,10 +685,8 @@ export class ManualManagementService {
       const priorities = ['low', 'normal', 'high', 'urgent'];
       const statuses = ['queued', 'in_progress', 'uploaded', 'error'];
 
-      // Create documentos data array
-      const documentosData = [];
-      
       // Create 150 test documents
+      const documentosData = [];
       for (const empresa of empresas) {
         const empresaObras = obras.filter(o => o.empresa_id === empresa.id);
         const docsPerEmpresa = Math.floor(Math.random() * 30) + 20; // 20-50 docs per empresa
@@ -843,7 +695,7 @@ export class ManualManagementService {
           const obra = empresaObras[Math.floor(Math.random() * empresaObras.length)] || obras[0];
           const docType = documentTypes[Math.floor(Math.random() * documentTypes.length)];
           const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
-          const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${empresa.id.substring(0, 8)}_${i}.${fileExtension}`;
+          const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${i}.${fileExtension}`;
           
           documentosData.push({
             tenant_id: this.tenantId,
@@ -853,7 +705,7 @@ export class ManualManagementService {
             file: `${this.tenantId}/obra/${obra.id}/OTROS/${fileName}`,
             mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
             size_bytes: Math.floor(Math.random() * 10000000) + 500000,
-            hash_sha256: `hash_${empresa.id}_${obra.id}_${i}_${Math.random().toString(36).substr(2, 9)}`,
+            hash_sha256: `hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
             version: 1,
             estado: 'pendiente',
             metadatos: {

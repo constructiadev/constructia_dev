@@ -426,8 +426,7 @@ import {
   Disguised as DisguisedIcon,
   Sunglasses as SunglassesIcon,
   Nerd as NerdIcon,
-  Monocle as MonocleIcon,
-  MessageSquare
+  Monocle as MonocleIcon
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
@@ -832,12 +831,12 @@ export default function LandingPage() {
               >
                 Testimonios
               </button>
-              <a 
-                href="#contacto"
+              <button 
+                onClick={handleContactUs}
                 className="text-gray-600 hover:text-green-600 transition-colors font-medium"
               >
                 Contacto
-              </a>
+              </button>
               <button
                 onClick={() => navigate('/client/dashboard')}
                 className="text-gray-600 hover:text-green-600 transition-colors font-medium"
@@ -1348,343 +1347,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section id="contacto" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              ¿Listo para transformar tu gestión documental?
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Nuestro equipo de expertos está aquí para ayudarte a implementar la solución perfecta 
-              para tu empresa constructora
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Contact Form */}
-            <div className="bg-white rounded-2xl shadow-xl p-8">
-              <div className="flex items-center mb-6">
-                <div className="bg-green-100 p-3 rounded-full mr-4">
-                  <Mail className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900">Solicita una Demo</h3>
-                  <p className="text-gray-600">Te contactaremos en menos de 24 horas</p>
-                </div>
-              </div>
-
-              <form className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                      placeholder="Tu nombre"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Apellidos *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                      placeholder="Tus apellidos"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Corporativo *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                    placeholder="tu@empresa.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Empresa *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                    placeholder="Nombre de tu empresa"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors"
-                    placeholder="+34 600 000 000"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tamaño de la Empresa
-                  </label>
-                  <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
-                    <option value="">Selecciona el tamaño</option>
-                    <option value="1-10">1-10 empleados</option>
-                    <option value="11-50">11-50 empleados</option>
-                    <option value="51-200">51-200 empleados</option>
-                    <option value="201-500">201-500 empleados</option>
-                    <option value="500+">Más de 500 empleados</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ¿Cómo podemos ayudarte?
-                  </label>
-                  <textarea
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors resize-none"
-                    placeholder="Cuéntanos sobre tu proyecto y necesidades específicas..."
-                  ></textarea>
-                </div>
-
-                <div className="flex items-start">
-                  <input
-                    type="checkbox"
-                    id="privacy-consent"
-                    required
-                    className="mt-1 mr-3 rounded text-green-600 focus:ring-green-500"
-                  />
-                  <label htmlFor="privacy-consent" className="text-sm text-gray-600">
-                    Acepto la{' '}
-                    <a href="/privacy-policy" className="text-green-600 hover:text-green-700 underline">
-                      Política de Privacidad
-                    </a>{' '}
-                    y autorizo el tratamiento de mis datos para contacto comercial
-                  </label>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                >
-                  <Mail className="h-5 w-5 inline mr-2" />
-                  Solicitar Demo Gratuita
-                </button>
-              </form>
-            </div>
-
-            {/* Contact Information */}
-            <div className="space-y-8">
-              {/* Company Info */}
-              <div className="bg-white rounded-2xl shadow-xl p-8">
-                <div className="flex items-center mb-6">
-                  <div className="bg-blue-100 p-3 rounded-full mr-4">
-                    <Building2 className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">ConstructIA S.L.</h3>
-                    <p className="text-gray-600">Innovación en gestión documental</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <MapPin className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Oficina Central</p>
-                      <p className="text-gray-600">Calle Innovación 123, 28001 Madrid, España</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Phone className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Teléfono</p>
-                      <p className="text-gray-600">+34 91 000 00 00</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Mail className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Email</p>
-                      <p className="text-gray-600">contacto@constructia.com</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Clock className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                      <p className="font-medium text-gray-900">Horario de Atención</p>
-                      <p className="text-gray-600">Lunes a Viernes: 9:00 - 18:00</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Support Options */}
-              <div className="bg-white rounded-2xl shadow-xl p-8">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">Canales de Soporte</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center">
-                      <MessageSquare className="h-5 w-5 text-green-600 mr-3" />
-                      <div>
-                        <p className="font-medium text-green-800">Chat en Vivo</p>
-                        <p className="text-sm text-green-600">Respuesta inmediata</p>
-                      </div>
-                    </div>
-                    <span className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      Online
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center">
-                      <Mail className="h-5 w-5 text-blue-600 mr-3" />
-                      <div>
-                        <p className="font-medium text-blue-800">Email Soporte</p>
-                        <p className="text-sm text-blue-600">soporte@constructia.com</p>
-                      </div>
-                    </div>
-                    <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      24h
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="flex items-center">
-                      <Phone className="h-5 w-5 text-purple-600 mr-3" />
-                      <div>
-                        <p className="font-medium text-purple-800">Soporte Telefónico</p>
-                        <p className="text-sm text-purple-600">Solo clientes Enterprise</p>
-                      </div>
-                    </div>
-                    <span className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      Premium
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-xl p-8 text-white">
-                <h3 className="text-xl font-bold mb-6">¿Por qué elegir ConstructIA?</h3>
-                
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold mb-2">99.9%</div>
-                    <div className="text-sm text-green-100">Precisión IA</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold mb-2">24/7</div>
-                    <div className="text-sm text-green-100">Disponibilidad</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold mb-2">500+</div>
-                    <div className="text-sm text-green-100">Empresas</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold mb-2">2s</div>
-                    <div className="text-sm text-green-100">Procesamiento</div>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-green-500">
-                  <div className="flex items-center justify-center">
-                    <Shield className="h-5 w-5 mr-2" />
-                    <span className="text-sm">Certificado ISO 27001 • GDPR Compliant</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Additional Contact Methods */}
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="h-8 w-8 text-blue-600" />
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">Agenda una Reunión</h4>
-              <p className="text-gray-600 mb-4">
-                Reserva 30 minutos con nuestro equipo para una demo personalizada
-              </p>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-                Agendar Ahora
-              </button>
-            </div>
-
-            <div className="text-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-8 w-8 text-green-600" />
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">Documentación</h4>
-              <p className="text-gray-600 mb-4">
-                Accede a guías, tutoriales y documentación técnica completa
-              </p>
-              <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
-                Ver Docs
-              </button>
-            </div>
-
-            <div className="text-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-purple-600" />
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">Comunidad</h4>
-              <p className="text-gray-600 mb-4">
-                Únete a nuestra comunidad de profesionales de la construcción
-              </p>
-              <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors">
-                Unirse
-              </button>
-            </div>
-          </div>
-
-          {/* CTA Banner */}
-          <div className="mt-16 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-8 text-center">
-            <h3 className="text-2xl font-bold text-white mb-4">
-              ¿Necesitas ayuda inmediata?
-            </h3>
-            <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
-              Nuestro equipo de especialistas está disponible para resolver cualquier duda 
-              sobre implementación, integración o uso de la plataforma
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="tel:+34910000000"
-                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors inline-flex items-center justify-center"
-              >
-                <Phone className="h-5 w-5 mr-2" />
-                Llamar Ahora
-              </a>
-              <a
-                href="mailto:contacto@constructia.com"
-                className="bg-white hover:bg-gray-100 text-gray-900 px-8 py-3 rounded-lg font-semibold transition-colors inline-flex items-center justify-center"
-              >
-                <Mail className="h-5 w-5 mr-2" />
-                Enviar Email
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -1841,12 +1503,12 @@ export default function LandingPage() {
                   </button>
                 </li>
                 <li>
-                  <a 
-                    href="#contacto"
+                  <button 
+                    onClick={handleContactUs}
                     className="text-gray-400 hover:text-white transition-colors"
                   >
                     Contacto
-                  </a>
+                  </button>
                 </li>
                 <li>
                   <button 

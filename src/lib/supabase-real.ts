@@ -41,7 +41,7 @@ export const getCurrentUserTenant = async (): Promise<string | null> => {
       .from('users')
       .select('tenant_id')
       .eq('id', user.id)
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.error('Error getting user tenant:', error);
