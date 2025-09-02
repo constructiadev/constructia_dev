@@ -55,8 +55,24 @@ export class FileStorageService {
     version: number = 1
   ): Promise<FileUploadResult> {
     try {
+      // Validate file parameter type at entry point
+      if (!(file instanceof File) && !(file instanceof Blob)) {
+        const actualType = typeof file;
+        const actualConstructor = file?.constructor?.name || 'unknown';
+        console.error('❌ FileStorageService.uploadFile - Invalid file parameter:', {
+          expectedType: 'File or Blob',
+          actualType,
+          actualConstructor,
+          fileValue: file
+        });
+        return {
+          success: false,
+          error: `Invalid file object: expected File/Blob, got ${actualType} (${actualConstructor})`
+        };
+      }
+
       // Generar hash del archivo
-      const fileBuffer = await this.readFileAsArrayBuffer(file);
+      const fileBuffer = await file.arrayBuffer();
       const hashArray = await crypto.subtle.digest('SHA-256', fileBuffer);
       const hash = Array.from(new Uint8Array(hashArray))
         .map(b => b.toString(16).padStart(2, '0'))
