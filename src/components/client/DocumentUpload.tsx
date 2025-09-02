@@ -18,11 +18,11 @@ import {
   getEmpresaObras, 
   createEmpresa, 
   createObra, 
-  uploadDocumentToObra,
   getCurrentUserTenant,
   logAuditoria,
   DEV_TENANT_ID 
 } from '../../lib/supabase-real';
+import { manualManagementService } from '../../lib/manual-management-service';
 
 interface Empresa {
   id: string;
@@ -543,7 +543,6 @@ export default function DocumentUpload() {
     }
 
     setUploading(true);
-    const tenantId = await getCurrentUserTenant();
 
     for (const selectedFile of selectedFiles) {
       try {
@@ -555,33 +554,41 @@ export default function DocumentUpload() {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        // Upload to database
-        const document = await uploadDocumentToObra({
-          obra_id: selectedObra,
-          categoria: selectedCategory,
-          file: selectedFile.file,
-          observaciones: `Subido desde portal cliente`
-        }, tenantId || DEV_TENANT_ID);
+        // Upload to manual queue with real file storage
+        console.log('📁 Starting real file upload to manual queue...');
+        const document = await manualManagementService.addDocumentToQueue(
+          selectedEmpresa, // clientId
+          selectedObra,    // projectId
+          selectedFile.file,
+          'normal',        // priority
+          'nalanda'        // platformTarget
+        );
 
+        if (!document) {
+          throw new Error('Error al subir archivo a la cola de procesamiento');
+        }
         setUploadResults(prev => ({
           ...prev,
           [selectedFile.id]: {
             success: true,
-            message: 'Documento subido correctamente'
+            message: 'Documento subido correctamente a la cola de procesamiento'
           }
         }));
 
         // Log audit event
+        const tenantId = await getCurrentUserTenant();
         await logAuditoria(
           tenantId || DEV_TENANT_ID,
           'current-user-id',
-          'document.uploaded',
+          'document.uploaded_to_queue',
           'documento',
-          document.id,
+          document.document_id,
           {
             categoria: selectedCategory,
             obra_id: selectedObra,
-            filename: selectedFile.file.name
+            filename: selectedFile.file.name,
+            real_file_uploaded: true,
+            queue_id: document.id
           }
         );
 
@@ -591,7 +598,7 @@ export default function DocumentUpload() {
           ...prev,
           [selectedFile.id]: {
             success: false,
-            message: error instanceof Error ? error.message : 'Error al subir archivo'
+            message: error instanceof Error ? error.message : 'Error al subir archivo a la cola'
           }
         }));
       }
