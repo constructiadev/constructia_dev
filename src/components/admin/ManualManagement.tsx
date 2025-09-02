@@ -42,7 +42,6 @@ import {
   Lock,
   ChevronDown,
   ChevronRight,
-  Info,
   GripVertical,
   Move,
   Ban
