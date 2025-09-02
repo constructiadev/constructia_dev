@@ -357,7 +357,7 @@ function PlatformConnectionModal({ isOpen, onClose, onSave, clientGroup }: Platf
       id: 'nalanda',
       name: 'Nalanda/Obralia',
       description: 'Plataforma principal de gestión CAE',
-      url: 'https://www.nalandaglobal.com/',
+      url: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth?ui_locales=es+en+pt&scope=openid&response_type=code&redirect_uri=https%3A%2F%2Fapp.nalandaglobal.com%2Fsso%2Fcallback.action&state=iWjiywv5BdzdX9IagNMFTYQgz_0QJMlNxfowDD_XeSY&nonce=_wBHFNRC1xlSpdE_2Uq7UxLzCCD1Amy29V3LjcDk7iE&client_id=nalanda-app',
       loginUrl: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth?ui_locales=es+en+pt&scope=openid&response_type=code&redirect_uri=https%3A%2F%2Fapp.nalandaglobal.com%2Fsso%2Fcallback.action&state=iWjiywv5BdzdX9IagNMFTYQgz_0QJMlNxfowDD_XeSY&nonce=_wBHFNRC1xlSpdE_2Uq7UxLzCCD1Amy29V3LjcDk7iE&client_id=nalanda-app'
     },
     {
