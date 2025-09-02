@@ -887,13 +887,13 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log('🔄 Processing manual upload with real file operations...');
-      
+
       // Default platform for manual upload
       const targetPlatform = 'nalanda';
       
       const newStatus = action === 'upload' ? 'uploaded' : 'error';
       const nota = action === 'upload' 
-        ? `Documento subido manualmente a ${targetPlatform} por administrador`
+        ? `Subido manualmente a ${targetPlatform} por administrador`
         : 'Marcado como error por administrador';
       
       const success = await manualManagementService.updateDocumentStatus(
