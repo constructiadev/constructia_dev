@@ -764,6 +764,12 @@ export default function ManualManagement() {
         try {
           // Validate file
           if (file.size > 20 * 1024 * 1024) { // 20MB limit
+          // Validate that we have a proper File object
+          if (!(selectedFile.file instanceof File)) {
+            console.error('❌ Invalid file object:', typeof selectedFile.file, selectedFile.file);
+            throw new Error(`Invalid file object: expected File, got ${typeof selectedFile.file}`);
+          }
+          
             throw new Error(`Archivo ${file.name} excede el límite de 20MB`);
           }
 
