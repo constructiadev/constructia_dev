@@ -39,20 +39,20 @@ export default function ClientLogin() {
         .eq('id', data.user.id)
         .single();
 
-      if (roleError) {
-        console.error('Error fetching user data:', roleError);
-        throw new Error(`No se pudo verificar el rol del usuario: ${roleError.message}`);
+      if (profileError) {
+        console.error('Error fetching user data:', profileError);
+        throw new Error(`No se pudo verificar el rol del usuario: ${profileError.message}`);
       }
 
       // Check if user has appropriate client role
       const allowedRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
-      if (!allowedRoles.includes(roleData.role)) {
-        throw new Error(`Acceso denegado. Rol '${roleData.role}' no autorizado para el panel de cliente.`);
+      if (!allowedRoles.includes(userProfile.role)) {
+        throw new Error(`Acceso denegado. Rol '${userProfile.role}' no autorizado para el panel de cliente.`);
       }
 
       // Store user session data
-      localStorage.setItem('userRole', roleData.role);
-      localStorage.setItem('tenantId', roleData.tenant_id);
+      localStorage.setItem('userRole', userProfile.role);
+      localStorage.setItem('tenantId', userProfile.tenant_id);
       localStorage.setItem('userId', data.user.id);
 
       // 3. Redirigir al panel de cliente
