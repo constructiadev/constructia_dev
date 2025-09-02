@@ -27,6 +27,12 @@ export class FileStorageService {
   // Helper para leer archivo como ArrayBuffer de forma robusta
   private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
+      // Validar que el parámetro es realmente un Blob/File
+      if (!(file instanceof Blob)) {
+        reject(new Error(`Invalid file object: expected Blob/File, got ${typeof file}`));
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result instanceof ArrayBuffer) {
