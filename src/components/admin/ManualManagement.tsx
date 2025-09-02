@@ -452,7 +452,8 @@ function ClientRow({ client, isExpanded, onToggle, onConnectPlatform, onStatusCh
                 onClick={onToggle}
                 className="mr-3 p-1 hover:bg-blue-100 rounded"
               >
-                🎯 Poblar Cola Manual (150 docs)
+                <span>🎯 Poblar Cola Manual (150 docs)</span>
+                {isExpanded ? (
                   <ChevronDown className="h-4 w-4 text-blue-600" />
                 ) : (
                   <ChevronRight className="h-4 w-4 text-blue-600" />
