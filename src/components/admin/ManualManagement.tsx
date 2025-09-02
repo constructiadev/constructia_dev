@@ -1457,7 +1457,7 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-blue-900">
-                            {selectedDestination.clientName} → {selectedDestination.empresaName} → {selectedDestination.proyectoName}
+                            {selectedDestination.clientName} → {selectedDestination.companyName}
                           </p>
                         </div>
                         <button
