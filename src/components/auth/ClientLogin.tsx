@@ -33,8 +33,19 @@ export default function ClientLogin() {
       }
 
       // 2. Verificar que el usuario tiene rol de cliente
-      // Bypass role check for development - RLS is causing infinite recursion
-      console.log('✅ Bypassing role check for development environment');
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) {
+        throw new Error('No se pudo verificar el rol del usuario');
+      }
+
+      if (!userProfile || userProfile.role === 'admin' || userProfile.role === 'SuperAdmin') {
+        throw new Error('Esta página es solo para clientes');
+      }
 
       // 3. Redirigir al panel de cliente
       console.log('✅ Client login successful');
