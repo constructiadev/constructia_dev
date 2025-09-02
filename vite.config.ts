@@ -6,10 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    hmr: {
-      clientPort: 5173,
-      protocol: 'ws'
-    }
+    hmr: true
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
