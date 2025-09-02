@@ -429,6 +429,7 @@ import {
   Monocle as MonocleIcon
 } from 'lucide-react';
 import Logo from '../common/Logo';
+import ContactSection from './ContactSection';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -832,6 +833,12 @@ export default function LandingPage() {
                 Testimonios
               </button>
               <button 
+                onClick={() => scrollToSection('contacto')}
+                className="text-gray-700 hover:text-green-600 font-medium transition-colors"
+              >
+                Contacto
+              </button>
+              <button 
                 onClick={handleContactUs}
                 className="text-gray-600 hover:text-green-600 transition-colors font-medium"
               >
@@ -889,6 +896,12 @@ export default function LandingPage() {
                   className="block w-full text-left text-gray-600 hover:text-green-600 transition-colors font-medium"
                 >
                   Iniciar Sesión
+                </button>
+                <button 
+                  onClick={() => scrollToSection('contacto')}
+                  className="text-left text-gray-700 hover:text-green-600 font-medium transition-colors"
+                >
+                  Contacto
                 </button>
                 <button
                   onClick={() => { handleGetStarted(); setIsMenuOpen(false); }}
@@ -1387,6 +1400,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Contact Section */}
+      <ContactSection />
+
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1462,6 +1478,14 @@ export default function LandingPage() {
                     className="text-gray-400 hover:text-white transition-colors"
                   >
                     Documentación
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => scrollToSection('contacto')}
+                    className="text-gray-300 hover:text-white transition-colors text-sm"
+                  >
+                    Formulario de Contacto
                   </button>
                 </li>
                 <li>
