@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabaseServiceClient } from '../../lib/supabase';
 import Logo from '../common/Logo';
 
 export default function ClientLogin() {
@@ -22,7 +22,7 @@ export default function ClientLogin() {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
-      });
+      const { data: authData, error: authError } = await supabaseServiceClient.auth.signInWithPassword({
 
       if (authError) {
         throw new Error(authError.message);
@@ -33,7 +33,7 @@ export default function ClientLogin() {
       }
 
       // 2. Verificar que el usuario tiene rol de cliente
-      const { data: userProfile, error: profileError } = await supabase
+      const { data: roleData, error: roleError } = await supabaseServiceClient
         .from('users')
         .select('role, tenant_id')
         .eq('id', data.user.id)
