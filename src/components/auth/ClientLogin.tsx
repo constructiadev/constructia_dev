@@ -35,17 +35,25 @@ export default function ClientLogin() {
       // 2. Verificar que el usuario tiene rol de cliente
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
-        .select('role')
+        .select('role, tenant_id')
         .eq('id', data.user.id)
         .single();
 
       if (profileError) {
-        throw new Error('No se pudo verificar el rol del usuario');
+        console.error('Error fetching user data:', profileError);
+        throw new Error(`No se pudo verificar el rol del usuario: ${profileError.message}`);
       }
 
-      if (!userProfile || userProfile.role === 'admin' || userProfile.role === 'SuperAdmin') {
-        throw new Error('Esta página es solo para clientes');
+      // Check if user has appropriate client role
+      const allowedRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
+      if (!allowedRoles.includes(userProfile.role)) {
+        throw new Error(`Acceso denegado. Rol '${userProfile.role}' no autorizado para el panel de cliente.`);
       }
+
+      // Store user session data
+      localStorage.setItem('userRole', userProfile.role);
+      localStorage.setItem('tenantId', userProfile.tenant_id);
+      localStorage.setItem('userId', data.user.id);
 
       // 3. Redirigir al panel de cliente
       console.log('✅ Client login successful');
