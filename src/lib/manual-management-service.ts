@@ -383,7 +383,7 @@ export class ManualManagementService {
       };
 
       if (adminNotes) {
-        updateData.admin_notes = adminNotes;
+        updateData.nota = adminNotes;
       }
 
       if (errorMessage) {
