@@ -80,37 +80,37 @@ function generateRandomDate(daysAgo) {
 async function populateManualQueue() {
   console.log('🚀 Populating manual upload queue with test documents...\n');
 
-  const createdDocumentos = [];
-
   try {
-    // 0. Clean up existing test data to prevent duplicates
-    console.log('0️⃣ Cleaning up existing test data...');
-    
-    // Delete manual upload queue entries
-    await supabase
-      .from('manual_upload_queue')
-      .delete()
-      .eq('tenant_id', DEV_TENANT_ID);
-    
-    // Delete test documentos (only OTROS category from obra entities)
-    await supabase
-      .from('documentos')
-      .delete()
-      .eq('tenant_id', DEV_TENANT_ID)
-      .eq('entidad_tipo', 'obra')
-      .eq('categoria', 'OTROS');
-    
-    // Delete test adaptadores (only those with test aliases)
-    await supabase
-      .from('adaptadores')
-      .delete()
-      .eq('tenant_id', DEV_TENANT_ID)
-      .like('alias', '%-test-%');
-    
-    console.log('✅ Cleanup completed');
+    // 1. Disable RLS for development
+    console.log('1️⃣ Disabling RLS for development...');
+    const tables = [
+      'manual_upload_queue',
+      'empresas',
+      'obras',
+      'documentos',
+      'adaptadores',
+      'users',
+      'tenants'
+    ];
 
-    // 1. Get existing empresas and obras
-    console.log('1️⃣ Getting existing empresas and obras...');
+    for (const table of tables) {
+      try {
+        const { error } = await supabase.rpc('exec_sql', {
+          sql: `ALTER TABLE public.${table} DISABLE ROW LEVEL SECURITY;`
+        });
+
+        if (error) {
+          console.warn(`⚠️ Could not disable RLS for ${table}: ${error.message}`);
+        } else {
+          console.log(`✅ RLS disabled for ${table}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️ Error with table ${table}:`, e.message);
+      }
+    }
+
+    // 2. Get existing empresas and obras
+    console.log('\n2️⃣ Getting existing empresas and obras...');
     const { data: empresas, error: empresasError } = await supabase
       .from('empresas')
       .select('*')
@@ -145,18 +145,16 @@ async function populateManualQueue() {
 
     console.log(`✅ Found ${obras.length} obras`);
 
-    // 2. Create platform credentials for each empresa
-    console.log('\n2️⃣ Creating platform credentials...');
+    // 3. Create platform credentials for each empresa
+    console.log('\n3️⃣ Creating platform credentials...');
     const credentialsData = [];
 
     for (const empresa of empresas) {
       for (const platform of platforms) {
-        const timestamp = Date.now();
-        const randomSuffix = Math.random().toString(36).substr(2, 5);
         credentialsData.push({
           tenant_id: DEV_TENANT_ID,
           plataforma: platform,
-          alias: `${platform}-test-${timestamp}-${randomSuffix}`,
+          alias: `${platform}-${empresa.razon_social.substring(0, 10)}`,
           credenciales: {
             username: `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@${platform}.com`,
             password: `${empresa.cif}${platform}2025!`,
@@ -178,19 +176,18 @@ async function populateManualQueue() {
       console.log(`✅ Created ${credentialsData.length} platform credentials`);
     }
 
-    // 3. Create documentos in the documentos table first
-    console.log('\n3️⃣ Creating documentos...');
+    // 4. Create documentos in the documentos table first
+    console.log('\n4️⃣ Creating documentos...');
+    const documentosData = [];
 
     for (let i = 0; i < 150; i++) {
       const empresa = getRandomElement(empresas);
       const obra = obras.find(o => o.empresa_id === empresa.id) || getRandomElement(obras);
       const docType = getRandomElement(documentTypes);
       const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substr(2, 9);
-      const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${empresa.id.substring(0, 8)}_${i + 1}.${fileExtension}`;
+      const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${i + 1}.${fileExtension}`;
       
-      const documentoData = {
+      documentosData.push({
         tenant_id: DEV_TENANT_ID,
         entidad_tipo: 'obra',
         entidad_id: obra.id,
@@ -198,8 +195,8 @@ async function populateManualQueue() {
         file: `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/${fileName}`,
         mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
         size_bytes: generateRandomFileSize(),
-        hash_sha256: `hash_${timestamp}_${randomId}_${i}`,
-        version: i + 1, // Use unique version for each document
+        hash_sha256: `hash_${Date.now()}_${i}`,
+        version: 1,
         estado: 'pendiente',
         metadatos: {
           original_filename: fileName,
@@ -211,33 +208,23 @@ async function populateManualQueue() {
         origen: 'usuario',
         sensible: Math.random() > 0.7,
         created_at: generateRandomDate(30)
-      };
-
-      // Insert each documento individually to handle conflicts better
-      const { data: createdDocumento, error: documentoError } = await supabase
-        .from('documentos')
-        .insert(documentoData)
-        .select()
-        .single();
-
-      if (documentoError) {
-        console.warn(`⚠️ Skipping documento ${i + 1}: ${documentoError.message}`);
-        continue;
-      }
-
-      if (createdDocumento) {
-        createdDocumentos.push(createdDocumento);
-      }
-
-      // Progress indicator
-      if ((i + 1) % 25 === 0) {
-        console.log(`📝 Processed ${i + 1}/150 documentos...`);
-      }
+      });
     }
 
+    const { data: createdDocumentos, error: documentosError } = await supabase
+      .from('documentos')
+      .upsert(documentosData)
+      .select();
 
-    // 4. Create manual upload queue entries
-    console.log('\n4️⃣ Creating manual upload queue entries...');
+    if (documentosError) {
+      console.error('❌ Error creating documentos:', documentosError);
+      throw documentosError;
+    }
+
+    console.log(`✅ Created ${createdDocumentos.length} documentos`);
+
+    // 5. Create manual upload queue entries
+    console.log('\n5️⃣ Creating manual upload queue entries...');
     const queueData = [];
 
     for (let i = 0; i < createdDocumentos.length; i++) {
@@ -268,8 +255,8 @@ async function populateManualQueue() {
 
     console.log(`✅ Created ${queueData.length} queue entries`);
 
-    // 5. Verification
-    console.log('\n5️⃣ Verification...');
+    // 6. Verification
+    console.log('\n6️⃣ Verification...');
     
     const { count: totalQueue } = await supabase
       .from('manual_upload_queue')
@@ -293,8 +280,8 @@ async function populateManualQueue() {
     console.log(`   - Empresas: ${empresas.length}`);
     console.log(`   - Obras: ${obras.length}`);
 
-    // 6. Test queue access
-    console.log('\n6️⃣ Testing queue access...');
+    // 7. Test queue access
+    console.log('\n7️⃣ Testing queue access...');
     const { data: queueTest, error: queueTestError } = await supabase
       .from('manual_upload_queue')
       .select('*')

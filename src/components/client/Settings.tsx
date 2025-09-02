@@ -10,7 +10,7 @@ import {
   CheckCircle,
   Settings as SettingsIcon
 } from 'lucide-react';
-import { getAllClients, updateClientObraliaCredentials, supabase } from '../../lib/supabase';
+import { getAllClients, updateClientObraliaCredentials } from '../../lib/supabase';
 
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
@@ -36,35 +36,25 @@ export default function Settings() {
       setLoading(true);
       setError(null);
       
-      // Obtener usuario autenticado actual
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error('Usuario no autenticado');
+      // Obtener el primer cliente disponible
+      const allClients = await getAllClients();
+      if (!allClients || allClients.length === 0) {
+        throw new Error('No hay clientes en la base de datos');
       }
       
-      // Obtener datos específicos del cliente autenticado
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (clientError || !clientData) {
-        throw new Error('No se encontraron datos del cliente');
-      }
-      
-      setClientData(clientData);
+      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      setClientData(activeClient);
       
       // Configurar credenciales existentes
-      if (clientData.obralia_credentials) {
+      if (activeClient.obralia_credentials) {
         setObraliaCredentials({
-          username: clientData.obralia_credentials.username || '',
-          password: clientData.obralia_credentials.password || ''
+          username: activeClient.obralia_credentials.username || '',
+          password: activeClient.obralia_credentials.password || ''
         });
       }
       
       // Mostrar modal si no está configurado
-      if (!clientData.obralia_credentials?.configured) {
+      if (!activeClient.obralia_credentials?.configured) {
         setShowObraliaModal(true);
       }
       
