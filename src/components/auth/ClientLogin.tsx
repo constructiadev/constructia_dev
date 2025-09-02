@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { supabaseServiceClient } from '../../lib/supabase';
+import { supabase, supabaseServiceClient } from '../../lib/supabase';
 import Logo from '../common/Logo';
 
 export default function ClientLogin() {
