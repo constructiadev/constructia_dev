@@ -1,5 +1,6 @@
 // ConstructIA - Procesador de Documentos con Gemini AI
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { appConfig, getEnvironmentConfig } from '../config/app-config';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -29,11 +30,18 @@ export class GeminiDocumentProcessor {
   private model: any;
 
   constructor() {
-    if (API_KEY) {
+    const envConfig = getEnvironmentConfig();
+    
+    // Always use mock in development or when simulate_in_dev is enabled
+    if (envConfig.isDev || appConfig.settings.IA.simulate_in_dev) {
+      console.warn('🤖 [Gemini] Using mock responses in development to avoid quota limits');
+      this.genAI = null;
+      this.model = null;
+    } else if (API_KEY) {
       this.genAI = new GoogleGenerativeAI(API_KEY);
       this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
     } else {
-      console.warn('Gemini API key not found. Using mock responses.');
+      console.warn('🤖 [Gemini] API key not found. Using mock responses.');
       this.genAI = null;
       this.model = null;
     }

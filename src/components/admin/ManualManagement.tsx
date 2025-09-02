@@ -710,7 +710,6 @@ export default function ManualManagement() {
       for (const file of newDocument.files) {
         await manualManagementService.addDocumentToQueue(
           selectedDestination.clientId,
-          selectedDestination.empresaId,
           selectedDestination.proyectoId,
           file,
           newDocument.priority,

@@ -258,7 +258,6 @@ export class ManualManagementService {
   // Add document to manual queue
   async addDocumentToQueue(
     clientId: string,
-    companyId: string,
     projectId: string,
     file: File,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
@@ -279,49 +278,91 @@ export class ManualManagementService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-      // Create document record
-      const documentData = {
+      // First, create document record in documentos table
+      const documentoData = {
         tenant_id: this.tenantId,
-        client_id: clientId,
-        document_id: `DOC-${Date.now()}`,
-        filename: `${hash}.${file.name.split('.').pop()}`,
-        original_name: file.name,
-        file_size: file.size,
-        file_type: file.type,
-        classification: extraction.categoria_probable,
-        confidence: Math.round((extraction.confianza.categoria_probable || 0) * 100),
-        priority,
-        platform_target: platformTarget,
-        company_id: companyId,
-        project_id: projectId,
-        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()}`
+        entidad_tipo: 'obra',
+        entidad_id: projectId,
+        categoria: extraction.categoria_probable,
+        file: `${this.tenantId}/obra/${projectId}/${extraction.categoria_probable}/${hash}.${file.name.split('.').pop()}`,
+        mime: file.type,
+        size_bytes: file.size,
+        hash_sha256: hash,
+        version: 1,
+        estado: 'pendiente',
+        metadatos: {
+          ai_extraction: extraction,
+          original_filename: file.name,
+          upload_timestamp: new Date().toISOString()
+        },
+        origen: 'usuario'
       };
 
-      const { data, error } = await supabaseServiceClient
-        .from('manual_document_queue')
+      const { data: documento, error: docError } = await supabaseServiceClient
+        .from('documentos')
+        .insert(documentoData)
+        .select()
+        .single();
+
+      if (docError) {
+        console.error('Error creating documento:', docError);
+        return null;
+      }
+
+      // Then, create entry in manual_upload_queue
+      const { data: queueEntry, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
         .insert({
-          ...documentData,
-          status: 'pending'
+          tenant_id: this.tenantId,
+          empresa_id: clientId,
+          obra_id: projectId,
+          documento_id: documento.id,
+          status: 'queued',
+          nota: `Añadido por administrador - ${file.name}`
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Error adding document to queue:', error);
+      if (queueError) {
+        console.error('Error adding to queue:', queueError);
         return null;
       }
 
       // Log the action
       await this.logUploadAction(
         null,
-        data.id,
+        queueEntry.id,
         'document_added',
         'success',
         `Document ${file.name} added to queue`,
-        { file_size: file.size, classification: extraction.categoria_probable }
+        { file_size: file.size, categoria: extraction.categoria_probable }
       );
 
-      return data;
+      // Return in ManualDocument format
+      return {
+        id: queueEntry.id,
+        tenant_id: this.tenantId,
+        client_id: clientId,
+        document_id: documento.id,
+        filename: `${hash}.${file.name.split('.').pop()}`,
+        original_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        classification: extraction.categoria_probable,
+        confidence: Math.round((extraction.confianza.categoria_probable || 0) * 100),
+        corruption_detected: false,
+        integrity_score: 100,
+        status: 'pending',
+        priority,
+        queue_position: 1,
+        retry_count: 0,
+        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()}`,
+        platform_target: platformTarget,
+        company_id: clientId,
+        project_id: projectId,
+        created_at: queueEntry.created_at,
+        updated_at: queueEntry.updated_at
+      };
     } catch (error) {
       console.error('Error adding document to queue:', error);
       return null;
