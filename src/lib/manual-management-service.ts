@@ -1,6 +1,7 @@
 // ConstructIA - Manual Management Service
 import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from './supabase-real';
 import { geminiProcessor } from './gemini-document-processor';
+import { fileStorageService } from './file-storage-service';
 
 export interface ManualDocument {
   id: string;
@@ -264,6 +265,25 @@ export class ManualManagementService {
     platformTarget: 'nalanda' | 'ctaima' | 'ecoordina' = 'nalanda'
   ): Promise<ManualDocument | null> {
     try {
+      console.log('📁 Starting real file upload process...');
+      
+      // Step 1: Upload file to real storage  
+      const uploadResult = await fileStorageService.uploadFile(
+        file,
+        this.tenantId,
+        'obra',
+        projectId,
+        'OTROS',
+        1
+      );
+
+      if (!uploadResult.success) {
+        console.error('❌ File upload failed:', uploadResult.error);
+        throw new Error(`File upload failed: ${uploadResult.error}`);
+      }
+
+      console.log('✅ File uploaded successfully to:', uploadResult.filePath);
+
       // Process file with AI
       const fileBuffer = await file.arrayBuffer();
       const extraction = await geminiProcessor.processDocument(
@@ -284,7 +304,7 @@ export class ManualManagementService {
         entidad_tipo: 'obra',
         entidad_id: projectId,
         categoria: extraction.categoria_probable,
-        file: `${this.tenantId}/obra/${projectId}/${extraction.categoria_probable}/${hash}.${file.name.split('.').pop()}`,
+        file: uploadResult.filePath || `${this.tenantId}/obra/${projectId}/${extraction.categoria_probable}/${hash}.${file.name.split('.').pop()}`,
         mime: file.type,
         size_bytes: file.size,
         hash_sha256: hash,
@@ -293,7 +313,9 @@ export class ManualManagementService {
         metadatos: {
           ai_extraction: extraction,
           original_filename: file.name,
-          upload_timestamp: new Date().toISOString()
+          upload_timestamp: new Date().toISOString(),
+          storage_url: uploadResult.publicUrl,
+          real_file_uploaded: true
         },
         origen: 'usuario'
       };
@@ -306,6 +328,10 @@ export class ManualManagementService {
 
       if (docError) {
         console.error('Error creating documento:', docError);
+        // If document creation fails, clean up uploaded file
+        if (uploadResult.filePath) {
+          await fileStorageService.deleteFile(uploadResult.filePath);
+        }
         return null;
       }
 
@@ -318,13 +344,18 @@ export class ManualManagementService {
           obra_id: projectId,
           documento_id: documento.id,
           status: 'queued',
-          nota: `Añadido por administrador - ${file.name}`
+          nota: `Añadido por administrador - ${file.name} (archivo real subido)`
         })
         .select()
         .single();
 
       if (queueError) {
         console.error('Error adding to queue:', queueError);
+        // Clean up if queue creation fails
+        await supabaseServiceClient.from('documentos').delete().eq('id', documento.id);
+        if (uploadResult.filePath) {
+          await fileStorageService.deleteFile(uploadResult.filePath);
+        }
         return null;
       }
 
@@ -334,8 +365,13 @@ export class ManualManagementService {
         queueEntry.id,
         'document_added',
         'success',
-        `Document ${file.name} added to queue`,
-        { file_size: file.size, categoria: extraction.categoria_probable }
+        `Document ${file.name} added to queue with real file upload`,
+        { 
+          file_size: file.size, 
+          categoria: extraction.categoria_probable,
+          storage_path: uploadResult.filePath,
+          real_upload: true
+        }
       );
 
       // Return in ManualDocument format
@@ -356,7 +392,7 @@ export class ManualManagementService {
         priority,
         queue_position: 1,
         retry_count: 0,
-        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()}`,
+        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()} (archivo real)`,
         platform_target: platformTarget,
         company_id: clientId,
         project_id: projectId,
@@ -373,10 +409,65 @@ export class ManualManagementService {
   async updateDocumentStatus(
     documentId: string,
     newStatus: ManualDocument['status'],
+    targetPlatform?: string,
     nota?: string,
     errorMessage?: string
   ): Promise<boolean> {
     try {
+      // Get document info for file operations
+      const { data: queueItem, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          documentos!inner(*)
+        `)
+        .eq('id', documentId)
+        .eq('tenant_id', this.tenantId)
+        .single();
+
+      if (queueError || !queueItem) {
+        console.error('❌ Queue item not found:', queueError);
+        return false;
+      }
+
+      const documento = queueItem.documentos;
+
+      // If uploading to platform, move the file
+      if (newStatus === 'uploaded' && targetPlatform && documento.file) {
+        console.log('📁 Moving file to platform:', targetPlatform);
+        
+        const moveResult = await fileStorageService.moveFile(
+          documento.file,
+          targetPlatform,
+          this.tenantId,
+          documento.id
+        );
+
+        if (!moveResult.success) {
+          console.error('❌ File move failed:', moveResult.error);
+          return false;
+        }
+
+        // Update document with new file path
+        await supabaseServiceClient
+          .from('documentos')
+          .update({
+            file: moveResult.newPath,
+            metadatos: {
+              ...documento.metadatos,
+              platform_upload: {
+                platform: targetPlatform,
+                uploaded_at: new Date().toISOString(),
+                moved_from: documento.file
+              }
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', documento.id);
+
+        console.log('✅ File moved and document updated');
+      }
+
       const updateData: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
@@ -388,6 +479,11 @@ export class ManualManagementService {
 
       if (errorMessage) {
         updateData.nota = errorMessage;
+      }
+
+      // Add platform info if uploading
+      if (newStatus === 'uploaded' && targetPlatform) {
+        updateData.nota = `${nota || ''} - Subido a ${targetPlatform}`.trim();
       }
 
       const { error } = await supabaseServiceClient
@@ -408,7 +504,12 @@ export class ManualManagementService {
         'status_changed',
         'success',
         `Status changed to ${newStatus}`,
-        { new_status: newStatus, nota: nota }
+        { 
+          new_status: newStatus, 
+          nota: nota,
+          target_platform: targetPlatform,
+          real_file_operation: true
+        }
       );
 
       return true;

@@ -732,8 +732,14 @@ export default function ManualManagement() {
           newDocument.platform_target
         );
       }
-      
-      await loadData();
+        setMessage({ 
+          type: 'success', 
+          text: `Documento subido exitosamente a ${targetPlatform}. Archivo movido en el sistema de almacenamiento.` 
+        });
+        setMessage({ 
+          type: 'success', 
+          text: `Documento ${action === 'upload' ? `subido a ${targetPlatform}` : 'marcado con error'} exitosamente. Archivo ${action === 'upload' ? 'movido' : 'procesado'} en el sistema.` 
+        });
       setShowAddModal(false);
       setSelectedDestination(null);
       setNewDocument({
@@ -891,16 +897,27 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
       const nota = action === 'upload' ? 'Subido manualmente por administrador' : 'Marcado como error por administrador';
       
       const success = await manualManagementService.updateDocumentStatus(
+      console.log('🔄 Processing manual upload with real file operations...');
+      
+      // Default platform for manual upload
+      const targetPlatform = 'nalanda';
+      
         documentId,
         newStatus,
-        nota
+        'uploaded',
+        targetPlatform,
+        `Documento subido manualmente a ${targetPlatform} por administrador`
       );
 
       if (success) {
+        console.log('✅ Manual upload completed successfully');
+        
         console.log(`✅ Document ${action === 'upload' ? 'uploaded' : 'marked as error'} successfully`);
         // Refresh data to update counts and remove uploaded documents
         await loadData();
       } else {
+        console.error('❌ Manual upload failed');
+        console.error('❌ Document operation failed');
         alert('Error al subir documento');
       }
     } catch (error) {
@@ -913,12 +930,23 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
 
   const handleUpdateStatus = async (documentId: string, status: ManualDocument['status']) => {
     try {
+      console.log('🔄 Processing real document operation:', action);
+      
+      // Determine target platform for upload
+      const targetPlatform = action === 'upload' ? 'nalanda' : undefined;
+      
       const success = await manualManagementService.updateDocumentStatus(
         documentId,
-        status,
+        action === 'upload' ? 'uploaded' : 'error',
+        targetPlatform,
+        action === 'upload' 
+          ? `Documento procesado y subido a ${targetPlatform} por administrador`
+          : 'Documento marcado con error por administrador'
         `Estado actualizado manualmente a ${status}`
       );
 
+        console.log('✅ Document operation completed successfully');
+        
       if (success) {
         await loadData();
         console.log('✅ Document status updated:', documentId, status);
@@ -1459,12 +1487,14 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                           <p className="font-medium text-blue-900">
                             {selectedDestination.clientName} → {selectedDestination.companyName}
                           </p>
-                        </div>
+                            Los documentos se procesan en orden de llegada. Arrastra documentos pendientes a las zonas de acción. 
+                            <strong>Los archivos se mueven realmente</strong> en el sistema de almacenamiento.
                         <button
                           type="button"
                           onClick={() => setSelectedDestination(null)}
                           className="text-blue-600 hover:text-blue-800"
                         >
+                            <p>• 📁 Operaciones reales: Los archivos se mueven físicamente entre carpetas</p>
                           <X className="w-4 h-4" />
                         </button>
                       </div>
