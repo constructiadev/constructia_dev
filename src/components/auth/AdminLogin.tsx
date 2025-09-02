@@ -35,12 +35,13 @@ export default function AdminLogin() {
       // 2. Verificar que el usuario tiene rol de admin
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
-        .select('role')
+        .select('role, tenant_id')
         .eq('id', data.user.id)
         .single();
 
       if (profileError) {
-        throw new Error('No se pudo verificar el rol del usuario');
+        console.error('Error fetching user data:', profileError);
+        throw new Error(`No se pudo verificar el rol del usuario: ${profileError.message}`);
       }
 
       if (!userProfile || !['admin', 'SuperAdmin'].includes(userProfile.role)) {
