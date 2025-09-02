@@ -153,7 +153,7 @@ export default function SystemConfigPanel() {
       description: 'URL base de la API de Nalanda',
       required: false,
       type: 'url',
-      placeholder: 'https://api.nalanda.com/v1'
+      placeholder: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth'
     },
     {
       key: 'NALANDA_API_KEY',
@@ -177,7 +177,7 @@ export default function SystemConfigPanel() {
       description: 'URL base de la API de CTAIMA',
       required: false,
       type: 'url',
-      placeholder: 'https://api.ctaima.com/v2'
+      placeholder: 'https://login.ctaima.com/Account/Login'
     },
     {
       key: 'CTAIMA_API_KEY',
@@ -201,7 +201,7 @@ export default function SystemConfigPanel() {
       description: 'URL base de la API de Ecoordina',
       required: false,
       type: 'url',
-      placeholder: 'https://api.ecoordina.com/v1'
+      placeholder: 'https://login.welcometotwind.io/junoprod.onmicrosoft.com/b2c_1a_signup_signin/oauth2/v2.0/authorize'
     },
     {
       key: 'ECOORDINA_API_KEY',

@@ -156,7 +156,10 @@ async function populateManualQueue() {
           plataforma: platform,
           alias: `${platform}-${empresa.razon_social.substring(0, 10)}`,
           credenciales: {
-            username: `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@${platform}.com`,
+            username: platform === 'nalanda' ? `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@nalandaglobal.com` :
+                     platform === 'ctaima' ? `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@ctaima.com` :
+                     platform === 'ecoordina' ? `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@welcometotwind.io` :
+                     `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@${platform}.com`,
             password: `${empresa.cif}${platform}2025!`,
             configured: true,
             empresa_id: empresa.id

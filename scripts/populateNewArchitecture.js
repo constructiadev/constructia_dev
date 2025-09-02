@@ -454,7 +454,7 @@ async function populateNewArchitecture() {
         plataforma: 'nalanda',
         alias: 'Nalanda Principal',
         credenciales: {
-          api_base: 'https://api.nalanda.com/v1',
+          api_base: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth',
           api_key: 'test_key_nalanda',
           webhook_secret: 'webhook_secret_nalanda'
         },
@@ -465,7 +465,7 @@ async function populateNewArchitecture() {
         plataforma: 'ctaima',
         alias: 'CTAIMA Principal',
         credenciales: {
-          api_base: 'https://api.ctaima.com/v2',
+          api_base: 'https://login.ctaima.com/Account/Login',
           api_key: 'test_key_ctaima',
           webhook_secret: 'webhook_secret_ctaima'
         },

@@ -564,7 +564,7 @@ export class SeedDataService {
         alias: 'Nalanda Principal',
         credenciales: {
           tipo: 'http-json',
-          apiBase: 'https://api.nalanda.com/v1',
+          apiBase: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth',
           apiKey: 'test_key_nalanda',
           webhookSecret: 'webhook_secret_nalanda',
           endpoints: {
@@ -579,7 +579,7 @@ export class SeedDataService {
         alias: 'CTAIMA Principal',
         credenciales: {
           tipo: 'http-json',
-          apiBase: 'https://api.ctaima.com/v2',
+          apiBase: 'https://login.ctaima.com/Account/Login',
           apiKey: 'test_key_ctaima',
           webhookSecret: 'webhook_secret_ctaima',
           endpoints: {
