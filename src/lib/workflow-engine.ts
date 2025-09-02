@@ -32,6 +32,22 @@ export interface WorkflowResult {
 }
 
 export class WorkflowEngine {
+  // Helper para leer archivo como ArrayBuffer de forma robusta
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file as ArrayBuffer'));
+        }
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
   // 3.1 Subida de Documento (usuario)
   async processDocumentUpload(params: DocumentUploadParams): Promise<WorkflowResult> {
     const { tenantId, userId, entidadTipo, entidadId, categoria, file, observaciones } = params;
@@ -53,7 +69,7 @@ export class WorkflowEngine {
       warnings.push(...fileValidation.warnings);
 
       // Step 2: Calcular hash y verificar duplicados
-      const fileBuffer = await file.arrayBuffer();
+      const fileBuffer = await this.readFileAsArrayBuffer(file);
       const hashArray = await crypto.subtle.digest('SHA-256', fileBuffer);
       const hashHex = Array.from(new Uint8Array(hashArray))
         .map(b => b.toString(16).padStart(2, '0'))

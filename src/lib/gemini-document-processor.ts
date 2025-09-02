@@ -47,6 +47,21 @@ export class GeminiDocumentProcessor {
     }
   }
 
+  // Helper para leer archivo como ArrayBuffer de forma robusta
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file as ArrayBuffer'));
+        }
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
   async processDocument(
     fileContent: string | ArrayBuffer, 
     fileName: string,

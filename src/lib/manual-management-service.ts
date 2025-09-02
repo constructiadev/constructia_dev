@@ -84,6 +84,21 @@ export class ManualManagementService {
     this.tenantId = tenantId;
   }
 
+  // Helper para leer archivo como ArrayBuffer de forma robusta
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file as ArrayBuffer'));
+        }
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
   // Get all client groups with hierarchical structure
   async getClientGroups(): Promise<ClientGroup[]> {
     try {
@@ -285,7 +300,7 @@ export class ManualManagementService {
       console.log('✅ File uploaded successfully to:', uploadResult.filePath);
 
       // Process file with AI
-      const fileBuffer = await file.arrayBuffer();
+      const fileBuffer = await this.readFileAsArrayBuffer(file);
       const extraction = await geminiProcessor.processDocument(
         fileBuffer,
         file.name,

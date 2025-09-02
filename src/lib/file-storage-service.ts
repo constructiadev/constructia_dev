@@ -24,6 +24,21 @@ export class FileStorageService {
     console.log('📁 [FileStorage] Using bucket:', this.bucketName);
   }
 
+  // Helper para leer archivo como ArrayBuffer de forma robusta
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file as ArrayBuffer'));
+        }
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
   // Subir archivo real a Supabase Storage
   async uploadFile(
     file: File,
@@ -35,7 +50,7 @@ export class FileStorageService {
   ): Promise<FileUploadResult> {
     try {
       // Generar hash del archivo
-      const fileBuffer = await file.arrayBuffer();
+      const fileBuffer = await this.readFileAsArrayBuffer(file);
       const hashArray = await crypto.subtle.digest('SHA-256', fileBuffer);
       const hash = Array.from(new Uint8Array(hashArray))
         .map(b => b.toString(16).padStart(2, '0'))
