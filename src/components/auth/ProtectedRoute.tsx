@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { supabase, supabaseServiceClient } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -32,7 +32,7 @@ export default function ProtectedRoute({
       }
 
       // Get user profile to check role
-      const { data: userProfile, error: profileError } = await supabaseServiceClient
+      const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
