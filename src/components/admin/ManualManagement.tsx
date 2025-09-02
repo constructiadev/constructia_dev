@@ -663,6 +663,8 @@ export default function ManualManagement() {
     platform_target: 'nalanda' as const,
     files: [] as File[]
   });
+  const [draggedDocument, setDraggedDocument] = useState<string | null>(null);
+  const [documentCounts, setDocumentCounts] = useState<{[key: string]: number}>({});
 
   useEffect(() => {
     loadData();
@@ -680,6 +682,18 @@ export default function ManualManagement() {
 
       setClientGroups(groups);
       setQueueStats(stats);
+      
+      // Update document counts
+      const counts: {[key: string]: number} = {};
+      groups.forEach(client => {
+        counts[client.client_id] = client.total_documents;
+        client.companies.forEach(company => {
+          company.projects.forEach(project => {
+            counts[`${client.client_id}-${project.project_id}`] = project.total_documents;
+          });
+        });
+      });
+      setDocumentCounts(counts);
 
       // If no data exists, populate test data
       if (groups.length === 0) {
@@ -772,6 +786,8 @@ export default function ManualManagement() {
           if (queueEntryId) {
             successCount++;
             console.log('✅ Document added to queue:', queueEntryId);
+            // Refresh data to update counts
+            await loadData();
           } else {
             errorCount++;
             console.error('❌ Failed to add document to queue:', file.name);
@@ -835,22 +851,56 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
     }
   };
 
-  const handleUploadDocument = async (documentId: string) => {
+  const handleDragStart = (e: React.DragEvent, documentId: string, status: string) => {
+    // Only allow dragging for pending or error documents
+    if (status === 'uploaded' || status === 'validated') {
+      e.preventDefault();
+      return;
+    }
+    setDraggedDocument(documentId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', documentId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedDocument(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: 'uploaded' | 'error') => {
+    e.preventDefault();
+    const documentId = e.dataTransfer.getData('text/plain');
+    
+    if (documentId && draggedDocument === documentId) {
+      await handleUploadDocument(documentId, targetStatus);
+    }
+    setDraggedDocument(null);
+  };
+
+  const handleUploadDocument = async (documentId: string, action: 'upload' | 'error' = 'upload') => {
     try {
       setUploadingDocuments(prev => [...prev, documentId]);
       
       // Simulate upload process
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      const newStatus = action === 'upload' ? 'uploaded' : 'error';
+      const nota = action === 'upload' ? 'Subido manualmente por administrador' : 'Marcado como error por administrador';
+      
       const success = await manualManagementService.updateDocumentStatus(
         documentId,
-        'uploaded',
-        'Subido manualmente por administrador'
+        newStatus,
+        nota
       );
 
       if (success) {
+        console.log(`✅ Document ${action === 'upload' ? 'uploaded' : 'marked as error'} successfully`);
+        // Refresh data to update counts and remove uploaded documents
         await loadData();
-        console.log('✅ Document uploaded:', documentId);
       } else {
         alert('Error al subir documento');
       }
@@ -1240,71 +1290,119 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                               </h6>
                               
                               <div className="ml-6 space-y-2">
-                                {project.documents.map((document) => (
-                                  <div key={document.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                    <div className="flex items-center space-x-3">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedDocuments.includes(document.id)}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
-                                            setSelectedDocuments(prev => [...prev, document.id]);
-                                          } else {
-                                            setSelectedDocuments(prev => prev.filter(id => id !== document.id));
-                                          }
-                                        }}
-                                        className="rounded border-gray-300"
-                                      />
-                                      <FileText className="w-4 h-4 text-gray-400" />
-                                      <div>
-                                        <div className="text-sm font-medium text-gray-900">
-                                          {document.original_name}
+                                <div className="space-y-3">
+                                  {project.documents.map((document) => {
+                                    const canDrag = document.status === 'pending' || document.status === 'error';
+                                    const isUploaded = document.status === 'uploaded' || document.status === 'validated';
+                                    
+                                    return (
+                                      <div
+                                        key={document.id}
+                                        className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
+                                          isUploaded 
+                                            ? 'bg-green-50 border-green-200 opacity-75' 
+                                            : canDrag 
+                                            ? 'bg-gray-50 border-gray-200 hover:bg-gray-100 cursor-move' 
+                                            : 'bg-gray-50 border-gray-200'
+                                        } ${
+                                          draggedDocument === document.id ? 'opacity-50 scale-95' : ''
+                                        }`}
+                                        draggable={canDrag}
+                                        onDragStart={(e) => handleDragStart(e, document.id, document.status)}
+                                        onDragEnd={handleDragEnd}
+                                      >
+                                        <div className="flex items-center space-x-3">
+                                          {canDrag && (
+                                            <GripVertical className="h-4 w-4 text-gray-400" />
+                                          )}
+                                          {isUploaded && (
+                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                          )}
+                                          <FileText className="h-5 w-5 text-gray-400" />
+                                          <div>
+                                            <p className="font-medium text-gray-900">{document.original_name}</p>
+                                            <div className="flex items-center space-x-2 text-sm text-gray-500">
+                                              <span>#{document.queue_position}</span>
+                                              <span>•</span>
+                                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                document.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                document.status === 'uploading' ? 'bg-blue-100 text-blue-800' :
+                                                document.status === 'uploaded' ? 'bg-green-100 text-green-800' :
+                                                document.status === 'validated' ? 'bg-green-100 text-green-800' :
+                                                document.status === 'error' ? 'bg-red-100 text-red-800' :
+                                                'bg-gray-100 text-gray-800'
+                                              }`}>
+                                                {document.status === 'pending' ? 'Pendiente' :
+                                                 document.status === 'uploading' ? 'Subiendo' :
+                                                 document.status === 'uploaded' ? 'Subido' :
+                                                 document.status === 'validated' ? 'Validado' :
+                                                 document.status === 'error' ? 'Error' :
+                                                 document.status}
+                                              </span>
+                                              <span>•</span>
+                                              <span>{document.priority}</span>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="text-xs text-gray-500">
-                                          {document.classification} • {formatFileSize(document.file_size)}
+                                        
+                                        <div className="flex items-center space-x-2">
+                                          {isUploaded ? (
+                                            <div className="flex items-center space-x-2 text-green-600">
+                                              <CheckCircle className="h-4 w-4" />
+                                              <span className="text-sm font-medium">Ya subido</span>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <button
+                                                onClick={() => handleUploadDocument(document.id, 'upload')}
+                                                disabled={uploadingDocuments.includes(document.id)}
+                                                className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50"
+                                                title="Marcar como subido"
+                                              >
+                                                {uploadingDocuments.includes(document.id) ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                  <Upload className="h-4 w-4" />
+                                                )}
+                                              </button>
+                                              <button
+                                                onClick={() => handleUploadDocument(document.id, 'error')}
+                                                disabled={uploadingDocuments.includes(document.id)}
+                                                className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                                                title="Marcar como error"
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </button>
+                                            </>
+                                          )}
                                         </div>
                                       </div>
+                                    );
+                                  })}
+                                  
+                                  {/* Drop zones for drag and drop */}
+                                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                                    <div
+                                      className="p-4 border-2 border-dashed border-green-300 rounded-lg text-center bg-green-50 hover:bg-green-100 transition-colors"
+                                      onDragOver={handleDragOver}
+                                      onDrop={(e) => handleDrop(e, 'uploaded')}
+                                    >
+                                      <Upload className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                                      <p className="text-sm font-medium text-green-800">Marcar como Subido</p>
+                                      <p className="text-xs text-green-600">Arrastra aquí para subir</p>
                                     </div>
                                     
-                                    <div className="flex items-center space-x-3">
-                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(document.status)}`}>
-                                        {document.status}
-                                      </span>
-                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(document.priority)}`}>
-                                        {document.priority}
-                                      </span>
-                                      
-                                      <div className="flex items-center space-x-1">
-                                        <button
-                                          onClick={() => handleDownloadDocument(document)}
-                                          className="text-blue-600 hover:text-blue-700 p-1"
-                                          title="Descargar documento"
-                                        >
-                                          <Download className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleUploadDocument(document.id)}
-                                          disabled={uploadingDocuments.includes(document.id)}
-                                          className="text-purple-600 hover:text-purple-700 disabled:opacity-50 p-1"
-                                          title="Subir a plataforma"
-                                        >
-                                          {uploadingDocuments.includes(document.id) ? (
-                                            <RefreshCw className="w-4 h-4 animate-spin" />
-                                          ) : (
-                                            <Upload className="w-4 h-4" />
-                                          )}
-                                        </button>
-                                        <button
-                                          onClick={() => handleUpdateStatus(document.id, 'error')}
-                                          className="text-red-600 hover:text-red-700 p-1"
-                                          title="Marcar como error"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
-                                      </div>
+                                    <div
+                                      className="p-4 border-2 border-dashed border-red-300 rounded-lg text-center bg-red-50 hover:bg-red-100 transition-colors"
+                                      onDragOver={handleDragOver}
+                                      onDrop={(e) => handleDrop(e, 'error')}
+                                    >
+                                      <X className="h-6 w-6 text-red-600 mx-auto mb-2" />
+                                      <p className="text-sm font-medium text-red-800">Marcar como Error</p>
+                                      <p className="text-xs text-red-600">Arrastra aquí para error</p>
                                     </div>
                                   </div>
-                                ))}
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1360,410 +1458,4 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-blue-900">
-                            {selectedDestination.clientName} → {selectedDestination.empresaName} → {selectedDestination.proyectoName}
-                          </p>
-                          <p className="text-sm text-blue-700">Destino seleccionado</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDestination(null)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Categoría */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categoría del Documento *
-                  </label>
-                  <select
-                    value={newDocument.category}
-                    onChange={(e) => setNewDocument(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Seleccionar categoría...</option>
-                    <option value="PRL">PRL</option>
-                    <option value="APTITUD_MEDICA">Aptitud Médica</option>
-                    <option value="DNI">DNI</option>
-                    <option value="ALTA_SS">Alta SS</option>
-                    <option value="CONTRATO">Contrato</option>
-                    <option value="SEGURO_RC">Seguro RC</option>
-                    <option value="REA">REA</option>
-                    <option value="FORMACION_PRL">Formación PRL</option>
-                    <option value="EVAL_RIESGOS">Evaluación de Riesgos</option>
-                    <option value="CERT_MAQUINARIA">Certificado Maquinaria</option>
-                    <option value="PLAN_SEGURIDAD">Plan de Seguridad</option>
-                    <option value="OTROS">Otros</option>
-                  </select>
-                </div>
-
-                {/* Prioridad */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prioridad
-                  </label>
-                  <select
-                    value={newDocument.priority}
-                    onChange={(e) => setNewDocument(prev => ({ ...prev, priority: e.target.value as any }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="low">Baja</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Urgente</option>
-                  </select>
-                </div>
-
-                {/* Plataforma Destino */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Plataforma Destino
-                  </label>
-                  <select
-                    value={newDocument.platform_target}
-                    onChange={(e) => setNewDocument(prev => ({ ...prev, platform_target: e.target.value as any }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="nalanda">Nalanda/Obralia</option>
-                    <option value="ctaima">CTAIMA</option>
-                    <option value="ecoordina">Ecoordina</option>
-                  </select>
-                </div>
-
-                {/* Archivos */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Archivos *
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-600 mb-2">
-                      Arrastra archivos aquí o haz clic para seleccionar
-                    </p>
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                      onChange={(e) => {
-                        if (e.target.files) {
-                          setNewDocument(prev => ({ ...prev, files: Array.from(e.target.files!) }));
-                        }
-                      }}
-                      className="hidden"
-                      id="file-upload-add"
-                    />
-                    <label
-                      htmlFor="file-upload-add"
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block"
-                    >
-                      Seleccionar Archivos
-                    </label>
-                  </div>
-                  
-                  {newDocument.files.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-sm text-gray-600 mb-2">
-                        {newDocument.files.length} archivo(s) seleccionado(s):
-                      </p>
-                      <div className="space-y-1">
-                        {newDocument.files.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
-                            <span>{file.name}</span>
-                            <span className="text-gray-500">
-                              {(file.size / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Botones */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addDocumentToQueue}
-                    className="flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Añadir a Cola
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Upload Modal */}
-      <UploadModal
-        isOpen={showUploadModal}
-        onClose={handleCloseUploadModal}
-        onUpload={handleUploadDocuments}
-        clientGroups={clientGroups}
-      />
-
-      {/* Platform Connection Modal */}
-      <PlatformConnectionModal
-        isOpen={showPlatformModal}
-        onClose={() => setShowPlatformModal(false)}
-        onSave={handleSavePlatformCredentials}
-        clientGroup={selectedClient}
-      />
-
-      {/* Modal de Selección de Destino Jerárquico */}
-      {showDestinationSelector && (
-        <HierarchicalDestinationSelector
-          isOpen={showDestinationSelector}
-          onClose={() => setShowDestinationSelector(false)}
-          onSelect={(destination) => {
-            setSelectedDestination(destination);
-            setShowDestinationSelector(false);
-          }}
-          clientGroups={clientGroups}
-        />
-      )}
-    </div>
-  );
-}
-
-// Componente para selección jerárquica de destino
-interface HierarchicalDestinationSelectorProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelect: (destination: {
-    clientId: string;
-    clientName: string;
-    empresaId: string;
-    empresaName: string;
-    proyectoId: string;
-    proyectoName: string;
-  }) => void;
-  clientGroups: any[];
-}
-
-function HierarchicalDestinationSelector({ 
-  isOpen, 
-  onClose, 
-  onSelect, 
-  clientGroups 
-}: HierarchicalDestinationSelectorProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
-  const [expandedClients, setExpandedClients] = useState<string[]>([]);
-  const [expandedEmpresas, setExpandedEmpresas] = useState<string[]>([]);
-
-  const filteredClients = clientGroups.filter(client =>
-    client.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.client_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.companies.some((company: any) => 
-      company.company_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
-
-  const toggleClient = (clientId: string) => {
-    if (expandedClients.includes(clientId)) {
-      setExpandedClients(prev => prev.filter(id => id !== clientId));
-    } else {
-      setExpandedClients(prev => [...prev, clientId]);
-    }
-  };
-
-  const toggleEmpresa = (empresaId: string) => {
-    if (expandedEmpresas.includes(empresaId)) {
-      setExpandedEmpresas(prev => prev.filter(id => id !== empresaId));
-    } else {
-      setExpandedEmpresas(prev => [...prev, empresaId]);
-    }
-  };
-
-  const handleProjectSelect = (
-    clientId: string,
-    clientName: string,
-    empresaId: string,
-    empresaName: string,
-    proyectoId: string,
-    proyectoName: string
-  ) => {
-    onSelect({
-      clientId,
-      clientName,
-      empresaId,
-      empresaName,
-      proyectoId,
-      proyectoName
-    });
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold">Seleccionar Destino</h3>
-              <p className="text-blue-100">Cliente → Empresa → Proyecto</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar cliente, empresa o proyecto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          {searchTerm && (
-            <p className="text-sm text-gray-500 mt-2">
-              Mostrando {filteredClients.length} de {clientGroups.length} clientes
-            </p>
-          )}
-        </div>
-
-        {/* Hierarchical List */}
-        <div className="p-4 max-h-96 overflow-y-auto">
-          {filteredClients.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">
-                {searchTerm ? `No se encontraron resultados para "${searchTerm}"` : 'No hay clientes disponibles'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredClients.map((client) => (
-                <div key={client.client_id} className="border border-gray-200 rounded-lg">
-                  {/* Cliente */}
-                  <div 
-                    className={`flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 ${
-                      selectedClient === client.client_id ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectedClient(client.client_id);
-                      toggleClient(client.client_id);
-                    }}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <button className="p-1">
-                        {expandedClients.includes(client.client_id) ? 
-                          <ChevronDown className="w-4 h-4 text-gray-600" /> : 
-                          <ChevronRight className="w-4 h-4 text-gray-600" />
-                        }
-                      </button>
-                      <Users className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <h4 className="font-medium text-gray-900">{client.client_name}</h4>
-                        <p className="text-sm text-gray-600">{client.client_email}</p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {client.total_documents} docs
-                    </div>
-                  </div>
-
-                  {/* Empresas */}
-                  {expandedClients.includes(client.client_id) && (
-                    <div className="pl-8 pb-2">
-                      {client.companies.map((empresa: any) => (
-                        <div key={empresa.company_id} className="border-l-2 border-gray-200 ml-4">
-                          <div 
-                            className={`flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50 ${
-                              selectedEmpresa === empresa.company_id ? 'bg-green-50' : ''
-                            }`}
-                            onClick={() => {
-                              setSelectedEmpresa(empresa.company_id);
-                              toggleEmpresa(empresa.company_id);
-                            }}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <button className="p-1">
-                                {expandedEmpresas.includes(empresa.company_id) ? 
-                                  <ChevronDown className="w-3 h-3 text-gray-600" /> : 
-                                  <ChevronRight className="w-3 h-3 text-gray-600" />
-                                }
-                              </button>
-                              <Building2 className="w-4 h-4 text-green-600" />
-                              <div>
-                                <h5 className="font-medium text-gray-800">{empresa.company_name}</h5>
-                              </div>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {empresa.total_documents} docs
-                            </div>
-                          </div>
-
-                          {/* Proyectos */}
-                          {expandedEmpresas.includes(empresa.company_id) && (
-                            <div className="pl-6">
-                              {empresa.projects.map((proyecto: any) => (
-                                <div 
-                                  key={proyecto.project_id}
-                                  className="flex items-center justify-between p-2 cursor-pointer hover:bg-purple-50 rounded border-l-2 border-purple-200 ml-2"
-                                  onClick={() => handleProjectSelect(
-                                    client.client_id,
-                                    client.client_name,
-                                    empresa.company_id,
-                                    empresa.company_name,
-                                    proyecto.project_id,
-                                    proyecto.project_name
-                                  )}
-                                >
-                                  <div className="flex items-center space-x-3">
-                                    <FolderOpen className="w-4 h-4 text-purple-600" />
-                                    <div>
-                                      <h6 className="font-medium text-gray-800">{proyecto.project_name}</h6>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-500">{proyecto.total_documents} docs</span>
-                                    <button className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm">
-                                      Seleccionar
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+                            {selectedDestination.clientName} → {selectedDestination.
