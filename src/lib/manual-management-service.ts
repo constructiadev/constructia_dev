@@ -1,5 +1,5 @@
 // ConstructIA - Manual Management Service
-import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID } from './supabase-real';
+import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from './supabase-real';
 import { geminiProcessor } from './gemini-document-processor';
 
 export interface ManualDocument {
@@ -529,7 +529,7 @@ export class ManualManagementService {
       // Log the action
       await logAuditoria(
         this.tenantId,
-        'admin',
+        DEV_ADMIN_USER_ID,
         'credentials.saved',
         'adaptadores',
         null,
@@ -867,7 +867,7 @@ export class ManualManagementService {
       // Log to auditoria table instead since upload_logs doesn't exist
       await logAuditoria(
         this.tenantId,
-        'admin',
+        DEV_ADMIN_USER_ID,
         action,
         'manual_upload_queue',
         documentId,
