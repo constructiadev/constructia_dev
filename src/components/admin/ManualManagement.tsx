@@ -1277,7 +1277,7 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                       {clientGroup.companies.map((company) => (
                         <div key={company.company_id} className="mb-4">
                           <h5 className="font-medium text-gray-800 mb-2 flex items-center">
-                            <Building className="w-4 h-4 mr-2 text-gray-600" />
+                            <Building2 className="w-4 h-4 mr-2 text-gray-600" />
                             {company.company_name} ({company.total_documents} documentos)
                           </h5>
                           
@@ -1457,4 +1457,41 @@ En producción, aquí se descargaría el archivo real desde el almacenamiento.`;
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-blue-900">
-                            {selectedDestination.clientName} → {selectedDestination.
+                            {selectedDestination.clientName} → {selectedDestination.empresaName} → {selectedDestination.proyectoName}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDestination(null)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={showUploadModal}
+        onClose={handleCloseUploadModal}
+        onUpload={handleUploadDocuments}
+        clientGroups={clientGroups}
+      />
+
+      {/* Platform Connection Modal */}
+      <PlatformConnectionModal
+        isOpen={showPlatformModal}
+        onClose={() => setShowPlatformModal(false)}
+        onSave={handleSavePlatformCredentials}
+        clientGroup={selectedClient}
+      />
+    </div>
+  );
+}
