@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseServiceClient } from '../../lib/supabase';
 import Logo from '../common/Logo';
 
 export default function ClientLogin() {
@@ -33,8 +33,31 @@ export default function ClientLogin() {
       }
 
       // 2. Verificar que el usuario tiene rol de cliente
-      // Bypass role check for development - RLS is causing infinite recursion
-      console.log('✅ Bypassing role check for development environment');
+      const { data: userProfile, error: profileError } = await supabaseServiceClient
+        .from('users')
+        .select('role, tenant_id')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching user data:', profileError);
+        throw new Error(`No se pudo verificar el rol del usuario: ${profileError.message}`);
+      }
+
+      if (!userProfile) {
+        throw new Error('Usuario no encontrado en el sistema');
+      }
+
+      // Check if user has appropriate client role
+      const allowedRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
+      if (!allowedRoles.includes(userProfile.role)) {
+        throw new Error(`Acceso denegado. Rol '${userProfile.role}' no autorizado para el panel de cliente.`);
+      }
+
+      // Store user session data
+      localStorage.setItem('userRole', userProfile.role);
+      localStorage.setItem('tenantId', userProfile.tenant_id);
+      localStorage.setItem('userId', data.user.id);
 
       // 3. Redirigir al panel de cliente
       console.log('✅ Client login successful');

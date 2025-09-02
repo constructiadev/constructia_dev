@@ -29,6 +29,24 @@ async function fixDatabaseAccess() {
   console.log('🚀 Starting database access fix...\n');
 
   try {
+    // 0. Create default tenant first
+    console.log('0️⃣ Creating default tenant...');
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .upsert({
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'ConstructIA Default Tenant',
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (tenantError) {
+      console.error('❌ Error creating tenant:', tenantError);
+    } else {
+      console.log('✅ Default tenant ready');
+    }
+
     // 1. Test basic connectivity
     console.log('1️⃣ Testing basic database connectivity...');
     const { data: testData, error: testError } = await supabase
@@ -45,10 +63,11 @@ async function fixDatabaseAccess() {
     // 2. Disable RLS on all tables using direct SQL
     console.log('2️⃣ Disabling RLS on all tables...');
     const tables = [
-      'users', 'clients', 'companies', 'projects', 'documents',
-      'subscriptions', 'payments', 'receipts', 'payment_gateways',
-      'system_settings', 'kpis', 'audit_logs', 'manual_document_queue',
-      'sepa_mandates'
+      'tenants', 'users', 'empresas', 'obras', 'proveedores', 'trabajadores',
+      'documentos', 'tareas', 'requisitos_plataforma', 'mapping_templates',
+      'adaptadores', 'jobs_integracion', 'suscripciones', 'auditoria',
+      'mensajes', 'reportes', 'token_transactions', 'checkout_providers',
+      'mandatos_sepa', 'manual_upload_queue', 'ai_insights'
     ];
 
     for (const table of tables) {
@@ -99,8 +118,10 @@ async function fixDatabaseAccess() {
           .from('users')
           .upsert({
             id: userId,
+            tenant_id: tenant.id,
             email: 'admin@constructia.com',
-            role: 'admin'
+            name: 'Admin User',
+            role: 'SuperAdmin'
           });
 
         if (userInsertError) {
@@ -142,83 +163,21 @@ async function fixDatabaseAccess() {
           .from('users')
           .upsert({
             id: userId,
+            tenant_id: tenant.id,
             email: 'juan@construccionesgarcia.com',
-            role: 'client'
+            name: 'Juan García',
+            role: 'ClienteAdmin'
           });
 
         if (userInsertError) {
           console.error('❌ Error creating client profile:', userInsertError);
         } else {
           console.log('✅ Client user profile created');
-          
-          // Create client record
-          const { error: clientInsertError } = await supabase
-            .from('clients')
-            .upsert({
-              user_id: userId,
-              client_id: `CLI-${userId.substring(0, 8).toUpperCase()}`,
-              company_name: 'Construcciones García S.L.',
-              contact_name: 'Juan García',
-              email: 'juan@construccionesgarcia.com',
-              phone: '+34 600 123 456',
-              address: 'Calle Construcción 123, 28001 Madrid',
-              subscription_plan: 'professional',
-              subscription_status: 'active',
-              storage_used: 0,
-              storage_limit: 1073741824,
-              documents_processed: 0,
-              tokens_available: 1000,
-              obralia_credentials: { configured: false }
-            });
-
-          if (clientInsertError) {
-            console.error('❌ Error creating client record:', clientInsertError);
-          } else {
-            console.log('✅ Client record created');
-          }
         }
       }
     } else {
       console.log('✅ Client user exists');
-      
-      // Verify client record exists
-      const { data: clientRecord, error: clientRecordError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', clientUser.id)
-        .maybeSingle();
 
-      if (clientRecordError && clientRecordError.code !== 'PGRST116') {
-        console.error('❌ Error checking client record:', clientRecordError);
-      } else if (!clientRecord) {
-        console.log('Creating missing client record...');
-        const { error: clientInsertError } = await supabase
-          .from('clients')
-          .upsert({
-            user_id: clientUser.id,
-            client_id: `CLI-${clientUser.id.substring(0, 8).toUpperCase()}`,
-            company_name: 'Construcciones García S.L.',
-            contact_name: 'Juan García',
-            email: 'juan@construccionesgarcia.com',
-            phone: '+34 600 123 456',
-            address: 'Calle Construcción 123, 28001 Madrid',
-            subscription_plan: 'professional',
-            subscription_status: 'active',
-            storage_used: 0,
-            storage_limit: 1073741824,
-            documents_processed: 0,
-            tokens_available: 1000,
-            obralia_credentials: { configured: false }
-          });
-
-        if (clientInsertError) {
-          console.error('❌ Error creating client record:', clientInsertError);
-        } else {
-          console.log('✅ Client record created');
-        }
-      } else {
-        console.log('✅ Client record exists');
-      }
     }
 
     // 4. Final verification
@@ -237,23 +196,11 @@ async function fixDatabaseAccess() {
       });
     }
 
-    const { data: allClients, error: allClientsError } = await supabase
-      .from('clients')
-      .select('*');
-
-    if (allClientsError) {
-      console.error('❌ Error accessing clients table:', allClientsError);
-    } else {
-      console.log(`✅ Clients table accessible. Found ${allClients?.length || 0} clients`);
-      allClients?.forEach(client => {
-        console.log(`   - ${client.company_name} (${client.email})`);
-      });
-    }
 
     console.log('\n🎉 Database access fix completed!');
     console.log('\n📝 Test credentials:');
-    console.log('   Admin: admin@constructia.com / superadmin123');
-    console.log('   Client: juan@construccionesgarcia.com / password123');
+    console.log('   SuperAdmin: admin@constructia.com / superadmin123');
+    console.log('   ClienteAdmin: juan@construccionesgarcia.com / password123');
     console.log('\n⚠️  Remember: RLS is now DISABLED for development. Re-enable for production!');
 
   } catch (error) {

@@ -9,8 +9,14 @@ const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('❌ Missing Supabase configuration. Please check your .env file.');
+  console.log('Current environment variables:');
+  console.log('VITE_SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
+  console.log('VITE_SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Set' : 'Missing');
   process.exit(1);
 }
+
+console.log('🔧 Using Supabase URL:', supabaseUrl);
+console.log('🔑 Service key configured:', supabaseServiceKey ? 'Yes' : 'No');
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {

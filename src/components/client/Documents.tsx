@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
 import { getAllClients, getClientDocuments } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface Document {
   id: string;
@@ -33,17 +34,39 @@ const Documents: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Obtener el primer cliente disponible
-      const allClients = await getAllClients();
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+      // Obtener usuario autenticado actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
       }
       
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
+      // Obtener datos del cliente autenticado
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (clientError || !clientData) {
+        throw new Error('No se encontraron datos del cliente');
+      }
       
-      // Obtener documentos del cliente
-      const documentsData = await getClientDocuments(activeClient.id);
-      setDocuments(documentsData || []);
+      // Obtener SOLO los documentos de este cliente específico
+      const { data: documentsData, error: documentsError } = await supabase
+        .from('documents')
+        .select(`
+          *,
+          projects(name)
+        `)
+        .eq('client_id', clientData.id)
+        .order('created_at', { ascending: false });
+
+      if (documentsError) {
+        console.warn('Error loading documents:', documentsError);
+        setDocuments([]);
+      } else {
+        setDocuments(documentsData || []);
+      }
       
     } catch (err) {
       console.error('Error loading documents:', err);

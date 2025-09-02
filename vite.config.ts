@@ -7,8 +7,9 @@ export default defineConfig({
   server: {
     host: true,
     hmr: {
+      overlay: false,
       clientPort: 5173,
-      protocol: 'ws'
+      protocol: 'wss'
     }
   },
   optimizeDeps: {

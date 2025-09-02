@@ -23,6 +23,24 @@ async function createTestUsers() {
   console.log('Creating test users...');
 
   try {
+    // First, create a default tenant
+    console.log('Creating default tenant...');
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .upsert({
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'ConstructIA Default Tenant',
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (tenantError) {
+      console.error('❌ Error creating tenant:', tenantError);
+      throw tenantError;
+    }
+    console.log('✅ Default tenant created');
+
     // Create admin user
     console.log('Creating admin user...');
     const { data: adminAuth, error: adminAuthError } = await supabase.auth.admin.createUser({
@@ -41,8 +59,10 @@ async function createTestUsers() {
         .from('users')
         .upsert({
           id: adminAuth.user.id,
+          tenant_id: tenant.id,
           email: 'admin@constructia.com',
-          role: 'admin'
+          name: 'Admin User',
+          role: 'SuperAdmin'
         });
 
       if (adminUserError) {
@@ -70,45 +90,23 @@ async function createTestUsers() {
         .from('users')
         .upsert({
           id: clientAuth.user.id,
+          tenant_id: tenant.id,
           email: 'juan@construccionesgarcia.com',
-          role: 'client'
+          name: 'Juan García',
+          role: 'ClienteAdmin'
         });
 
       if (clientUserError) {
         console.warn('Client user profile error:', clientUserError.message);
       }
 
-      // Create client record
-      const { error: clientRecordError } = await supabase
-        .from('clients')
-        .upsert({
-          user_id: clientAuth.user.id,
-          client_id: `CLI-${clientAuth.user.id.substring(0, 8).toUpperCase()}`,
-          company_name: 'Construcciones García S.L.',
-          contact_name: 'Juan García',
-          email: 'juan@construccionesgarcia.com',
-          phone: '+34 600 123 456',
-          address: 'Calle Construcción 123, 28001 Madrid',
-          subscription_plan: 'professional',
-          subscription_status: 'active',
-          storage_used: 0,
-          storage_limit: 1073741824, // 1GB
-          documents_processed: 0,
-          tokens_available: 1000,
-          obralia_credentials: { configured: false }
-        });
-
-      if (clientRecordError) {
-        console.warn('Client record error:', clientRecordError.message);
-      } else {
-        console.log('✓ Client user created successfully');
-      }
+      console.log('✓ Client user created successfully');
     }
 
     console.log('\n✅ Test users created successfully!');
     console.log('\nDemo credentials:');
-    console.log('Admin: admin@constructia.com / superadmin123');
-    console.log('Client: juan@construccionesgarcia.com / password123');
+    console.log('SuperAdmin: admin@constructia.com / superadmin123');
+    console.log('ClienteAdmin: juan@construccionesgarcia.com / password123');
 
   } catch (error) {
     console.error('Error creating test users:', error.message);

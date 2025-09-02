@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient, supabaseServiceClient, DEV_TENANT_ID } from './supabase-real';
 import { 
-  getTenantEmpresas,
   getTenantEmpresasNoRLS,
   getTenantUsersNoRLS,
-  getTenantObras,
   getTenantObrasNoRLS, 
   getTenantStats,
   getCurrentUserTenant
@@ -15,6 +13,9 @@ export const TEST_USER_UUID = '00000000-0000-0000-0000-000000000001';
 
 // Export DEV_TENANT_ID for use in other modules
 export { DEV_TENANT_ID };
+
+// Export service client for admin operations
+export { supabaseServiceClient };
 
 // Export functions from supabase-real for use in other modules
 export { getTenantEmpresasNoRLS, getTenantUsersNoRLS, getTenantObrasNoRLS, getTenantStats };
@@ -32,49 +33,28 @@ export const getCurrentClientData = async (userId: string) => {
       return null;
     }
 
-    // Get user from new multi-tenant schema
-    const { data: userData, error: userError } = await supabase
-      .from('users')
+    // Get client data directly using user_id
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (userError) {
-      if (userError.code === 'PGRST116') {
-        console.log('⚠️ [Supabase] User data not found for user:', userId);
+    if (clientError) {
+      if (clientError.code === 'PGRST116') {
+        console.log('⚠️ [Supabase] Client data not found for user:', userId);
         return null;
       }
-      console.error('❌ [Supabase] Database error:', userError);
+      console.error('❌ [Supabase] Database error:', clientError);
       return null;
     }
     
-    if (!userData) {
-      console.log('⚠️ [Supabase] No user data found');
+    if (!clientData) {
+      console.log('⚠️ [Supabase] No client data found');
       return null;
     }
 
-    // Transform user data to match expected client format
-    const clientData = {
-      id: userData.id,
-      user_id: userId,
-      client_id: `CLI-${userData.id.substring(0, 8)}`,
-      company_name: userData.name || 'Usuario',
-      contact_name: userData.name || 'Usuario',
-      email: userData.email,
-      phone: '',
-      address: '',
-      subscription_plan: 'professional',
-      subscription_status: userData.active ? 'active' : 'suspended',
-      storage_used: 0,
-      storage_limit: 1073741824,
-      documents_processed: 0,
-      tokens_available: 1000,
-      obralia_credentials: { configured: false },
-      created_at: userData.created_at,
-      updated_at: userData.updated_at
-    };
-    
-    console.log('✅ [Supabase] User data retrieved successfully:', clientData.company_name);
+    console.log('✅ [Supabase] Client data retrieved successfully:', clientData.company_name);
     return clientData;
   } catch (error) {
     console.error('❌ [Supabase] Error getting client data:', error);
@@ -511,11 +491,31 @@ export const calculateDynamicKPIs = async () => {
 };
 
 // Helper para actualizar credenciales de Obralia del cliente
-// TODO: Implement with new multi-tenant architecture
 export const updateClientObraliaCredentials = async (clientId: string, credentials: { username: string; password: string }) => {
-  console.log('⚠️ updateClientObraliaCredentials: Function needs implementation with new schema');
-  // For now, simulate success
-  return { id: clientId, updated_at: new Date().toISOString() };
+  try {
+    const { data, error } = await supabaseClient
+      .from('clients')
+      .update({
+        obralia_credentials: {
+          configured: true,
+          username: credentials.username,
+          password: credentials.password
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', clientId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error updating Obralia credentials: ${error.message}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating Obralia credentials:', error);
+    throw error;
+  }
 };
 
 // Helper para obtener estadísticas de ingresos

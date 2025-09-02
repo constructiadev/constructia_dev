@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ProtectedRoute from './auth/ProtectedRoute';
 
 // Layouts
 import AdminLayout from './layout/AdminLayout';
@@ -74,7 +75,7 @@ export default function Router() {
         </Route>
 
         {/* Client routes - Sin protección temporal */}
-        <Route path="/client" element={<ClientLayout />}>
+        <Route path="/client" element={<ProtectedRoute requiredRole="client" redirectTo="/client-login"><ClientLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/client/dashboard" replace />} />
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="companies" element={<Companies />} />
