@@ -37,11 +37,15 @@ export default function ClientLogin() {
         .from('users')
         .select('role, tenant_id')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('Error fetching user data:', profileError);
         throw new Error(`No se pudo verificar el rol del usuario: ${profileError.message}`);
+      }
+
+      if (!userProfile) {
+        throw new Error('Usuario no encontrado en el sistema');
       }
 
       // Check if user has appropriate client role
