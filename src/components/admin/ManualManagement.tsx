@@ -42,7 +42,10 @@ import {
   Lock,
   ChevronDown,
   ChevronRight,
-  Building
+  Info,
+  GripVertical,
+  Move,
+  Ban
 } from 'lucide-react';
 import { manualManagementService, type ClientGroup, type ManualDocument, type PlatformCredential } from '../../lib/manual-management-service';
 

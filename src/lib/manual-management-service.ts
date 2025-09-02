@@ -373,7 +373,7 @@ export class ManualManagementService {
   async updateDocumentStatus(
     documentId: string,
     newStatus: ManualDocument['status'],
-    adminNotes?: string,
+    nota?: string,
     errorMessage?: string
   ): Promise<boolean> {
     try {
@@ -382,13 +382,12 @@ export class ManualManagementService {
         updated_at: new Date().toISOString()
       };
 
-      if (adminNotes) {
-        updateData.nota = adminNotes;
+      if (nota) {
+        updateData.nota = nota;
       }
 
       if (errorMessage) {
-        updateData.last_error = errorMessage;
-        updateData.retry_count = 1; // Increment retry count
+        updateData.nota = errorMessage;
       }
 
       const { error } = await supabaseServiceClient
@@ -409,7 +408,7 @@ export class ManualManagementService {
         'status_changed',
         'success',
         `Status changed to ${newStatus}`,
-        { new_status: newStatus, admin_notes: adminNotes }
+        { new_status: newStatus, nota: nota }
       );
 
       return true;
