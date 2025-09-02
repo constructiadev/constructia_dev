@@ -19,7 +19,7 @@ export default function ClientLogin() {
 
     try {
       // 1. Intentar login con Supabase
-      const { data, error: authError } = await supabaseServiceClient.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -33,7 +33,7 @@ export default function ClientLogin() {
       }
 
       // 2. Verificar que el usuario tiene rol de cliente
-      const { data: roleData, error: roleError } = await supabaseServiceClient
+      const { data: userProfile, error: profileError } = await supabaseServiceClient
         .from('users')
         .select('role, tenant_id')
         .eq('id', data.user.id)

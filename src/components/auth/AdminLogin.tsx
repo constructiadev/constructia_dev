@@ -33,7 +33,7 @@ export default function AdminLogin() {
       }
 
       // 2. Verificar que el usuario tiene rol de admin
-      const { data: userProfile, error: profileError } = await supabase
+      const { data: userProfile, error: profileError } = await supabaseServiceClient
         .from('users')
         .select('role, tenant_id')
         .eq('id', data.user.id)
