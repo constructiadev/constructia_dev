@@ -1,5 +1,6 @@
 // ConstructIA - Servicio de Almacenamiento de Archivos Real
 import { supabaseServiceClient } from './supabase-real';
+import { appConfig } from '../config/app-config';
 
 export interface FileUploadResult {
   success: boolean;
@@ -17,8 +18,10 @@ export interface FileMoveResult {
 export class FileStorageService {
   private bucketName: string;
 
-  constructor(bucketName: string = 'documents') {
-    this.bucketName = bucketName;
+  constructor(bucketName?: string) {
+    // Use bucket from app config or fallback to parameter or default
+    this.bucketName = bucketName || appConfig.settings.STORAGE.bucket || 'documents';
+    console.log('📁 [FileStorage] Using bucket:', this.bucketName);
   }
 
   // Subir archivo real a Supabase Storage
