@@ -546,6 +546,26 @@ export default function DocumentUpload() {
 
     for (const selectedFile of selectedFiles) {
       try {
+        // Validación crítica: verificar que el objeto file es realmente un File/Blob
+        if (!(selectedFile.file instanceof File) && !(selectedFile.file instanceof Blob)) {
+          console.error('❌ Invalid file object type:', {
+            fileName: selectedFile.id,
+            actualType: typeof selectedFile.file,
+            constructor: selectedFile.file?.constructor?.name,
+            isFile: selectedFile.file instanceof File,
+            isBlob: selectedFile.file instanceof Blob
+          });
+          
+          setUploadResults(prev => ({
+            ...prev,
+            [selectedFile.id]: {
+              success: false,
+              message: `Error: Objeto de archivo inválido (tipo: ${typeof selectedFile.file})`
+            }
+          }));
+          continue; // Saltar este archivo y continuar con el siguiente
+        }
+
         setUploadProgress(prev => ({ ...prev, [selectedFile.id]: 0 }));
 
         // Simulate upload progress
@@ -556,6 +576,14 @@ export default function DocumentUpload() {
 
         // Upload to manual queue with real file storage
         console.log('📁 Starting real file upload to manual queue...');
+        console.log('📁 File validation passed:', {
+          fileName: selectedFile.file.name,
+          fileSize: selectedFile.file.size,
+          fileType: selectedFile.file.type,
+          isFile: selectedFile.file instanceof File,
+          isBlob: selectedFile.file instanceof Blob
+        });
+        
         const document = await manualManagementService.addDocumentToQueue(
           selectedEmpresa, // clientId
           selectedObra,    // projectId
