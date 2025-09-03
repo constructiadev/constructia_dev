@@ -619,8 +619,9 @@ export default function ManualManagement() {
     let clientGroupsData: ClientGroup[] = [];
     let statsData: any = {};
     
-    try {
-      setLoading(true);
+      let clientGroups;
+      let statsData;
+      [clientGroups, statsData] = await Promise.all([
       setError(null);
       
       [clientGroupsData, statsData] = await Promise.all([
