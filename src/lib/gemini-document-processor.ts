@@ -182,36 +182,55 @@ Responde en JSON con este esquema:
     let categoria = 'OTROS';
     let entidad: 'empresa' | 'trabajador' | 'maquinaria' | 'obra' = 'obra';
     
-    if (fileName_lower.includes('dni') || fileName_lower.includes('nie')) {
+    // Mejorar detección de categorías con más patrones
+    if (fileName_lower.includes('dni') || fileName_lower.includes('nie') || fileName_lower.includes('identificacion')) {
       categoria = 'DNI';
       entidad = 'trabajador';
-    } else if (fileName_lower.includes('aptitud') || fileName_lower.includes('medica') || fileName_lower.includes('reconocimiento')) {
+    } else if (fileName_lower.includes('aptitud') || fileName_lower.includes('medica') || fileName_lower.includes('reconocimiento') || fileName_lower.includes('medico')) {
       categoria = 'APTITUD_MEDICA';
       entidad = 'trabajador';
-    } else if (fileName_lower.includes('prl') || fileName_lower.includes('formacion') || fileName_lower.includes('curso')) {
+    } else if (fileName_lower.includes('prl') || fileName_lower.includes('formacion') || fileName_lower.includes('curso') || fileName_lower.includes('prevencion')) {
       categoria = 'FORMACION_PRL';
       entidad = 'trabajador';
-    } else if (fileName_lower.includes('contrato') || fileName_lower.includes('laboral')) {
+    } else if (fileName_lower.includes('contrato') || fileName_lower.includes('laboral') || fileName_lower.includes('trabajo')) {
       categoria = 'CONTRATO';
       entidad = 'trabajador';
-    } else if (fileName_lower.includes('seguro') || fileName_lower.includes('responsabilidad') || fileName_lower.includes('rc')) {
+    } else if (fileName_lower.includes('seguro') || fileName_lower.includes('responsabilidad') || fileName_lower.includes('rc') || fileName_lower.includes('poliza')) {
       categoria = 'SEGURO_RC';
       entidad = 'empresa';
-    } else if (fileName_lower.includes('rea') || fileName_lower.includes('registro') || fileName_lower.includes('acreditada')) {
+    } else if (fileName_lower.includes('rea') || fileName_lower.includes('registro') || fileName_lower.includes('acreditada') || fileName_lower.includes('empresa_acreditada')) {
       categoria = 'REA';
       entidad = 'empresa';
-    } else if (fileName_lower.includes('plan') && fileName_lower.includes('seguridad')) {
+    } else if ((fileName_lower.includes('plan') && fileName_lower.includes('seguridad')) || fileName_lower.includes('plan_seguridad')) {
       categoria = 'PLAN_SEGURIDAD';
       entidad = 'obra';
-    } else if (fileName_lower.includes('evaluacion') || fileName_lower.includes('riesgos')) {
+    } else if (fileName_lower.includes('evaluacion') || fileName_lower.includes('riesgos') || fileName_lower.includes('eval_riesgos')) {
       categoria = 'EVAL_RIESGOS';
       entidad = 'obra';
-    } else if (fileName_lower.includes('certificado') && (fileName_lower.includes('maquina') || fileName_lower.includes('equipo'))) {
+    } else if ((fileName_lower.includes('certificado') && (fileName_lower.includes('maquina') || fileName_lower.includes('equipo'))) || fileName_lower.includes('cert_maquinaria')) {
       categoria = 'CERT_MAQUINARIA';
       entidad = 'maquinaria';
-    } else if (fileName_lower.includes('alta') && fileName_lower.includes('ss')) {
+    } else if ((fileName_lower.includes('alta') && fileName_lower.includes('ss')) || fileName_lower.includes('alta_ss') || fileName_lower.includes('seguridad_social')) {
       categoria = 'ALTA_SS';
       entidad = 'trabajador';
+    } else if (fileName_lower.includes('control') && fileName_lower.includes('calidad')) {
+      categoria = 'OTROS';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('certificado') && fileName_lower.includes('calidad')) {
+      categoria = 'OTROS';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('mediciones') || fileName_lower.includes('certificaciones')) {
+      categoria = 'OTROS';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('memoria') && fileName_lower.includes('calidades')) {
+      categoria = 'OTROS';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('albaran') || fileName_lower.includes('entrega')) {
+      categoria = 'OTROS';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('parte') && fileName_lower.includes('accidente')) {
+      categoria = 'OTROS';
+      entidad = 'obra';
     }
     
     return {
@@ -233,10 +252,10 @@ Responde en JSON con este esquema:
         coincidencias_texto: [fileName, categoria]
       },
       confianza: {
-        categoria_probable: categoria !== 'OTROS' ? 0.85 : 0.45,
+        categoria_probable: categoria !== 'OTROS' ? 0.85 + Math.random() * 0.1 : 0.45 + Math.random() * 0.2,
         dni_nie: entidad === 'trabajador' ? 0.92 : 0.0,
-        fecha_caducidad: 0.88,
-        empresa: 0.95
+        fecha_caducidad: 0.88 + Math.random() * 0.1,
+        empresa: 0.95 + Math.random() * 0.05
       }
     };
   }

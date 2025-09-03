@@ -1133,17 +1133,19 @@ export class ManualManagementService {
           const obra = empresaObras[Math.floor(Math.random() * empresaObras.length)] || obras[0];
           const docType = documentTypes[Math.floor(Math.random() * documentTypes.length)];
           const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
+          const hash = `hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
           const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${i}.${fileExtension}`;
+          const filePath = `${this.tenantId}/obra/${obra.id}/OTROS/v1/${hash}.${fileExtension}`;
           
           documentosData.push({
             tenant_id: this.tenantId,
             entidad_tipo: 'obra',
             entidad_id: obra.id,
             categoria: 'OTROS',
-            file: `${this.tenantId}/obra/${obra.id}/OTROS/${fileName}`,
+            file: filePath,
             mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
             size_bytes: Math.floor(Math.random() * 10000000) + 500000,
-            hash_sha256: `hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
+            hash_sha256: hash,
             version: 1,
             estado: 'pendiente',
             metadatos: {
