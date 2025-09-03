@@ -43,7 +43,7 @@ export class ClientAuthService {
       console.log('✅ [ClientAuth] User authenticated:', userId);
 
       // Step 2: Get user profile from multi-tenant schema
-      const { data: userProfile, error: userError } = await supabase
+      const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('*')
         .eq('id', userId)
@@ -117,7 +117,7 @@ export class ClientAuthService {
       }
 
       // Get user profile
-      const { data: userProfile, error: userError } = await supabase
+      const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('*')
         .eq('id', user.id)
@@ -190,7 +190,7 @@ export class ClientAuthService {
   // Verify client has access to specific tenant data
   static async verifyTenantAccess(userId: string, tenantId: string): Promise<boolean> {
     try {
-      const { data: userProfile, error } = await supabase
+      const { data: userProfile, error } = await supabaseServiceClient
         .from('users')
         .select('tenant_id, role')
         .eq('id', userId)
