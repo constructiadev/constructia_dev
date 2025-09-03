@@ -64,13 +64,15 @@ export class ClientAuthService {
         
         const { data: newProfile, error: createError } = await supabaseServiceClient
           .from('users')
-          .insert({
+          .upsert({
             id: userId,
             tenant_id: DEV_TENANT_ID,
             email: authData.user.email!,
             name: defaultName,
             role: 'ClienteAdmin',
             active: true
+          }, {
+            onConflict: 'tenant_id,email'
           })
           .select()
           .single();
