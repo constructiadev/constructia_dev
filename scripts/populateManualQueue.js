@@ -82,6 +82,42 @@ async function populateManualQueue() {
   console.log('🚀 Populating manual upload queue with test documents...\n');
 
   try {
+    // 0. Create and configure storage bucket
+    console.log('0️⃣ Setting up storage bucket...');
+    
+    // Check if bucket exists
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    
+    if (bucketsError) {
+      console.warn('⚠️ Could not list buckets:', bucketsError.message);
+    } else {
+      const bucketExists = buckets.some(bucket => bucket.name === 'UPLOADDOCUMENTS');
+      
+      if (!bucketExists) {
+        console.log('📁 Creating UPLOADDOCUMENTS bucket...');
+        const { error: createBucketError } = await supabase.storage.createBucket('UPLOADDOCUMENTS', {
+          public: true,
+          allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'],
+          fileSizeLimit: 20971520 // 20MB
+        });
+        
+        if (createBucketError) {
+          console.error('❌ Error creating bucket:', createBucketError.message);
+          console.log('📝 Manual steps to create bucket:');
+          console.log('1. Go to Supabase Dashboard > Storage');
+          console.log('2. Click "New bucket"');
+          console.log('3. Name: UPLOADDOCUMENTS');
+          console.log('4. Set as Public: Yes');
+          console.log('5. Save bucket');
+          throw createBucketError;
+        } else {
+          console.log('✅ UPLOADDOCUMENTS bucket created successfully');
+        }
+      } else {
+        console.log('✅ UPLOADDOCUMENTS bucket already exists');
+      }
+    }
+
     // 1. Disable RLS for development
     console.log('1️⃣ Disabling RLS for development...');
     const tables = [
