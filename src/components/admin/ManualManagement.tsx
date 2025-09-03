@@ -66,311 +66,246 @@ import { manualManagementService, type ManualDocument, type ClientGroup } from '
 interface PlatformConnectionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (credentials: { [platform: string]: { username: string; password: string } }) => Promise<void>;
-  existingCredentials?: { [platform: string]: { username: string; password: string } };
+  clientId: string;
+  clientName: string;
 }
 
-function PlatformConnectionsModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  existingCredentials = {} 
-}: PlatformConnectionsModalProps) {
-  const [credentials, setCredentials] = useState<{ [platform: string]: { username: string; password: string } }>({
-    nalanda: existingCredentials.nalanda || { username: '', password: '' },
-    ctaima: existingCredentials.ctaima || { username: '', password: '' },
-    ecoordina: existingCredentials.ecoordina || { username: '', password: '' }
-  });
-  const [showPasswords, setShowPasswords] = useState<{ [platform: string]: boolean }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [testingConnections, setTestingConnections] = useState<{ [platform: string]: boolean }>({});
-  const [connectionResults, setConnectionResults] = useState<{ [platform: string]: { success: boolean; message: string } }>({});
+function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: PlatformConnectionsModalProps) {
+  const [selectedPlatform, setSelectedPlatform] = useState<'nalanda' | 'ctaima' | 'ecoordina'>('nalanda');
+  const [credentials, setCredentials] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   const platforms = [
     { 
       id: 'nalanda', 
       name: 'Nalanda/Obralia', 
       color: 'bg-blue-600',
-      description: 'Plataforma principal de gestión CAE',
-      loginUrl: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth'
+      url: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth',
+      description: 'Plataforma principal de gestión CAE'
     },
     { 
       id: 'ctaima', 
       name: 'CTAIMA', 
       color: 'bg-green-600',
-      description: 'Sistema de coordinación de actividades',
-      loginUrl: 'https://login.ctaima.com/Account/Login'
+      url: 'https://login.ctaima.com/Account/Login',
+      description: 'Sistema de coordinación de actividades'
     },
     { 
       id: 'ecoordina', 
       name: 'Ecoordina', 
       color: 'bg-purple-600',
-      description: 'Plataforma de coordinación empresarial',
-      loginUrl: 'https://login.welcometotwind.io'
+      url: 'https://login.welcometotwind.io',
+      description: 'Plataforma de coordinación empresarial'
     }
   ];
 
-  const testConnection = async (platformId: string) => {
-    const creds = credentials[platformId];
-    if (!creds.username || !creds.password) {
-      alert('Por favor completa las credenciales antes de probar la conexión');
-      return;
+  useEffect(() => {
+    if (isOpen && clientId) {
+      loadCredentials();
     }
+  }, [isOpen, clientId, selectedPlatform]);
 
-    setTestingConnections(prev => ({ ...prev, [platformId]: true }));
-    setConnectionResults(prev => ({ ...prev, [platformId]: { success: false, message: '' } }));
-
+  const loadCredentials = async () => {
     try {
-      // Simular test de conexión
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simular resultado (80% éxito)
-      const success = Math.random() > 0.2;
-      
-      setConnectionResults(prev => ({
-        ...prev,
-        [platformId]: {
-          success,
-          message: success 
-            ? 'Conexión exitosa. Credenciales válidas.'
-            : 'Error de conexión. Verifica las credenciales.'
-        }
-      }));
+      setLoading(true);
+      const creds = await manualManagementService.getPlatformCredentials(clientId, selectedPlatform);
+      setCredentials(creds);
     } catch (error) {
-      setConnectionResults(prev => ({
-        ...prev,
-        [platformId]: {
-          success: false,
-          message: 'Error al probar la conexión.'
-        }
-      }));
+      console.error('Error loading credentials:', error);
+      setCredentials(null);
     } finally {
-      setTestingConnections(prev => ({ ...prev, [platformId]: false }));
+      setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validar que al menos una plataforma tenga credenciales
-    const hasCredentials = Object.values(credentials).some(cred => 
-      cred.username.trim() && cred.password.trim()
-    );
-    
-    if (!hasCredentials) {
-      alert('Por favor configura al menos una plataforma');
-      return;
-    }
-
-    setIsSubmitting(true);
+  const copyToClipboard = async (text: string, type: string) => {
     try {
-      await onSave(credentials);
-      onClose();
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(type);
+      setTimeout(() => setCopySuccess(null), 2000);
     } catch (error) {
-      console.error('Error saving platform credentials:', error);
-      alert('Error al guardar credenciales');
-    } finally {
-      setIsSubmitting(false);
+      console.error('Error copying to clipboard:', error);
     }
   };
 
-  const updateCredential = (platformId: string, field: 'username' | 'password', value: string) => {
-    setCredentials(prev => ({
-      ...prev,
-      [platformId]: {
-        ...prev[platformId],
-        [field]: value
-      }
-    }));
-  };
-
-  const togglePasswordVisibility = (platformId: string) => {
-    setShowPasswords(prev => ({
-      ...prev,
-      [platformId]: !prev[platformId]
-    }));
-  };
+  const selectedPlatformData = platforms.find(p => p.id === selectedPlatform);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="bg-white/20 p-3 rounded-full mr-4">
-                <Globe className="h-8 w-8" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Conexiones a Plataformas</h2>
-                <p className="text-blue-100">Configurar credenciales para Nalanda, CTAIMA y Ecoordina</p>
-              </div>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Credenciales de Plataforma - {clientName}</h3>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-gray-600"
             >
               <X className="h-6 w-6" />
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Platform Credentials */}
-          <div className="space-y-6">
-            {platforms.map((platform) => (
-              <div key={platform.id} className="border border-gray-200 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className={`w-12 h-12 ${platform.color} rounded-lg flex items-center justify-center mr-4`}>
-                      <Globe className="h-6 w-6 text-white" />
+        <div className="p-6">
+          {/* Platform Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Seleccionar Plataforma
+            </label>
+            <div className="grid grid-cols-1 gap-3">
+              {platforms.map((platform) => (
+                <button
+                  key={platform.id}
+                  onClick={() => setSelectedPlatform(platform.id as any)}
+                  className={`p-4 border rounded-lg text-left transition-colors ${
+                    selectedPlatform === platform.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`w-10 h-10 ${platform.color} rounded-lg flex items-center justify-center mr-3`}>
+                        <Globe className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">{platform.name}</h4>
+                        <p className="text-sm text-gray-600">{platform.description}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{platform.name}</h3>
-                      <p className="text-sm text-gray-600">{platform.description}</p>
-                      <a 
-                        href={platform.loginUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center mt-1"
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        Ir a la plataforma
-                      </a>
-                    </div>
+                    <a
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 flex items-center text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Abrir
+                    </a>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => testConnection(platform.id)}
-                    disabled={testingConnections[platform.id] || !credentials[platform.id]?.username || !credentials[platform.id]?.password}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 flex items-center"
-                  >
-                    {testingConnections[platform.id] ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Probando...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4 mr-2" />
-                        Probar
-                      </>
-                    )}
-                  </button>
-                </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Credentials Display */}
+          {selectedPlatformData && (
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="flex items-center mb-4">
+                <div className={`w-8 h-8 ${selectedPlatformData.color} rounded-lg flex items-center justify-center mr-3`}>
+                  <Globe className="h-4 w-4 text-white" />
+                </div>
+                <h4 className="font-medium text-gray-900">
+                  Credenciales para {selectedPlatformData.name}
+                </h4>
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <span className="ml-2 text-gray-600">Cargando credenciales...</span>
+                </div>
+              ) : credentials ? (
+                <div className="space-y-4">
+                  {/* Username */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Usuario
                     </label>
-                    <input
-                      type="text"
-                      value={credentials[platform.id]?.username || ''}
-                      onChange={(e) => updateCredential(platform.id, 'username', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder={`usuario@${platform.id}.com`}
-                    />
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={credentials.username || ''}
+                        readOnly
+                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(credentials.username || '', 'username')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center"
+                      >
+                        <Copy className="w-4 h-4 mr-1" />
+                        {copySuccess === 'username' ? 'Copiado!' : 'Copiar'}
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Password */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Contraseña
                     </label>
-                    <div className="relative">
-                      <input
-                        type={showPasswords[platform.id] ? 'text' : 'password'}
-                        value={credentials[platform.id]?.password || ''}
-                        onChange={(e) => updateCredential(platform.id, 'password', e.target.value)}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="••••••••"
-                      />
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={credentials.password || ''}
+                          readOnly
+                          className="w-full px-3 py-2 pr-10 bg-white border border-gray-300 rounded-lg text-gray-900"
+                        />
+                        <button
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                       <button
-                        type="button"
-                        onClick={() => togglePasswordVisibility(platform.id)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => copyToClipboard(credentials.password || '', 'password')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center"
                       >
-                        {showPasswords[platform.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <Copy className="w-4 h-4 mr-1" />
+                        {copySuccess === 'password' ? 'Copiado!' : 'Copiar'}
                       </button>
                     </div>
                   </div>
-                </div>
 
-                {/* Connection Test Result */}
-                {connectionResults[platform.id] && (
-                  <div className={`mt-4 p-3 rounded-lg ${
-                    connectionResults[platform.id].success 
-                      ? 'bg-green-50 border border-green-200' 
-                      : 'bg-red-50 border border-red-200'
-                  }`}>
-                    <div className="flex items-center">
-                      {connectionResults[platform.id].success ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                      ) : (
-                        <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                      )}
-                      <span className={`text-sm ${
-                        connectionResults[platform.id].success ? 'text-green-800' : 'text-red-800'
-                      }`}>
-                        {connectionResults[platform.id].message}
-                      </span>
+                  {/* Instructions */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                    <div className="flex items-start">
+                      <Info className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium mb-1">Instrucciones:</p>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Copia las credenciales usando los botones</li>
+                          <li>Abre la plataforma en nueva pestaña</li>
+                          <li>Inicia sesión con las credenciales copiadas</li>
+                          <li>Sube los documentos manualmente</li>
+                          <li>Marca los documentos como "Subidos" en el panel</li>
+                        </ol>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Guardando...
-                </>
+                </div>
               ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Guardar Credenciales
-                </>
+                <div className="text-center py-8">
+                  <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    No hay credenciales configuradas
+                  </h4>
+                  <p className="text-gray-600">
+                    Este cliente no tiene credenciales para {selectedPlatformData.name}
+                  </p>
+                </div>
               )}
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cerrar
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
-}
-
-interface ManualManagementState {
-  clientGroups: ClientGroup[];
-  selectedClient: string | null;
-  selectedCompany: string | null;
-  selectedProject: string | null;
-  queueStats: any;
-  loading: boolean;
-  error: string | null;
-  draggedDocument: ManualDocument | null;
-  uploadingFiles: { [fileId: string]: boolean };
-  downloadingFiles: { [documentId: string]: boolean };
-  expandedClients: string[];
-  showPlatformModal: boolean;
-  processingClients: { [clientId: string]: boolean };
 }
 
 interface FileUploadModalProps {
@@ -585,107 +520,6 @@ function FileUploadModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-interface PlatformConnectionsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  clientId: string;
-  clientName: string;
-}
-
-function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: PlatformConnectionsModalProps) {
-  const [selectedPlatform, setSelectedPlatform] = useState<'nalanda' | 'ctaima' | 'ecoordina'>('nalanda');
-  const [credentials, setCredentials] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [copySuccess, setCopySuccess] = useState<string | null>(null);
-
-  const platforms = [
-    { 
-      id: 'nalanda', 
-      name: 'Nalanda/Obralia', 
-      color: 'bg-blue-600',
-      url: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth',
-      description: 'Plataforma principal de gestión CAE'
-    },
-    { 
-      id: 'ctaima', 
-      name: 'CTAIMA', 
-      color: 'bg-green-600',
-      url: 'https://login.ctaima.com/Account/Login',
-      description: 'Sistema de coordinación de actividades'
-    },
-    { 
-      id: 'ecoordina', 
-      name: 'Ecoordina', 
-      color: 'bg-purple-600',
-      url: 'https://login.welcometotwind.io',
-      description: 'Plataforma de coordinación empresarial'
-    }
-  ];
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Configurar Plataformas - {clientName}</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <p className="text-gray-600 mb-6">
-            Configura las credenciales para conectar con las plataformas externas.
-          </p>
-          
-          <div className="space-y-4">
-            {platforms.map((platform) => (
-              <div key={platform.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className={`w-10 h-10 ${platform.color} rounded-lg flex items-center justify-center mr-3`}>
-                      <Globe className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">{platform.name}</h4>
-                      <p className="text-sm text-gray-600">{platform.description}</p>
-                    </div>
-                  </div>
-                  <a
-                    href={platform.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 flex items-center text-sm"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Abrir
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
