@@ -268,7 +268,6 @@ export class ClientAuthService {
     email: string,
     name: string,
     tenantId: string = DEV_TENANT_ID,
-    role: string = 'ClienteAdmin'
     role: string = 'Cliente'
   ): Promise<boolean> {
     try {
