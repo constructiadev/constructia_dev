@@ -616,12 +616,10 @@ export default function ManualManagement() {
   }, []);
 
   const loadData = async () => {
-    let clientGroupsData: ClientGroup[] = [];
-    let statsData: any = {};
-    
+    try {
+      setLoading(true);
       
-      const [clientGroups, statsData] = await Promise.all([
-      [clientGroupsData, statsData] = await Promise.all([
+      const [clientGroupsData, statsData] = await Promise.all([
         manualManagementService.getClientGroups(),
         manualManagementService.getQueueStats()
       ]);
