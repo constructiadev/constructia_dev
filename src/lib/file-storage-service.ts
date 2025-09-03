@@ -20,14 +20,17 @@ export class FileStorageService {
 
   constructor(bucketName?: string) {
     // Use the correct bucket name that exists in Supabase
-    this.bucketName = bucketName || 'uploaddocuments';
+    this.bucketName = (bucketName || 'uploaddocuments').toLowerCase();
     console.log('📁 [FileStorage] Using bucket:', this.bucketName);
   }
 
   // Verify bucket exists and is accessible
   private async ensureBucketExists(): Promise<boolean> {
     try {
-      console.log('🔍 [FileStorage] Checking bucket existence:', this.bucketName);
+      console.log('🔍 [FileStorage] DEBUG - ensureBucketExists called');
+      console.log('🔍 [FileStorage] DEBUG - Checking bucket existence:', this.bucketName);
+      console.log('🔍 [FileStorage] DEBUG - Bucket name type:', typeof this.bucketName);
+      console.log('🔍 [FileStorage] DEBUG - Bucket name length:', this.bucketName.length);
       
       const { data: buckets, error: bucketsError } = await supabaseServiceClient.storage.listBuckets();
       
@@ -36,11 +39,18 @@ export class FileStorageService {
         return false;
       }
       
+      console.log('🔍 [FileStorage] DEBUG - Available buckets:', buckets?.map(b => `"${b.name}"`).join(', ') || 'none');
+      console.log('🔍 [FileStorage] DEBUG - Looking for bucket:', `"${this.bucketName}"`);
+      
       const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName);
       
       if (!bucketExists) {
         console.error(`❌ [FileStorage] Bucket '${this.bucketName}' not found`);
         console.log('📝 [FileStorage] Available buckets:', buckets?.map(b => b.name).join(', ') || 'none');
+        console.log('🔍 [FileStorage] DEBUG - Exact bucket names with quotes:');
+        buckets?.forEach(bucket => {
+          console.log(`   - "${bucket.name}" (length: ${bucket.name.length})`);
+        });
         console.log('🔧 [FileStorage] To fix this:');
         console.log(`   1. Go to Supabase Dashboard > Storage`);
         console.log(`   2. Create bucket named: ${this.bucketName}`);
@@ -50,7 +60,7 @@ export class FileStorageService {
         return false;
       }
       
-      console.log('✅ [FileStorage] Bucket exists and is accessible');
+      console.log('✅ [FileStorage] DEBUG - Bucket exists and is accessible:', this.bucketName);
       return true;
     } catch (error) {
       console.error('❌ [FileStorage] Error checking bucket:', error);
@@ -173,6 +183,13 @@ export class FileStorageService {
     documentId: string
   ): Promise<FileMoveResult> {
     try {
+      console.log('🔍 [FileStorage] DEBUG - moveFile called with:');
+      console.log('   - currentPath:', currentPath);
+      console.log('   - targetPlatform:', targetPlatform);
+      console.log('   - bucketName:', this.bucketName);
+      console.log('   - tenantId:', tenantId);
+      console.log('   - documentId:', documentId);
+      
       // Verify bucket exists
       const bucketExists = await this.ensureBucketExists();
       if (!bucketExists) {
@@ -185,12 +202,18 @@ export class FileStorageService {
       console.log('📁 Moving file from:', currentPath, 'to platform:', targetPlatform);
 
       // Descargar archivo actual
+      console.log('🔍 [FileStorage] DEBUG - Attempting download from bucket:', this.bucketName, 'path:', currentPath);
       const { data: fileData, error: downloadError } = await supabaseServiceClient.storage
         .from(this.bucketName)
         .download(currentPath);
 
       if (downloadError) {
-        console.error('❌ Error downloading file:', downloadError);
+        console.error('❌ [FileStorage] Error downloading file:', downloadError);
+        console.error('❌ [FileStorage] Download details:', {
+          bucket: this.bucketName,
+          path: currentPath,
+          error: downloadError
+        });
         return {
           success: false,
           error: `Error downloading file: ${downloadError.message}`
@@ -201,8 +224,11 @@ export class FileStorageService {
       const pathParts = currentPath.split('/');
       const fileName = pathParts[pathParts.length - 1];
       const newPath = `${tenantId}/platforms/${targetPlatform}/${documentId}/${fileName}`;
+      
+      console.log('🔍 [FileStorage] DEBUG - New path constructed:', newPath);
 
       // Subir archivo a nueva ubicación
+      console.log('🔍 [FileStorage] DEBUG - Attempting upload to bucket:', this.bucketName, 'path:', newPath);
       const { data: uploadData, error: uploadError } = await supabaseServiceClient.storage
         .from(this.bucketName)
         .upload(newPath, fileData, {
@@ -211,7 +237,12 @@ export class FileStorageService {
         });
 
       if (uploadError) {
-        console.error('❌ Error uploading to new location:', uploadError);
+        console.error('❌ [FileStorage] Error uploading to new location:', uploadError);
+        console.error('❌ [FileStorage] Upload details:', {
+          bucket: this.bucketName,
+          path: newPath,
+          error: uploadError
+        });
         return {
           success: false,
           error: `Error moving file: ${uploadError.message}`
@@ -309,6 +340,11 @@ export class FileStorageService {
   // Obtener URL de descarga temporal
   async getDownloadUrl(filePath: string, expiresIn: number = 3600): Promise<string | null> {
     try {
+      console.log('🔍 [FileStorage] DEBUG - getDownloadUrl called with:');
+      console.log('   - filePath:', filePath);
+      console.log('   - bucketName:', this.bucketName);
+      console.log('   - expiresIn:', expiresIn);
+      
       // Verify bucket exists before attempting to create signed URL
       const bucketExists = await this.ensureBucketExists();
       if (!bucketExists) {
@@ -325,14 +361,19 @@ export class FileStorageService {
         return null;
       }
       
+      console.log('🔍 [FileStorage] DEBUG - About to call createSignedUrl with bucket:', this.bucketName);
       const { data, error } = await supabaseServiceClient.storage
         .from(this.bucketName)
         .createSignedUrl(filePath, expiresIn);
 
       if (error) {
-        console.error('❌ Error creating signed URL:', error);
-        console.log('🔍 [FileStorage] File path attempted:', filePath);
-        console.log('🔍 [FileStorage] Bucket name:', this.bucketName);
+        console.error('❌ [FileStorage] Error creating signed URL:', error);
+        console.error('❌ [FileStorage] SignedURL details:', {
+          bucket: this.bucketName,
+          filePath: filePath,
+          expiresIn: expiresIn,
+          error: error
+        });
         return null;
       }
 
@@ -348,6 +389,10 @@ export class FileStorageService {
   // Verificar si el archivo existe
   async fileExists(filePath: string): Promise<boolean> {
     try {
+      console.log('🔍 [FileStorage] DEBUG - fileExists called with:');
+      console.log('   - filePath:', filePath);
+      console.log('   - bucketName:', this.bucketName);
+      
       // Verify bucket exists first
       const bucketExists = await this.ensureBucketExists();
       if (!bucketExists) {
@@ -369,6 +414,7 @@ export class FileStorageService {
       console.log('🔍 [FileStorage] Directory:', directory);
       console.log('🔍 [FileStorage] Filename:', filename);
       
+      console.log('🔍 [FileStorage] DEBUG - About to list files in bucket:', this.bucketName, 'directory:', directory);
       const { data, error } = await supabaseServiceClient.storage
         .from(this.bucketName)
         .list(directory, {
@@ -377,6 +423,12 @@ export class FileStorageService {
 
       if (error) {
         console.error('❌ [FileStorage] Error listing files:', error);
+        console.error('❌ [FileStorage] List details:', {
+          bucket: this.bucketName,
+          directory: directory,
+          filename: filename,
+          error: error
+        });
         return false;
       }
 

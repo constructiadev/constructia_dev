@@ -511,6 +511,12 @@ export class ManualManagementService {
     errorMessage?: string
   ): Promise<boolean> {
     try {
+      console.log('🔍 [ManualManagement] DEBUG - updateDocumentStatus called with:');
+      console.log('   - documentId:', documentId);
+      console.log('   - newStatus:', newStatus);
+      console.log('   - targetPlatform:', targetPlatform);
+      console.log('   - nota:', nota);
+      
       // Get document info for file operations
       const { data: queueItem, error: queueError } = await supabaseServiceClient
         .from('manual_upload_queue')
@@ -528,10 +534,13 @@ export class ManualManagementService {
       }
 
       const documento = queueItem.documentos;
+      
+      console.log('🔍 [ManualManagement] DEBUG - Document file path from DB:', documento.file);
 
       // If uploading to platform, move the file
       if (newStatus === 'uploaded' && targetPlatform && documento.file) {
         console.log('📁 Moving file to platform:', targetPlatform);
+        console.log('🔍 [ManualManagement] DEBUG - About to move file:', documento.file);
         
         const moveResult = await fileStorageService.moveFile(
           documento.file,
@@ -542,6 +551,11 @@ export class ManualManagementService {
 
         if (!moveResult.success) {
           console.error('❌ File move failed:', moveResult.error);
+          console.error('❌ [ManualManagement] DEBUG - Move failure details:', {
+            originalPath: documento.file,
+            targetPlatform: targetPlatform,
+            error: moveResult.error
+          });
           return false;
         }
 
@@ -619,6 +633,8 @@ export class ManualManagementService {
   // Download document file
   async downloadDocument(documentId: string): Promise<string | null> {
     try {
+      console.log('🔍 [ManualManagement] DEBUG - downloadDocument called with documentId:', documentId);
+      
       console.log('📁 [ManualManagement] Starting document download for:', documentId);
       
       // Get document info
@@ -639,16 +655,20 @@ export class ManualManagementService {
 
       const documento = queueItem.documentos;
       
+      console.log('🔍 [ManualManagement] DEBUG - Document file path from DB:', documento.file);
+      
       if (!documento.file) {
         console.error('❌ No file path found for document');
         return null;
       }
 
       // Get download URL from file storage service
+      console.log('🔍 [ManualManagement] DEBUG - About to call getDownloadUrl with path:', documento.file);
       const downloadUrl = await fileStorageService.getDownloadUrl(documento.file, 3600); // 1 hour expiry
       
       if (!downloadUrl) {
         console.error('❌ Failed to create download URL');
+        console.error('❌ [ManualManagement] DEBUG - getDownloadUrl returned null for path:', documento.file);
         return null;
       }
 
