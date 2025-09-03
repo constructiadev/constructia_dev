@@ -944,7 +944,7 @@ export default function LandingPage() {
             
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-4xl mx-auto leading-relaxed">
               Automatiza la clasificación y subida de documentos a Plataformas CAE oficiales <strong>Obralia/Nalanda</strong>, <strong>CTAIMA, ECoordina</strong> con IA. 
-              Ahorra <strong>9 horas semanales</strong>, reduce errores al <strong>0%</strong> y cumple con todas las normativas.
+              Ahorra <strong> hasta 9 horas semanales</strong>, reduce errores al <strong>0%</strong> y cumple con todas las normativas.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
