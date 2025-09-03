@@ -689,10 +689,10 @@ export default function LandingPage() {
   ];
 
   const stats = [
-    { number: '500+', label: 'Empresas Activas', icon: Building2 },
-    { number: '50K+', label: 'Documentos Procesados', icon: FileText },
+    { number: '50+', label: 'Empresas Activas', icon: Building2 },
+    { number: '9K+', label: 'Documentos Procesados', icon: FileText },
     { number: '94.2%', label: 'Precisión IA', icon: Brain },
-    { number: '15h', label: 'Ahorro Semanal', icon: Clock }
+    { number: '9h', label: 'Ahorro Semanal', icon: Clock }
   ];
 
   const integrations = [
