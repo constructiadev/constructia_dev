@@ -33,7 +33,7 @@ export default function AdminLogin() {
         .from('users')
         .select('role')
         .eq('id', authData.user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError || !userProfile || userProfile.role !== 'SuperAdmin') {
         await supabase.auth.signOut(); // Sign out if not admin
