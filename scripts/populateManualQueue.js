@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { Buffer } from 'buffer';
 
 // Load environment variables
 dotenv.config();
@@ -179,9 +180,10 @@ async function populateManualQueue() {
       console.log(`✅ Created ${credentialsData.length} platform credentials`);
     }
 
-    // 4. Create documentos in the documentos table first
-    console.log('\n4️⃣ Creating documentos...');
+    // 4. Create documentos with actual files in storage
+    console.log('\n4️⃣ Creating documentos with actual files...');
     const documentosData = [];
+    const uploadPromises = [];
 
     for (let i = 0; i < 150; i++) {
       const empresa = getRandomElement(empresas);
@@ -189,13 +191,31 @@ async function populateManualQueue() {
       const docType = getRandomElement(documentTypes);
       const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
       const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${i + 1}.${fileExtension}`;
+      const filePath = `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/${fileName}`;
+      
+      // Create dummy file content
+      const dummyContent = fileExtension === 'pdf' 
+        ? `%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n>>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \n0000000120 00000 n \ntrailer\n<<\n/Size 4\n/Root 1 0 R\n>>\nstartxref\n178\n%%EOF`
+        : 'dummy image content for testing';
+      
+      const fileBuffer = Buffer.from(dummyContent, 'utf-8');
+      
+      // Upload file to storage
+      const uploadPromise = supabase.storage
+        .from('UPLOADDOCUMENTS')
+        .upload(filePath, fileBuffer, {
+          contentType: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
+          upsert: true
+        });
+      
+      uploadPromises.push(uploadPromise);
       
       documentosData.push({
         tenant_id: DEV_TENANT_ID,
         entidad_tipo: 'obra',
         entidad_id: obra.id,
         categoria: 'OTROS',
-        file: `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/${fileName}`,
+        file: filePath,
         mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
         size_bytes: generateRandomFileSize(),
         hash_sha256: `hash_${Date.now()}_${i}`,
@@ -214,6 +234,15 @@ async function populateManualQueue() {
       });
     }
 
+    // Wait for all file uploads to complete
+    console.log('📁 Uploading dummy files to storage...');
+    const uploadResults = await Promise.allSettled(uploadPromises);
+    const successfulUploads = uploadResults.filter(result => result.status === 'fulfilled').length;
+    const failedUploads = uploadResults.filter(result => result.status === 'rejected').length;
+    
+    console.log(`✅ Uploaded ${successfulUploads} files successfully`);
+    if (failedUploads > 0) console.log(`⚠️ Failed to upload ${failedUploads} files`);
+
     const { data: createdDocumentos, error: documentosError } = await supabase
       .from('documentos')
       .upsert(documentosData)
@@ -224,7 +253,7 @@ async function populateManualQueue() {
       throw documentosError;
     }
 
-    console.log(`✅ Created ${createdDocumentos.length} documentos`);
+    console.log(`✅ Created ${createdDocumentos.length} documentos with actual files`);
 
     // 5. Create manual upload queue entries
     console.log('\n5️⃣ Creating manual upload queue entries...');
