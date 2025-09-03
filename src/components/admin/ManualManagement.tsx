@@ -619,9 +619,8 @@ export default function ManualManagement() {
     try {
       setLoading(true);
       
+      
       const [clientGroupsData, statsData] = await Promise.all([
-        manualManagementService.getClientGroups(),
-        manualManagementService.getQueueStats()
       ]);
       
       setClientGroups(clientGroupsData);
