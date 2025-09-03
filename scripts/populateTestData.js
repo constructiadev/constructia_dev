@@ -455,10 +455,9 @@ async function populateTestData() {
         plataforma: 'nalanda',
         alias: 'Nalanda García',
         credenciales: {
-          username: 'garcia_nalanda',
-          password: 'encrypted_password_123',
+          api_base: 'https://api.nalanda.com',
           api_key: 'nal_key_abc123',
-          configured: true
+          webhook_secret: 'webhook_secret_nalanda'
         },
         estado: 'ready'
       },
@@ -468,10 +467,9 @@ async function populateTestData() {
         plataforma: 'ctaima',
         alias: 'CTAIMA López',
         credenciales: {
-          username: 'lopez_ctaima',
-          password: 'encrypted_password_456',
+          api_base: 'https://api.ctaima.com',
           api_key: 'cta_key_def456',
-          configured: true
+          webhook_secret: 'webhook_secret_ctaima'
         },
         estado: 'ready'
       },
@@ -481,9 +479,9 @@ async function populateTestData() {
         plataforma: 'ecoordina',
         alias: 'Ecoordina Martín',
         credenciales: {
-          username: 'martin_ecoordina',
-          password: 'encrypted_password_789',
-          configured: false
+          api_base: 'https://api.ecoordina.com',
+          api_key: '',
+          webhook_secret: ''
         },
         estado: 'error'
       }

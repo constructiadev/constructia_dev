@@ -43,7 +43,7 @@ export class ClientAuthService {
       console.log('✅ [ClientAuth] User authenticated:', userId);
 
       // Step 2: Get user profile from multi-tenant schema
-      const { data: userProfile, error: userError } = await supabaseServiceClient
+      let { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('*')
         .eq('id', userId)
