@@ -500,11 +500,27 @@ async function populateTestData() {
 
     // 10. Create test receipts for financial module
     console.log('🔟 Creating test receipts...');
+    
+    // Get the actual client IDs from the clients table (old schema)
+    const { data: clientsData, error: clientsQueryError } = await supabase
+      .from('clients')
+      .select('id, client_id')
+      .in('client_id', ['garcia-construcciones', 'lopez-reformas', 'martin-edificaciones']);
+    
+    if (clientsQueryError || !clientsData || clientsData.length === 0) {
+      console.warn('⚠️ No clients found in old schema, skipping receipts creation');
+      console.log('✅ Skipped receipts (no matching clients)');
+    } else {
+      const clientIdMap = clientsData.reduce((map, client) => {
+        map[client.client_id] = client.id;
+        return map;
+      }, {});
+      
     const testReceipts = [
       {
         id: '90000000-0000-0000-0000-000000000001',
         receipt_number: 'REC-2025-001',
-        client_id: '20000000-0000-0000-0000-000000000001',
+        client_id: clientIdMap['garcia-construcciones'],
         amount: 149.00,
         base_amount: 123.14,
         tax_amount: 25.86,
@@ -520,7 +536,7 @@ async function populateTestData() {
       {
         id: '90000000-0000-0000-0000-000000000002',
         receipt_number: 'REC-2025-002',
-        client_id: '20000000-0000-0000-0000-000000000002',
+        client_id: clientIdMap['lopez-reformas'],
         amount: 59.00,
         base_amount: 48.76,
         tax_amount: 10.24,
@@ -536,7 +552,7 @@ async function populateTestData() {
       {
         id: '90000000-0000-0000-0000-000000000003',
         receipt_number: 'REC-2025-003',
-        client_id: '20000000-0000-0000-0000-000000000003',
+        client_id: clientIdMap['martin-edificaciones'],
         amount: 299.00,
         base_amount: 247.11,
         tax_amount: 51.89,
@@ -551,14 +567,15 @@ async function populateTestData() {
       }
     ];
 
-    const { error: receiptsError } = await supabase
-      .from('receipts')
-      .upsert(testReceipts);
+      const { error: receiptsError } = await supabase
+        .from('receipts')
+        .upsert(testReceipts.filter(receipt => receipt.client_id)); // Only insert receipts with valid client_id
 
-    if (receiptsError) {
-      console.warn('⚠️ Receipts creation error:', receiptsError.message);
-    } else {
-      console.log('✅ Test receipts created');
+      if (receiptsError) {
+        console.warn('⚠️ Receipts creation error:', receiptsError.message);
+      } else {
+        console.log('✅ Test receipts created');
+      }
     }
 
     // 11. Crear pasarelas de pago con períodos de comisión
