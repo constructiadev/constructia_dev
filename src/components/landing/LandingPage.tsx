@@ -896,7 +896,7 @@ export default function LandingPage() {
                   onClick={() => { handleContactUs(); setIsMenuOpen(false); }}
                   className="block w-full text-left text-gray-600 hover:text-green-600 transition-colors font-medium"
                 >
-                  Contacto
+                  Contacteo
                 </button>
                 <button
                   onClick={() => { navigate('/client/dashboard'); setIsMenuOpen(false); }}
