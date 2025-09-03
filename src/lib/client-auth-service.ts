@@ -139,7 +139,7 @@ export class ClientAuthService {
         // Insert the default profile
         const { data: newProfile, error: insertError } = await supabaseServiceClient
           .from('users')
-          .insert(defaultProfile)
+          .upsert(defaultProfile, { onConflict: 'tenant_id,email' })
           .select()
           .single();
 
