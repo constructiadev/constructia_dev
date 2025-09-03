@@ -1,5 +1,5 @@
 // ConstructIA - Servicio de Almacenamiento de Archivos Real
-import { supabaseServiceClient } from './supabase-real';
+import { supabase } from './supabase-real';
 import { appConfig } from '../config/app-config';
 
 export interface FileUploadResult {
@@ -32,7 +32,7 @@ export class FileStorageService {
       console.log('🔍 [FileStorage] DEBUG - Bucket name type:', typeof this.bucketName);
       console.log('🔍 [FileStorage] DEBUG - Bucket name length:', this.bucketName.length);
       
-      const { data: buckets, error: bucketsError } = await supabaseServiceClient.storage.listBuckets();
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
         console.error('❌ [FileStorage] Error listing buckets:', bucketsError);
@@ -138,7 +138,7 @@ export class FileStorageService {
       console.log('📁 Uploading file to:', filePath);
 
       // Subir archivo a Supabase Storage
-      const { data, error } = await supabaseServiceClient.storage
+      const { data, error } = await supabase.storage
         .from(this.bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -154,7 +154,7 @@ export class FileStorageService {
       }
 
       // Obtener URL pública
-      const { data: publicUrlData } = supabaseServiceClient.storage
+      const { data: publicUrlData } = supabase.storage
         .from(this.bucketName)
         .getPublicUrl(filePath);
 
@@ -203,7 +203,7 @@ export class FileStorageService {
 
       // Descargar archivo actual
       console.log('🔍 [FileStorage] DEBUG - Attempting download from bucket:', this.bucketName, 'path:', currentPath);
-      const { data: fileData, error: downloadError } = await supabaseServiceClient.storage
+      const { data: fileData, error: downloadError } = await supabase.storage
         .from(this.bucketName)
         .download(currentPath);
 
@@ -229,7 +229,7 @@ export class FileStorageService {
 
       // Subir archivo a nueva ubicación
       console.log('🔍 [FileStorage] DEBUG - Attempting upload to bucket:', this.bucketName, 'path:', newPath);
-      const { data: uploadData, error: uploadError } = await supabaseServiceClient.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from(this.bucketName)
         .upload(newPath, fileData, {
           cacheControl: '3600',
@@ -274,7 +274,7 @@ export class FileStorageService {
       console.log('📁 Copying file from:', sourcePath, 'to:', targetPath);
 
       // Descargar archivo fuente
-      const { data: fileData, error: downloadError } = await supabaseServiceClient.storage
+      const { data: fileData, error: downloadError } = await supabase.storage
         .from(this.bucketName)
         .download(sourcePath);
 
@@ -286,7 +286,7 @@ export class FileStorageService {
       }
 
       // Subir copia a nueva ubicación
-      const { data: uploadData, error: uploadError } = await supabaseServiceClient.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from(this.bucketName)
         .upload(targetPath, fileData, {
           cacheControl: '3600',
@@ -319,7 +319,7 @@ export class FileStorageService {
   // Eliminar archivo
   async deleteFile(filePath: string): Promise<boolean> {
     try {
-      const { error } = await supabaseServiceClient.storage
+      const { error } = await supabase.storage
         .from(this.bucketName)
         .remove([filePath]);
 
@@ -362,7 +362,7 @@ export class FileStorageService {
       }
       
       console.log('🔍 [FileStorage] DEBUG - About to call createSignedUrl with bucket:', this.bucketName);
-      const { data, error } = await supabaseServiceClient.storage
+      const { data, error } = await supabase.storage
         .from(this.bucketName)
         .createSignedUrl(filePath, expiresIn);
 
@@ -415,7 +415,7 @@ export class FileStorageService {
       console.log('🔍 [FileStorage] Filename:', filename);
       
       console.log('🔍 [FileStorage] DEBUG - About to list files in bucket:', this.bucketName, 'directory:', directory);
-      const { data, error } = await supabaseServiceClient.storage
+      const { data, error } = await supabase.storage
         .from(this.bucketName)
         .list(directory, {
           search: filename
@@ -450,7 +450,7 @@ export class FileStorageService {
   // Obtener información del archivo
   async getFileInfo(filePath: string): Promise<any> {
     try {
-      const { data, error } = await supabaseServiceClient.storage
+      const { data, error } = await supabase.storage
         .from(this.bucketName)
         .list(filePath.substring(0, filePath.lastIndexOf('/')), {
           search: filePath.substring(filePath.lastIndexOf('/') + 1)
