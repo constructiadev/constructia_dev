@@ -76,11 +76,6 @@ async function populateTestData() {
       }
     }
 
-    if (usersError) {
-      console.warn('⚠️ Users creation error:', usersError.message);
-    } else {
-      console.log('✅ Test users created');
-    }
 
     // 3. Create test empresas
     console.log('3️⃣ Creating test empresas...');
