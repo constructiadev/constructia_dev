@@ -619,9 +619,8 @@ export default function ManualManagement() {
     let clientGroupsData: ClientGroup[] = [];
     let statsData: any = {};
     
-    try {
-      setError(null);
       
+      const [clientGroups, statsData] = await Promise.all([
       [clientGroupsData, statsData] = await Promise.all([
         manualManagementService.getClientGroups(),
         manualManagementService.getQueueStats()
@@ -633,7 +632,7 @@ export default function ManualManagement() {
       setError(error instanceof Error ? error.message : 'Error loading data');
     } finally {
       setLoading(false);
-      console.log('📊 Queue stats updated:', statsData);
+      console.log('📊 Queue stats updated');
     }
   };
 
