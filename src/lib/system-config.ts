@@ -1,4 +1,6 @@
 // ConstructIA - Configuración del Sistema
+import { getEnvVar } from '../utils/env';
+
 export interface SystemConfig {
   // Secrets
   GEMINI_API_KEY?: string;
@@ -50,23 +52,23 @@ export class SystemConfigService {
   private loadConfig(): SystemConfig {
     return {
       // Load from environment variables
-      GEMINI_API_KEY: import.meta.env.VITE_GEMINI_API_KEY,
-      S3_ENDPOINT: import.meta.env.VITE_S3_ENDPOINT,
-      S3_BUCKET: import.meta.env.VITE_S3_BUCKET,
-      S3_KEY: import.meta.env.VITE_S3_KEY,
-      S3_SECRET: import.meta.env.VITE_S3_SECRET,
+      GEMINI_API_KEY: getEnvVar('VITE_GEMINI_API_KEY'),
+      S3_ENDPOINT: getEnvVar('VITE_S3_ENDPOINT'),
+      S3_BUCKET: getEnvVar('VITE_S3_BUCKET'),
+      S3_KEY: getEnvVar('VITE_S3_KEY'),
+      S3_SECRET: getEnvVar('VITE_S3_SECRET'),
       
-      NALANDA_API_BASE: import.meta.env.VITE_NALANDA_API_BASE,
-      NALANDA_API_KEY: import.meta.env.VITE_NALANDA_API_KEY,
-      NALANDA_WEBHOOK_SECRET: import.meta.env.VITE_NALANDA_WEBHOOK_SECRET,
+      NALANDA_API_BASE: getEnvVar('VITE_NALANDA_API_BASE'),
+      NALANDA_API_KEY: getEnvVar('VITE_NALANDA_API_KEY'),
+      NALANDA_WEBHOOK_SECRET: getEnvVar('VITE_NALANDA_WEBHOOK_SECRET'),
       
-      CTAIMA_API_BASE: import.meta.env.VITE_CTAIMA_API_BASE,
-      CTAIMA_API_KEY: import.meta.env.VITE_CTAIMA_API_KEY,
-      CTAIMA_WEBHOOK_SECRET: import.meta.env.VITE_CTAIMA_WEBHOOK_SECRET,
+      CTAIMA_API_BASE: getEnvVar('VITE_CTAIMA_API_BASE'),
+      CTAIMA_API_KEY: getEnvVar('VITE_CTAIMA_API_KEY'),
+      CTAIMA_WEBHOOK_SECRET: getEnvVar('VITE_CTAIMA_WEBHOOK_SECRET'),
       
-      ECOORDINA_API_BASE: import.meta.env.VITE_ECOORDINA_API_BASE,
-      ECOORDINA_API_KEY: import.meta.env.VITE_ECOORDINA_API_KEY,
-      ECOORDINA_WEBHOOK_SECRET: import.meta.env.VITE_ECOORDINA_WEBHOOK_SECRET,
+      ECOORDINA_API_BASE: getEnvVar('VITE_ECOORDINA_API_BASE'),
+      ECOORDINA_API_KEY: getEnvVar('VITE_ECOORDINA_API_KEY'),
+      ECOORDINA_WEBHOOK_SECRET: getEnvVar('VITE_ECOORDINA_WEBHOOK_SECRET'),
       
       // Use defaults for configuration
       ...defaultConfig

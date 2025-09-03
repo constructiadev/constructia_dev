@@ -1,4 +1,6 @@
 // ConstructIA - Configuración Global de la Aplicación
+import { getEnvVar, getEnvVarWithFallback } from '../utils/env';
+
 export interface AppConfig {
   version: string;
   app: {
@@ -90,8 +92,8 @@ export const appConfig: AppConfig = {
     ALERT_DAYS: [30, 15, 7],
     STORAGE: {
       provider: "s3-compatible",
-      bucket: (import.meta.env.VITE_S3_BUCKET || "uploaddocuments").toLowerCase(),
-      endpoint: import.meta.env.VITE_S3_ENDPOINT || ""
+      bucket: getEnvVarWithFallback('VITE_S3_BUCKET', 'uploaddocuments').toLowerCase(),
+      endpoint: getEnvVarWithFallback('VITE_S3_ENDPOINT', '')
     },
     IA: {
       gemini_model: "gemini-1.5-pro",
@@ -130,7 +132,7 @@ export const appConfig: AppConfig = {
 
 // Helper para obtener configuración de entorno
 export const getEnvironmentConfig = () => {
-  const env = import.meta.env.MODE || 'dev';
+  const env = getEnvVarWithFallback('MODE', 'development');
   
   return {
     isDev: env === 'development',
@@ -145,9 +147,9 @@ export const getPlatformConfig = (platform: string) => {
   const platformUpper = platform.toUpperCase();
   
   return {
-    apiBase: import.meta.env[`VITE_${platformUpper}_API_BASE`],
-    apiKey: import.meta.env[`VITE_${platformUpper}_API_KEY`],
-    webhookSecret: import.meta.env[`VITE_${platformUpper}_WEBHOOK_SECRET`]
+    apiBase: getEnvVar(`VITE_${platformUpper}_API_BASE`),
+    apiKey: getEnvVar(`VITE_${platformUpper}_API_KEY`),
+    webhookSecret: getEnvVar(`VITE_${platformUpper}_WEBHOOK_SECRET`)
   };
 };
 

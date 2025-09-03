@@ -1,8 +1,9 @@
 // ConstructIA - Procesador de Documentos con Gemini AI
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { appConfig, getEnvironmentConfig } from '../config/app-config';
+import { getEnvVar } from '../utils/env';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const API_KEY = getEnvVar('VITE_GEMINI_API_KEY');
 
 interface DocumentExtractionResult {
   categoria_probable: string;
