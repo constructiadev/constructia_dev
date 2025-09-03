@@ -47,7 +47,7 @@ export class ClientAuthService {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError || !userProfile) {
         console.error('❌ [ClientAuth] User profile not found:', userError?.message);
@@ -121,7 +121,7 @@ export class ClientAuthService {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (userError || !userProfile) {
         console.error('❌ [ClientAuth] User profile not found:', userError?.message);
