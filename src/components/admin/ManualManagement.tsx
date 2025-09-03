@@ -623,6 +623,9 @@ export default function ManualManagement() {
       const [clientGroups, statsData] = await Promise.all([
         manualManagementService.getClientGroups(),
         manualManagementService.getQueueStats()
+      ]);
+      
+      setClientGroups(clientGroups);
     } catch (error) {
       console.error('Error loading manual management data:', error);
       setError(error instanceof Error ? error.message : 'Error loading data');
