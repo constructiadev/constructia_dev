@@ -908,7 +908,7 @@ export default function LandingPage() {
                   onClick={() => scrollToSection('contacto')}
                   className="text-left text-gray-700 hover:text-green-600 font-medium transition-colors"
                 >
-                  Contacto
+                  Contacteo
                 </button>
                 <button
                   onClick={() => { handleGetStarted(); setIsMenuOpen(false); }}
