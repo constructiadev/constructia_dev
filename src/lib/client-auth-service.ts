@@ -1,6 +1,6 @@
 // ConstructIA - Client Authentication and Data Isolation Service
 import { supabase, supabaseServiceClient } from './supabase-real';
-import { getCurrentUserTenant } from './supabase-new';
+import { getCurrentUserTenant, DEV_TENANT_ID } from './supabase-real';
 
 export interface AuthenticatedClient {
   id: string;
@@ -124,8 +124,32 @@ export class ClientAuthService {
         .maybeSingle();
 
       if (userError || !userProfile) {
-        console.error('❌ [ClientAuth] User profile not found:', userError?.message);
-        return null;
+        console.warn('⚠️ [ClientAuth] User profile not found, creating default profile for user:', user.id);
+        
+        // Create a default user profile for development
+        const defaultProfile = {
+          id: user.id,
+          tenant_id: DEV_TENANT_ID,
+          email: user.email || 'unknown@example.com',
+          name: user.email?.split('@')[0] || 'Usuario',
+          role: 'ClienteAdmin' as const,
+          active: true
+        };
+
+        // Insert the default profile
+        const { data: newProfile, error: insertError } = await supabaseServiceClient
+          .from('users')
+          .insert(defaultProfile)
+          .select()
+          .single();
+
+        if (insertError || !newProfile) {
+          console.error('❌ [ClientAuth] Failed to create default profile:', insertError?.message);
+          return null;
+        }
+
+        console.log('✅ [ClientAuth] Default profile created for user:', user.id);
+        userProfile = newProfile;
       }
 
       // Verify client role
