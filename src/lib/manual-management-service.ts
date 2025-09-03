@@ -903,7 +903,7 @@ export class ManualManagementService {
       try {
         // Get document details
         const { data: document, error: docError } = await supabaseServiceClient
-          .from('manual_document_queue')
+          .from('manual_upload_queue')
           .select('*')
           .eq('id', documentId)
           .eq('tenant_id', this.tenantId)
