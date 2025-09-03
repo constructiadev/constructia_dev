@@ -38,7 +38,7 @@ export default function ProtectedRoute({
     return <Navigate to="/client-login" replace />;
   }
 
-  if (requireRole === 'client' && !['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'].includes(user.role)) {
+  if (requireRole === 'client' && !['Cliente', 'ClienteDemo'].includes(user.role)) {
     console.warn('⚠️ [ProtectedRoute] Client access denied for role:', user.role);
     return <Navigate to="/admin-login" replace />;
   }

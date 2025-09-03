@@ -76,7 +76,7 @@ export class ClientAuthService {
             tenant_id: DEV_TENANT_ID,
             email: authData.user.email!,
             name: defaultName,
-            role: 'ClienteAdmin',
+            role: 'ClienteDemo',
             active: true
           }, {
             onConflict: 'tenant_id,email'
@@ -94,7 +94,7 @@ export class ClientAuthService {
       }
 
       // Verify user has client role
-      const clientRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
+      const clientRoles = ['Cliente', 'ClienteDemo'];
       if (!clientRoles.includes(finalUserProfile.role)) {
         console.error('❌ [ClientAuth] Invalid role for client portal:', finalUserProfile.role);
         await supabase.auth.signOut(); // Force logout for security
@@ -176,7 +176,7 @@ export class ClientAuthService {
       }
 
       // Verify client role
-      const clientRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
+      const clientRoles = ['Cliente', 'ClienteDemo'];
       if (!clientRoles.includes(userProfile.role)) {
         console.error('❌ [ClientAuth] Invalid client role:', userProfile.role);
         return null;
@@ -269,6 +269,7 @@ export class ClientAuthService {
     name: string,
     tenantId: string = DEV_TENANT_ID,
     role: string = 'ClienteAdmin'
+    role: string = 'Cliente'
   ): Promise<boolean> {
     try {
       console.log('🔧 [ClientAuth] Creating user profile for:', email);
@@ -306,7 +307,7 @@ export class ClientAuthService {
         .from('users')
         .select('*')
         .eq('tenant_id', tenantId)
-        .in('role', ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector']);
+        .in('role', ['Cliente', 'ClienteDemo']);
 
       if (usersError) {
         console.error('❌ [ClientAuth] Error fetching tenant clients:', usersError);

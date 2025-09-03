@@ -64,7 +64,7 @@ async function populateTestData() {
         tenant_id: DEV_TENANT_ID,
         email: 'garcia@construcciones.com',
         name: 'Juan García',
-        role: 'ClienteAdmin',
+        role: 'ClienteDemo',
         active: true
       },
       {
@@ -72,7 +72,7 @@ async function populateTestData() {
         tenant_id: DEV_TENANT_ID,
         email: 'lopez@reformas.com',
         name: 'María López',
-        role: 'ClienteAdmin',
+        role: 'ClienteDemo',
         active: true
       },
       {
@@ -80,7 +80,7 @@ async function populateTestData() {
         tenant_id: DEV_TENANT_ID,
         email: 'martin@edificaciones.com',
         name: 'Carlos Martín',
-        role: 'ClienteAdmin',
+        role: 'ClienteDemo',
         active: true
       },
       {
