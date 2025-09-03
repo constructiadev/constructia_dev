@@ -511,74 +511,6 @@ export class ManualManagementService {
     errorMessage?: string
   ): Promise<boolean> {
     try {
-      console.log('🔍 [ManualManagement] DEBUG - updateDocumentStatus called with:');
-      console.log('   - documentId:', documentId);
-      console.log('   - newStatus:', newStatus);
-      console.log('   - targetPlatform:', targetPlatform);
-      console.log('   - nota:', nota);
-      
-      // Get document info for file operations
-      const { data: queueItem, error: queueError } = await supabaseServiceClient
-        .from('manual_upload_queue')
-        .select(`
-          *,
-          documentos!inner(*)
-        `)
-        .eq('id', documentId)
-        .eq('tenant_id', this.tenantId)
-        .single();
-
-      if (queueError || !queueItem) {
-        console.error('❌ Queue item not found:', queueError);
-        return false;
-      }
-
-      const documento = queueItem.documentos;
-      
-      console.log('🔍 [ManualManagement] DEBUG - Document file path from DB:', documento.file);
-
-      // If uploading to platform, move the file
-      if (newStatus === 'uploaded' && targetPlatform && documento.file) {
-        console.log('📁 Moving file to platform:', targetPlatform);
-        console.log('🔍 [ManualManagement] DEBUG - About to move file:', documento.file);
-        
-        const moveResult = await fileStorageService.moveFile(
-          documento.file,
-          targetPlatform,
-          this.tenantId,
-          documento.id
-        );
-
-        if (!moveResult.success) {
-          console.error('❌ File move failed:', moveResult.error);
-          console.error('❌ [ManualManagement] DEBUG - Move failure details:', {
-            originalPath: documento.file,
-            targetPlatform: targetPlatform,
-            error: moveResult.error
-          });
-          return false;
-        }
-
-        // Update document with new file path
-        await supabaseServiceClient
-          .from('documentos')
-          .update({
-            file: moveResult.newPath,
-            metadatos: {
-              ...documento.metadatos,
-              platform_upload: {
-                platform: targetPlatform,
-                uploaded_at: new Date().toISOString(),
-                moved_from: documento.file
-              }
-            },
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', documento.id);
-
-        console.log('✅ File moved and document updated');
-      }
-
       const updateData: any = {
         status: newStatus,
         updated_at: new Date().toISOString()
@@ -602,6 +534,7 @@ export class ManualManagementService {
         .update(updateData)
         .eq('id', documentId)
         .eq('tenant_id', this.tenantId);
+        .eq('tenant_id', this.tenantId);
 
       if (error) {
         console.error('Error updating document status:', error);
@@ -618,8 +551,7 @@ export class ManualManagementService {
         { 
           new_status: newStatus, 
           nota: nota,
-          target_platform: targetPlatform,
-          real_file_operation: true
+          target_platform: targetPlatform
         }
       );
 
