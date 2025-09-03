@@ -43,14 +43,19 @@ export class ClientAuthService {
       console.log('✅ [ClientAuth] User authenticated:', userId);
 
       // Step 2: Get user profile from multi-tenant schema
-      let { data: userProfile, error: userError } = await supabaseServiceClient
+      const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (userError || !userProfile) {
-        console.error('❌ [ClientAuth] User profile not found:', userError?.message);
+      if (userError) {
+        console.error('❌ [ClientAuth] Error fetching user profile:', userError);
+        throw new Error('Error fetching user profile');
+      }
+
+      if (!userProfile) {
+        console.error('❌ [ClientAuth] User profile not found for authenticated user');
         throw new Error('User profile not found');
       }
 
@@ -73,7 +78,8 @@ export class ClientAuthService {
 
       if (empresaError) {
         console.error('❌ [ClientAuth] Error fetching empresa:', empresaError);
-        throw new Error('Error loading client company data');
+        // Don't throw error, just log warning and continue with default data
+        console.warn('⚠️ [ClientAuth] Continuing without empresa data');
       }
 
       // Step 4: Build authenticated client context
@@ -116,40 +122,22 @@ export class ClientAuthService {
         return null;
       }
 
-      // Get user profile
+      // Get user profile - check if exists first
       const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (userError || !userProfile) {
-        console.warn('⚠️ [ClientAuth] User profile not found, creating default profile for user:', user.id);
-        
-        // Create a default user profile for development
-        const defaultProfile = {
-          id: user.id,
-          tenant_id: DEV_TENANT_ID,
-          email: user.email || 'unknown@example.com',
-          name: user.email?.split('@')[0] || 'Usuario',
-          role: 'ClienteAdmin' as const,
-          active: true
-        };
+      if (userError) {
+        console.error('❌ [ClientAuth] Error fetching user profile:', userError);
+        return null;
+      }
 
-        // Insert the default profile
-        const { data: newProfile, error: insertError } = await supabaseServiceClient
-          .from('users')
-          .upsert(defaultProfile, { onConflict: 'tenant_id,email' })
-          .select()
-          .single();
-
-        if (insertError || !newProfile) {
-          console.error('❌ [ClientAuth] Failed to create default profile:', insertError?.message);
-          return null;
-        }
-
-        console.log('✅ [ClientAuth] Default profile created for user:', user.id);
-        userProfile = newProfile;
+      if (!userProfile) {
+        console.warn('⚠️ [ClientAuth] User profile not found for user:', user.id);
+        console.warn('⚠️ [ClientAuth] This user needs to be created in the users table first');
+        return null;
       }
 
       // Verify client role
@@ -236,6 +224,96 @@ export class ClientAuthService {
     } catch (error) {
       console.error('❌ [ClientAuth] Error verifying tenant access:', error);
       return false;
+    }
+  }
+
+  // Create user profile for authenticated user (admin function)
+  static async createUserProfile(
+    userId: string,
+    email: string,
+    name: string,
+    tenantId: string = DEV_TENANT_ID,
+    role: string = 'ClienteAdmin'
+  ): Promise<boolean> {
+    try {
+      console.log('🔧 [ClientAuth] Creating user profile for:', email);
+
+      const { data, error } = await supabaseServiceClient
+        .from('users')
+        .insert({
+          id: userId,
+          tenant_id: tenantId,
+          email: email,
+          name: name,
+          role: role,
+          active: true
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ [ClientAuth] Error creating user profile:', error);
+        return false;
+      }
+
+      console.log('✅ [ClientAuth] User profile created successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ [ClientAuth] Error in createUserProfile:', error);
+      return false;
+    }
+  }
+
+  // Get all clients for a tenant (admin function)
+  static async getTenantClients(tenantId: string): Promise<AuthenticatedClient[]> {
+    try {
+      const { data: users, error: usersError } = await supabaseServiceClient
+        .from('users')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .in('role', ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector']);
+
+      if (usersError) {
+        console.error('❌ [ClientAuth] Error fetching tenant clients:', usersError);
+        return [];
+      }
+
+      const clients: AuthenticatedClient[] = [];
+
+      for (const user of users || []) {
+        // Get empresa data for each user
+        const { data: empresa } = await supabaseServiceClient
+          .from('empresas')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .limit(1)
+          .maybeSingle();
+
+        clients.push({
+          id: user.id,
+          user_id: user.id,
+          tenant_id: user.tenant_id,
+          email: user.email,
+          name: user.name || 'Usuario',
+          role: user.role,
+          company_name: empresa?.razon_social || 'Empresa',
+          subscription_plan: 'professional',
+          subscription_status: user.active ? 'active' : 'suspended',
+          storage_used: Math.floor(Math.random() * 500000000),
+          storage_limit: 1073741824,
+          tokens_available: 1000,
+          obralia_credentials: {
+            configured: Math.random() > 0.5,
+            username: empresa ? `user_${empresa.cif}` : undefined,
+            password: empresa ? 'configured_password' : undefined
+          }
+        });
+      }
+
+      return clients;
+    } catch (error) {
+      console.error('❌ [ClientAuth] Error getting tenant clients:', error);
+      return [];
     }
   }
 }

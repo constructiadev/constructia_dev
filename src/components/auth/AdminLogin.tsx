@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../lib/auth-context';
+import { supabase } from '../../lib/supabase-real';
 import Logo from '../common/Logo';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,7 +18,28 @@ export default function AdminLogin() {
     setSubmitting(true);
 
     try {
-      await signIn(email, password);
+      // Admin authentication - separate from client auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError || !authData.user) {
+        throw new Error(authError?.message || 'Authentication failed');
+      }
+
+      // Verify admin role
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError || !userProfile || userProfile.role !== 'SuperAdmin') {
+        await supabase.auth.signOut(); // Sign out if not admin
+        throw new Error('Access denied: Admin role required');
+      }
+
       navigate('/admin/dashboard', { replace: true });
     } catch (err: any) {
       console.error('Admin login error:', err);

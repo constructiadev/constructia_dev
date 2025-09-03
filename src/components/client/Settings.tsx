@@ -11,7 +11,7 @@ import {
   Settings as SettingsIcon
 } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
-import { updateClientObraliaCredentials } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase-real';
 
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
@@ -58,7 +58,25 @@ export default function Settings() {
         return;
       }
       
-      await updateClientObraliaCredentials(client.id, obraliaCredentials);
+      // Update Obralia credentials in adaptadores table
+      const { error } = await supabase
+        .from('adaptadores')
+        .upsert({
+          tenant_id: client.tenant_id,
+          plataforma: 'nalanda',
+          alias: 'Obralia-Default',
+          credenciales: {
+            username: obraliaCredentials.username,
+            password: obraliaCredentials.password,
+            configured: true
+          },
+          estado: 'ready'
+        });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       await refreshData(); // Recargar datos
       setMessage({ type: 'success', text: 'Credenciales de Obralia actualizadas correctamente' });
       setTimeout(() => setMessage(null), 3000);
@@ -74,7 +92,25 @@ export default function Settings() {
     if (!client) return;
     
     try {
-      await updateClientObraliaCredentials(client.id, credentials);
+      // Update Obralia credentials in adaptadores table
+      const { error } = await supabase
+        .from('adaptadores')
+        .upsert({
+          tenant_id: client.tenant_id,
+          plataforma: 'nalanda',
+          alias: 'Obralia-Default',
+          credenciales: {
+            username: credentials.username,
+            password: credentials.password,
+            configured: true
+          },
+          estado: 'ready'
+        });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       await refreshData();
       setShowObraliaModal(false);
       setMessage({ type: 'success', text: 'Credenciales de Obralia configuradas correctamente' });

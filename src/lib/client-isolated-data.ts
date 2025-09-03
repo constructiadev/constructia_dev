@@ -1,6 +1,7 @@
 // ConstructIA - Client Data Service with Tenant Isolation (Development Mode)
 import { supabaseServiceClient } from './supabase-real';
 import { ClientAuthService, type AuthenticatedClient } from './client-auth-service';
+import { getTenantEmpresasNoRLS, getTenantObrasNoRLS, getAllTenantDocumentsNoRLS } from './supabase';
 
 export interface ClientDataContext {
   client: AuthenticatedClient;
@@ -34,9 +35,9 @@ export class ClientIsolatedDataService {
 
       // Get tenant-specific data using service client (bypassing RLS for development)
       const [empresas, obras, documentos] = await Promise.all([
-        this.getTenantEmpresas(client.tenant_id),
-        this.getTenantObras(client.tenant_id),
-        this.getTenantDocumentos(client.tenant_id)
+        getTenantEmpresasNoRLS(client.tenant_id),
+        getTenantObrasNoRLS(client.tenant_id),
+        getAllTenantDocumentsNoRLS(client.tenant_id)
       ]);
 
       // Calculate stats from real data
@@ -70,76 +71,10 @@ export class ClientIsolatedDataService {
     }
   }
 
-  // Get empresas for specific tenant only
-  private static async getTenantEmpresas(tenantId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabaseServiceClient
-        .from('empresas')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('razon_social');
-
-      if (error) {
-        console.error('❌ [ClientData] Error fetching empresas:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('❌ [ClientData] Error in getTenantEmpresas:', error);
-      return [];
-    }
-  }
-
-  // Get obras for specific tenant only
-  private static async getTenantObras(tenantId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabaseServiceClient
-        .from('obras')
-        .select(`
-          *,
-          empresas!inner(razon_social)
-        `)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ [ClientData] Error fetching obras:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('❌ [ClientData] Error in getTenantObras:', error);
-      return [];
-    }
-  }
-
-  // Get documentos for specific tenant only
-  private static async getTenantDocumentos(tenantId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabaseServiceClient
-        .from('documentos')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ [ClientData] Error fetching documentos:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('❌ [ClientData] Error in getTenantDocumentos:', error);
-      return [];
-    }
-  }
-
   // Get client projects (transformed from obras)
   static async getClientProjects(tenantId: string): Promise<any[]> {
     try {
-      const obras = await this.getTenantObras(tenantId);
+      const obras = await getTenantObrasNoRLS(tenantId);
       
       // Transform obras to project format for client interface
       return obras.map(obra => ({
@@ -169,7 +104,7 @@ export class ClientIsolatedDataService {
   // Get client companies (transformed from empresas)
   static async getClientCompanies(tenantId: string): Promise<any[]> {
     try {
-      const empresas = await this.getTenantEmpresas(tenantId);
+      const empresas = await getTenantEmpresasNoRLS(tenantId);
       
       // Transform empresas to company format for client interface
       return empresas.map(empresa => ({
@@ -192,7 +127,7 @@ export class ClientIsolatedDataService {
   // Get client documents (transformed from documentos)
   static async getClientDocuments(tenantId: string): Promise<any[]> {
     try {
-      const documentos = await this.getTenantDocumentos(tenantId);
+      const documentos = await getAllTenantDocumentsNoRLS(tenantId);
       
       // Transform documentos to document format for client interface
       return documentos.map(documento => ({

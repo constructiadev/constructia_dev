@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkSession = async () => {
     try {
+      setLoading(true);
       const currentClient = await ClientAuthService.getCurrentClient();
       setUser(currentClient);
       

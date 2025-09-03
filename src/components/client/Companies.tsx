@@ -1,80 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { 
-  getTenantEmpresas, 
-  createEmpresa, 
-  getCurrentUserTenant,
-  DEV_TENANT_ID 
-} from '../../lib/supabase-real';
+import { useClientData } from '../../hooks/useClientData';
+import { useClientCompanies } from '../../hooks/useClientData';
 
-interface DashboardStats {
-  totalProjects: number;
-  totalCompanies: number;
-  totalDocuments: number;
-  documentsProcessed: number;
-  storageUsed: number;
-  storageLimit: number;
-}
-
-export default function ClientDashboard() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalProjects: 0,
-    totalCompanies: 0,
-    totalDocuments: 0,
-    documentsProcessed: 0,
-    storageUsed: 0,
-    storageLimit: 0
-  });
-  const [clientData, setClientData] = useState<any>(null);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Obtener el primer cliente disponible de la base de datos
-      const allClients = await getAllClients();
-      
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos. Ejecuta el script de población primero.');
-      }
-      
-      // Usar el primer cliente activo disponible
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      setClientData(activeClient);
-
-      // Obtener estadísticas
-      const [projects, companies, documents] = await Promise.all([
-        getClientProjects(activeClient.id),
-        getClientCompanies(activeClient.id),
-        getClientDocuments(activeClient.id)
-      ]);
-
-      const newStats = {
-        totalProjects: projects.length,
-        totalCompanies: companies.length,
-        totalDocuments: documents.length,
-        documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
-        storageUsed: activeClient.storage_used || 0,
-        storageLimit: activeClient.storage_limit || 1073741824
-      };
-
-      setStats(newStats);
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function Companies() {
+  const { companies, loading, error, refreshCompanies } = useClientCompanies();
+  const { client, stats } = useClientData();
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -85,8 +16,8 @@ export default function ClientDashboard() {
   };
 
   const getStoragePercentage = () => {
-    if (stats.storageLimit === 0) return 0;
-    return Math.round((stats.storageUsed / stats.storageLimit) * 100);
+    if (!client || client.storage_limit === 0) return 0;
+    return Math.round((client.storage_used / client.storage_limit) * 100);
   };
 
   if (loading) {
@@ -94,7 +25,7 @@ export default function ClientDashboard() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando dashboard...</p>
+          <p className="text-gray-600">Cargando empresas del tenant...</p>
         </div>
       </div>
     );
@@ -108,7 +39,7 @@ export default function ClientDashboard() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de Conexión</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={loadDashboardData}
+            onClick={refreshCompanies}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -123,15 +54,15 @@ export default function ClientDashboard() {
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Bienvenido, {clientData?.contact_name || 'Usuario'}
+          Mis Empresas
         </h1>
         <p className="text-gray-600">
-          {clientData?.company_name || 'Empresa'} • Plan {clientData?.subscription_plan || 'básico'}
+          Gestiona las empresas de tu tenant
         </p>
         <div className="mt-3 flex items-center space-x-2">
           <CheckCircle className="w-4 h-4 text-green-600" />
-          <span className="text-sm text-green-600">Conectado a base de datos</span>
-          <span className="text-sm text-gray-500">• ID: {clientData?.client_id}</span>
+          <span className="text-sm text-green-600">🔒 Datos aislados por tenant</span>
+          <span className="text-sm text-gray-500">• {companies.length} empresas</span>
         </div>
       </div>
 
@@ -144,7 +75,7 @@ export default function ClientDashboard() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Empresas</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</p>
+              <p className="text-2xl font-bold text-gray-900">{companies.length}</p>
             </div>
           </div>
         </div>
@@ -156,7 +87,7 @@ export default function ClientDashboard() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Proyectos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.totalProjects || 0}</p>
             </div>
           </div>
         </div>
@@ -168,7 +99,7 @@ export default function ClientDashboard() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Documentos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.totalDocuments || 0}</p>
             </div>
           </div>
         </div>
@@ -180,19 +111,20 @@ export default function ClientDashboard() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Procesados</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.documentsProcessed}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.documentsProcessed || 0}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Storage Usage */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      {client && (
+        <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Uso de Almacenamiento</h3>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">
-              {formatBytes(stats.storageUsed)} de {formatBytes(stats.storageLimit)} utilizados
+              {formatBytes(client.storage_used)} de {formatBytes(client.storage_limit)} utilizados
             </span>
             <span className="text-gray-900 font-medium">{getStoragePercentage()}%</span>
           </div>
@@ -213,13 +145,40 @@ export default function ClientDashboard() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Companies List */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Empresas del Tenant</h3>
+        {companies.length === 0 ? (
+          <div className="text-center py-8">
+            <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No hay empresas en este tenant</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {companies.map((company) => (
+              <div key={company.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-3">
+                  <Building2 className="w-5 h-5 text-blue-600 mr-2" />
+                  <h4 className="font-medium text-gray-900">{company.name}</h4>
+                </div>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p>CIF: {company.cif}</p>
+                  <p>Email: {company.email || 'No especificado'}</p>
+                  <p>Dirección: {company.address || 'No especificada'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => navigate('/client/upload')}
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <FileText className="w-8 h-8 text-green-600 mr-3" />
@@ -230,18 +189,16 @@ export default function ClientDashboard() {
           </button>
 
           <button
-            onClick={() => navigate('/client/companies')}
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Building2 className="w-8 h-8 text-blue-600 mr-3" />
             <div className="text-left">
-              <p className="font-medium text-gray-900">Gestionar Empresas</p>
-              <p className="text-sm text-gray-600">Administrar empresas</p>
+              <p className="font-medium text-gray-900">Ver Proyectos</p>
+              <p className="text-sm text-gray-600">Gestionar proyectos</p>
             </div>
           </button>
 
           <button
-            onClick={() => navigate('/client/metrics')}
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <TrendingUp className="w-8 h-8 text-purple-600 mr-3" />
@@ -258,7 +215,7 @@ export default function ClientDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
           <button
-            onClick={loadDashboardData}
+            onClick={refreshCompanies}
             className="flex items-center text-blue-600 hover:text-blue-700 text-sm"
           >
             <RefreshCw className="w-4 h-4 mr-1" />
@@ -269,8 +226,8 @@ export default function ClientDashboard() {
           <div className="flex items-center p-3 bg-green-50 rounded-lg">
             <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
             <div>
-              <p className="font-medium text-gray-900">Base de datos conectada</p>
-              <p className="text-sm text-gray-500">Datos cargados desde Supabase - hace 1 min</p>
+              <p className="font-medium text-gray-900">Datos del tenant cargados</p>
+              <p className="text-sm text-gray-500">Acceso seguro y aislado - hace 1 min</p>
             </div>
           </div>
           
@@ -278,7 +235,7 @@ export default function ClientDashboard() {
             <FileText className="w-5 h-5 text-blue-500 mr-3" />
             <div>
               <p className="font-medium text-gray-900">
-                {stats.totalDocuments} documentos en tu cuenta
+                {stats?.totalDocuments || 0} documentos en tu tenant
               </p>
               <p className="text-sm text-gray-500">Gestión documental activa - hace 5 min</p>
             </div>
@@ -288,9 +245,9 @@ export default function ClientDashboard() {
             <Building2 className="w-5 h-5 text-purple-500 mr-3" />
             <div>
               <p className="font-medium text-gray-900">
-                {stats.totalProjects} proyectos activos
+                {companies.length} empresas registradas
               </p>
-              <p className="text-sm text-gray-500">Gestión de proyectos - hace 10 min</p>
+              <p className="text-sm text-gray-500">Gestión de empresas - hace 10 min</p>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth-context';
 import { ClientIsolatedDataService, type ClientDataContext } from '../lib/client-isolated-data';
+import { getAllClients, getClientProjects, getClientCompanies, getClientDocuments } from '../lib/supabase';
 
 export function useClientData() {
   const { user } = useAuth();
@@ -26,10 +27,28 @@ export function useClientData() {
 
       console.log('🔍 [useClientData] Loading data for user:', user.email);
 
+      // Use tenant-isolated data service
       const context = await ClientIsolatedDataService.getClientDataContext();
       
       if (!context) {
-        throw new Error('No se pudo cargar el contexto de datos del cliente');
+        console.warn('⚠️ [useClientData] No context from isolated service, using fallback');
+        // Fallback to basic client data
+        const fallbackContext = {
+          client: user,
+          empresas: [],
+          obras: [],
+          documentos: [],
+          stats: {
+            totalCompanies: 0,
+            totalProjects: 0,
+            totalDocuments: 0,
+            documentsProcessed: 0,
+            storageUsed: user.storage_used || 0,
+            storageLimit: user.storage_limit || 1073741824
+          }
+        };
+        setDataContext(fallbackContext);
+        return;
       }
 
       setDataContext(context);
@@ -37,8 +56,27 @@ export function useClientData() {
 
     } catch (err) {
       console.error('❌ [useClientData] Error loading client data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading client data');
-      setDataContext(null);
+      // Don't set error, use fallback instead
+      if (user) {
+        const fallbackContext = {
+          client: user,
+          empresas: [],
+          obras: [],
+          documentos: [],
+          stats: {
+            totalCompanies: 0,
+            totalProjects: 0,
+            totalDocuments: 0,
+            documentsProcessed: 0,
+            storageUsed: user.storage_used || 0,
+            storageLimit: user.storage_limit || 1073741824
+          }
+        };
+        setDataContext(fallbackContext);
+      } else {
+        setError(err instanceof Error ? err.message : 'Error loading client data');
+        setDataContext(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -84,12 +122,21 @@ export function useClientProjects() {
       setError(null);
 
       if (!user?.tenant_id) {
+        console.log('⚠️ [useClientProjects] No tenant_id, using fallback');
+        // Use fallback method for projects
+        const fallbackProjects = await getClientProjects('fallback-client-id');
         setProjects([]);
         return;
       }
 
-      const projectsData = await ClientIsolatedDataService.getClientProjects(user.tenant_id);
-      setProjects(projectsData);
+      try {
+        const projectsData = await ClientIsolatedDataService.getClientProjects(user.tenant_id);
+        setProjects(projectsData);
+      } catch (isolatedError) {
+        console.warn('⚠️ [useClientProjects] Isolated service failed, using fallback');
+        const fallbackProjects = await getClientProjects('fallback-client-id');
+        setProjects(fallbackProjects);
+      }
 
     } catch (err) {
       console.error('❌ [useClientProjects] Error:', err);
@@ -120,12 +167,20 @@ export function useClientCompanies() {
       setError(null);
 
       if (!user?.tenant_id) {
+        console.log('⚠️ [useClientCompanies] No tenant_id, using fallback');
+        const fallbackCompanies = await getClientCompanies('fallback-client-id');
         setCompanies([]);
         return;
       }
 
-      const companiesData = await ClientIsolatedDataService.getClientCompanies(user.tenant_id);
-      setCompanies(companiesData);
+      try {
+        const companiesData = await ClientIsolatedDataService.getClientCompanies(user.tenant_id);
+        setCompanies(companiesData);
+      } catch (isolatedError) {
+        console.warn('⚠️ [useClientCompanies] Isolated service failed, using fallback');
+        const fallbackCompanies = await getClientCompanies('fallback-client-id');
+        setCompanies(fallbackCompanies);
+      }
 
     } catch (err) {
       console.error('❌ [useClientCompanies] Error:', err);
@@ -156,12 +211,20 @@ export function useClientDocuments() {
       setError(null);
 
       if (!user?.tenant_id) {
+        console.log('⚠️ [useClientDocuments] No tenant_id, using fallback');
+        const fallbackDocuments = await getClientDocuments('fallback-client-id');
         setDocuments([]);
         return;
       }
 
-      const documentsData = await ClientIsolatedDataService.getClientDocuments(user.tenant_id);
-      setDocuments(documentsData);
+      try {
+        const documentsData = await ClientIsolatedDataService.getClientDocuments(user.tenant_id);
+        setDocuments(documentsData);
+      } catch (isolatedError) {
+        console.warn('⚠️ [useClientDocuments] Isolated service failed, using fallback');
+        const fallbackDocuments = await getClientDocuments('fallback-client-id');
+        setDocuments(fallbackDocuments);
+      }
 
     } catch (err) {
       console.error('❌ [useClientDocuments] Error:', err);

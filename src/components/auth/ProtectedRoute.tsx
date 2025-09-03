@@ -27,13 +27,15 @@ export default function ProtectedRoute({
   }
 
   if (!user) {
-    return <Navigate to={fallbackPath} replace />;
+    // Redirect to appropriate login based on required role
+    const loginPath = requireRole === 'admin' ? '/admin-login' : '/client-login';
+    return <Navigate to={loginPath} replace />;
   }
 
   // Check role requirements
   if (requireRole === 'admin' && user.role !== 'SuperAdmin') {
     console.warn('⚠️ [ProtectedRoute] Admin access denied for role:', user.role);
-    return <Navigate to="/client-login" replace />;
+    return <Navigate to="/admin-login" replace />;
   }
 
   if (requireRole === 'client' && !['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'].includes(user.role)) {

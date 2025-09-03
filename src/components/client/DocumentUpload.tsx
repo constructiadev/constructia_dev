@@ -60,6 +60,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
   const [loading, setLoading] = useState(true);
   const [showCreateEmpresa, setShowCreateEmpresa] = useState(false);
   const [showCreateObra, setShowCreateObra] = useState(false);
+  const { user } = useAuth();
   const [newEmpresa, setNewEmpresa] = useState({
     razon_social: '',
     cif: '',
@@ -80,8 +81,8 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
   const loadEmpresas = async () => {
     try {
       setLoading(true);
-      const tenantId = await getCurrentUserTenant();
-      const empresasData = await getTenantEmpresas(tenantId || DEV_TENANT_ID);
+      const tenantId = user?.tenant_id || DEV_TENANT_ID;
+      const empresasData = await getTenantEmpresas(tenantId);
       setEmpresas(empresasData);
     } catch (error) {
       console.error('Error loading empresas:', error);
@@ -92,8 +93,8 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
 
   const loadObras = async (empresaId: string) => {
     try {
-      const tenantId = await getCurrentUserTenant();
-      const obrasData = await getEmpresaObras(empresaId, tenantId || DEV_TENANT_ID);
+      const tenantId = user?.tenant_id || DEV_TENANT_ID;
+      const obrasData = await getEmpresaObras(empresaId, tenantId);
       setObras(prev => ({ ...prev, [empresaId]: obrasData }));
     } catch (error) {
       console.error('Error loading obras:', error);
@@ -114,16 +115,16 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
   const handleCreateEmpresa = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const tenantId = await getCurrentUserTenant();
-      const empresa = await createEmpresa(newEmpresa, tenantId || DEV_TENANT_ID);
+      const tenantId = user?.tenant_id || DEV_TENANT_ID;
+      const empresa = await createEmpresa(newEmpresa, tenantId);
       setEmpresas(prev => [...prev, empresa]);
       setNewEmpresa({ razon_social: '', cif: '', direccion: '', contacto_email: '' });
       setShowCreateEmpresa(false);
       
       // Log audit event
       await logAuditoria(
-        tenantId || DEV_TENANT_ID,
-        'current-user-id', // In production, get from auth
+        tenantId,
+        user?.id || 'unknown-user',
         'empresa.created',
         'empresa',
         empresa.id,
@@ -140,11 +141,11 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
     if (!selectedEmpresa) return;
 
     try {
-      const tenantId = await getCurrentUserTenant();
+      const tenantId = user?.tenant_id || DEV_TENANT_ID;
       const obra = await createObra({
         ...newObra,
         empresa_id: selectedEmpresa
-      }, tenantId || DEV_TENANT_ID);
+      }, tenantId);
       
       setObras(prev => ({
         ...prev,
@@ -155,8 +156,8 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
       
       // Log audit event
       await logAuditoria(
-        tenantId || DEV_TENANT_ID,
-        'current-user-id',
+        tenantId,
+        user?.id || 'unknown-user',
         'obra.created',
         'obra',
         obra.id,
@@ -604,10 +605,10 @@ export default function DocumentUpload() {
         }));
 
         // Log audit event
-        const tenantId = await getCurrentUserTenant();
+        const tenantId = user?.tenant_id || DEV_TENANT_ID;
         await logAuditoria(
-          tenantId || DEV_TENANT_ID,
-          'current-user-id',
+          tenantId,
+          user?.id || 'unknown-user',
           'document.uploaded_to_queue',
           'documento',
           document.document_id,
