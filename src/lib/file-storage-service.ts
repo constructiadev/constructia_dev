@@ -19,8 +19,8 @@ export class FileStorageService {
   private bucketName: string;
 
   constructor(bucketName?: string) {
-    // Use bucket from app config or fallback to parameter or default
-    this.bucketName = bucketName || appConfig.settings.STORAGE.bucket || 'documents';
+    // Use the correct bucket name that exists in Supabase
+    this.bucketName = bucketName || 'uploaddocuments';
     console.log('📁 [FileStorage] Using bucket:', this.bucketName);
   }
 
