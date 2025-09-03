@@ -365,6 +365,14 @@ function FileUploadModal({
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    
+    // Check if we're handling a document re-upload
+    if (draggedDocument) {
+      handleDocumentDrop(event);
+      return;
+    }
+    
+    // Handle normal file upload
     const files = Array.from(event.dataTransfer.files);
     setSelectedFiles(prev => [...prev, ...files]);
   };
@@ -479,15 +487,33 @@ function FileUploadModal({
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors"
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              draggedDocument 
+                ? 'border-orange-400 bg-orange-50' 
+                : 'border-gray-300 hover:border-blue-400'
+            }`}
           >
-            <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-lg font-medium text-gray-900 mb-2">
-              Arrastra archivos aquí o haz clic para seleccionar
-            </h4>
-            <p className="text-gray-600 mb-4">
-              Formatos soportados: PDF, JPG, PNG (máx. 20MB)
-            </p>
+            {draggedDocument ? (
+              <>
+                <RotateCcw className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+                <h4 className="text-lg font-medium text-orange-900 mb-2">
+                  Re-subir documento con errores
+                </h4>
+                <p className="text-orange-700 mb-4">
+                  Suelta el nuevo archivo para reemplazar: <strong>{draggedDocument.original_name}</strong>
+                </p>
+              </>
+            ) : (
+              <>
+                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-medium text-gray-900 mb-2">
+                  Arrastra archivos aquí o haz clic para seleccionar
+                </h4>
+                <p className="text-gray-600 mb-4">
+                  Formatos soportados: PDF, JPG, PNG (máx. 20MB)
+                </p>
+              </>
+            )}
             <input
               type="file"
               multiple
@@ -496,12 +522,14 @@ function FileUploadModal({
               className="hidden"
               id="file-upload-modal"
             />
-            <label
-              htmlFor="file-upload-modal"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg cursor-pointer transition-colors inline-block"
-            >
-              Seleccionar Archivos
-            </label>
+            {!draggedDocument && (
+              <label
+                htmlFor="file-upload-modal"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg cursor-pointer transition-colors inline-block"
+              >
+                Seleccionar Archivos
+              </label>
+            )}
           </div>
 
           {/* Selected Files */}
@@ -581,6 +609,8 @@ export default function ManualManagement() {
   const [selectedClientForUpload, setSelectedClientForUpload] = useState<{clientId: string; projectId: string} | null>(null);
   const [showPlatformModal, setShowPlatformModal] = useState(false);
   const [selectedClientForPlatform, setSelectedClientForPlatform] = useState<{clientId: string; clientName: string} | null>(null);
+  const [draggedDocument, setDraggedDocument] = useState<ManualDocument | null>(null);
+  const [updatingDocuments, setUpdatingDocuments] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -601,6 +631,131 @@ export default function ManualManagement() {
     }
   };
 
+  const handleDocumentDragStart = (document: ManualDocument) => {
+    setDraggedDocument(document);
+  };
+
+  const handleDocumentDrop = async (event: React.DragEvent) => {
+    event.preventDefault();
+    
+    if (!draggedDocument) return;
+    
+    // Only allow re-upload for error documents
+    if (draggedDocument.status !== 'error') {
+      alert('Solo se pueden re-subir documentos con errores');
+      setDraggedDocument(null);
+      return;
+    }
+    
+    // Get files from drop event
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) {
+      alert('No se detectaron archivos para re-subir');
+      setDraggedDocument(null);
+      return;
+    }
+    
+    const file = files[0]; // Use first file for re-upload
+    
+    try {
+      setUpdatingDocuments(prev => [...prev, draggedDocument.id]);
+      
+      // Re-upload the corrupted document
+      const success = await manualManagementService.reuploadCorruptedDocument(
+        draggedDocument.id,
+        file
+      );
+      
+      if (success) {
+        alert('✅ Documento re-subido correctamente');
+        await loadData(); // Refresh data
+      } else {
+        alert('❌ Error al re-subir documento');
+      }
+    } catch (error) {
+      console.error('Error re-uploading document:', error);
+      alert('❌ Error al re-subir documento');
+    } finally {
+      setUpdatingDocuments(prev => prev.filter(id => id !== draggedDocument.id));
+      setDraggedDocument(null);
+    }
+  };
+
+  const handleDocumentDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+  };
+
+  const handleDownloadDocument = async (documentId: string, fileName: string) => {
+    try {
+      console.log('📥 Starting download for document:', documentId);
+      const downloadUrl = await manualManagementService.downloadDocument(documentId);
+      
+      if (downloadUrl) {
+        // Create temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Download initiated successfully');
+      } else {
+        alert('❌ Error al generar enlace de descarga');
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      alert('❌ Error al descargar documento');
+    }
+  };
+
+  const handleMarkAsUploaded = async (documentId: string, documentName: string) => {
+    if (!confirm(`¿Marcar "${documentName}" como subido correctamente?`)) {
+      return;
+    }
+    
+    try {
+      setUpdatingDocuments(prev => [...prev, documentId]);
+      
+      const success = await manualManagementService.updateDocumentStatus(
+        documentId,
+        'uploaded',
+        'nalanda', // Default platform
+        `Marcado como subido por administrador - ${new Date().toLocaleString()}`
+      );
+      
+      if (success) {
+        alert('✅ Documento marcado como subido');
+        await loadData(); // Refresh data
+      } else {
+        alert('❌ Error al marcar documento como subido');
+      }
+    } catch (error) {
+      console.error('Error marking document as uploaded:', error);
+      alert('❌ Error al marcar documento como subido');
+    } finally {
+      setUpdatingDocuments(prev => prev.filter(id => id !== documentId));
+    }
+  };
+
+  const handleNotifyClientAboutError = async (document: ManualDocument) => {
+    try {
+      const success = await manualManagementService.notifyClientAboutCorruptedFile(
+        document.id,
+        document.original_name,
+        document.last_error || 'Documento con errores detectados'
+      );
+      
+      if (success) {
+        alert('✅ Cliente notificado sobre el error del documento');
+      } else {
+        alert('❌ Error al notificar al cliente');
+      }
+    } catch (error) {
+      console.error('Error notifying client:', error);
+      alert('❌ Error al notificar al cliente');
+    }
+  };
   const handleConfigurePlatforms = (clientId: string, clientName: string) => {
     setSelectedClientForPlatform({ clientId, clientName });
     setShowPlatformModal(true);
@@ -977,39 +1132,115 @@ export default function ManualManagement() {
 
                                 {/* Documents */}
                                 {project.documents.length > 0 && (
-                                  <div className="space-y-2">
+                                  <div 
+                                    className="space-y-2"
+                                    onDrop={handleDocumentDrop}
+                                    onDragOver={handleDocumentDragOver}
+                                  >
                                     {project.documents
                                       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
                                       .map((document, index) => (
+                                        const canDrag = document.status === 'pending' || document.status === 'error';
+                                        const isUpdating = updatingDocuments.includes(document.id);
+                                          <div 
+                                            key={document.id} 
+                                            draggable={canDrag}
+                                            onDragStart={() => canDrag && handleDocumentDragStart(document)}
+                                            className={`flex items-center justify-between p-3 bg-white rounded border transition-all ${
+                                              canDrag ? 'cursor-move hover:shadow-md hover:border-blue-300' : 'cursor-default'
+                                            } ${isUpdating ? 'opacity-50' : ''}`}
+                                          >
                                         <div key={document.id} className="flex items-center justify-between p-2 bg-white rounded border">
                                           <div className="flex items-center">
                                             <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded mr-2">
                                               #{index + 1}
-                                            </span>
+                                              <FileText className={`w-4 h-4 mr-2 ${
+                                                document.status === 'uploaded' ? 'text-green-500' :
+                                                document.status === 'error' ? 'text-red-500' :
+                                                document.status === 'pending' ? 'text-yellow-500' :
+                                                'text-gray-400'
+                                              }`} />
                                             <FileText className="w-4 h-4 text-gray-400 mr-2" />
-                                            <div>
-                                              <div className="font-medium text-gray-900 text-sm">{document.original_name}</div>
-                                              <div className="text-xs text-gray-500">
+                                                <div className="font-medium text-gray-900 text-sm">
+                                                  {document.original_name}
+                                                  {canDrag && (
+                                                    <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-1 py-0.5 rounded">
+                                                      📋 Arrastrable
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="text-xs text-gray-500 space-y-1">
+                                                  <div>
+                                                    📄 {document.classification} • 
+                                                    💾 {(document.file_size / 1024 / 1024).toFixed(2)} MB • 
+                                                    🎯 {document.confidence}% confianza
+                                                  </div>
+                                                  <div>
+                                                    🔒 Integridad: {document.integrity_score}% • 
+                                                    🔄 Reintentos: {document.retry_count} • 
+                                                    ⏰ {new Date(document.created_at).toLocaleString()}
+                                                  </div>
+                                                  {document.last_error && (
+                                                    <div className="text-red-600">
+                                                      ❌ Error: {document.last_error}
+                                                    </div>
+                                                  )}
+                                                  {document.admin_notes && (
+                                                    <div className="text-blue-600">
+                                                      📝 Notas: {document.admin_notes}
+                                                    </div>
+                                                  )}
                                                 {document.classification} • {(document.file_size / 1024 / 1024).toFixed(2)} MB
                                               </div>
                                             </div>
                                           </div>
-
+                                            <div className="flex items-center space-x-1">
                                           <div className="flex items-center space-x-2">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                               document.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                document.status === 'uploading' ? 'bg-blue-100 text-blue-800' :
+                                                document.status === 'validated' ? 'bg-purple-100 text-purple-800' :
                                               document.status === 'uploaded' ? 'bg-green-100 text-green-800' :
                                               document.status === 'error' ? 'bg-red-100 text-red-800' :
                                               'bg-gray-100 text-gray-800'
                                             }`}>
                                               {document.status}
+                                              
+                                              {/* Mark as Uploaded Button */}
+                                              {(document.status === 'pending' || document.status === 'error') && (
+                                                <button
+                                                  onClick={() => handleMarkAsUploaded(document.id, document.original_name)}
+                                                  disabled={isUpdating}
+                                                  className="p-1 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                                                  title="Marcar como subido"
+                                                >
+                                                  {isUpdating ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                  ) : (
+                                                    <CheckCircle className="w-3 h-3" />
+                                                  )}
+                                                </button>
+                                              )}
+                                              
+                                              {/* Download Button */}
                                             </span>
-                                            <button
+                                                onClick={() => handleDownloadDocument(document.id, document.original_name)}
                                               onClick={() => console.log('Download document:', document.id)}
                                               className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                                               title="Descargar documento"
                                             >
                                               <Download className="w-3 h-3" />
+                                              
+                                              {/* Notify Client Button for Error Documents */}
+                                              {document.status === 'error' && (
+                                                <button
+                                                  onClick={() => handleNotifyClientAboutError(document)}
+                                                  className="p-1 text-gray-400 hover:text-orange-600 transition-colors"
+                                                  title="Notificar cliente sobre error"
+                                                >
+                                                  <Mail className="w-3 h-3" />
+                                                </button>
+                                              )}
                                             </button>
                                           </div>
                                         </div>

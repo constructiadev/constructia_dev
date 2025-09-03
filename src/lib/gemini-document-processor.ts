@@ -175,21 +175,52 @@ Responde en JSON con este esquema:
   }
 
   private getMockExtraction(fileName: string): DocumentExtractionResult {
-    // Generar respuesta mock basada en el nombre del archivo
-    const mockCategories = [
-      'PRL', 'APTITUD_MEDICA', 'DNI', 'CONTRATO', 'FORMACION_PRL'
-    ];
+    // Generar respuesta mock inteligente basada en el nombre del archivo
+    const fileName_lower = fileName.toLowerCase();
     
-    const categoria = mockCategories[Math.floor(Math.random() * mockCategories.length)];
-    const entidad = categoria === 'DNI' || categoria === 'APTITUD_MEDICA' ? 'trabajador' : 'obra';
+    // Detectar categoría por nombre de archivo
+    let categoria = 'OTROS';
+    let entidad: 'empresa' | 'trabajador' | 'maquinaria' | 'obra' = 'obra';
+    
+    if (fileName_lower.includes('dni') || fileName_lower.includes('nie')) {
+      categoria = 'DNI';
+      entidad = 'trabajador';
+    } else if (fileName_lower.includes('aptitud') || fileName_lower.includes('medica') || fileName_lower.includes('reconocimiento')) {
+      categoria = 'APTITUD_MEDICA';
+      entidad = 'trabajador';
+    } else if (fileName_lower.includes('prl') || fileName_lower.includes('formacion') || fileName_lower.includes('curso')) {
+      categoria = 'FORMACION_PRL';
+      entidad = 'trabajador';
+    } else if (fileName_lower.includes('contrato') || fileName_lower.includes('laboral')) {
+      categoria = 'CONTRATO';
+      entidad = 'trabajador';
+    } else if (fileName_lower.includes('seguro') || fileName_lower.includes('responsabilidad') || fileName_lower.includes('rc')) {
+      categoria = 'SEGURO_RC';
+      entidad = 'empresa';
+    } else if (fileName_lower.includes('rea') || fileName_lower.includes('registro') || fileName_lower.includes('acreditada')) {
+      categoria = 'REA';
+      entidad = 'empresa';
+    } else if (fileName_lower.includes('plan') && fileName_lower.includes('seguridad')) {
+      categoria = 'PLAN_SEGURIDAD';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('evaluacion') || fileName_lower.includes('riesgos')) {
+      categoria = 'EVAL_RIESGOS';
+      entidad = 'obra';
+    } else if (fileName_lower.includes('certificado') && (fileName_lower.includes('maquina') || fileName_lower.includes('equipo'))) {
+      categoria = 'CERT_MAQUINARIA';
+      entidad = 'maquinaria';
+    } else if (fileName_lower.includes('alta') && fileName_lower.includes('ss')) {
+      categoria = 'ALTA_SS';
+      entidad = 'trabajador';
+    }
     
     return {
       categoria_probable: categoria,
       entidad_tipo_probable: entidad,
       campos: {
-        dni_nie: entidad === 'trabajador' ? '12345678A' : null,
-        nombre: entidad === 'trabajador' ? 'Juan' : null,
-        apellido: entidad === 'trabajador' ? 'García' : null,
+        dni_nie: entidad === 'trabajador' ? this.extractDNIFromFilename(fileName) : null,
+        nombre: entidad === 'trabajador' ? this.extractNameFromFilename(fileName) : null,
+        apellido: entidad === 'trabajador' ? this.extractSurnameFromFilename(fileName) : null,
         empresa: 'Construcciones García S.L.',
         rea_numero: 'REA123456',
         poliza_numero: categoria === 'SEGURO_RC' ? 'POL789456' : null,
@@ -198,16 +229,40 @@ Responde en JSON con este esquema:
           ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
           : null,
         curso_prl_nivel: categoria === 'FORMACION_PRL' ? '20h' : null,
-        maquina_num_serie: null,
+        maquina_num_serie: entidad === 'maquinaria' ? this.extractSerialFromFilename(fileName) : null,
         coincidencias_texto: [fileName, categoria]
       },
       confianza: {
-        categoria_probable: 0.85,
+        categoria_probable: categoria !== 'OTROS' ? 0.85 : 0.45,
         dni_nie: entidad === 'trabajador' ? 0.92 : 0.0,
         fecha_caducidad: 0.88,
         empresa: 0.95
       }
     };
+  }
+
+  private extractDNIFromFilename(fileName: string): string | null {
+    const dniMatch = fileName.match(/(\d{8}[A-Z]|[XYZ]\d{7}[A-Z])/i);
+    return dniMatch ? dniMatch[0].toUpperCase() : '12345678A';
+  }
+
+  private extractNameFromFilename(fileName: string): string | null {
+    const namePatterns = ['juan', 'maria', 'carlos', 'ana', 'pedro', 'laura'];
+    const fileName_lower = fileName.toLowerCase();
+    const foundName = namePatterns.find(name => fileName_lower.includes(name));
+    return foundName ? foundName.charAt(0).toUpperCase() + foundName.slice(1) : 'Juan';
+  }
+
+  private extractSurnameFromFilename(fileName: string): string | null {
+    const surnamePatterns = ['garcia', 'lopez', 'martinez', 'rodriguez', 'sanchez', 'fernandez'];
+    const fileName_lower = fileName.toLowerCase();
+    const foundSurname = surnamePatterns.find(surname => fileName_lower.includes(surname));
+    return foundSurname ? foundSurname.charAt(0).toUpperCase() + foundSurname.slice(1) : 'García';
+  }
+
+  private extractSerialFromFilename(fileName: string): string | null {
+    const serialMatch = fileName.match(/([A-Z]{2,4}\d{3,6}[-_]?\d{4}[-_]?\d{3})/i);
+    return serialMatch ? serialMatch[0].toUpperCase() : 'CAT320-2024-001';
   }
 
   // Validar documento según reglas de plataforma
