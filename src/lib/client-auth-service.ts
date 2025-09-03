@@ -54,6 +54,13 @@ export class ClientAuthService {
         throw new Error('Error fetching user profile');
       }
 
+      // CRITICAL SECURITY CHECK: Prevent admin users from accessing client portal
+      if (userProfile && userProfile.role === 'SuperAdmin') {
+        console.error('❌ [ClientAuth] SuperAdmin attempted client login - ACCESS DENIED');
+        await supabase.auth.signOut(); // Force logout
+        throw new Error('Access denied: Administrators cannot access the client portal');
+      }
+
       let finalUserProfile = userProfile;
 
       // If user profile doesn't exist, create it automatically
@@ -89,7 +96,8 @@ export class ClientAuthService {
       // Verify user has client role
       const clientRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
       if (!clientRoles.includes(finalUserProfile.role)) {
-        console.error('❌ [ClientAuth] User does not have client role:', finalUserProfile.role);
+        console.error('❌ [ClientAuth] Invalid role for client portal:', finalUserProfile.role);
+        await supabase.auth.signOut(); // Force logout for security
         throw new Error('Access denied: Invalid user role');
       }
 
