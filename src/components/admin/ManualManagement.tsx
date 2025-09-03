@@ -103,15 +103,23 @@ function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: Pla
 
   useEffect(() => {
     if (isOpen && clientId) {
-      loadCredentials();
+      loadCredentials(selectedPlatform);
     }
-  }, [isOpen, clientId, selectedPlatform]);
+  }, [isOpen, clientId]);
 
-  const loadCredentials = async () => {
+  useEffect(() => {
+    if (isOpen && clientId && selectedPlatform) {
+      loadCredentials(selectedPlatform);
+    }
+  }, [selectedPlatform]);
+
+  const loadCredentials = async (platform: string) => {
     try {
       setLoading(true);
-      const creds = await manualManagementService.getPlatformCredentials(clientId, selectedPlatform);
+      console.log('🔍 Loading credentials for client:', clientId, 'platform:', platform);
+      const creds = await manualManagementService.getPlatformCredentials(clientId, platform);
       setCredentials(creds);
+      console.log('✅ Credentials loaded:', creds);
     } catch (error) {
       console.error('Error loading credentials:', error);
       setCredentials(null);
