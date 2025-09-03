@@ -24,6 +24,39 @@ export class FileStorageService {
     console.log('📁 [FileStorage] Using bucket:', this.bucketName);
   }
 
+  // Verify bucket exists and is accessible
+  private async ensureBucketExists(): Promise<boolean> {
+    try {
+      console.log('🔍 [FileStorage] Checking bucket existence:', this.bucketName);
+      
+      const { data: buckets, error: bucketsError } = await supabaseServiceClient.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.error('❌ [FileStorage] Error listing buckets:', bucketsError);
+        return false;
+      }
+      
+      const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName);
+      
+      if (!bucketExists) {
+        console.error(`❌ [FileStorage] Bucket '${this.bucketName}' not found`);
+        console.log('📝 [FileStorage] Available buckets:', buckets?.map(b => b.name).join(', ') || 'none');
+        console.log('🔧 [FileStorage] To fix this:');
+        console.log(`   1. Go to Supabase Dashboard > Storage`);
+        console.log(`   2. Create bucket named: ${this.bucketName}`);
+        console.log(`   3. Set as Public: Yes`);
+        console.log(`   4. Configure MIME types: PDF, JPEG, PNG`);
+        return false;
+      }
+      
+      console.log('✅ [FileStorage] Bucket exists and is accessible');
+      return true;
+    } catch (error) {
+      console.error('❌ [FileStorage] Error checking bucket:', error);
+      return false;
+    }
+  }
+
   // Helper para leer archivo como ArrayBuffer de forma robusta
   private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
@@ -257,13 +290,30 @@ export class FileStorageService {
   // Obtener URL de descarga temporal
   async getDownloadUrl(filePath: string, expiresIn: number = 3600): Promise<string | null> {
     try {
+      // Verify bucket exists before attempting to create signed URL
+      const bucketExists = await this.ensureBucketExists();
+      if (!bucketExists) {
+        console.error('❌ [FileStorage] Cannot create download URL - bucket not accessible');
+        return null;
+      }
+      
       console.log('📁 [FileStorage] Creating download URL for:', filePath);
+      
+      // First check if file exists
+      const fileExists = await this.fileExists(filePath);
+      if (!fileExists) {
+        console.error('❌ [FileStorage] File does not exist:', filePath);
+        return null;
+      }
+      
       const { data, error } = await supabaseServiceClient.storage
         .from(this.bucketName)
         .createSignedUrl(filePath, expiresIn);
 
       if (error) {
         console.error('❌ Error creating signed URL:', error);
+        console.log('🔍 [FileStorage] File path attempted:', filePath);
+        console.log('🔍 [FileStorage] Bucket name:', this.bucketName);
         return null;
       }
 
@@ -279,19 +329,49 @@ export class FileStorageService {
   // Verificar si el archivo existe
   async fileExists(filePath: string): Promise<boolean> {
     try {
+      // Verify bucket exists first
+      const bucketExists = await this.ensureBucketExists();
+      if (!bucketExists) {
+        return false;
+      }
+      
+      console.log('🔍 [FileStorage] Checking if file exists:', filePath);
+      
+      // Extract directory and filename from path
+      const lastSlashIndex = filePath.lastIndexOf('/');
+      if (lastSlashIndex === -1) {
+        console.error('❌ [FileStorage] Invalid file path format:', filePath);
+        return false;
+      }
+      
+      const directory = filePath.substring(0, lastSlashIndex);
+      const filename = filePath.substring(lastSlashIndex + 1);
+      
+      console.log('🔍 [FileStorage] Directory:', directory);
+      console.log('🔍 [FileStorage] Filename:', filename);
+      
       const { data, error } = await supabaseServiceClient.storage
         .from(this.bucketName)
-        .list(filePath.substring(0, filePath.lastIndexOf('/')), {
-          search: filePath.substring(filePath.lastIndexOf('/') + 1)
+        .list(directory, {
+          search: filename
         });
 
       if (error) {
+        console.error('❌ [FileStorage] Error listing files:', error);
         return false;
       }
 
-      return data && data.length > 0;
+      const exists = data && data.length > 0;
+      console.log(`${exists ? '✅' : '❌'} [FileStorage] File ${exists ? 'exists' : 'not found'}`);
+      
+      if (!exists) {
+        console.log('🔍 [FileStorage] Files in directory:', data?.map(f => f.name).join(', ') || 'none');
+      }
+      
+      return exists;
 
     } catch (error) {
+      console.error('❌ [FileStorage] Error in fileExists:', error);
       return false;
     }
   }

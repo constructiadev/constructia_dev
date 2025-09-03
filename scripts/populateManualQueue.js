@@ -219,7 +219,9 @@ async function populateManualQueue() {
     // 4. Create documentos with actual files in storage
     console.log('\n4️⃣ Creating documentos with actual files...');
     const documentosData = [];
-    const uploadPromises = [];
+    
+    // Create a map to track successful uploads
+    const uploadedFiles = new Map();
 
     for (let i = 0; i < 150; i++) {
       const empresa = getRandomElement(empresas);
@@ -227,7 +229,10 @@ async function populateManualQueue() {
       const docType = getRandomElement(documentTypes);
       const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
       const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${i + 1}.${fileExtension}`;
-      const filePath = `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/${fileName}`;
+      
+      // Generate proper hash for file path consistency
+      const hash = `hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+      const standardFilePath = `${DEV_TENANT_ID}/obra/${obra.id}/OTROS/v1/${hash}.${fileExtension}`;
       
       // Create dummy file content
       const dummyContent = fileExtension === 'pdf' 
@@ -236,29 +241,42 @@ async function populateManualQueue() {
       
       const fileBuffer = Buffer.from(dummyContent, 'utf-8');
       
-      // Upload file to storage
-      const uploadPromise = supabase.storage
+      // Upload file to storage immediately and track result
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
         .from('UPLOADDOCUMENTS')
-        .upload(filePath, fileBuffer, {
+        .upload(standardFilePath, fileBuffer, {
           contentType: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
           upsert: true
         });
       
-      uploadPromises.push(uploadPromise);
+        if (uploadError) {
+          console.warn(`⚠️ Failed to upload ${fileName}:`, uploadError.message);
+          continue; // Skip this document if upload fails
+        }
+        
+        uploadedFiles.set(standardFilePath, uploadData);
+        console.log(`✅ Uploaded: ${fileName} -> ${standardFilePath}`);
+      } catch (uploadError) {
+        console.warn(`⚠️ Upload error for ${fileName}:`, uploadError);
+        continue; // Skip this document if upload fails
+      }
       
       documentosData.push({
         tenant_id: DEV_TENANT_ID,
         entidad_tipo: 'obra',
         entidad_id: obra.id,
         categoria: 'OTROS',
-        file: filePath,
+        file: standardFilePath,
         mime: fileExtension === 'pdf' ? 'application/pdf' : 'image/jpeg',
         size_bytes: generateRandomFileSize(),
-        hash_sha256: `hash_${Date.now()}_${i}`,
+        hash_sha256: hash,
         version: 1,
         estado: 'pendiente',
         metadatos: {
           original_filename: fileName,
+          storage_path: standardFilePath,
+          upload_verified: true,
           ai_extraction: {
             categoria_probable: 'OTROS',
             confianza: generateRandomConfidence() / 100
@@ -270,14 +288,8 @@ async function populateManualQueue() {
       });
     }
 
-    // Wait for all file uploads to complete
-    console.log('📁 Uploading dummy files to storage...');
-    const uploadResults = await Promise.allSettled(uploadPromises);
-    const successfulUploads = uploadResults.filter(result => result.status === 'fulfilled').length;
-    const failedUploads = uploadResults.filter(result => result.status === 'rejected').length;
-    
-    console.log(`✅ Uploaded ${successfulUploads} files successfully`);
-    if (failedUploads > 0) console.log(`⚠️ Failed to upload ${failedUploads} files`);
+    console.log(`✅ Successfully uploaded ${uploadedFiles.size} files to storage`);
+    console.log(`⚠️ Skipped ${150 - documentosData.length} files due to upload errors`);
 
     const { data: createdDocumentos, error: documentosError } = await supabase
       .from('documentos')
