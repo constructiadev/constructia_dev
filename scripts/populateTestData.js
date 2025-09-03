@@ -455,9 +455,15 @@ async function populateTestData() {
         plataforma: 'nalanda',
         alias: 'Nalanda García',
         credenciales: {
-          api_base: 'https://api.nalanda.com',
-          api_key: 'nal_key_abc123',
-          webhook_secret: 'webhook_secret_nalanda'
+          tipo: 'api',
+          apiBase: 'https://api.nalanda.com',
+          apiKey: 'nal_key_abc123',
+          webhookSecret: 'webhook_secret_nalanda',
+          endpoints: {
+            upload: '/documents/upload',
+            validate: '/documents/validate',
+            status: '/documents/status'
+          }
         },
         estado: 'ready'
       },
@@ -467,9 +473,15 @@ async function populateTestData() {
         plataforma: 'ctaima',
         alias: 'CTAIMA López',
         credenciales: {
-          api_base: 'https://api.ctaima.com',
-          api_key: 'cta_key_def456',
-          webhook_secret: 'webhook_secret_ctaima'
+          tipo: 'api',
+          apiBase: 'https://api.ctaima.com',
+          apiKey: 'cta_key_def456',
+          webhookSecret: 'webhook_secret_ctaima',
+          endpoints: {
+            upload: '/api/documents',
+            validate: '/api/validate',
+            status: '/api/status'
+          }
         },
         estado: 'ready'
       },
@@ -479,9 +491,15 @@ async function populateTestData() {
         plataforma: 'ecoordina',
         alias: 'Ecoordina Martín',
         credenciales: {
-          api_base: 'https://api.ecoordina.com',
-          api_key: '',
-          webhook_secret: ''
+          tipo: 'api',
+          apiBase: 'https://api.ecoordina.com',
+          apiKey: '',
+          webhookSecret: '',
+          endpoints: {
+            upload: '/upload',
+            validate: '/validate',
+            status: '/status'
+          }
         },
         estado: 'error'
       }
