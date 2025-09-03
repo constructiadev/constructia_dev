@@ -82,6 +82,14 @@ async function populateTestData() {
         name: 'Carlos Martín',
         role: 'ClienteAdmin',
         active: true
+      },
+      {
+        id: '20000000-0000-0000-0000-000000000001',
+        tenant_id: DEV_TENANT_ID,
+        email: 'admin@constructia.com',
+        name: 'Super Admin',
+        role: 'SuperAdmin',
+        active: true
       }
     ];
 

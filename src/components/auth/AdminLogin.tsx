@@ -35,9 +35,14 @@ export default function AdminLogin() {
         .eq('id', authData.user.id)
         .maybeSingle();
 
-      if (profileError || !userProfile || userProfile.role !== 'SuperAdmin') {
+      if (profileError || !userProfile) {
+        await supabase.auth.signOut(); // Sign out if no profile found
+        throw new Error('User profile not found');
+      }
+
+      if (userProfile.role !== 'SuperAdmin') {
         await supabase.auth.signOut(); // Sign out if not admin
-        throw new Error('Access denied: Admin role required');
+        throw new Error(`Access denied: Only SuperAdmin can access admin panel. Your role: ${userProfile.role}`);
       }
 
       navigate('/admin/dashboard', { replace: true });
