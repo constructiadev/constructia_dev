@@ -534,7 +534,6 @@ export class ManualManagementService {
         .update(updateData)
         .eq('id', documentId)
         .eq('tenant_id', this.tenantId);
-        .eq('tenant_id', this.tenantId);
 
       if (error) {
         console.error('Error updating document status:', error);
