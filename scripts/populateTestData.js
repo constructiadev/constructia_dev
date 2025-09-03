@@ -18,6 +18,27 @@ async function populateTestData() {
   console.log('🚀 Populating test data for manual management...\n');
 
   try {
+    // 0. Cleanup existing test data (in reverse dependency order)
+    console.log('0️⃣ Cleaning up existing test data...');
+    
+    // Delete in reverse dependency order to avoid foreign key violations
+    await supabase.from('manual_upload_queue').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('receipts').delete().in('client_id', [
+      '20000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000002', 
+      '20000000-0000-0000-0000-000000000003'
+    ]);
+    await supabase.from('adaptadores').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('trabajadores').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('proveedores').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('documentos').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('obras').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('empresas').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('users').delete().eq('tenant_id', DEV_TENANT_ID);
+    await supabase.from('tenants').delete().eq('id', DEV_TENANT_ID);
+    
+    console.log('✅ Cleanup completed');
+
     // 1. Create test tenant
     console.log('1️⃣ Creating test tenant...');
     const { error: tenantError } = await supabase
