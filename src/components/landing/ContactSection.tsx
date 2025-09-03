@@ -32,7 +32,11 @@ interface ContactForm {
   urgency: string;
 }
 
-export default function ContactSection() {
+interface ContactSectionProps {
+  id?: string;
+}
+
+export default function ContactSection({ id = 'contacto' }: ContactSectionProps) {
   const [formData, setFormData] = useState<ContactForm>({
     name: '',
     email: '',
