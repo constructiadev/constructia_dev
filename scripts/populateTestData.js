@@ -450,7 +450,6 @@ async function populateTestData() {
     console.log('9️⃣ Creating platform adapters...');
     const testAdaptadores = [
       {
-        id: '80000000-0000-0000-0000-000000000001',
         tenant_id: DEV_TENANT_ID,
         plataforma: 'nalanda',
         alias: 'Nalanda García',
@@ -470,7 +469,6 @@ async function populateTestData() {
         updated_at: new Date().toISOString()
       },
       {
-        id: '80000000-0000-0000-0000-000000000002',
         tenant_id: DEV_TENANT_ID,
         plataforma: 'ctaima',
         alias: 'CTAIMA López',
@@ -490,7 +488,6 @@ async function populateTestData() {
         updated_at: new Date().toISOString()
       },
       {
-        id: '80000000-0000-0000-0000-000000000003',
         tenant_id: DEV_TENANT_ID,
         plataforma: 'ecoordina',
         alias: 'Ecoordina Martín',
