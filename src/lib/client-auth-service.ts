@@ -76,7 +76,7 @@ export class ClientAuthService {
             tenant_id: DEV_TENANT_ID,
             email: authData.user.email!,
             name: defaultName,
-            role: 'ClienteDemo',
+            role: 'Cliente',
             active: true
           }, {
             onConflict: 'tenant_id,email'
