@@ -1,7 +1,10 @@
+// Load environment variables for Node.js context
+import 'dotenv/config';
+
 // ConstructIA - Manual Management Service
-import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from './supabase-real';
-import { geminiProcessor } from './gemini-document-processor';
-import { fileStorageService } from './file-storage-service';
+import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID, DEV_ADMIN_USER_ID } from '../src/lib/supabase-real';
+import { geminiProcessor } from '../src/lib/gemini-document-processor';
+import { fileStorageService } from '../src/lib/file-storage-service';
 
 export interface ManualDocument {
   id: string;
