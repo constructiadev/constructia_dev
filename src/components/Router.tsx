@@ -49,7 +49,7 @@ export default function Router() {
         {/* Admin login - Solo accesible desde el escudo del footer */}
         <Route path="/admin-login" element={<AdminLogin />} />
         
-        {/* Client login - Acceso aislado para clientes externos */}
+        {/* Client login - Acceso aislado para clientes externos - FUNCIONAL */}
         <Route path="/client-login" element={<ClientLogin />} />
 
         {/* Legal pages */}
