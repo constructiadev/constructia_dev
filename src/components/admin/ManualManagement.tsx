@@ -429,8 +429,13 @@ export default function ManualManagement() {
 
   const handleReuploadCorrupted = async (document: ManualDocument) => {
     try {
-      // Create file input for re-upload
-      const input = document.createElement('input');
+      // Check if document object is available
+      if (typeof window === 'undefined' || !window.document) {
+        throw new Error('Document object not available');
+      }
+
+      // Create file input for re-upload using window.document
+      const input = window.document.createElement('input');
       input.type = 'file';
       input.accept = '.pdf,.jpg,.jpeg,.png';
       
