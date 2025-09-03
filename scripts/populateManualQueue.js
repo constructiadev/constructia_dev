@@ -1077,6 +1077,47 @@ export class ManualManagementService {
     try {
       console.log('🌱 Populating manual management test data...');
 
+      // 1. Ensure bucket exists and is properly configured
+      console.log('1️⃣ Ensuring bucket uploaddocuments exists and is configured...');
+      
+      // Check if bucket exists
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.error('❌ Failed to list buckets:', bucketsError);
+        throw bucketsError;
+      }
+      
+      const bucketExists = buckets?.some(bucket => bucket.name === 'uploaddocuments');
+      
+      if (!bucketExists) {
+        console.log('📁 Creating bucket uploaddocuments...');
+        
+        // Create the bucket
+        const { data: newBucket, error: createError } = await supabase.storage
+          .createBucket('uploaddocuments', {
+            public: true,
+            allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+            fileSizeLimit: 20971520 // 20MB
+          });
+        
+        if (createError) {
+          console.error('❌ Failed to create bucket uploaddocuments:', createError);
+          console.log('\n🔧 Manual steps to create the bucket:');
+          console.log('1. Go to Supabase Dashboard > Storage');
+          console.log('2. Click "New bucket" and name it: uploaddocuments');
+          console.log('3. Set as Public: Yes');
+          console.log('4. Configure MIME types: PDF, JPEG, PNG');
+          console.log('5. Set file size limit: 20MB');
+          console.log('6. Save and try again\n');
+          throw createError;
+        }
+        
+        console.log('✅ Bucket uploaddocuments created successfully');
+      } else {
+        console.log('✅ Bucket uploaddocuments already exists');
+      }
+
       // Clear existing queue first
       await supabaseServiceClient
         .from('manual_upload_queue')
@@ -1195,7 +1236,7 @@ export class ManualManagementService {
         filesToUpload.map(async (fileInfo) => {
           try {
             const { data, error } = await supabase.storage
-              .from('UPLOADDOCUMENTS')
+              .from('uploaddocuments')
               .upload(fileInfo.path, fileInfo.content, {
                 contentType: fileInfo.mimeType,
                 upsert: true
