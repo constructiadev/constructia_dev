@@ -335,8 +335,28 @@ function FileUploadModal({
 }: FileUploadModalProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [clientId, setClientId] = useState(selectedClient || '');
-  const [projectId, setProjectId] = useState(selectedProject || '');
+  const [clientId, setClientId] = useState('');
+  const [projectId, setProjectId] = useState('');
+
+  // Initialize form when modal opens or selectedClient changes
+  useEffect(() => {
+    if (isOpen) {
+      setClientId(selectedClient || '');
+      setProjectId(selectedProject || '');
+    }
+  }, [isOpen, selectedClient, selectedProject]);
+
+  // Reset project when client changes (only if client field is enabled)
+  useEffect(() => {
+    if (!selectedClient && clientId) {
+      setProjectId('');
+    }
+  }, [clientId, selectedClient]);
+
+  // Get available projects for selected client
+  const availableProjects = clientGroups
+    .find(c => c.client_id === clientId)
+    ?.companies.flatMap(company => company.projects) || [];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -399,12 +419,15 @@ function FileUploadModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cliente *
+                {selectedClient ? 'Cliente (preseleccionado)' : 'Cliente *'}
               </label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                disabled={!!selectedClient}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                  selectedClient ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
                 required
               >
                 <option value="">Seleccionar cliente...</option>
@@ -414,6 +437,11 @@ function FileUploadModal({
                   </option>
                 ))}
               </select>
+              {selectedClient && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Cliente preseleccionado desde la cola individual
+                </p>
+              )}
             </div>
 
             <div>
@@ -428,15 +456,22 @@ function FileUploadModal({
                 disabled={!clientId}
               >
                 <option value="">Seleccionar proyecto...</option>
-                {clientGroups
-                  .find(c => c.client_id === clientId)
-                  ?.companies.flatMap(company => company.projects)
-                  .map(project => (
+                {availableProjects.map(project => (
                     <option key={project.project_id} value={project.project_id}>
                       {project.project_name}
                     </option>
                   ))}
               </select>
+              {!clientId && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Primero selecciona un cliente
+                </p>
+              )}
+              {clientId && availableProjects.length === 0 && (
+                <p className="text-xs text-yellow-600 mt-1">
+                  Este cliente no tiene proyectos disponibles
+                </p>
+              )}
             </div>
           </div>
 
@@ -646,7 +681,7 @@ export default function ManualManagement() {
   };
 
   const handleUploadForClient = (clientId: string, projectId: string) => {
-    setSelectedClientForUpload({ clientId, projectId });
+    setSelectedClientForUpload({ clientId, projectId: '' }); // Don't preselect project, let admin choose
     setShowUploadModal(true);
   };
 
