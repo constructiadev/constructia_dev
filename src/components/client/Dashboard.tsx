@@ -1,282 +1,112 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { useAuth } from '../../lib/auth-context';
-import { clientDataService } from '../../lib/client-data-service';
+import React from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Users, 
+  CreditCard, 
+  Settings, 
+  Database,
+  Activity,
+  BarChart3,
+  Brain,
+  LogOut,
+  Shield,
+  Zap,
+  FileText,
+  Mail
+} from 'lucide-react';
+import Logo from '../common/Logo';
 
-interface DashboardStats {
-  totalProjects: number;
-  totalCompanies: number;
-  totalDocuments: number;
-  documentsProcessed: number;
-  storageUsed: number;
-  storageLimit: number;
-}
+const navigation = [
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { name: 'Clientes', href: '/admin/clients', icon: Users },
+  { name: 'Financiero', href: '/admin/financial', icon: CreditCard },
+  { name: 'IA & Integraciones', href: '/admin/ai', icon: Brain },
+  { name: 'Integraciones', href: '/admin/integrations', icon: Zap },
+  { name: 'Base de Datos', href: '/admin/database', icon: Database },
+  { name: 'API Management', href: '/admin/api', icon: BarChart3 },
+  { name: 'Auditoría', href: '/admin/audit', icon: Activity },
+  { name: 'Mensajería', href: '/admin/messaging', icon: Mail },
+  { name: 'Gestión Manual', href: '/admin/manual', icon: FileText },
+  { name: 'Configuración', href: '/admin/settings', icon: Settings },
+];
 
-export default function ClientDashboard() {
+export default function AdminLayout() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalProjects: 0,
-    totalCompanies: 0,
-    totalDocuments: 0,
-    documentsProcessed: 0,
-    storageUsed: 0,
-    storageLimit: 0
-  });
-  const [clientData, setClientData] = useState<any>(null);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!user?.tenant_id) {
-        throw new Error('No se pudo obtener información del tenant del usuario');
-      }
-      
-      // Get client profile for this tenant
-      const clientProfile = await clientDataService.getClientProfile(user.tenant_id);
-      if (!clientProfile) {
-        throw new Error('No se encontró perfil de cliente para este usuario');
-      }
-      setClientData(clientProfile);
-
-      // Obtener estadísticas
-      const stats = await clientDataService.getClientStats(user.tenant_id);
-      setStats(stats);
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading dashboard data');
-    } finally {
-      setLoading(false);
-    }
+  const handleLogout = async () => {
+    // Logout simple para desarrollo
+    navigate('/landing', { replace: true });
   };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getStoragePercentage = () => {
-    if (stats.storageLimit === 0) return 0;
-    return Math.round((stats.storageUsed / stats.storageLimit) * 100);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de Conexión</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={loadDashboardData}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Bienvenido, {clientData?.contact_name || 'Usuario'}
-        </h1>
-        <p className="text-gray-600">
-          {clientData?.company_name || 'Empresa'} • Plan {clientData?.subscription_plan || 'básico'}
-        </p>
-        <div className="mt-3 flex items-center space-x-2">
-          <CheckCircle className="w-4 h-4 text-green-600" />
-          <span className="text-sm text-green-600">Conectado a base de datos</span>
-          <span className="text-sm text-gray-500">• ID: {clientData?.client_id}</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
+        <div className="flex h-16 items-center justify-center border-b border-gray-200 px-3">
+          <Logo size="md" />
+          <div className="ml-3 flex items-center bg-red-100 px-2 py-1 rounded text-xs text-red-800 font-semibold">
+            <Shield className="h-3 w-3 mr-1" />
+            ADMIN
+          </div>
+        </div>
+        
+        <nav className="mt-8 px-4">
+          <ul className="space-y-2">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.name}>
+                  <NavLink
+                    to={item.href}
+                    end={item.href === '/admin'}
+                    className={({ isActive }) =>
+                      [
+                        'group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                        isActive ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'
+                      ].join(' ')
+                    }
+                  >
+                    <Icon className="mr-3 h-5 w-5" />
+                    {item.name}
+                  </NavLink>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="absolute bottom-4 left-4 right-4">
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center px-4 py-3 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="mr-3 h-5 w-5" />
+            Cerrar Sesión
+          </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Building2 className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Empresas</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <FileText className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Proyectos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Documentos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-orange-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Procesados</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.documentsProcessed}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Storage Usage */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Uso de Almacenamiento</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">
-              {formatBytes(stats.storageUsed)} de {formatBytes(stats.storageLimit)} utilizados
+      {/* Main Content */}
+      <div className="pl-64">
+        <div className="flex h-16 items-center justify-between bg-white px-6 shadow-sm">
+          <h1 className="text-xl font-semibold text-gray-800">
+            Panel de Administración
+          </h1>
+          <div className="flex items-center space-x-4">
+            <Shield className="h-5 w-5 text-green-600" />
+            <span className="text-sm font-medium text-gray-700">
+              admin@constructia.com
             </span>
-            <span className="text-gray-900 font-medium">{getStoragePercentage()}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className={`h-2 rounded-full ${
-                getStoragePercentage() > 90 ? 'bg-red-500' : 
-                getStoragePercentage() > 70 ? 'bg-yellow-500' : 'bg-green-500'
-              }`}
-              style={{ width: `${Math.min(getStoragePercentage(), 100)}%` }}
-            ></div>
-          </div>
-          {getStoragePercentage() > 90 && (
-            <div className="flex items-center text-red-600 text-sm mt-2">
-              <AlertCircle className="w-4 h-4 mr-1" />
-              Almacenamiento casi lleno. Considera actualizar tu plan.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => navigate('/client/upload')}
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <FileText className="w-8 h-8 text-green-600 mr-3" />
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Subir Documentos</p>
-              <p className="text-sm text-gray-600">Añadir nuevos documentos</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => navigate('/client/companies')}
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Building2 className="w-8 h-8 text-blue-600 mr-3" />
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Gestionar Empresas</p>
-              <p className="text-sm text-gray-600">Administrar empresas</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => navigate('/client/metrics')}
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <TrendingUp className="w-8 h-8 text-purple-600 mr-3" />
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Ver Métricas</p>
-              <p className="text-sm text-gray-600">Analizar rendimiento</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
-          <button
-            onClick={loadDashboardData}
-            className="flex items-center text-blue-600 hover:text-blue-700 text-sm"
-          >
-            <RefreshCw className="w-4 h-4 mr-1" />
-            Actualizar
-          </button>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-center p-3 bg-green-50 rounded-lg">
-            <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">Base de datos conectada</p>
-              <p className="text-sm text-gray-500">Datos cargados desde Supabase - hace 1 min</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-blue-50 rounded-lg">
-            <FileText className="w-5 h-5 text-blue-500 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">
-                {stats.totalDocuments} documentos en tu cuenta
-              </p>
-              <p className="text-sm text-gray-500">Gestión documental activa - hace 5 min</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-purple-50 rounded-lg">
-            <Building2 className="w-5 h-5 text-purple-500 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">
-                {stats.totalProjects} proyectos activos
-              </p>
-              <p className="text-sm text-gray-500">Gestión de proyectos - hace 10 min</p>
-            </div>
+            <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+              ADMIN
+            </span>
           </div>
         </div>
+        
+        <main className="p-6">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

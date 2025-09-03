@@ -1,17 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from './supabase-real';
-import { getCurrentUserTenant } from './supabase-new';
-
-interface User {
-  id: string;
-  email: string;
-  tenant_id: string;
-  role: string;
-  name?: string;
-}
+import { ClientAuthService, type AuthenticatedClient } from './client-auth-service';
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthenticatedClient | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -34,84 +25,49 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthenticatedClient | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check for existing session
     checkSession();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          await loadUserProfile(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    // Check session periodically for development
+    const interval = setInterval(checkSession, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const checkSession = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
+      const currentClient = await ClientAuthService.getCurrentClient();
+      setUser(currentClient);
+      
+      if (currentClient) {
+        console.log('✅ [AuthContext] Client session verified:', currentClient.email);
+      } else {
+        console.log('⚠️ [AuthContext] No active client session');
       }
     } catch (error) {
       console.error('Error checking session:', error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadUserProfile = async (userId: string) => {
-    try {
-      // Get user profile from new multi-tenant schema
-      const { data: userProfile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error loading user profile:', error);
-        setUser(null);
-        return;
-      }
-
-      setUser({
-        id: userProfile.id,
-        email: userProfile.email,
-        tenant_id: userProfile.tenant_id,
-        role: userProfile.role,
-        name: userProfile.name
-      });
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-      setUser(null);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      console.log('🔐 [AuthContext] Attempting client sign in:', email);
+      
+      const authenticatedClient = await ClientAuthService.authenticateClient(email, password);
 
-      if (error) {
-        throw new Error(error.message);
+      if (!authenticatedClient) {
+        throw new Error('Credenciales inválidas o acceso denegado');
       }
 
-      if (!data.user) {
-        throw new Error('No se pudo autenticar el usuario');
-      }
+      setUser(authenticatedClient);
+      console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
 
-      // User profile will be loaded by the auth state change listener
     } catch (error) {
       console.error('Error signing in:', error);
       throw error;
@@ -120,11 +76,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw new Error(error.message);
-      }
+      await ClientAuthService.logoutClient();
       setUser(null);
+      console.log('✅ [AuthContext] Client signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;

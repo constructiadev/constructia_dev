@@ -10,20 +10,16 @@ import {
   CheckCircle,
   Settings as SettingsIcon
 } from 'lucide-react';
-import { useAuth } from '../../lib/auth-context';
-import { clientDataService } from '../../lib/client-data-service';
+import { useClientData } from '../../hooks/useClientData';
 import { updateClientObraliaCredentials } from '../../lib/supabase';
 
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
 
 export default function Settings() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { client, loading, error, refreshData } = useClientData();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [clientData, setClientData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
   const [showObraliaModal, setShowObraliaModal] = useState(false);
   const [obraliaCredentials, setObraliaCredentials] = useState({
     username: '',
@@ -31,48 +27,24 @@ export default function Settings() {
   });
 
   useEffect(() => {
-    loadClientData();
-  }, []);
-
-  const loadClientData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user?.tenant_id) {
-        throw new Error('No se pudo obtener información del tenant del usuario');
-      }
-      
-      // Get client profile for this tenant
-      const clientProfile = await clientDataService.getClientProfile(user.tenant_id);
-      if (!clientProfile) {
-        throw new Error('No se encontró perfil de cliente para este usuario');
-      }
-      setClientData(clientProfile);
-      
+    if (client) {
       // Configurar credenciales existentes
-      if (activeClient.obralia_credentials) {
+      if (client.obralia_credentials) {
         setObraliaCredentials({
-          username: activeClient.obralia_credentials.username || '',
-          password: activeClient.obralia_credentials.password || ''
+          username: client.obralia_credentials.username || '',
+          password: client.obralia_credentials.password || ''
         });
       }
       
       // Mostrar modal si no está configurado
-      if (!activeClient.obralia_credentials?.configured) {
+      if (!client.obralia_credentials?.configured) {
         setShowObraliaModal(true);
       }
-      
-    } catch (err) {
-      console.error('Error loading client data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading client data');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [client]);
 
   const handleSaveObraliaCredentials = async () => {
-    if (!clientData || !obraliaCredentials.username || !obraliaCredentials.password) return;
+    if (!client || !obraliaCredentials.username || !obraliaCredentials.password) return;
     
     try {
       setSaving(true);
@@ -86,8 +58,8 @@ export default function Settings() {
         return;
       }
       
-      await updateClientObraliaCredentials(clientData.id, obraliaCredentials);
-      await loadClientData(); // Recargar datos
+      await updateClientObraliaCredentials(client.id, obraliaCredentials);
+      await refreshData(); // Recargar datos
       setMessage({ type: 'success', text: 'Credenciales de Obralia actualizadas correctamente' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
@@ -99,11 +71,11 @@ export default function Settings() {
   };
 
   const handleObraliaModalSave = async (credentials: { username: string; password: string }) => {
-    if (!clientData) return;
+    if (!client) return;
     
     try {
-      await updateClientObraliaCredentials(clientData.id, credentials);
-      await loadClientData();
+      await updateClientObraliaCredentials(client.id, credentials);
+      await refreshData();
       setShowObraliaModal(false);
       setMessage({ type: 'success', text: 'Credenciales de Obralia configuradas correctamente' });
       setTimeout(() => setMessage(null), 3000);
@@ -119,7 +91,7 @@ export default function Settings() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando configuración...</p>
+          <p className="text-gray-600">Cargando configuración del tenant...</p>
         </div>
       </div>
     );
@@ -132,7 +104,7 @@ export default function Settings() {
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={loadClientData}
+            onClick={refreshData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -142,7 +114,7 @@ export default function Settings() {
     );
   }
 
-  if (!clientData) {
+  if (!client) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -160,8 +132,8 @@ export default function Settings() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
             <p className="text-gray-600">Gestiona tu perfil y configuraciones de integración</p>
-            <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-              ✅ DATOS REALES
+            <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+              🔒 DATOS AISLADOS - Tenant: {client.tenant_id.substring(0, 8)}
             </div>
           </div>
         </div>
@@ -193,35 +165,35 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Empresa
               </label>
-              <p className="text-gray-900 font-medium">{clientData.company_name}</p>
+              <p className="text-gray-900 font-medium">{client.company_name}</p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Contacto
               </label>
-              <p className="text-gray-900">{clientData.contact_name}</p>
+              <p className="text-gray-900">{client.name}</p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
               </label>
-              <p className="text-gray-900">{clientData.email}</p>
+              <p className="text-gray-900">{client.email}</p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Teléfono
               </label>
-              <p className="text-gray-900">{clientData.phone || 'No especificado'}</p>
+              <p className="text-gray-900">No especificado</p>
             </div>
             
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Dirección
               </label>
-              <p className="text-gray-900">{clientData.address || 'No especificada'}</p>
+              <p className="text-gray-900">No especificada</p>
             </div>
           </div>
         </div>
@@ -239,13 +211,13 @@ export default function Settings() {
                 Plan Actual
               </label>
               <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                clientData.subscription_plan === 'enterprise' 
+                client.subscription_plan === 'enterprise' 
                   ? 'bg-purple-100 text-purple-800'
-                  : clientData.subscription_plan === 'professional'
+                  : client.subscription_plan === 'professional'
                   ? 'bg-blue-100 text-blue-800'
                   : 'bg-green-100 text-green-800'
               }`}>
-                {clientData.subscription_plan.charAt(0).toUpperCase() + clientData.subscription_plan.slice(1)}
+                {client.subscription_plan.charAt(0).toUpperCase() + client.subscription_plan.slice(1)}
               </span>
             </div>
             
@@ -254,14 +226,14 @@ export default function Settings() {
                 Estado
               </label>
               <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                clientData.subscription_status === 'active' 
+                client.subscription_status === 'active' 
                   ? 'bg-green-100 text-green-800'
-                  : clientData.subscription_status === 'suspended'
+                  : client.subscription_status === 'suspended'
                   ? 'bg-yellow-100 text-yellow-800'
                   : 'bg-red-100 text-red-800'
               }`}>
-                {clientData.subscription_status === 'active' ? 'Activa' : 
-                 clientData.subscription_status === 'suspended' ? 'Suspendida' : 'Cancelada'}
+                {client.subscription_status === 'active' ? 'Activa' : 
+                 client.subscription_status === 'suspended' ? 'Suspendida' : 'Cancelada'}
               </span>
             </div>
           </div>
@@ -305,7 +277,7 @@ export default function Settings() {
             
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                {clientData.obralia_credentials?.configured ? (
+                {client.obralia_credentials?.configured ? (
                   <>
                     <CheckCircle className="w-5 h-5 text-green-500" />
                     <span className="text-sm text-green-600">Credenciales configuradas</span>
@@ -338,8 +310,8 @@ export default function Settings() {
           </div>
           
           <PlatformCredentialsManager 
-            clientId={clientData?.id || ''}
-            onCredentialsUpdated={loadClientData}
+            clientId={client?.id || ''}
+            onCredentialsUpdated={refreshData}
           />
         </div>
 
@@ -357,7 +329,7 @@ export default function Settings() {
                 <p className="text-sm text-gray-600">Plataforma de gestión de documentos</p>
               </div>
               <div className="flex items-center space-x-2">
-                {clientData.obralia_credentials?.configured ? (
+                {client.obralia_credentials?.configured ? (
                   <>
                     <CheckCircle className="w-5 h-5 text-green-500" />
                     <span className="text-sm text-green-600">Conectado</span>
@@ -378,7 +350,7 @@ export default function Settings() {
       <ObraliaCredentialsModal
         isOpen={showObraliaModal}
         onSave={handleObraliaModalSave}
-        clientName={clientData.company_name}
+        clientName={client?.company_name || 'Cliente'}
       />
     </>
   );

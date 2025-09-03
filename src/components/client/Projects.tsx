@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
+import { useClientProjects } from '../../hooks/useClientData';
 import { useAuth } from '../../lib/auth-context';
-import { clientDataService } from '../../lib/client-data-service';
 
 interface Project {
   id: string;
@@ -27,10 +27,8 @@ interface Company {
 
 export default function Projects() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { projects, loading, error, refreshProjects } = useClientProjects();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -45,31 +43,24 @@ export default function Projects() {
   });
 
   useEffect(() => {
-    loadProjects();
+    loadCompanies();
   }, []);
 
-  const loadProjects = async () => {
+  const loadCompanies = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
       if (!user?.tenant_id) {
-        throw new Error('No se pudo obtener información del tenant del usuario');
+        await refreshProjects(); // Refresh the projects list
+        setCompanies([]);
+        return;
       }
       
-      // Obtener proyectos del cliente
-      const projectsData = await clientDataService.getClientProjects(user.tenant_id);
-      setProjects(projectsData || []);
-      
       // Obtener empresas del cliente
-      const companiesData = await clientDataService.getClientCompanies(user.tenant_id);
+      const { getClientCompanies } = await import('../../lib/client-isolated-data');
+      const companiesData = await getClientCompanies(user.tenant_id);
       setCompanies(companiesData || []);
       
     } catch (err) {
-      console.error('Error loading projects:', err);
-      setError(err instanceof Error ? err.message : 'Error loading projects');
-    } finally {
-      setLoading(false);
+      console.error('Error loading companies:', err);
     }
   };
 
@@ -146,7 +137,7 @@ export default function Projects() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando proyectos...</p>
+          <p className="text-gray-600">Cargando proyectos del tenant...</p>
         </div>
       </div>
     );
@@ -159,7 +150,7 @@ export default function Projects() {
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={loadProjects}
+            onClick={refreshProjects}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -175,8 +166,8 @@ export default function Projects() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Proyectos</h1>
           <p className="text-gray-600">Gestiona tus proyectos de construcción</p>
-          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            ✅ DATOS REALES - {projects.length} proyectos cargados
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔒 DATOS AISLADOS - {projects.length} proyectos del tenant
           </div>
         </div>
         <button

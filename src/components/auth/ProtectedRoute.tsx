@@ -20,7 +20,7 @@ export default function ProtectedRoute({
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Verificando autenticación...</p>
+          <p className="text-gray-600">Verificando acceso del tenant...</p>
         </div>
       </div>
     );
@@ -32,12 +32,15 @@ export default function ProtectedRoute({
 
   // Check role requirements
   if (requireRole === 'admin' && user.role !== 'SuperAdmin') {
-    return <Navigate to="/client/dashboard" replace />;
+    console.warn('⚠️ [ProtectedRoute] Admin access denied for role:', user.role);
+    return <Navigate to="/client-login" replace />;
   }
 
   if (requireRole === 'client' && !['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'].includes(user.role)) {
-    return <Navigate to="/admin/dashboard" replace />;
+    console.warn('⚠️ [ProtectedRoute] Client access denied for role:', user.role);
+    return <Navigate to="/client-login" replace />;
   }
 
+  console.log('✅ [ProtectedRoute] Access granted for:', user.email, 'Role:', user.role, 'Tenant:', user.tenant_id);
   return <>{children}</>;
 }

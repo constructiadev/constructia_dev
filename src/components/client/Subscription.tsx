@@ -1,71 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building } from 'lucide-react';
-import { useAuth } from '../../lib/auth-context';
-import { clientDataService } from '../../lib/client-data-service';
-
-interface SubscriptionData {
-  id: string;
-  plan: string;
-  status: string;
-  current_period_start: string;
-  current_period_end: string;
-  stripe_subscription_id?: string;
-}
-
-interface ClientData {
-  id: string;
-  company_name: string;
-  subscription_plan: string;
-  subscription_status: string;
-  storage_used: number;
-  storage_limit: number;
-  tokens_available: number;
-}
+import { useClientData } from '../../hooks/useClientData';
 
 export default function Subscription() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [clientData, setClientData] = useState<any>(null);
+  const { client, loading, error, refreshData } = useClientData();
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadSubscriptionData();
-  }, []);
-
-  const loadSubscriptionData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user?.tenant_id) {
-        throw new Error('No se pudo obtener información del tenant del usuario');
-      }
-      
-      // Get client profile for this tenant
-      const clientProfile = await clientDataService.getClientProfile(user.tenant_id);
-      if (!clientProfile) {
-        throw new Error('No se encontró perfil de cliente para este usuario');
-      }
-      setClientData(clientProfile);
-      
+    if (client) {
       // Simular datos de suscripción basados en el cliente real
       const mockSubscription = {
-        id: `sub_${activeClient.id}`,
-        plan: activeClient.subscription_plan,
-        status: activeClient.subscription_status,
+        id: `sub_${client.id}`,
+        plan: client.subscription_plan,
+        status: client.subscription_status,
         current_period_start: new Date().toISOString().split('T')[0],
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       };
       setSubscriptionData(mockSubscription);
-      
-    } catch (err) {
-      console.error('Error loading subscription data:', err);
-      setError(err instanceof Error ? err.message : 'Error loading subscription data');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [client]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -104,8 +57,8 @@ export default function Subscription() {
   };
 
   const getStoragePercentage = () => {
-    if (!clientData || clientData.storage_limit === 0) return 0;
-    return Math.round((clientData.storage_used / clientData.storage_limit) * 100);
+    if (!client || client.storage_limit === 0) return 0;
+    return Math.round((client.storage_used / client.storage_limit) * 100);
   };
 
   if (loading) {
@@ -113,7 +66,7 @@ export default function Subscription() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando información de suscripción...</p>
+          <p className="text-gray-600">Cargando suscripción del tenant...</p>
         </div>
       </div>
     );
@@ -126,7 +79,7 @@ export default function Subscription() {
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={loadSubscriptionData}
+            onClick={refreshData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -140,8 +93,8 @@ export default function Subscription() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
-        <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-          ✅ DATOS REALES
+        <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+          🔒 DATOS AISLADOS
         </div>
         <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
           Actualizar Plan
@@ -154,20 +107,20 @@ export default function Subscription() {
           <h2 className="text-lg font-semibold text-gray-900">Plan Actual</h2>
           <div className="flex items-center space-x-2">
             <Building className="h-5 w-5 text-gray-400" />
-            <span className="text-sm text-gray-600">{clientData?.company_name}</span>
+            <span className="text-sm text-gray-600">{client?.company_name}</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <div className="flex items-center space-x-3 mb-3">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPlanColor(clientData?.subscription_plan || '')}`}>
-                {clientData?.subscription_plan?.toUpperCase()}
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPlanColor(client?.subscription_plan || '')}`}>
+                {client?.subscription_plan?.toUpperCase()}
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(clientData?.subscription_status || '')}`}>
-                {clientData?.subscription_status === 'active' ? 'Activo' : 
-                 clientData?.subscription_status === 'cancelled' ? 'Cancelado' : 
-                 clientData?.subscription_status === 'suspended' ? 'Suspendido' : 'Desconocido'}
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(client?.subscription_status || '')}`}>
+                {client?.subscription_status === 'active' ? 'Activo' : 
+                 client?.subscription_status === 'cancelled' ? 'Cancelado' : 
+                 client?.subscription_status === 'suspended' ? 'Suspendido' : 'Desconocido'}
               </span>
             </div>
 
@@ -193,7 +146,7 @@ export default function Subscription() {
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">Almacenamiento</span>
                   <span className="text-gray-900">
-                    {formatBytes(clientData?.storage_used || 0)} / {formatBytes(clientData?.storage_limit || 0)}
+                    {formatBytes(client?.storage_used || 0)} / {formatBytes(client?.storage_limit || 0)}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -209,12 +162,12 @@ export default function Subscription() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">Tokens Disponibles</span>
-                  <span className="text-gray-900">{clientData?.tokens_available || 0}</span>
+                  <span className="text-gray-900">{client?.tokens_available || 0}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((clientData?.tokens_available || 0) / 1000 * 100, 100)}%` }}
+                    style={{ width: `${Math.min((client?.tokens_available || 0) / 1000 * 100, 100)}%` }}
                   ></div>
                 </div>
               </div>

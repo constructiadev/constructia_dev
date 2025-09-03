@@ -1,55 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
-import { useAuth } from '../../lib/auth-context';
-import { clientDataService } from '../../lib/client-data-service';
-
-interface Document {
-  id: string;
-  filename: string;
-  original_name: string;
-  file_size: number;
-  file_type: string;
-  document_type: string;
-  classification_confidence: number;
-  upload_status: string;
-  obralia_status: string;
-  security_scan_status: string;
-  created_at: string;
-  projects?: { name: string };
-}
+import { useClientDocuments } from '../../hooks/useClientData';
 
 const Documents: React.FC = () => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { documents, loading, error, refreshDocuments } = useClientDocuments();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-
-  useEffect(() => {
-    loadDocuments();
-  }, []);
-
-  const loadDocuments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user?.tenant_id) {
-        throw new Error('No se pudo obtener información del tenant del usuario');
-      }
-      
-      // Obtener documentos del cliente
-      const documentsData = await clientDataService.getClientDocuments(user.tenant_id);
-      setDocuments(documentsData || []);
-      
-    } catch (err) {
-      console.error('Error loading documents:', err);
-      setError(err instanceof Error ? err.message : 'Error loading documents');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -105,9 +61,9 @@ const Documents: React.FC = () => {
       <div className="flex items-center justify-center min-h-64">
         <div className="text-center">
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-gray-600">Cargando documentos del tenant...</p>
           <button
-            onClick={loadDocuments}
+            onClick={refreshDocuments}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -123,8 +79,8 @@ const Documents: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
           <p className="text-gray-600">Gestiona tus documentos subidos</p>
-          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            ✅ DATOS REALES - {documents.length} documentos cargados
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔒 DATOS AISLADOS - {documents.length} documentos del tenant
           </div>
         </div>
         <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">

@@ -11,8 +11,7 @@ import {
   Target,
   Activity
 } from 'lucide-react';
-import { useAuth } from '../../lib/auth-context';
-import { clientDataService } from '../../lib/client-data-service';
+import { useClientDocuments } from '../../hooks/useClientData';
 
 interface MetricsData {
   totalDocuments: number;
@@ -26,8 +25,7 @@ interface MetricsData {
 }
 
 export default function Metrics() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { documents, loading, error, refreshDocuments } = useClientDocuments();
   const [metrics, setMetrics] = useState<MetricsData>({
     totalDocuments: 0,
     documentsThisMonth: 0,
@@ -38,26 +36,17 @@ export default function Metrics() {
     documentsByStatus: {},
     monthlyProgress: []
   });
-  const [error, setError] = useState<string | null>(null);
   
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
   useEffect(() => {
-    loadMetrics();
-  }, []);
+    if (documents.length > 0) {
+      calculateMetrics();
+    }
+  }, [documents]);
 
-  const loadMetrics = async () => {
+  const calculateMetrics = () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user?.tenant_id) {
-        throw new Error('No se pudo obtener información del tenant del usuario');
-      }
-      
-      // Obtener documentos del cliente
-      const documents = await clientDataService.getClientDocuments(user.tenant_id);
-      
       // Calcular métricas reales
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
@@ -114,11 +103,8 @@ export default function Metrics() {
         monthlyProgress
       });
       
-    } catch (err) {
-      console.error('Error loading metrics:', err);
-      setError(err instanceof Error ? err.message : 'Error loading metrics');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error calculating metrics:', error);
     }
   };
 
@@ -140,7 +126,7 @@ export default function Metrics() {
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={loadMetrics}
+            onClick={refreshDocuments}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -156,8 +142,8 @@ export default function Metrics() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Métricas y Análisis</h1>
           <p className="text-gray-600">Analiza el rendimiento de tu gestión documental</p>
-          <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            ✅ DATOS REALES - Métricas calculadas desde BD
+          <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+            🔒 DATOS AISLADOS - Métricas del tenant
           </div>
         </div>
         <div className="flex items-center space-x-4">
@@ -172,7 +158,7 @@ export default function Metrics() {
             <option value="year">Este año</option>
           </select>
           <button 
-            onClick={loadMetrics}
+            onClick={refreshDocuments}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
