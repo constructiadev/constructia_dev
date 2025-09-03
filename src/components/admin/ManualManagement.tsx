@@ -479,7 +479,9 @@ function FileUploadModal({
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors"
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              'border-gray-300 hover:border-blue-400'
+            }`}
           >
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h4 className="text-lg font-medium text-gray-900 mb-2">
