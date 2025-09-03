@@ -57,7 +57,9 @@ import {
   ArrowDown,
   Minus,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  EyeOff,
+  Loader2
 } from 'lucide-react';
 import { manualManagementService, type ManualDocument, type ClientGroup } from '../../lib/manual-management-service';
 
@@ -588,27 +590,312 @@ function FileUploadModal({
   );
 }
 
+interface PlatformConnectionsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  clientId: string;
+  clientName: string;
+}
+
+function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: PlatformConnectionsModalProps) {
+  const [selectedPlatform, setSelectedPlatform] = useState<'nalanda' | 'ctaima' | 'ecoordina'>('nalanda');
+  const [credentials, setCredentials] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+
+  const platforms = [
+    { 
+      id: 'nalanda', 
+      name: 'Nalanda/Obralia', 
+      color: 'bg-blue-600',
+      url: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth',
+      description: 'Plataforma principal de gestión CAE'
+    },
+    { 
+      id: 'ctaima', 
+      name: 'CTAIMA', 
+      color: 'bg-green-600',
+      url: 'https://login.ctaima.com/Account/Login',
+      description: 'Sistema de coordinación de actividades'
+    },
+    { 
+      id: 'ecoordina', 
+      name: 'Ecoordina', 
+      color: 'bg-purple-600',
+      url: 'https://login.welcometotwind.io',
+      description: 'Plataforma de coordinación empresarial'
+    }
+  ];
+
+  useEffect(() => {
+    if (isOpen && clientId) {
+      loadCredentials();
+    }
+  }, [isOpen, clientId, selectedPlatform]);
+
+  const loadCredentials = async () => {
+    try {
+      setLoading(true);
+      const clientCredentials = await manualManagementService.getPlatformCredentials(clientId);
+      const platformCredential = clientCredentials.find(c => c.platform_type === selectedPlatform);
+      setCredentials(platformCredential || null);
+    } catch (error) {
+      console.error('Error loading credentials:', error);
+      setCredentials(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string, type: 'username' | 'password') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(type);
+      setTimeout(() => setCopySuccess(null), 2000);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+    }
+  };
+
+  const openPlatform = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  if (!isOpen) return null;
+
+  const selectedPlatformInfo = platforms.find(p => p.id === selectedPlatform);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-white/20 p-3 rounded-full mr-4">
+                <Globe className="h-8 w-8" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Conexiones a Plataformas</h2>
+                <p className="text-blue-100">Cliente: {clientName}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Platform Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Seleccionar Plataforma
+            </label>
+            <div className="grid grid-cols-1 gap-3">
+              {platforms.map((platform) => (
+                <button
+                  key={platform.id}
+                  onClick={() => setSelectedPlatform(platform.id as any)}
+                  className={`flex items-center justify-between p-4 border-2 rounded-lg transition-colors ${
+                    selectedPlatform === platform.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-10 h-10 ${platform.color} rounded-lg flex items-center justify-center mr-3`}>
+                      <Globe className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-semibold text-gray-900">{platform.name}</h4>
+                      <p className="text-sm text-gray-600">{platform.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPlatform(platform.url);
+                      }}
+                      className="text-blue-600 hover:text-blue-700"
+                      title="Abrir plataforma"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </button>
+                    {selectedPlatform === platform.id && (
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Credentials Display */}
+          {selectedPlatformInfo && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">
+                  Credenciales para {selectedPlatformInfo.name}
+                </h3>
+                <button
+                  onClick={() => openPlatform(selectedPlatformInfo.url)}
+                  className="flex items-center text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Abrir Plataforma
+                </button>
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <span className="ml-2 text-gray-600">Cargando credenciales...</span>
+                </div>
+              ) : credentials ? (
+                <div className="space-y-4">
+                  {/* Username */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Usuario
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 bg-white border border-gray-300 rounded-lg p-3 font-mono text-sm">
+                        {credentials.username}
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(credentials.username, 'username')}
+                        className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                        title="Copiar usuario"
+                      >
+                        {copySuccess === 'username' ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contraseña
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 bg-white border border-gray-300 rounded-lg p-3 font-mono text-sm flex items-center justify-between">
+                        <span>
+                          {showPassword ? credentials.password : '••••••••••••'}
+                        </span>
+                        <button
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(credentials.password, 'password')}
+                        className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                        title="Copiar contraseña"
+                      >
+                        {copySuccess === 'password' ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div className="flex items-center">
+                      <div className={`w-3 h-3 rounded-full mr-2 ${
+                        credentials.validation_status === 'valid' ? 'bg-green-500' : 'bg-yellow-500'
+                      }`}></div>
+                      <span className="text-sm text-gray-700">
+                        Estado: {credentials.validation_status === 'valid' ? 'Válidas' : 'Pendiente validación'}
+                      </span>
+                    </div>
+                    {credentials.last_validated && (
+                      <span className="text-xs text-gray-500">
+                        Validado: {new Date(credentials.last_validated).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    No hay credenciales configuradas
+                  </h4>
+                  <p className="text-gray-600 text-sm">
+                    Este cliente no tiene credenciales para {selectedPlatformInfo.name}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-blue-800 mb-2">Instrucciones para el Administrador</h4>
+                <ol className="text-sm text-blue-700 space-y-1">
+                  <li>1. Copia las credenciales usando los botones de copiar</li>
+                  <li>2. Abre la plataforma haciendo clic en "Abrir Plataforma"</li>
+                  <li>3. Inicia sesión con las credenciales copiadas</li>
+                  <li>4. Sube los documentos manualmente en la plataforma</li>
+                  <li>5. Vuelve aquí y marca los documentos como "Subidos"</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-gray-50 px-6 py-4 rounded-b-xl">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              <Key className="h-4 w-4 inline mr-1" />
+              Credenciales del cliente para uso administrativo
+            </div>
+            <button
+              onClick={onClose}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ManualManagement() {
-  const [state, setState] = useState<ManualManagementState>({
-    clientGroups: [],
-    selectedClient: null,
-    selectedCompany: null,
-    selectedProject: null,
-    queueStats: {},
-    loading: true,
-    error: null,
-    draggedDocument: null,
-    uploadingFiles: {},
-    downloadingFiles: {},
-    expandedClients: [],
-    showPlatformModal: false,
-    processingClients: {}
-  });
+  const [clientGroups, setClientGroups] = useState<ClientGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedClients, setExpandedClients] = useState<string[]>([]);
+  const [processingClients, setProcessingClients] = useState<string[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: boolean}>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [selectedClientForUpload, setSelectedClientForUpload] = useState<{clientId: string; projectId: string} | null>(null);
   const [showPlatformModal, setShowPlatformModal] = useState(false);
+  const [selectedClientForPlatform, setSelectedClientForPlatform] = useState<{clientId: string; clientName: string} | null>(null);
 
   useEffect(() => {
     loadData();
@@ -616,354 +903,125 @@ export default function ManualManagement() {
 
   const loadData = async () => {
     try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
+      setLoading(true);
+      setError(null);
       
-      const [clientGroups, queueStats] = await Promise.all([
-        manualManagementService.getClientGroups(),
-        manualManagementService.getQueueStats()
-      ]);
-
-      setState(prev => ({
-        ...prev,
-        clientGroups,
-        queueStats,
-        loading: false
-      }));
+      const data = await manualManagementService.getClientGroups();
+      setClientGroups(data);
     } catch (error) {
       console.error('Error loading manual management data:', error);
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Error loading data',
-        loading: false
-      }));
+      setError(error instanceof Error ? error.message : 'Error loading data');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const refreshData = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+  const handleConfigurePlatforms = (clientId: string, clientName: string) => {
+    setSelectedClientForPlatform({ clientId, clientName });
+    setShowPlatformModal(true);
   };
 
-  const handleUploadDocuments = async (files: File[], clientId: string, projectId: string) => {
-    const uploadPromises = files.map(async (file) => {
-      const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const handleFileUpload = async (clientId: string, projectId: string, files: FileList) => {
+    const fileArray = Array.from(files);
+    const uploadKey = `${clientId}-${projectId}`;
+    
+    try {
+      setUploadingFiles(prev => ({ ...prev, [uploadKey]: true }));
       
-      try {
-        setState(prev => ({
-          ...prev,
-          uploadingFiles: { ...prev.uploadingFiles, [fileId]: true }
-        }));
-
-        console.log('📁 [ManualManagement] Starting file upload:', {
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-          clientId,
-          projectId
-        });
-
-        const document = await manualManagementService.addDocumentToQueue(
+      for (const file of fileArray) {
+        await manualManagementService.addDocumentToQueue(
           clientId,
           projectId,
           file,
           'normal',
           'nalanda'
         );
-
-        if (!document) {
-          throw new Error('Error al subir archivo a la cola de procesamiento');
-        }
-
-        console.log('✅ [ManualManagement] File uploaded successfully:', file.name);
-        return { success: true, fileName: file.name };
-      } catch (error) {
-        console.error('❌ Failed to add document to queue:', file.name);
-        console.error('Error details:', error);
-        return { success: false, fileName: file.name, error };
-      } finally {
-        setState(prev => ({
-          ...prev,
-          uploadingFiles: { ...prev.uploadingFiles, [fileId]: false }
-        }));
       }
-    });
-
-    const results = await Promise.all(uploadPromises);
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-
-    if (successful > 0) {
-      alert(`✅ ${successful} archivo(s) subido(s) correctamente${failed > 0 ? `. ${failed} archivo(s) fallaron.` : ''}`);
+      
+      alert(`✅ ${fileArray.length} archivo(s) subido(s) correctamente`);
       await loadData(); // Refresh data
-    } else {
-      alert('❌ Error al subir archivos. Revisa la consola para más detalles.');
-    }
-  };
-
-  const handleDownloadDocument = async (document: ManualDocument) => {
-    try {
-      setState(prev => ({
-        ...prev,
-        downloadingFiles: { ...prev.downloadingFiles, [document.id]: true }
-      }));
-
-      console.log('📁 [ManualManagement] Starting document download:', document.original_name);
-      
-      const downloadUrl = await manualManagementService.downloadDocument(document.id);
-      
-      if (!downloadUrl) {
-        throw new Error('No se pudo generar la URL de descarga');
-      }
-
-      // Open download in new tab
-      window.open(downloadUrl, '_blank');
-      console.log('✅ [ManualManagement] Document download initiated successfully');
     } catch (error) {
-      console.error('❌ Error downloading document:', error);
-      alert('Error al descargar documento: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+      console.error('Error uploading files:', error);
+      alert('❌ Error al subir archivos');
     } finally {
-      setState(prev => ({
-        ...prev,
-        downloadingFiles: { ...prev.downloadingFiles, [document.id]: false }
-      }));
+      setUploadingFiles(prev => ({ ...prev, [uploadKey]: false }));
     }
   };
 
-  const handleReuploadCorrupted = async (document: ManualDocument) => {
+  const handleProcessClientFIFO = async (clientId: string) => {
     try {
-      // Check if document object is available
-      if (typeof window === 'undefined' || !window.document) {
-        throw new Error('Document object not available');
-      }
-
-      // Create file input for re-upload using window.document
-      const input = window.document.createElement('input');
-      input.type = 'file';
-      input.accept = '.pdf,.jpg,.jpeg,.png';
+      setProcessingClients(prev => [...prev, clientId]);
       
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-
-        try {
-          const success = await manualManagementService.reuploadCorruptedDocument(document.id, file);
-          
-          if (success) {
-            alert('✅ Archivo re-subido correctamente');
-            await loadData(); // Refresh data
-          } else {
-            alert('❌ Error al re-subir archivo');
-          }
-        } catch (error) {
-          console.error('Error re-uploading file:', error);
-          alert('❌ Error al re-subir archivo');
-        }
-      };
-
-      input.click();
-    } catch (error) {
-      console.error('Error initiating re-upload:', error);
-    }
-  };
-
-  const handleNotifyClientCorruption = async (document: ManualDocument) => {
-    try {
-      const success = await manualManagementService.notifyClientAboutCorruptedFile(
-        document.id,
-        document.original_name,
-        `Archivo corrupto detectado. Integridad: ${document.integrity_score}%`
-      );
-
-      if (success) {
-        alert('✅ Cliente notificado sobre archivo corrupto');
-      } else {
-        alert('❌ Error al notificar al cliente');
-      }
-    } catch (error) {
-      console.error('Error notifying client:', error);
-      alert('❌ Error al notificar al cliente');
-    }
-  };
-
-  const toggleClientExpansion = (clientId: string) => {
-    setState(prev => ({
-      ...prev,
-      expandedClients: prev.expandedClients.includes(clientId)
-        ? prev.expandedClients.filter(id => id !== clientId)
-        : [...prev.expandedClients, clientId]
-    }));
-  };
-
-  const handleProcessClientDocuments = async (clientId: string) => {
-    try {
-      setState(prev => ({
-        ...prev,
-        processingClients: { ...prev.processingClients, [clientId]: true }
-      }));
-
-      // Obtener documentos del cliente
-      const clientGroup = state.clientGroups.find(c => c.client_id === clientId);
-      if (!clientGroup) return;
-
-      const allDocuments = clientGroup.companies.flatMap(company =>
+      // Get all pending documents for this client
+      const client = clientGroups.find(c => c.client_id === clientId);
+      if (!client) return;
+      
+      const allDocuments = client.companies.flatMap(company =>
         company.projects.flatMap(project => project.documents)
       );
-
+      
       const pendingDocuments = allDocuments.filter(doc => 
         doc.status === 'pending' || doc.status === 'error'
       );
-
+      
       if (pendingDocuments.length === 0) {
         alert('No hay documentos pendientes para este cliente');
         return;
       }
-
-      // Procesar documentos en lote (FIFO)
+      
+      // Process documents in FIFO order
       const results = await manualManagementService.processDocumentsBatch(
         pendingDocuments.map(doc => doc.id),
         'session-temp-id',
         'admin-user-id'
       );
-
+      
       alert(`✅ Procesamiento completado: ${results.success} exitosos, ${results.errors} errores`);
       await loadData(); // Refresh data
-
+      
     } catch (error) {
       console.error('Error processing client documents:', error);
       alert('❌ Error al procesar documentos del cliente');
     } finally {
-      setState(prev => ({
-        ...prev,
-        processingClients: { ...prev.processingClients, [clientId]: false }
-      }));
+      setProcessingClients(prev => prev.filter(id => id !== clientId));
     }
   };
 
-  const handleSavePlatformCredentials = async (credentials: { [platform: string]: { username: string; password: string } }) => {
-    try {
-      // Guardar credenciales para cada plataforma
-      for (const [platform, creds] of Object.entries(credentials)) {
-        if (creds.username && creds.password) {
-          await manualManagementService.savePlatformCredentials(
-            platform as any,
-            creds.username,
-            creds.password
-          );
-        }
-      }
-      
-      alert('✅ Credenciales de plataforma guardadas correctamente');
-      await loadData(); // Refresh data
-    } catch (error) {
-      console.error('Error saving platform credentials:', error);
-      alert('❌ Error al guardar credenciales de plataforma');
-      throw error;
-    }
-  };
-
-  // Drag and Drop handlers
-  const handleDragStart = (e: React.DragEvent, document: ManualDocument) => {
-    // Only allow dragging for pending and error status
-    if (document.status !== 'pending' && document.status !== 'error') {
-      e.preventDefault();
-      return;
-    }
-    
-    setState(prev => ({ ...prev, draggedDocument: document }));
-    e.dataTransfer.setData('text/plain', document.id);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragEnd = () => {
-    setState(prev => ({ ...prev, draggedDocument: null }));
-  };
-
-  const handleDropOnReupload = async (e: React.DragEvent) => {
-    e.preventDefault();
-    
-    if (!state.draggedDocument) return;
-    
-    const document = state.draggedDocument;
-    
-    // Only allow re-upload for pending and error status
-    if (document.status !== 'pending' && document.status !== 'error') {
-      alert('Solo se pueden re-subir documentos en estado pendiente o con errores');
-      return;
-    }
-
-    await handleReuploadCorrupted(document);
-    setState(prev => ({ ...prev, draggedDocument: null }));
-  };
-
-  const handleDragOverReupload = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'uploading': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'uploaded': return 'bg-green-100 text-green-800 border-green-200';
-      case 'validated': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'error': return 'bg-red-100 text-red-800 border-red-200';
-      case 'corrupted': return 'bg-orange-100 text-orange-800 border-orange-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'uploading': return <Upload className="w-4 h-4" />;
-      case 'uploaded': return <CheckCircle className="w-4 h-4" />;
-      case 'validated': return <Shield className="w-4 h-4" />;
-      case 'error': return <AlertTriangle className="w-4 h-4" />;
-      case 'corrupted': return <AlertCircle className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'normal': return 'bg-blue-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const isDraggable = (document: ManualDocument) => {
-    return document.status === 'pending' || document.status === 'error';
-  };
-
-  const isCorrupted = (document: ManualDocument) => {
-    return document.corruption_detected || document.integrity_score < 50;
-  };
-
-  const getAllDocuments = (): ManualDocument[] => {
-    return state.clientGroups.flatMap(client =>
-      client.companies.flatMap(company =>
-        company.projects.flatMap(project => project.documents)
-      )
+  const toggleClientExpansion = (clientId: string) => {
+    setExpandedClients(prev => 
+      prev.includes(clientId) 
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
     );
   };
 
-  const filteredDocuments = getAllDocuments().filter(doc => {
-    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.classification.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const handleUploadForClient = (clientId: string, projectId: string) => {
+    setSelectedClientForUpload({ clientId, projectId });
+    setShowUploadModal(true);
+  };
+
+  const filteredClients = clientGroups.filter(client => {
+    const matchesSearch = client.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         client.client_email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (statusFilter === 'all') return matchesSearch;
+    
+    // Filter by document status
+    const hasMatchingStatus = client.companies.some(company =>
+      company.projects.some(project =>
+        project.documents.some(doc => doc.status === statusFilter)
+      )
+    );
+    
+    return matchesSearch && hasMatchingStatus;
   });
 
-  if (state.loading) {
+  if (loading) {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
             <p className="text-gray-600">Cargando gestión manual...</p>
           </div>
         </div>
@@ -971,13 +1029,13 @@ export default function ManualManagement() {
     );
   }
 
-  if (state.error) {
+  if (error) {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
-            <span className="text-red-800 font-medium">Error: {state.error}</span>
+            <span className="text-red-800 font-medium">Error: {error}</span>
           </div>
           <button
             onClick={loadData}
@@ -1002,20 +1060,20 @@ export default function ManualManagement() {
             </p>
             <div className="space-y-1 text-sm text-orange-100">
               <p>• 📁 Subida real de archivos al bucket de Supabase Storage</p>
-              <p>• 🔄 Drag & Drop para re-subir documentos pendientes o con errores</p>
+              <p>• 🔄 Procesamiento FIFO por cliente con documentos reales</p>
               <p>• 📥 Descarga directa de documentos desde el almacenamiento</p>
-              <p>• 📧 Notificación automática a clientes sobre archivos corruptos</p>
-              <p>• 🔍 Detección de integridad y gestión de archivos dañados</p>
+              <p>• 🔗 Conexiones a plataformas externas (Nalanda, CTAIMA, Ecoordina)</p>
+              <p>• 📧 Notificación automática a clientes sobre el estado de procesamiento</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={refreshData}
-              disabled={refreshing}
+              onClick={loadData}
+              disabled={loading}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Actualizando...' : 'Actualizar'}
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Actualizando...' : 'Actualizar'}
             </button>
             <button
               onClick={() => setShowUploadModal(true)}
@@ -1024,34 +1082,39 @@ export default function ManualManagement() {
               <Upload className="w-4 h-4 mr-2" />
               Subir Documentos
             </button>
-            <button
-              onClick={() => setShowPlatformModal(true)}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Configurar Plataformas
-            </button>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-blue-600">{state.queueStats.total || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Total Clientes</p>
+              <p className="text-2xl font-bold text-blue-600">{clientGroups.length}</p>
             </div>
-            <Package className="w-6 h-6 text-blue-600" />
+            <Users className="w-6 h-6 text-blue-600" />
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Pendientes</p>
-              <p className="text-2xl font-bold text-yellow-600">{state.queueStats.pending || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Total Documentos</p>
+              <p className="text-2xl font-bold text-green-600">
+                {clientGroups.reduce((sum, client) => sum + client.total_documents, 0)}
+              </p>
+            </div>
+            <FileText className="w-6 h-6 text-green-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Procesando</p>
+              <p className="text-2xl font-bold text-yellow-600">{processingClients.length}</p>
             </div>
             <Clock className="w-6 h-6 text-yellow-600" />
           </div>
@@ -1060,40 +1123,12 @@ export default function ManualManagement() {
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Subidos</p>
-              <p className="text-2xl font-bold text-green-600">{state.queueStats.uploaded || 0}</p>
+              <p className="text-sm font-medium text-gray-600">Subiendo</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {Object.values(uploadingFiles).filter(Boolean).length}
+              </p>
             </div>
-            <CheckCircle className="w-6 h-6 text-green-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Errores</p>
-              <p className="text-2xl font-bold text-red-600">{state.queueStats.errors || 0}</p>
-            </div>
-            <AlertTriangle className="w-6 h-6 text-red-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Corruptos</p>
-              <p className="text-2xl font-bold text-orange-600">{state.queueStats.corrupted || 0}</p>
-            </div>
-            <AlertCircle className="w-6 h-6 text-orange-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Validados</p>
-              <p className="text-2xl font-bold text-emerald-600">{state.queueStats.validated || 0}</p>
-            </div>
-            <Shield className="w-6 h-6 text-emerald-600" />
+            <Upload className="w-6 h-6 text-purple-600" />
           </div>
         </div>
       </div>
@@ -1106,7 +1141,7 @@ export default function ManualManagement() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Buscar documentos..."
+                placeholder="Buscar clientes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1125,48 +1160,25 @@ export default function ManualManagement() {
               <option value="uploaded">Subidos</option>
               <option value="validated">Validados</option>
               <option value="error">Con errores</option>
-              <option value="corrupted">Corruptos</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Drag & Drop Re-upload Zone */}
-      <div
-        onDrop={handleDropOnReupload}
-        onDragOver={handleDragOverReupload}
-        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          state.draggedDocument 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 bg-gray-50'
-        }`}
-      >
-        <RotateCcw className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <h3 className="font-medium text-gray-900 mb-1">Zona de Re-subida</h3>
-        <p className="text-sm text-gray-600">
-          Arrastra documentos pendientes o con errores aquí para re-subirlos
-        </p>
-        {state.draggedDocument && (
-          <div className="mt-2 p-2 bg-blue-100 rounded text-sm text-blue-800">
-            📄 Arrastrando: {state.draggedDocument.original_name}
-          </div>
-        )}
-      </div>
-
-      {/* Client Groups with FIFO Processing */}
+      {/* Client Groups */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">
-              Agrupación FIFO por Cliente ({state.clientGroups.length} clientes)
+              Clientes con Documentos ({filteredClients.length})
             </h3>
             <div className="text-sm text-gray-600">
-              Procesamiento en orden de llegada por cliente
+              Procesamiento FIFO por cliente
             </div>
           </div>
         </div>
         
-        {state.clientGroups.length === 0 ? (
+        {filteredClients.length === 0 ? (
           <div className="text-center py-12">
             <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -1184,24 +1196,18 @@ export default function ManualManagement() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {state.clientGroups.map((clientGroup) => {
-              const isExpanded = state.expandedClients.includes(clientGroup.client_id);
-              const isProcessing = state.processingClients[clientGroup.client_id];
-              const pendingDocs = clientGroup.companies.flatMap(company =>
-                company.projects.flatMap(project => 
-                  project.documents.filter(doc => doc.status === 'pending' || doc.status === 'error')
-                )
-              );
+            {filteredClients.map((client) => {
+              const isExpanded = expandedClients.includes(client.client_id);
+              const isProcessing = processingClients.includes(client.client_id);
 
               return (
-                <div key={clientGroup.client_id} className="p-6">
-                  {/* Client Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div 
-                      className="flex items-center cursor-pointer"
-                      onClick={() => toggleClientExpansion(clientGroup.client_id)}
-                    >
-                      <button className="mr-3 p-1">
+                <div key={client.client_id} className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => toggleClientExpansion(client.client_id)}
+                        className="mr-3 p-1"
+                      >
                         {isExpanded ? (
                           <ChevronDown className="w-5 h-5 text-gray-600" />
                         ) : (
@@ -1210,50 +1216,48 @@ export default function ManualManagement() {
                       </button>
                       <Building2 className="w-6 h-6 text-blue-600 mr-3" />
                       <div>
-                        <h4 className="text-lg font-semibold text-gray-900">{clientGroup.client_name}</h4>
-                        <p className="text-sm text-gray-600">{clientGroup.client_email}</p>
+                        <h4 className="text-lg font-semibold text-gray-900">{client.client_name}</h4>
+                        <p className="text-sm text-gray-600">{client.client_email}</p>
                         <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
-                          <span>📄 {clientGroup.total_documents} documentos</span>
-                          <span>⚡ {pendingDocs.length} pendientes</span>
-                          <span>🕒 {clientGroup.documents_per_hour}/hora</span>
+                          <span>📄 {client.total_documents} documentos</span>
+                          <span>🕒 {client.documents_per_hour}/hora</span>
+                          <span>📅 {new Date(client.last_activity).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      {pendingDocs.length > 0 && (
-                        <button
-                          onClick={() => handleProcessClientDocuments(clientGroup.client_id)}
-                          disabled={isProcessing}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 flex items-center"
-                        >
-                          {isProcessing ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Procesando...
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 mr-2" />
-                              Procesar FIFO ({pendingDocs.length})
-                            </>
-                          )}
-                        </button>
-                      )}
-                      
-                      <div className="text-right">
-                        <div className="text-sm text-gray-600">Última actividad:</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(clientGroup.last_activity).toLocaleDateString('es-ES')}
-                        </div>
-                      </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleConfigurePlatforms(client.client_id, client.client_name)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center"
+                      >
+                        <Settings className="w-3 w-3 mr-1" />
+                        Configurar Plataformas
+                      </button>
+                      <button
+                        onClick={() => handleProcessClientFIFO(client.client_id)}
+                        disabled={processingClients.includes(client.client_id) || client.total_documents === 0}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors disabled:opacity-50 flex items-center"
+                      >
+                        {processingClients.includes(client.client_id) ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3 h-3 mr-1" />
+                            Procesar FIFO ({client.total_documents})
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
 
                   {/* Expanded Client Details */}
                   {isExpanded && (
-                    <div className="ml-8 space-y-4">
-                      {clientGroup.companies.map((company) => (
+                    <div className="mt-4 ml-8 space-y-4">
+                      {client.companies.map((company) => (
                         <div key={company.company_id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center">
@@ -1274,45 +1278,32 @@ export default function ManualManagement() {
                                     <Folder className="w-4 h-4 text-purple-600 mr-2" />
                                     <span className="font-medium text-gray-800">{project.project_name}</span>
                                   </div>
-                                  <span className="text-sm text-gray-600">{project.total_documents} docs</span>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-600">{project.total_documents} docs</span>
+                                    <button
+                                      onClick={() => handleUploadForClient(client.client_id, project.project_id)}
+                                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors flex items-center"
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      Subir
+                                    </button>
+                                  </div>
                                 </div>
 
-                                {/* Documents in FIFO order */}
+                                {/* Documents */}
                                 {project.documents.length > 0 && (
                                   <div className="space-y-2">
                                     {project.documents
                                       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
                                       .map((document, index) => (
-                                        <div 
-                                          key={document.id}
-                                          className={`flex items-center justify-between p-2 rounded border ${
-                                            isDraggable(document) ? 'cursor-move' : ''
-                                          } ${isCorrupted(document) ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}
-                                          draggable={isDraggable(document)}
-                                          onDragStart={(e) => handleDragStart(e, document)}
-                                          onDragEnd={handleDragEnd}
-                                        >
+                                        <div key={document.id} className="flex items-center justify-between p-2 bg-white rounded border">
                                           <div className="flex items-center">
-                                            <div className="flex items-center mr-3">
-                                              <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
-                                                #{index + 1}
-                                              </span>
-                                              {isDraggable(document) && (
-                                                <div className="ml-2 text-gray-400">
-                                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
-                                                  </svg>
-                                                </div>
-                                              )}
-                                            </div>
+                                            <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded mr-2">
+                                              #{index + 1}
+                                            </span>
                                             <FileText className="w-4 h-4 text-gray-400 mr-2" />
                                             <div>
-                                              <div className="font-medium text-gray-900 text-sm flex items-center">
-                                                {document.original_name}
-                                                {isCorrupted(document) && (
-                                                  <AlertCircle className="w-3 h-3 text-orange-500 ml-1" title="Archivo corrupto" />
-                                                )}
-                                              </div>
+                                              <div className="font-medium text-gray-900 text-sm">{document.original_name}</div>
                                               <div className="text-xs text-gray-500">
                                                 {document.classification} • {(document.file_size / 1024 / 1024).toFixed(2)} MB
                                               </div>
@@ -1320,54 +1311,21 @@ export default function ManualManagement() {
                                           </div>
 
                                           <div className="flex items-center space-x-2">
-                                            {/* Status */}
-                                            <div className="flex items-center">
-                                              {getStatusIcon(document.status)}
-                                              <span className={`ml-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(document.status)}`}>
-                                                {document.status}
-                                              </span>
-                                            </div>
-
-                                            {/* Priority */}
-                                            <div className="flex items-center">
-                                              <div className={`w-2 h-2 rounded-full mr-1 ${getPriorityColor(document.priority)}`}></div>
-                                              <span className="text-xs text-gray-600 capitalize">{document.priority}</span>
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div className="flex items-center space-x-1">
-                                              <button
-                                                onClick={() => handleDownloadDocument(document)}
-                                                disabled={state.downloadingFiles[document.id]}
-                                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
-                                                title="Descargar documento"
-                                              >
-                                                {state.downloadingFiles[document.id] ? (
-                                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                                                ) : (
-                                                  <Download className="w-3 h-3" />
-                                                )}
-                                              </button>
-
-                                              {isCorrupted(document) && (
-                                                <>
-                                                  <button
-                                                    onClick={() => handleReuploadCorrupted(document)}
-                                                    className="p-1 text-gray-400 hover:text-orange-600 transition-colors"
-                                                    title="Re-subir archivo corrupto"
-                                                  >
-                                                    <RotateCcw className="w-3 h-3" />
-                                                  </button>
-                                                  <button
-                                                    onClick={() => handleNotifyClientCorruption(document)}
-                                                    className="p-1 text-gray-400 hover:text-purple-600 transition-colors"
-                                                    title="Notificar cliente sobre corrupción"
-                                                  >
-                                                    <Mail className="w-3 h-3" />
-                                                  </button>
-                                                </>
-                                              )}
-                                            </div>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                              document.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                              document.status === 'uploaded' ? 'bg-green-100 text-green-800' :
+                                              document.status === 'error' ? 'bg-red-100 text-red-800' :
+                                              'bg-gray-100 text-gray-800'
+                                            }`}>
+                                              {document.status}
+                                            </span>
+                                            <button
+                                              onClick={() => console.log('Download document:', document.id)}
+                                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                              title="Descargar documento"
+                                            >
+                                              <Download className="w-3 h-3" />
+                                            </button>
                                           </div>
                                         </div>
                                       ))}
@@ -1387,99 +1345,23 @@ export default function ManualManagement() {
         )}
       </div>
 
-      {/* Client Groups Summary */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Resumen por Cliente ({state.clientGroups.length})
-          </h3>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {state.clientGroups.map((client) => (
-              <div key={client.client_id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center">
-                    <Building2 className="w-5 h-5 text-blue-600 mr-2" />
-                    <div>
-                      <h4 className="font-medium text-gray-900">{client.client_name}</h4>
-                      <p className="text-sm text-gray-600">{client.client_email}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-gray-900">{client.total_documents}</div>
-                    <div className="text-xs text-gray-500">documentos</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {client.companies.map((company) => (
-                    <div key={company.company_id} className="bg-gray-50 rounded p-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-800">{company.company_name}</span>
-                        <span className="text-sm text-gray-600">{company.total_documents} docs</span>
-                      </div>
-                      <div className="mt-1 space-y-1">
-                        {company.projects.map((project) => (
-                          <div key={project.project_id} className="flex items-center justify-between text-xs text-gray-600">
-                            <span>📁 {project.project_name}</span>
-                            <span>{project.total_documents}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Última actividad:</span>
-                    <span>{new Date(client.last_activity).toLocaleDateString('es-ES')}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Upload Modal */}
       <FileUploadModal
         isOpen={showUploadModal}
+        clientGroups={clientGroups}
+        selectedClientForUpload={selectedClientForUpload}
         onClose={() => setShowUploadModal(false)}
-        onUpload={handleUploadDocuments}
-        selectedClient={state.selectedClient}
-        selectedProject={state.selectedProject}
-        clientGroups={state.clientGroups}
       />
 
       {/* Platform Connections Modal */}
-      <PlatformConnectionsModal
-        isOpen={showPlatformModal}
-        onClose={() => setShowPlatformModal(false)}
-        onSave={handleSavePlatformCredentials}
-      />
-
-      {/* Instructions */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <div className="flex items-start">
-          <Info className="h-6 w-6 text-blue-600 mr-3 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-blue-800 mb-2">🔧 Funcionalidades FIFO Activas</h3>
-            <div className="text-sm text-blue-700 space-y-1">
-              <p>• <strong>📁 Subida real:</strong> Los archivos se almacenan en Supabase Storage</p>
-              <p>• <strong>📥 Descarga directa:</strong> Haz clic en el icono de descarga para obtener el archivo</p>
-              <p>• <strong>🔄 Drag & Drop:</strong> Arrastra documentos pendientes/errores a la zona de re-subida</p>
-              <p>• <strong>🏢 Agrupación FIFO:</strong> Documentos agrupados por cliente en orden de llegada</p>
-              <p>• <strong>⚡ Procesamiento en lote:</strong> Procesa todos los documentos pendientes de un cliente</p>
-              <p>• <strong>🔗 Conexiones a plataformas:</strong> Configura credenciales para Nalanda, CTAIMA y Ecoordina</p>
-              <p>• <strong>🚨 Detección de corrupción:</strong> Archivos con integridad &lt; 50% se marcan como corruptos</p>
-              <p>• <strong>📧 Notificación automática:</strong> Los clientes reciben alertas sobre archivos corruptos</p>
-              <p>• <strong>🔄 Re-subida:</strong> Botón específico para archivos corruptos o dañados</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {showPlatformModal && selectedClientForPlatform && (
+        <PlatformConnectionsModal
+          isOpen={showPlatformModal}
+          onClose={() => setShowPlatformModal(false)}
+          clientId={selectedClientForPlatform.clientId}
+          clientName={selectedClientForPlatform.clientName}
+        />
+      )}
     </div>
   );
 }
