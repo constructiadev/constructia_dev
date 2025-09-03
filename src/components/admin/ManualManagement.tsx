@@ -62,7 +62,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { manualManagementService, type ClientGroup, type ManualDocument } from '../../lib/manual-management-service';
-import { supabaseClient } from '../../lib/supabase-real';
+import { supabaseClient, DEV_TENANT_ID } from '../../lib/supabase-real';
 
 interface PlatformConnectionsModalProps {
   isOpen: boolean;
@@ -620,8 +620,9 @@ export default function ManualManagement() {
       setLoading(true);
       setError(null);
       
-      const data = await manualManagementService.getClientGroups();
-      setClientGroups(data);
+      const [clientGroups, statsData] = await Promise.all([
+        manualManagementService.getClientGroups(),
+        manualManagementService.getQueueStats()
     } catch (error) {
       console.error('Error loading manual management data:', error);
       setError(error instanceof Error ? error.message : 'Error loading data');
