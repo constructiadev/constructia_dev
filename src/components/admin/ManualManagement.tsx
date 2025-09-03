@@ -620,6 +620,77 @@ function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: Pla
       description: 'Sistema de coordinación de actividades'
     },
     { 
+      id: 'ecoordina', 
+      name: 'Ecoordina', 
+      color: 'bg-purple-600',
+      url: 'https://login.welcometotwind.io',
+      description: 'Plataforma de coordinación empresarial'
+    }
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Configurar Plataformas - {clientName}</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <p className="text-gray-600 mb-6">
+            Configura las credenciales para conectar con las plataformas externas.
+          </p>
+          
+          <div className="space-y-4">
+            {platforms.map((platform) => (
+              <div key={platform.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className={`w-10 h-10 ${platform.color} rounded-lg flex items-center justify-center mr-3`}>
+                      <Globe className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900">{platform.name}</h4>
+                      <p className="text-sm text-gray-600">{platform.description}</p>
+                    </div>
+                  </div>
+                  <a
+                    href={platform.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 flex items-center text-sm"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Abrir
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ManualManagement() {
   const [clientGroups, setClientGroups] = useState<ClientGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1086,8 +1157,21 @@ export default function ManualManagement() {
       <FileUploadModal
         isOpen={showUploadModal}
         clientGroups={clientGroups}
-        selectedClientForUpload={selectedClientForUpload}
+        selectedClient={selectedClientForUpload?.clientId || null}
+        selectedProject={selectedClientForUpload?.projectId || null}
         onClose={() => setShowUploadModal(false)}
+        onUpload={async (files, clientId, projectId) => {
+          for (const file of files) {
+            await manualManagementService.addDocumentToQueue(
+              clientId,
+              projectId,
+              file,
+              'normal',
+              'nalanda'
+            );
+          }
+          await loadData();
+        }}
       />
 
       {/* Platform Connections Modal */}
