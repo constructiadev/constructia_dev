@@ -1408,7 +1408,7 @@ export default function LandingPage() {
       </section>
 
       {/* Contact Section */}
-      <ContactSection />
+      <ContactSection id="contacto" />
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-16">
