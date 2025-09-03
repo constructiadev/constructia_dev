@@ -61,7 +61,8 @@ import {
   EyeOff,
   Loader2
 } from 'lucide-react';
-import { manualManagementService, type ManualDocument, type ClientGroup } from '../../lib/manual-management-service';
+import { manualManagementService, type ClientGroup, type ManualDocument } from '../../lib/manual-management-service';
+import { supabaseClient } from '../../lib/supabase-real';
 
 interface PlatformConnectionsModalProps {
   isOpen: boolean;
@@ -588,6 +589,30 @@ export default function ManualManagement() {
 
   useEffect(() => {
     loadData();
+    
+    // Set up real-time subscription to manual_upload_queue changes
+    const subscription = supabaseClient
+      .channel('manual-queue-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'manual_upload_queue',
+          filter: `tenant_id=eq.${DEV_TENANT_ID}`
+        },
+        (payload) => {
+          console.log('📡 Real-time update received for manual queue:', payload);
+          // Reload data when queue changes
+          loadData();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadData = async () => {
@@ -602,6 +627,7 @@ export default function ManualManagement() {
       setError(error instanceof Error ? error.message : 'Error loading data');
     } finally {
       setLoading(false);
+      console.log('📊 Queue stats updated:', statsData);
     }
   };
 
