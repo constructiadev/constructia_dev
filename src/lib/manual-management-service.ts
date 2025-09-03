@@ -519,6 +519,206 @@ export class ManualManagementService {
     }
   }
 
+  // Download document file
+  async downloadDocument(documentId: string): Promise<string | null> {
+    try {
+      console.log('📁 [ManualManagement] Starting document download for:', documentId);
+      
+      // Get document info
+      const { data: queueItem, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          documentos!inner(*)
+        `)
+        .eq('id', documentId)
+        .eq('tenant_id', this.tenantId)
+        .single();
+
+      if (queueError || !queueItem) {
+        console.error('❌ Queue item not found:', queueError);
+        return null;
+      }
+
+      const documento = queueItem.documentos;
+      
+      if (!documento.file) {
+        console.error('❌ No file path found for document');
+        return null;
+      }
+
+      // Get download URL from file storage service
+      const downloadUrl = await fileStorageService.getDownloadUrl(documento.file, 3600); // 1 hour expiry
+      
+      if (!downloadUrl) {
+        console.error('❌ Failed to create download URL');
+        return null;
+      }
+
+      console.log('✅ [ManualManagement] Download URL created successfully');
+      return downloadUrl;
+    } catch (error) {
+      console.error('❌ Error downloading document:', error);
+      return null;
+    }
+  }
+
+  // Notify client about corrupted file
+  async notifyClientAboutCorruptedFile(
+    documentId: string,
+    fileName: string,
+    corruptionDetails: string
+  ): Promise<boolean> {
+    try {
+      console.log('📧 [ManualManagement] Notifying client about corrupted file:', fileName);
+      
+      // Get document and empresa info
+      const { data: queueItem, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          empresas!inner(razon_social, contacto_email)
+        `)
+        .eq('id', documentId)
+        .eq('tenant_id', this.tenantId)
+        .single();
+
+      if (queueError || !queueItem) {
+        console.error('❌ Queue item not found for notification:', queueError);
+        return false;
+      }
+
+      const empresa = queueItem.empresas;
+      const clientEmail = empresa.contacto_email;
+      
+      if (!clientEmail) {
+        console.error('❌ No client email found for notification');
+        return false;
+      }
+
+      // Create message for client
+      const { error: messageError } = await supabaseServiceClient
+        .from('mensajes')
+        .insert({
+          tenant_id: this.tenantId,
+          tipo: 'alerta',
+          titulo: 'Archivo Corrupto Detectado',
+          contenido: `El archivo "${fileName}" presenta problemas de integridad: ${corruptionDetails}. Por favor, suba una nueva versión del documento.`,
+          prioridad: 'alta',
+          destinatarios: [clientEmail],
+          estado: 'programado'
+        });
+
+      if (messageError) {
+        console.error('❌ Error creating notification message:', messageError);
+        return false;
+      }
+
+      // Log the notification
+      await this.logUploadAction(
+        null,
+        documentId,
+        'client_notified_corruption',
+        'success',
+        `Client notified about corrupted file: ${fileName}`,
+        { 
+          client_email: clientEmail,
+          corruption_details: corruptionDetails,
+          file_name: fileName
+        }
+      );
+
+      console.log('✅ [ManualManagement] Client notification sent successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Error notifying client about corrupted file:', error);
+      return false;
+    }
+  }
+
+  // Re-upload corrupted document
+  async reuploadCorruptedDocument(
+    documentId: string,
+    newFile: File
+  ): Promise<boolean> {
+    try {
+      console.log('🔄 [ManualManagement] Re-uploading corrupted document:', documentId);
+      
+      // Get original document info
+      const { data: queueItem, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          documentos!inner(*)
+        `)
+        .eq('id', documentId)
+        .eq('tenant_id', this.tenantId)
+        .single();
+
+      if (queueError || !queueItem) {
+        console.error('❌ Queue item not found for re-upload:', queueError);
+        return false;
+      }
+
+      const documento = queueItem.documentos;
+      
+      // Delete old file if exists
+      if (documento.file) {
+        await fileStorageService.deleteFile(documento.file);
+      }
+
+      // Upload new file
+      const uploadResult = await fileStorageService.uploadFile(
+        newFile,
+        this.tenantId,
+        documento.entidad_tipo,
+        documento.entidad_id,
+        documento.categoria,
+        documento.version + 1
+      );
+
+      if (!uploadResult.success) {
+        console.error('❌ Re-upload failed:', uploadResult.error);
+        return false;
+      }
+
+      // Update document record
+      await supabaseServiceClient
+        .from('documentos')
+        .update({
+          file: uploadResult.filePath,
+          size_bytes: newFile.size,
+          version: documento.version + 1,
+          metadatos: {
+            ...documento.metadatos,
+            reupload_info: {
+              original_file: documento.file,
+              reupload_timestamp: new Date().toISOString(),
+              reason: 'corruption_detected'
+            }
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', documento.id);
+
+      // Update queue status
+      await supabaseServiceClient
+        .from('manual_upload_queue')
+        .update({
+          status: 'queued',
+          nota: `Archivo re-subido por corrupción detectada - ${new Date().toLocaleString()}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', documentId);
+
+      console.log('✅ [ManualManagement] Document re-uploaded successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Error re-uploading corrupted document:', error);
+      return false;
+    }
+  }
+
   // Start upload session
   async startUploadSession(adminUserId: string): Promise<string | null> {
     try {

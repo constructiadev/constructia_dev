@@ -257,6 +257,7 @@ export class FileStorageService {
   // Obtener URL de descarga temporal
   async getDownloadUrl(filePath: string, expiresIn: number = 3600): Promise<string | null> {
     try {
+      console.log('📁 [FileStorage] Creating download URL for:', filePath);
       const { data, error } = await supabaseServiceClient.storage
         .from(this.bucketName)
         .createSignedUrl(filePath, expiresIn);
@@ -266,6 +267,7 @@ export class FileStorageService {
         return null;
       }
 
+      console.log('✅ [FileStorage] Download URL created successfully');
       return data.signedUrl;
 
     } catch (error) {
