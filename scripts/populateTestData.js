@@ -22,6 +22,7 @@ async function populateTestData() {
     console.log('0️⃣ Cleaning up existing test data...');
     
     // Delete in reverse dependency order to avoid foreign key violations
+    await supabase.from('auditoria').delete().eq('tenant_id', DEV_TENANT_ID);
     await supabase.from('manual_upload_queue').delete().eq('tenant_id', DEV_TENANT_ID);
     await supabase.from('receipts').delete().in('client_id', [
       '20000000-0000-0000-0000-000000000001',
