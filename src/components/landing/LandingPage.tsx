@@ -845,12 +845,6 @@ export default function LandingPage() {
               >
                 Contacto
               </button>
-              <button 
-                onClick={handleContactUs}
-                className="text-gray-600 hover:text-green-600 transition-colors font-medium"
-              >
-                Contacto
-              </button>
               <button
                 onClick={() => navigate('/client/dashboard')}
                 className="text-gray-600 hover:text-green-600 transition-colors font-medium"
