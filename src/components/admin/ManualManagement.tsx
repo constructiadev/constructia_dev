@@ -458,10 +458,10 @@ function FileUploadModal({
               >
                 <option value="">Seleccionar proyecto...</option>
                 {availableProjects.map(project => (
-                    <option key={project.project_id} value={project.project_id}>
-                      {project.project_name}
-                    </option>
-                  ))}
+                  <option key={project.project_id} value={project.project_id}>
+                    {project.project_name}
+                  </option>
+                ))}
               </select>
               {!clientId && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -619,9 +619,7 @@ export default function ManualManagement() {
     let clientGroupsData: ClientGroup[] = [];
     let statsData: any = {};
     
-      let clientGroups;
-      let statsData;
-      [clientGroups, statsData] = await Promise.all([
+    try {
       setError(null);
       
       [clientGroupsData, statsData] = await Promise.all([
@@ -629,7 +627,7 @@ export default function ManualManagement() {
         manualManagementService.getQueueStats()
       ]);
       
-      setClientGroups(clientGroups);
+      setClientGroups(clientGroupsData);
     } catch (error) {
       console.error('Error loading manual management data:', error);
       setError(error instanceof Error ? error.message : 'Error loading data');
@@ -764,6 +762,7 @@ export default function ManualManagement() {
       alert('❌ Error al notificar al cliente');
     }
   };
+  
   const handleConfigurePlatforms = (clientId: string, clientName: string) => {
     setSelectedClientForPlatform({ clientId, clientName });
     setShowPlatformModal(true);
