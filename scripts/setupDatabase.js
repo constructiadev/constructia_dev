@@ -98,7 +98,7 @@ async function setupDatabase() {
           .upsert({
             id: userId,
             email: 'admin@constructia.com',
-            role: 'admin'
+            role: 'SuperAdmin'
           });
 
         if (userInsertError) {
