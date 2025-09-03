@@ -90,7 +90,7 @@ export const appConfig: AppConfig = {
     ALERT_DAYS: [30, 15, 7],
     STORAGE: {
       provider: "s3-compatible",
-      bucket: import.meta.env.VITE_S3_BUCKET || "documents",
+      bucket: import.meta.env.VITE_S3_BUCKET || "UPLOADDOCUMENTS",
       endpoint: import.meta.env.VITE_S3_ENDPOINT || ""
     },
     IA: {
