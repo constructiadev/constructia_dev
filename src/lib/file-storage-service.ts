@@ -46,6 +46,7 @@ export class FileStorageService {
         console.log(`   2. Create bucket named: ${this.bucketName}`);
         console.log(`   3. Set as Public: Yes`);
         console.log(`   4. Configure MIME types: PDF, JPEG, PNG`);
+        console.log(`   5. Or run: node scripts/populateManualQueue.js`);
         return false;
       }
       
@@ -88,6 +89,15 @@ export class FileStorageService {
     version: number = 1
   ): Promise<FileUploadResult> {
     try {
+      // Verify bucket exists before upload
+      const bucketExists = await this.ensureBucketExists();
+      if (!bucketExists) {
+        return {
+          success: false,
+          error: 'Storage bucket not accessible'
+        };
+      }
+      
       // Validate file parameter type at entry point
       if (!(file instanceof File) && !(file instanceof Blob)) {
         const actualType = typeof file;
@@ -163,6 +173,15 @@ export class FileStorageService {
     documentId: string
   ): Promise<FileMoveResult> {
     try {
+      // Verify bucket exists
+      const bucketExists = await this.ensureBucketExists();
+      if (!bucketExists) {
+        return {
+          success: false,
+          error: 'Storage bucket not accessible'
+        };
+      }
+      
       console.log('📁 Moving file from:', currentPath, 'to platform:', targetPlatform);
 
       // Descargar archivo actual
