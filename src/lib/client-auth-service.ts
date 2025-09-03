@@ -54,25 +54,50 @@ export class ClientAuthService {
         throw new Error('Error fetching user profile');
       }
 
+      let finalUserProfile = userProfile;
+
+      // If user profile doesn't exist, create it automatically
       if (!userProfile) {
-        console.error('❌ [ClientAuth] User profile not found for authenticated user');
-        throw new Error('User profile not found');
+        console.log('⚠️ [ClientAuth] User profile not found, creating default profile...');
+        
+        const defaultName = authData.user.email?.split('@')[0] || 'Usuario';
+        
+        const { data: newProfile, error: createError } = await supabaseServiceClient
+          .from('users')
+          .insert({
+            id: userId,
+            tenant_id: DEV_TENANT_ID,
+            email: authData.user.email!,
+            name: defaultName,
+            role: 'ClienteAdmin',
+            active: true
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('❌ [ClientAuth] Failed to create default profile:', createError.message);
+          throw new Error('Failed to create user profile');
+        }
+
+        finalUserProfile = newProfile;
+        console.log('✅ [ClientAuth] Default profile created successfully');
       }
 
       // Verify user has client role
       const clientRoles = ['ClienteAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
-      if (!clientRoles.includes(userProfile.role)) {
-        console.error('❌ [ClientAuth] User does not have client role:', userProfile.role);
+      if (!clientRoles.includes(finalUserProfile.role)) {
+        console.error('❌ [ClientAuth] User does not have client role:', finalUserProfile.role);
         throw new Error('Access denied: Invalid user role');
       }
 
-      console.log('✅ [ClientAuth] User profile loaded:', userProfile.email, 'Role:', userProfile.role);
+      console.log('✅ [ClientAuth] User profile loaded:', finalUserProfile.email, 'Role:', finalUserProfile.role);
 
       // Step 3: Get client's empresa data (using tenant_id for isolation)
       const { data: empresa, error: empresaError } = await supabaseServiceClient
         .from('empresas')
         .select('*')
-        .eq('tenant_id', userProfile.tenant_id)
+        .eq('tenant_id', finalUserProfile.tenant_id)
         .limit(1)
         .maybeSingle();
 
@@ -84,15 +109,15 @@ export class ClientAuthService {
 
       // Step 4: Build authenticated client context
       const authenticatedClient: AuthenticatedClient = {
-        id: userProfile.id,
+        id: finalUserProfile.id,
         user_id: userId,
-        tenant_id: userProfile.tenant_id,
-        email: userProfile.email,
-        name: userProfile.name || 'Usuario',
-        role: userProfile.role,
+        tenant_id: finalUserProfile.tenant_id,
+        email: finalUserProfile.email,
+        name: finalUserProfile.name || 'Usuario',
+        role: finalUserProfile.role,
         company_name: empresa?.razon_social || 'Empresa',
         subscription_plan: 'professional', // Default for development
-        subscription_status: userProfile.active ? 'active' : 'suspended',
+        subscription_status: finalUserProfile.active ? 'active' : 'suspended',
         storage_used: Math.floor(Math.random() * 500000000), // Simulated for development
         storage_limit: 1073741824, // 1GB default
         tokens_available: 1000,
@@ -103,7 +128,7 @@ export class ClientAuthService {
         }
       };
 
-      console.log('✅ [ClientAuth] Client context created for tenant:', userProfile.tenant_id);
+      console.log('✅ [ClientAuth] Client context created for tenant:', finalUserProfile.tenant_id);
       return authenticatedClient;
 
     } catch (error) {
