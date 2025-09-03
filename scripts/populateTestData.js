@@ -465,7 +465,9 @@ async function populateTestData() {
             status: '/documents/status'
           }
         },
-        estado: 'ready'
+        estado: 'ready',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       },
       {
         id: '80000000-0000-0000-0000-000000000002',
@@ -483,7 +485,9 @@ async function populateTestData() {
             status: '/api/status'
           }
         },
-        estado: 'ready'
+        estado: 'ready',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       },
       {
         id: '80000000-0000-0000-0000-000000000003',
@@ -493,15 +497,17 @@ async function populateTestData() {
         credenciales: {
           tipo: 'api',
           apiBase: 'https://api.ecoordina.com',
-          apiKey: '',
-          webhookSecret: '',
+          apiKey: 'eco_key_placeholder',
+          webhookSecret: 'webhook_secret_placeholder',
           endpoints: {
             upload: '/upload',
             validate: '/validate',
             status: '/status'
           }
         },
-        estado: 'error'
+        estado: 'error',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
     ];
 
