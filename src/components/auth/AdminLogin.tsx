@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,28 +19,8 @@ export default function AdminLogin() {
     setSubmitting(true);
 
     try {
-      // 1. Intentar login con Supabase
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (authError) {
-        throw new Error(authError.message);
-      }
-
-      if (!data.user) {
-        throw new Error('No se pudo autenticar el usuario');
-      }
-
-      // 2. Verificar que el usuario tiene rol de admin
-      // Bypass role check for development - RLS is causing infinite recursion
-      console.log('✅ Bypassing role check for development environment');
-
-      // 3. Redirigir al panel de admin
-      console.log('✅ Admin login successful');
+      await signIn(email, password);
       navigate('/admin/dashboard', { replace: true });
-
     } catch (err: any) {
       console.error('Admin login error:', err);
       setError(err?.message || 'Error de autenticación');

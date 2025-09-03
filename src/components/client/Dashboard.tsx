@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { getCurrentClientData, getClientProjects, getClientCompanies, getClientDocuments, getAllClients, supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
+import { clientDataService } from '../../lib/client-data-service';
 
 interface DashboardStats {
   totalProjects: number;
@@ -14,6 +15,7 @@ interface DashboardStats {
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
@@ -35,34 +37,20 @@ export default function ClientDashboard() {
       setLoading(true);
       setError(null);
 
-      // Obtener el primer cliente disponible de la base de datos
-      const allClients = await getAllClients();
-      
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos. Ejecuta el script de población primero.');
+      if (!user?.tenant_id) {
+        throw new Error('No se pudo obtener información del tenant del usuario');
       }
       
-      // Usar el primer cliente activo disponible
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      setClientData(activeClient);
+      // Get client profile for this tenant
+      const clientProfile = await clientDataService.getClientProfile(user.tenant_id);
+      if (!clientProfile) {
+        throw new Error('No se encontró perfil de cliente para este usuario');
+      }
+      setClientData(clientProfile);
 
       // Obtener estadísticas
-      const [projects, companies, documents] = await Promise.all([
-        getClientProjects(activeClient.id),
-        getClientCompanies(activeClient.id),
-        getClientDocuments(activeClient.id)
-      ]);
-
-      const newStats = {
-        totalProjects: projects.length,
-        totalCompanies: companies.length,
-        totalDocuments: documents.length,
-        documentsProcessed: documents.filter(d => d.upload_status === 'completed').length,
-        storageUsed: activeClient.storage_used || 0,
-        storageLimit: activeClient.storage_limit || 1073741824
-      };
-
-      setStats(newStats);
+      const stats = await clientDataService.getClientStats(user.tenant_id);
+      setStats(stats);
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError(err instanceof Error ? err.message : 'Error loading dashboard data');

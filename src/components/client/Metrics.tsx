@@ -11,7 +11,8 @@ import {
   Target,
   Activity
 } from 'lucide-react';
-import { getAllClients, getClientDocuments } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
+import { clientDataService } from '../../lib/client-data-service';
 
 interface MetricsData {
   totalDocuments: number;
@@ -25,6 +26,7 @@ interface MetricsData {
 }
 
 export default function Metrics() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<MetricsData>({
     totalDocuments: 0,
@@ -49,16 +51,12 @@ export default function Metrics() {
       setLoading(true);
       setError(null);
       
-      // Obtener el primer cliente disponible
-      const allClients = await getAllClients();
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+      if (!user?.tenant_id) {
+        throw new Error('No se pudo obtener información del tenant del usuario');
       }
       
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      
       // Obtener documentos del cliente
-      const documents = await getClientDocuments(activeClient.id);
+      const documents = await clientDataService.getClientDocuments(user.tenant_id);
       
       // Calcular métricas reales
       const currentMonth = new Date().getMonth();

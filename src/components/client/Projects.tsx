@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
-import { getAllClients, getClientProjects } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
+import { clientDataService } from '../../lib/client-data-service';
 
 interface Project {
   id: string;
@@ -25,6 +26,7 @@ interface Company {
 }
 
 export default function Projects() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -51,20 +53,16 @@ export default function Projects() {
       setLoading(true);
       setError(null);
       
-      // Obtener el primer cliente disponible
-      const allClients = await getAllClients();
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+      if (!user?.tenant_id) {
+        throw new Error('No se pudo obtener información del tenant del usuario');
       }
       
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      
       // Obtener proyectos del cliente
-      const projectsData = await getClientProjects(activeClient.id);
+      const projectsData = await clientDataService.getClientProjects(user.tenant_id);
       setProjects(projectsData || []);
       
       // Obtener empresas del cliente
-      const companiesData = await getClientCompanies(activeClient.id);
+      const companiesData = await clientDataService.getClientCompanies(user.tenant_id);
       setCompanies(companiesData || []);
       
     } catch (err) {

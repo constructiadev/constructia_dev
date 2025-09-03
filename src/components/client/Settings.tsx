@@ -10,12 +10,15 @@ import {
   CheckCircle,
   Settings as SettingsIcon
 } from 'lucide-react';
-import { getAllClients, updateClientObraliaCredentials } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
+import { clientDataService } from '../../lib/client-data-service';
+import { updateClientObraliaCredentials } from '../../lib/supabase';
 
 import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
 
 export default function Settings() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -36,14 +39,16 @@ export default function Settings() {
       setLoading(true);
       setError(null);
       
-      // Obtener el primer cliente disponible
-      const allClients = await getAllClients();
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+      if (!user?.tenant_id) {
+        throw new Error('No se pudo obtener información del tenant del usuario');
       }
       
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      setClientData(activeClient);
+      // Get client profile for this tenant
+      const clientProfile = await clientDataService.getClientProfile(user.tenant_id);
+      if (!clientProfile) {
+        throw new Error('No se encontró perfil de cliente para este usuario');
+      }
+      setClientData(clientProfile);
       
       // Configurar credenciales existentes
       if (activeClient.obralia_credentials) {

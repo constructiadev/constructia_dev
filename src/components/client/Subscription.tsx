@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building } from 'lucide-react';
-import { getAllClients } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth-context';
+import { clientDataService } from '../../lib/client-data-service';
 
 interface SubscriptionData {
   id: string;
@@ -22,6 +23,7 @@ interface ClientData {
 }
 
 export default function Subscription() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [clientData, setClientData] = useState<any>(null);
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
@@ -36,14 +38,16 @@ export default function Subscription() {
       setLoading(true);
       setError(null);
       
-      // Obtener el primer cliente disponible
-      const allClients = await getAllClients();
-      if (!allClients || allClients.length === 0) {
-        throw new Error('No hay clientes en la base de datos');
+      if (!user?.tenant_id) {
+        throw new Error('No se pudo obtener información del tenant del usuario');
       }
       
-      const activeClient = allClients.find(c => c.subscription_status === 'active') || allClients[0];
-      setClientData(activeClient);
+      // Get client profile for this tenant
+      const clientProfile = await clientDataService.getClientProfile(user.tenant_id);
+      if (!clientProfile) {
+        throw new Error('No se encontró perfil de cliente para este usuario');
+      }
+      setClientData(clientProfile);
       
       // Simular datos de suscripción basados en el cliente real
       const mockSubscription = {
