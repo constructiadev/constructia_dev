@@ -587,10 +587,7 @@ export const automationEngine = AutomationEngine.getInstance();
 export const initializeAutomations = () => {
   console.log('🤖 Inicializando motor de automatizaciones...');
   
-  // En desarrollo, ejecutar tareas cada 60 minutos para testing
-  if (import.meta.env.MODE === 'development') {
-    setInterval(() => {
-      automationEngine.runScheduledTasks();
-    }, 60 * 60 * 1000); // 60 minutos
-  }
+  // Automatizaciones deshabilitadas en desarrollo
+  // El administrador ejecutará las tareas manualmente según sea necesario
+  console.log('⚠️ Automatizaciones programadas deshabilitadas - Control manual del administrador');
 };
