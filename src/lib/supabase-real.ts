@@ -657,3 +657,39 @@ export const canUserAccess = (userRole: string, action: string, resource: string
   return userPermissions.includes(fullPermission) || 
          userPermissions.includes(wildcardPermission);
 };
+
+// API Integration functions
+export const getAPIIntegrations = async () => {
+  try {
+    const { data, error } = await supabaseServiceClient
+      .from('system_settings')
+      .select('*')
+      .eq('key', 'api_integrations')
+      .single();
+
+    if (error) {
+      console.warn('No API integrations found, returning defaults');
+      return {
+        gemini: { enabled: true, status: 'connected' },
+        obralia: { enabled: true, status: 'connected' },
+        stripe: { enabled: true, status: 'connected' },
+        sepa: { enabled: true, status: 'connected' }
+      };
+    }
+
+    return data?.value || {
+      gemini: { enabled: true, status: 'connected' },
+      obralia: { enabled: true, status: 'connected' },
+      stripe: { enabled: true, status: 'connected' },
+      sepa: { enabled: true, status: 'connected' }
+    };
+  } catch (error) {
+    console.error('Error loading API integrations:', error);
+    return {
+      gemini: { enabled: false, status: 'error' },
+      obralia: { enabled: false, status: 'error' },
+      stripe: { enabled: false, status: 'error' },
+      sepa: { enabled: false, status: 'error' }
+    };
+  }
+};
