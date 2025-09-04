@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "populate-new-architecture": "node scripts/populateNewArchitecture.js",
+    "populate-manual-queue": "tsx scripts/populateManualQueue.ts",
+    "disable-rls": "node scripts/disableAllRLS.js",
+    "create-auth-users": "node scripts/createAuthUsers.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
