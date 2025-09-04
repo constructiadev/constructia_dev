@@ -643,11 +643,8 @@ export const getUserPermissions = async (userId: string) => {
 export const canUserAccess = (userRole: string, action: string, resource: string): boolean => {
   const permissions = {
     SuperAdmin: ['*'],
-    ClienteAdmin: ['read:*', 'write:empresas', 'write:obras', 'write:proveedores', 'write:trabajadores', 'write:maquinaria', 'write:documentos'],
-    GestorDocumental: ['read:*', 'write:documentos', 'write:tareas'],
-    SupervisorObra: ['read:obras', 'read:documentos', 'write:tareas'],
-    Proveedor: ['read:own', 'write:own'],
-    Lector: ['read:*']
+    Cliente: ['read:own', 'write:own'],
+    ClienteDemo: ['read:own']
   };
 
   const userPermissions = permissions[userRole as keyof typeof permissions] || [];

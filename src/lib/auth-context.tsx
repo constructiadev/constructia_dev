@@ -183,7 +183,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const isClient = user?.role && ['Cliente', 'ClienteDemo', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'].includes(user.role);
-  const isAdmin = user?.role && ['SuperAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'].includes(user.role);
+  const isClient = user?.role && ['Cliente', 'ClienteDemo'].includes(user.role);
+  const isAdmin = user?.role === 'SuperAdmin';
 
   const value = {
     user,

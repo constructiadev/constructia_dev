@@ -122,11 +122,8 @@ export const appConfig: AppConfig = {
   },
   roles: [
     { name: "SuperAdmin" },
-    { name: "ClienteAdmin" },
-    { name: "GestorDocumental" },
-    { name: "SupervisorObra" },
-    { name: "Proveedor" },
-    { name: "Lector" }
+    { name: "Cliente" },
+    { name: "ClienteDemo" }
   ]
 };
 
