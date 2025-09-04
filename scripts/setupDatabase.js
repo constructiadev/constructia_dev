@@ -144,7 +144,7 @@ async function setupDatabase() {
           .upsert({
             id: clientUserId,
             email: 'juan@construccionesgarcia.com',
-            role: 'client'
+            role: 'Cliente'
           });
 
         if (userInsertError) {

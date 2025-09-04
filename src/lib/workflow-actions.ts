@@ -87,7 +87,7 @@ export class WorkflowActions {
         .from('users')
         .select('*')
         .eq('email', email)
-        .in('role', ['ClienteAdmin', 'Proveedor', 'GestorDocumental', 'SupervisorObra', 'Lector'])
+        .in('role', ['Cliente', 'ClienteDemo'])
         .single();
 
       if (userError || !user) {

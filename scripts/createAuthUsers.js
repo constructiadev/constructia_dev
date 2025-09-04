@@ -31,21 +31,21 @@ async function createAuthUsers() {
         email: 'garcia@construcciones.com',
         password: 'password123',
         name: 'Juan García',
-        role: 'ClienteAdmin'
+        role: 'Cliente'
       },
       {
         id: '10000000-0000-0000-0000-000000000002',
         email: 'lopez@reformas.com',
         password: 'password123',
         name: 'María López',
-        role: 'ClienteAdmin'
+        role: 'Cliente'
       },
       {
         id: '10000000-0000-0000-0000-000000000003',
         email: 'martin@edificaciones.com',
         password: 'password123',
         name: 'Carlos Martín',
-        role: 'ClienteAdmin'
+        role: 'ClienteDemo'
       },
       {
         id: '20000000-0000-0000-0000-000000000001',
