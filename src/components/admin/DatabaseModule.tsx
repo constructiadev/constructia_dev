@@ -122,6 +122,9 @@ const DatabaseModule: React.FC = () => {
   const [creatingBackup, setCreatingBackup] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<BackupInfo | null>(null);
 
+  // Get current user ID for audit logging
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
   // Cache stats
   const [cacheStats] = useState({
     buffer_cache_size: '256MB',
@@ -178,6 +181,12 @@ const DatabaseModule: React.FC = () => {
     try {
       setLoading(true);
       setConnectionStatus('checking');
+
+      // Get current user for audit logging
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
 
       console.log('🔍 [DatabaseModule] Loading real database information...');
 
