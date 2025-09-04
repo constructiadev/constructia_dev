@@ -221,11 +221,23 @@ export const getClientDocuments = async (clientId: string) => {
     console.error('Error fetching documents:', error);
     return [];
   }
-};
+  newData?: any,
+  userId?: string | null
 
 // Helper para obtener logs de auditoría
-export const getAuditLogs = async () => {
-  try {
+    let actorUserId = userId;
+    
+    if (!actorUserId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      actorUserId = user?.id || null;
+    }
+
+    // Skip audit logging if no valid user ID
+    if (!actorUserId) {
+      console.warn('Skipping audit log - no valid user ID');
+      return;
+    }
+
     const { data, error } = await supabaseClient
       .from('auditoria')
       .select(`
@@ -887,7 +899,7 @@ export const createAIInsight = async (insight: Partial<AIInsight>) => {
       .from('ai_insights')
       .insert({
         ...insight,
-        created_at: new Date().toISOString(),
+        actor_user: actorUserId,
         updated_at: new Date().toISOString()
       })
       .select()
