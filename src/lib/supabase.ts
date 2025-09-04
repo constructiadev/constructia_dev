@@ -85,36 +85,18 @@ export const getCurrentClientData = async (userId: string) => {
 // Helper para obtener todos los clientes (admin)
 export const getAllClients = async () => {
   try {
-    // Get all empresas from new schema as "clients"
-    const tenantId = DEV_TENANT_ID;
-    const empresas = await getTenantEmpresasNoRLS(tenantId);
+    // Get clients from the actual clients table
+    const { data, error } = await supabaseClient
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    // Transform empresas to client format for backward compatibility
-    const clients = empresas.map((empresa, index) => ({
-      id: empresa.id,
-      user_id: `user-${empresa.id}`,
-      client_id: `CLI-${empresa.cif}`,
-      company_name: empresa.razon_social,
-      contact_name: empresa.contacto_email?.split('@')[0] || 'Contacto',
-      email: empresa.contacto_email || `contacto@${empresa.razon_social.toLowerCase().replace(/\s+/g, '')}.com`,
-      phone: '+34 600 000 000',
-      address: empresa.direccion || 'Dirección no especificada',
-      subscription_plan: index % 4 === 0 ? 'enterprise' : index % 3 === 0 ? 'professional' : 'basic',
-      subscription_status: empresa.estado_compliance === 'al_dia' ? 'active' : 'suspended',
-      storage_used: Math.floor(Math.random() * 500000000),
-      storage_limit: index % 4 === 0 ? 5368709120 : index % 3 === 0 ? 1073741824 : 524288000,
-      documents_processed: Math.floor(Math.random() * 50) + 5,
-      tokens_available: index % 4 === 0 ? 5000 : index % 3 === 0 ? 1000 : 500,
-      obralia_credentials: { 
-        configured: Math.random() > 0.3,
-        username: `user_${empresa.cif}`,
-        password: 'configured_password'
-      },
-      created_at: empresa.created_at,
-      updated_at: empresa.updated_at
-    }));
-    
-    return clients;
+    if (error) {
+      console.error('Error fetching clients:', error);
+      return [];
+    }
+
+    return data || [];
   } catch (error) {
     console.error('Error fetching all clients:', error);
     return [];
