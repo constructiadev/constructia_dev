@@ -149,6 +149,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(adminUser);
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
+        // Force redirect to admin panel
+        window.location.href = '/admin/dashboard';
       } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // For client roles, get full client context
         const authenticatedClient = await ClientAuthService.getCurrentClient();
@@ -157,6 +159,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         setUser(authenticatedClient);
         console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
+        // Force redirect to client panel
+        window.location.href = '/client/dashboard';
       } else {
         // Invalid role for any access
         await supabase.auth.signOut();
