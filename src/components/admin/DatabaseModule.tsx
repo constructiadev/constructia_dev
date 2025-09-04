@@ -183,7 +183,7 @@ const DatabaseModule: React.FC = () => {
       setConnectionStatus('checking');
 
       // Get current user for audit logging
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabaseServiceClient.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
       }
@@ -547,7 +547,7 @@ const DatabaseModule: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadDatabaseInfo]);
 
   // Delete backup (real functionality)
   const deleteBackup = useCallback(async (backup: BackupInfo) => {
@@ -738,7 +738,7 @@ const DatabaseModule: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadDatabaseInfo]);
 
   // Execute query (real functionality with safety checks)
   const executeQuery = useCallback(async (query: string) => {
@@ -830,7 +830,8 @@ const DatabaseModule: React.FC = () => {
           query: query.substring(0, 100),
           execution_time: result.execution_time,
           rows_affected: result.rows_affected,
-        }
+        },
+        currentUserId
       );
 
     } catch (error) {
@@ -844,7 +845,7 @@ const DatabaseModule: React.FC = () => {
     } finally {
       setQueryExecuting(false);
     }
-  }, []);
+  }, [currentUserId]);
 
   // Extract table name from query
   const extractTableName = (query: string): string | null => {
