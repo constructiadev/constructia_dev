@@ -33,14 +33,38 @@ export default function AdminLogin() {
         .from('users')
         .select('role')
         .eq('id', authData.user.id)
-        .maybeSingle();
+        .single();
 
-      if (profileError || !userProfile) {
-        await supabase.auth.signOut(); // Sign out if no profile found
+      if (profileError) {
+        if (profileError.code === 'PGRST116') {
+          // Profile doesn't exist, create it for SuperAdmin
+          const { error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: authData.user.id,
+              tenant_id: '00000000-0000-0000-0000-000000000001', // Default tenant for admin
+              email: authData.user.email,
+              name: authData.user.user_metadata?.name || 'Super Admin',
+              role: 'SuperAdmin',
+              active: true
+            });
+
+          if (createError) {
+            await supabase.auth.signOut();
+            throw new Error(`Failed to create admin profile: ${createError.message}`);
+          }
+
+          // Profile created successfully, continue with SuperAdmin role
+        } else {
+          await supabase.auth.signOut();
+          throw new Error(`Database error: ${profileError.message}`);
+        }
+      } else if (!userProfile) {
+        await supabase.auth.signOut();
         throw new Error('User profile not found');
       }
 
-      if (userProfile.role !== 'SuperAdmin') {
+      if (userProfile && userProfile.role !== 'SuperAdmin') {
         await supabase.auth.signOut(); // Sign out if not admin
         throw new Error(`Access denied: Only SuperAdmin can access admin panel. Your role: ${userProfile.role}`);
       }
