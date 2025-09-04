@@ -210,21 +210,14 @@ export function useClientDocuments() {
       setLoading(true);
       setError(null);
 
-      if (!user?.tenant_id) {
-        console.log('⚠️ [useClientDocuments] No tenant_id, using fallback');
-        const fallbackDocuments = await getClientDocuments('fallback-client-id');
+      if (!user?.id) {
+        console.log('⚠️ [useClientDocuments] No user id');
         setDocuments([]);
         return;
       }
 
-      try {
-        const documentsData = await ClientIsolatedDataService.getClientDocuments(user.tenant_id);
-        setDocuments(documentsData);
-      } catch (isolatedError) {
-        console.warn('⚠️ [useClientDocuments] Isolated service failed, using fallback');
-        const fallbackDocuments = await getClientDocuments('fallback-client-id');
-        setDocuments(fallbackDocuments);
-      }
+      const documentsData = await getClientDocuments(user.id);
+      setDocuments(documentsData);
 
     } catch (err) {
       console.error('❌ [useClientDocuments] Error:', err);

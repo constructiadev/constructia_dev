@@ -201,38 +201,22 @@ export const getClientDocuments = async (clientId: string) => {
       throw new Error('Client ID is required');
     }
 
-    // Get documentos from new schema
-    const tenantId = DEV_TENANT_ID;
-    const documentos = await getAllTenantDocumentsNoRLS(tenantId);
+    // Get documents from the actual documents table
+    const { data, error } = await supabaseClient
+      .from('documents')
+      .select(`
+        *,
+        projects(name)
+      `)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
-    // Transform documentos to document format
-    const documents = documentos.map(documento => ({
-      id: documento.id,
-      project_id: documento.entidad_tipo === 'obra' ? documento.entidad_id : 'unknown',
-      client_id: clientId,
-      filename: documento.file?.split('/').pop() || 'documento.pdf',
-      original_name: documento.metadatos?.original_filename || documento.file?.split('/').pop() || 'documento.pdf',
-      file_size: documento.size_bytes || 1024000,
-      file_type: documento.mime || 'application/pdf',
-      document_type: documento.categoria,
-      classification_confidence: Math.floor(Math.random() * 30) + 70,
-      upload_status: documento.estado === 'aprobado' ? 'completed' : 
-                    documento.estado === 'pendiente' ? 'processing' : 
-                    documento.estado === 'rechazado' ? 'error' : 'pending',
-      obralia_status: documento.estado === 'aprobado' ? 'validated' : 'pending',
-      security_scan_status: 'safe',
-      deletion_scheduled_at: null,
-      obralia_document_id: null,
-      processing_attempts: 1,
-      last_processing_error: null,
-      created_at: documento.created_at,
-      updated_at: documento.updated_at,
-      projects: {
-        name: documento.obras?.nombre_obra || 'Proyecto'
-      }
-    }));
-    
-    return documents;
+    if (error) {
+      console.error('Error fetching documents:', error);
+      return [];
+    }
+
+    return data || [];
   } catch (error) {
     console.error('Error fetching documents:', error);
     return [];
