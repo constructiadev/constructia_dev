@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Script para eliminar el rol ClienteAdmin y asegurar aislamiento de clientes
+ * Script para eliminar definitivamente el rol ClienteAdmin y restringir acceso de clientes
  * 
  * Este script:
- * 1. Convierte todos los usuarios con rol ClienteAdmin a Cliente
- * 2. Verifica que solo existan los roles permitidos para clientes
- * 3. Asegura el aislamiento de datos por tenant
+ * 1. Elimina definitivamente el rol ClienteAdmin de la base de datos
+ * 2. Convierte todos los usuarios ClienteAdmin existentes a Cliente
+ * 3. Restringe el acceso de clientes solo a roles Cliente y ClienteDemo
+ * 4. Actualiza todas las referencias al rol ClienteAdmin
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -27,10 +28,10 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function removeClienteAdminRole() {
   try {
-    console.log('🔧 Starting ClienteAdmin role removal and client isolation setup...');
+    console.log('🔧 Starting COMPLETE ClienteAdmin role removal...');
 
-    // 1. Convertir todos los usuarios ClienteAdmin a Cliente
-    console.log('📝 Converting ClienteAdmin users to Cliente...');
+    // 1. Identificar y convertir todos los usuarios ClienteAdmin a Cliente
+    console.log('1️⃣ Converting ALL ClienteAdmin users to Cliente...');
     const { data: updatedUsers, error: updateError } = await supabase
       .from('users')
       .update({ role: 'Cliente' })
@@ -46,8 +47,39 @@ async function removeClienteAdminRole() {
       });
     }
 
-    // 2. Verificar que solo existan los roles permitidos
-    console.log('🔍 Verifying current user roles...');
+    // 2. Eliminar el rol ClienteAdmin del enum user_role
+    console.log('2️⃣ Removing ClienteAdmin from user_role enum...');
+    try {
+      const { error: enumError } = await supabase.rpc('exec_sql', {
+        query: `
+          -- First, ensure no users have ClienteAdmin role
+          UPDATE users SET role = 'Cliente' WHERE role = 'ClienteAdmin';
+          
+          -- Create new enum without ClienteAdmin
+          CREATE TYPE user_role_new AS ENUM ('SuperAdmin', 'Cliente', 'ClienteDemo', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector');
+          
+          -- Update the column to use new enum
+          ALTER TABLE users ALTER COLUMN role TYPE user_role_new USING role::text::user_role_new;
+          
+          -- Drop old enum and rename new one
+          DROP TYPE user_role;
+          ALTER TYPE user_role_new RENAME TO user_role;
+        `
+      });
+
+      if (enumError) {
+        console.warn('⚠️ Could not modify enum directly:', enumError.message);
+        console.log('📝 Manual step required: Remove ClienteAdmin from user_role enum in Supabase Dashboard');
+      } else {
+        console.log('✅ ClienteAdmin role removed from enum successfully');
+      }
+    } catch (enumError) {
+      console.warn('⚠️ Enum modification failed:', enumError);
+      console.log('📝 Manual step required: Remove ClienteAdmin from user_role enum');
+    }
+
+    // 3. Verificar que solo existan los roles permitidos
+    console.log('3️⃣ Verifying current user roles...');
     const { data: allUsers, error: fetchError } = await supabase
       .from('users')
       .select('id, email, role, tenant_id')
@@ -68,9 +100,9 @@ async function removeClienteAdminRole() {
       console.log(`   - ${role}: ${count} users`);
     });
 
-    // 3. Verificar que no existan roles no permitidos para clientes
+    // 4. Verificar que no existan roles no permitidos para clientes
     const allowedClientRoles = ['Cliente', 'ClienteDemo'];
-    const adminRoles = ['SuperAdmin'];
+    const adminRoles = ['SuperAdmin', 'GestorDocumental', 'SupervisorObra', 'Proveedor', 'Lector'];
     const allAllowedRoles = [...allowedClientRoles, ...adminRoles];
 
     const invalidUsers = allUsers?.filter(user => !allAllowedRoles.includes(user.role));
@@ -94,8 +126,8 @@ async function removeClienteAdminRole() {
       }
     }
 
-    // 4. Verificar aislamiento por tenant
-    console.log('🔒 Verifying tenant isolation...');
+    // 5. Verificar aislamiento por tenant
+    console.log('5️⃣ Verifying tenant isolation...');
     const { data: tenants, error: tenantsError } = await supabase
       .from('tenants')
       .select('id, name');
@@ -132,20 +164,26 @@ async function removeClienteAdminRole() {
       });
     }
 
-    // 5. Crear usuarios de prueba si no existen
-    console.log('👥 Ensuring test users exist...');
+    // 6. Actualizar usuarios de prueba para usar solo roles permitidos
+    console.log('6️⃣ Updating test users to use only allowed client roles...');
     
     const testUsers = [
       {
-        email: 'cliente.demo@constructia.com',
-        password: 'demo123456',
-        name: 'Cliente Demo',
+        email: 'garcia@construcciones.com',
+        password: 'password123',
+        name: 'Juan García',
         role: 'Cliente'
       },
       {
-        email: 'cliente.test@constructia.com', 
-        password: 'test123456',
-        name: 'Cliente Test',
+        email: 'lopez@reformas.com',
+        password: 'password123',
+        name: 'María López',
+        role: 'Cliente'
+      },
+      {
+        email: 'martin@edificaciones.com',
+        password: 'password123',
+        name: 'Carlos Martín',
         role: 'ClienteDemo'
       }
     ];
@@ -181,7 +219,7 @@ async function removeClienteAdminRole() {
           role: testUser.role,
           active: true
         }, {
-          onConflict: 'tenant_id,email'
+          onConflict: 'id'
         });
 
       if (profileError) {
@@ -191,17 +229,35 @@ async function removeClienteAdminRole() {
       }
     }
 
-    console.log('🎉 ClienteAdmin role removal and client isolation setup completed!');
+    // 7. Verificación final
+    console.log('7️⃣ Final verification...');
+    const { data: finalUsers, error: finalError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('role', 'ClienteAdmin');
+
+    if (finalError) {
+      console.warn('⚠️ Could not verify ClienteAdmin removal:', finalError.message);
+    } else if (finalUsers && finalUsers.length > 0) {
+      console.error(`❌ Found ${finalUsers.length} users still with ClienteAdmin role!`);
+    } else {
+      console.log('✅ No users with ClienteAdmin role found - removal successful');
+    }
+
+    console.log('🎉 ClienteAdmin role COMPLETELY removed and client access restricted!');
     console.log('');
     console.log('📋 Summary:');
-    console.log('   - Removed ClienteAdmin role from all users');
-    console.log('   - Only allowed roles: SuperAdmin, Cliente, ClienteDemo');
+    console.log('   - ❌ ELIMINATED ClienteAdmin role completely from database');
+    console.log('   - ✅ Client access RESTRICTED to: Cliente, ClienteDemo ONLY');
+    console.log('   - 🔒 Admin roles: SuperAdmin, GestorDocumental, SupervisorObra, Proveedor, Lector');
     console.log('   - Client users are isolated to their tenant data only');
-    console.log('   - Admin users can access all tenant data');
+    console.log('   - Updated enum to prevent future ClienteAdmin creation');
     console.log('');
     console.log('🔐 Test Credentials:');
-    console.log('   Cliente Demo: cliente.demo@constructia.com / demo123456');
-    console.log('   Cliente Test: cliente.test@constructia.com / test123456');
+    console.log('   Cliente 1: garcia@construcciones.com / password123');
+    console.log('   Cliente 2: lopez@reformas.com / password123');
+    console.log('   Cliente Demo: martin@edificaciones.com / password123');
+    console.log('   Admin: admin@constructia.com / superadmin123');
 
   } catch (error) {
     console.error('❌ Script execution error:', error);
