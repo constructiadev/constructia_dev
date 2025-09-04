@@ -929,7 +929,7 @@ const DatabaseModule: React.FC = () => {
   // Initialize module
   useEffect(() => {
     loadDatabaseInfo();
-    // Don't log audit event on component mount to avoid foreign key error
+    
     // Log module access
     logAuditoria(
       DEV_TENANT_ID,
