@@ -587,10 +587,10 @@ export const automationEngine = AutomationEngine.getInstance();
 export const initializeAutomations = () => {
   console.log('🤖 Inicializando motor de automatizaciones...');
   
-  // En desarrollo, ejecutar tareas cada 5 minutos para testing
+  // En desarrollo, ejecutar tareas cada 60 minutos para testing
   if (import.meta.env.MODE === 'development') {
     setInterval(() => {
       automationEngine.runScheduledTasks();
-    }, 5 * 60 * 1000); // 5 minutos
+    }, 60 * 60 * 1000); // 60 minutos
   }
 };
