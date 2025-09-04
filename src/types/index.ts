@@ -25,6 +25,30 @@ export type MedioPago = 'stripe' | 'paypal' | 'bizum' | 'sepa' | 'tarjeta';
 export type QueueStatus = 'queued' | 'in_progress' | 'uploaded' | 'error';
 export type DocumentoOrigen = 'usuario' | 'ia' | 'import';
 
+// Authentication interfaces
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  tenant_id: string;
+}
+
+export interface AuthenticatedClient extends AuthenticatedUser {
+  user_id: string;
+  company_name: string;
+  subscription_plan: string;
+  subscription_status: string;
+  storage_used: number;
+  storage_limit: number;
+  tokens_available: number;
+  obralia_credentials?: {
+    configured: boolean;
+    username?: string;
+    password?: string;
+  };
+}
+
 // Re-exportar tipos de payloads
 export type {
   CompanyPayload,

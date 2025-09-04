@@ -178,7 +178,7 @@ export class ClientAuthService {
       // Verify client role
       const clientRoles = ['ClienteAdmin'];
       if (!clientRoles.includes(userProfile.role)) {
-        console.error('❌ [ClientAuth] Invalid client role:', userProfile.role);
+        console.log('ℹ️ [ClientAuth] Non-client role detected:', userProfile.role, '- returning null');
         return null;
       }
 
