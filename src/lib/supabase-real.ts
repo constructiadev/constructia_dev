@@ -30,6 +30,26 @@ export const supabase = supabaseClient;
 export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 export const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
 
+// Helper para obtener configuraciones del sistema
+export const getSystemSettings = async () => {
+  try {
+    const { data, error } = await supabaseClient
+      .from('system_settings')
+      .select('*')
+      .order('key', { ascending: true });
+
+    if (error) {
+      console.warn('Error fetching system settings:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    return [];
+  }
+};
+
 // Real data functions - NO MOCK DATA
 
 // Get current user's tenant

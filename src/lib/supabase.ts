@@ -7,7 +7,8 @@ import {
   getTenantObras,
   getTenantObrasNoRLS, 
   getTenantStats,
-  getCurrentUserTenant
+  getCurrentUserTenant,
+  getSystemSettings
 } from './supabase-real';
 
 // Constante UUID válida para desarrollo
@@ -17,7 +18,7 @@ export const TEST_USER_UUID = '00000000-0000-0000-0000-000000000001';
 export { DEV_TENANT_ID };
 
 // Export functions from supabase-real for use in other modules
-export { getTenantEmpresasNoRLS, getTenantUsersNoRLS, getTenantObrasNoRLS, getTenantStats };
+export { getTenantEmpresasNoRLS, getTenantUsersNoRLS, getTenantObrasNoRLS, getTenantStats, getSystemSettings };
 
 // Use centralized client
 export const supabase = supabaseClient;
@@ -326,26 +327,6 @@ export const getAllPaymentGateways = async () => {
 };
 
 // Helper para obtener cola de procesamiento manual
-
-// Helper para obtener configuraciones del sistema
-export const getSystemSettings = async () => {
-  try {
-    const { data, error } = await supabaseClient
-      .from('system_settings')
-      .select('*')
-      .order('key', { ascending: true });
-
-    if (error) {
-      console.warn('Error fetching system settings:', error);
-      return [];
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching system settings:', error);
-    return [];
-  }
-};
 
 // Helper para actualizar configuración del sistema
 export const updateSystemSetting = async (key: string, value: any, description?: string) => {
