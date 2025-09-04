@@ -50,6 +50,33 @@ export const getSystemSettings = async () => {
   }
 };
 
+// Update system setting
+export const updateSystemSetting = async (key: string, value: any, description?: string) => {
+  try {
+    const { data, error } = await supabaseServiceClient
+      .from('system_settings')
+      .upsert({
+        key,
+        value,
+        description: description || `Setting for ${key}`,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating system setting:', error);
+      throw new Error(`Failed to update setting ${key}: ${error.message}`);
+    }
+
+    console.log(`✅ System setting updated: ${key}`);
+    return data;
+  } catch (error) {
+    console.error('Error updating system setting:', error);
+    throw error;
+  }
+};
+
 // Real data functions - NO MOCK DATA
 
 // Get current user's tenant
