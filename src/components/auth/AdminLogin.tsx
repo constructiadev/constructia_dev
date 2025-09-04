@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase-real';
+import { supabase, supabaseServiceClient } from '../../lib/supabase-real';
 import Logo from '../common/Logo';
 
 export default function AdminLogin() {
@@ -40,7 +40,7 @@ export default function AdminLogin() {
         throw new Error(`Database error: ${profileError.message}`);
       } else if (!userProfile) {
         // Profile doesn't exist, create it for SuperAdmin
-        const { error: createError } = await supabase
+        const { error: createError } = await supabaseServiceClient
           .from('users')
           .upsert({
             id: authData.user.id,
