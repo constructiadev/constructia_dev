@@ -35,17 +35,24 @@ export default function ProtectedRoute({
   // Check role requirements
   if (requireRole === 'admin' && user.role !== 'SuperAdmin') {
     console.warn('⚠️ [ProtectedRoute] Admin access denied for role:', user.role);
-    return <Navigate to="/landing" replace />;
+    // If it's a client trying to access admin, redirect to their dashboard
+    if (['Cliente', 'ClienteDemo'].includes(user.role)) {
+      console.warn('⚠️ [ProtectedRoute] Client attempted admin access, redirecting to client dashboard');
+      return <Navigate to="/client/dashboard" replace />;
+    }
+    return <Navigate to={fallbackPath} replace />;
   }
 
   if (requireRole === 'client' && user.role === 'SuperAdmin') {
     console.warn('⚠️ [ProtectedRoute] Client access denied for role:', user.role);
-    return <Navigate to="/landing" replace />;
+    // If it's an admin trying to access client, redirect to admin dashboard
+    console.warn('⚠️ [ProtectedRoute] Admin attempted client access, redirecting to admin dashboard');
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   if (requireRole === 'client' && !['Cliente', 'ClienteDemo'].includes(user.role)) {
     console.warn('⚠️ [ProtectedRoute] Invalid client role:', user.role);
-    return <Navigate to="/landing" replace />;
+    return <Navigate to={fallbackPath} replace />;
   }
 
   console.log('✅ [ProtectedRoute] Access granted for:', user.email, 'Role:', user.role, 'Tenant:', user.tenant_id);
