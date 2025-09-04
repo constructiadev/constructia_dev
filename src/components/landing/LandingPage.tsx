@@ -207,7 +207,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center">
                 <Users className="w-4 h-4 text-purple-600 mr-2" />
-                <span>+500 Empresas</span>
+                <span>+50 Empresas</span>
               </div>
             </div>
           </div>
