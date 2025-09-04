@@ -76,7 +76,7 @@ export class ClientAuthService {
             tenant_id: DEV_TENANT_ID,
             email: authData.user.email!,
             name: defaultName,
-            role: 'ClienteDemo',
+            role: 'ClienteAdmin',
             active: true
           }, {
             onConflict: 'tenant_id,email'
@@ -94,7 +94,7 @@ export class ClientAuthService {
       }
 
       // Verify user has client role
-      const clientRoles = ['Cliente', 'ClienteDemo'];
+      const clientRoles = ['ClienteAdmin'];
       if (!clientRoles.includes(finalUserProfile.role)) {
         console.error('❌ [ClientAuth] Invalid role for client portal:', finalUserProfile.role);
         await supabase.auth.signOut(); // Force logout for security
@@ -176,7 +176,7 @@ export class ClientAuthService {
       }
 
       // Verify client role
-      const clientRoles = ['Cliente', 'ClienteDemo'];
+      const clientRoles = ['ClienteAdmin'];
       if (!clientRoles.includes(userProfile.role)) {
         console.error('❌ [ClientAuth] Invalid client role:', userProfile.role);
         return null;
@@ -305,7 +305,7 @@ export class ClientAuthService {
         .from('users')
         .select('*')
         .eq('tenant_id', tenantId)
-        .in('role', ['Cliente', 'ClienteDemo']);
+        .in('role', ['ClienteAdmin']);
 
       if (usersError) {
         console.error('❌ [ClientAuth] Error fetching tenant clients:', usersError);
