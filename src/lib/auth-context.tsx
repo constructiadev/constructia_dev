@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(adminUser);
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
-      } else {
+      } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // For client roles, get full client context
         const authenticatedClient = await ClientAuthService.getCurrentClient();
         if (!authenticatedClient) {
@@ -157,6 +157,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         setUser(authenticatedClient);
         console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
+      } else {
+        // Invalid role for any access
+        await supabase.auth.signOut();
+        throw new Error(`Invalid user role: ${userProfile.role}`);
       }
 
     } catch (error) {
