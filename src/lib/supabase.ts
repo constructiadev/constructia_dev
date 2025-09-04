@@ -221,10 +221,14 @@ export const getClientDocuments = async (clientId: string) => {
     console.error('Error fetching documents:', error);
     return [];
   }
-  newData?: any,
-  userId?: string | null
+};
 
 // Helper para obtener logs de auditoría
+export const getAuditLogs = async (
+  newData?: any,
+  userId?: string | null
+) => {
+  try {
     let actorUserId = userId;
     
     if (!actorUserId) {
@@ -893,7 +897,7 @@ export const removeFile = async (documentId: string) => {
 };
 
 // Helper para crear insight de IA
-export const createAIInsight = async (insight: Partial<AIInsight>) => {
+export const createAIInsight = async (insight: Partial<AIInsight>, actorUserId?: string) => {
   try {
     const { data, error } = await supabaseClient
       .from('ai_insights')
