@@ -233,12 +233,15 @@ export default function MessagingModule() {
     }
 
     try {
-      // En producción, eliminar de la base de datos
+      // Eliminar de la base de datos
       await supabase
-        .from('admin_client_messages')
+        .from('mensajes')
         .delete()
         .eq('id', messageId);
 
+      if (error) {
+        throw new Error(`Error eliminando mensaje: ${error.message}`);
+      }
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
       alert('✅ Mensaje eliminado correctamente');
     } catch (error) {

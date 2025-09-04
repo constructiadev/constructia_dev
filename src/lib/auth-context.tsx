@@ -41,9 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check for existing session
     checkSession();
 
-    // Check session periodically for development
-    const interval = setInterval(checkSession, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
+    // Removed automatic session checking - admin controls when to refresh
   }, []);
 
   const checkSession = async () => {
