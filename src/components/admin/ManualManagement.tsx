@@ -586,6 +586,17 @@ export default function ManualManagement() {
   const [selectedClientForPlatform, setSelectedClientForPlatform] = useState<{clientId: string; clientName: string} | null>(null);
   const [draggedDocument, setDraggedDocument] = useState<ManualDocument | null>(null);
   const [updatingDocuments, setUpdatingDocuments] = useState<string[]>([]);
+  const [queueStats, setQueueStats] = useState({
+    total: 0,
+    pending: 0,
+    in_progress: 0,
+    uploaded: 0,
+    errors: 0,
+    urgent: 0,
+    high: 0,
+    normal: 0,
+    low: 0
+  });
 
   useEffect(() => {
     loadData();
@@ -621,9 +632,12 @@ export default function ManualManagement() {
       
       
       const [clientGroupsData, statsData] = await Promise.all([
+        manualManagementService.getClientGroups(),
+        manualManagementService.getQueueStats()
       ]);
       
       setClientGroups(clientGroupsData);
+      setQueueStats(statsData);
     } catch (error) {
       console.error('Error loading manual management data:', error);
       setError(error instanceof Error ? error.message : 'Error loading data');
