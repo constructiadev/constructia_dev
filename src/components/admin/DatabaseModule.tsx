@@ -192,10 +192,10 @@ const DatabaseModule: React.FC = () => {
       console.log('🔍 [DatabaseModule] Loading real database information...');
 
       // Test connection with a simple query
-      const { error: connectionError } = await supabaseServiceClient
-        .from('users')
-        .select('count')
-        .limit(0);
+      const { data: connectionTest, error: connectionError } = await supabase
+        .from('tenants')
+        .select('id')
+        .limit(1);
 
       if (connectionError) {
         console.warn('⚠️ [DatabaseModule] Connection test failed, using mock data:', connectionError);
@@ -692,19 +692,9 @@ const DatabaseModule: React.FC = () => {
   // Optimize database (real functionality)
   const optimizeDatabase = useCallback(async () => {
     try {
-      setLoading(true);
-      console.log('⚡ [DatabaseModule] Starting database optimization...');
+      const realTables = ['users', 'tenants', 'empresas', 'obras', 'documentos', 'proveedores', 'trabajadores', 'maquinaria'];
 
-      const optimizationTasks = [
-        'Analizando estadísticas de tablas...',
-        'Optimizando índices...',
-        'Limpiando espacio no utilizado...',
-        'Actualizando planificador de consultas...',
-        'Reorganizando datos fragmentados...',
-        'Optimización completada ✅',
-      ];
-
-      for (let i = 0; i < optimizationTasks.length; i++) {
+  }, []);
         console.log(`🔄 [DatabaseModule] ${optimizationTasks[i]}`);
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
@@ -724,22 +714,7 @@ const DatabaseModule: React.FC = () => {
 
       console.log('✅ [DatabaseModule] Database optimization completed');
       alert(
-        `✅ Optimización completa de base de datos finalizada\n\n` +
-        `• Estadísticas actualizadas\n` +
-        `• Índices optimizados\n` +
-        `• Espacio recuperado\n` +
-        `• Rendimiento mejorado`
-      );
-
-      // Reload data to show improvements
-      await loadDatabaseInfo();
-    } catch (error) {
-      console.error('❌ [DatabaseModule] Error optimizing database:', error);
-      alert('❌ Error durante la optimización');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      console.log('✅ Database optimization completed');
 
   // Execute query (real functionality with safety checks)
   const executeQuery = useCallback(async (query: string) => {
@@ -751,7 +726,7 @@ const DatabaseModule: React.FC = () => {
 
       console.log(`🔍 [DatabaseModule] Executing query: ${query.substring(0, 50)}...`);
 
-      // Validate query safety
+  }, [loadDatabaseInfo]);
       const upperQuery = query.toUpperCase().trim();
 
       // Prohibit dangerous operations
@@ -778,7 +753,8 @@ const DatabaseModule: React.FC = () => {
 
             if (error) {
               console.warn(`⚠️ [DatabaseModule] Query error for ${tableName}:`, error.message);
-              result = generateMockQueryResult(tableName);
+          const realTables = ['users', 'tenants', 'empresas', 'obras', 'documentos', 'proveedores', 'trabajadores', 'maquinaria'];
+          if (tableName && realTables.includes(tableName)) {
             } else if (data && data.length > 0) {
               const columns = Object.keys(data[0]);
               const rows = data.map((row) => columns.map((col) => row[col]));
@@ -820,23 +796,7 @@ const DatabaseModule: React.FC = () => {
       // Add to history
       setQueryHistory((prev) => [query, ...prev.slice(0, 9)]);
 
-      // Log real audit event
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        'database.query.executed',
-        'system',
-        undefined,
-        {
-          query: query.substring(0, 100),
-          execution_time: result.execution_time,
-          rows_affected: result.rows_affected,
-        }
-      );
-
-    } catch (error) {
-      console.error('❌ [DatabaseModule] Error executing query:', error);
-      setQueryResult({
+      console.log(`✅ Query executed: ${query.substring(0, 50)}... (${result.execution_time.toFixed(2)}ms)`);
         columns: ['error'],
         rows: [[error instanceof Error ? error.message : 'Error desconocido']],
         execution_time: 0,
@@ -848,38 +808,39 @@ const DatabaseModule: React.FC = () => {
   }, []);
 
   // Extract table name from query
-  const extractTableName = (query: string): string | null => {
+  }, []);
     const match = query.match(/FROM\s+(\w+)/i);
     return match ? match[1] : null;
   };
 
   // Generate mock query result
   const generateMockQueryResult = (tableName: string): QueryResult => {
-    const mockData: { [key: string]: any } = {
+    const realTables = ['users', 'tenants', 'empresas', 'obras', 'documentos', 'proveedores', 'trabajadores', 'maquinaria'];
+    const mockTables: TableInfo[] = realTables.map((tableName) => generateMockTableInfo(tableName));
       users: {
         columns: ['id', 'email', 'name', 'role', 'tenant_id', 'created_at'],
-        rows: [
-          ['20000000-0000-0000-0000-000000000001', 'admin@constructia.com', 'Super Admin', 'SuperAdmin', '00000000-0000-0000-0000-000000000001', '2025-01-29'],
+      users: {
+        columns: ['id', 'email', 'name', 'role', 'tenant_id', 'created_at'],
           ['10000000-0000-0000-0000-000000000001', 'garcia@construcciones.com', 'Juan García', 'Cliente', '00000000-0000-0000-0000-000000000001', '2025-01-29'],
-          ['10000000-0000-0000-0000-000000000002', 'lopez@reformas.com', 'María López', 'Cliente', '00000000-0000-0000-0000-000000000001', '2025-01-29'],
-        ],
-      },
+          ['10000000-0000-0000-0000-000000000001', 'garcia@construcciones.com', 'Juan García', 'Cliente', DEV_TENANT_ID, '2024-01-15'],
+          ['10000000-0000-0000-0000-000000000002', 'lopez@reformas.com', 'María López', 'Cliente', DEV_TENANT_ID, '2024-02-20'],
+          ['20000000-0000-0000-0000-000000000001', 'admin@constructia.com', 'Super Admin', 'SuperAdmin', DEV_TENANT_ID, '2024-01-10'],
       empresas: {
         columns: ['id', 'razon_social', 'cif', 'direccion', 'estado_compliance', 'created_at'],
-        rows: [
-          ['20000000-0000-0000-0000-000000000001', 'Construcciones García S.L.', 'B12345678', 'Calle Construcción 123, Madrid', 'al_dia', '2025-01-29'],
+      documentos: {
+        columns: ['id', 'categoria', 'entidad_tipo', 'entidad_id', 'estado', 'created_at'],
           ['20000000-0000-0000-0000-000000000002', 'Reformas López S.L.', 'B87654321', 'Avenida Reforma 456, Madrid', 'pendiente', '2025-01-29'],
-          ['20000000-0000-0000-0000-000000000003', 'Edificaciones Martín S.A.', 'A11223344', 'Plaza Edificación 789, Madrid', 'al_dia', '2025-01-29'],
-        ],
-      },
+          ['doc_001', 'PRL', 'obra', 'obra_001', 'aprobado', '2024-12-15'],
+          ['doc_002', 'CONTRATO', 'trabajador', 'trab_001', 'pendiente', '2024-12-14'],
+          ['doc_003', 'CERT_MAQUINARIA', 'maquinaria', 'maq_001', 'pendiente', '2024-12-13'],
       documentos: {
         columns: ['id', 'categoria', 'entidad_tipo', 'estado', 'created_at', 'size_bytes'],
-        rows: [
-          ['60000000-0000-0000-0000-000000000001', 'PLAN_SEGURIDAD', 'obra', 'pendiente', '2025-01-29', '2048576'],
+      empresas: {
+        columns: ['id', 'razon_social', 'cif', 'estado_compliance', 'created_at'],
           ['60000000-0000-0000-0000-000000000002', 'EVAL_RIESGOS', 'obra', 'aprobado', '2025-01-29', '1536000'],
-          ['60000000-0000-0000-0000-000000000003', 'DNI', 'trabajador', 'aprobado', '2025-01-29', '512000'],
-        ],
-      },
+          ['emp_001', 'Constructora García SL', 'B12345678', 'al_dia', '2024-01-15'],
+          ['emp_002', 'Reformas López SA', 'A87654321', 'pendiente', '2024-02-20'],
+          ['emp_003', 'Edificaciones Martín', 'B11223344', 'al_dia', '2024-01-10'],
       mensajes: {
         columns: ['id', 'tipo', 'titulo', 'contenido', 'prioridad', 'estado', 'created_at'],
         rows: [
@@ -887,16 +848,14 @@ const DatabaseModule: React.FC = () => {
           ['msg_002', 'alerta', 'Mantenimiento Programado', 'Sistema en mantenimiento domingo', 'alta', 'programado', '2025-01-29'],
         ],
       },
-      clients: {
-        columns: ['id', 'company_name', 'email', 'subscription_plan', 'subscription_status', 'created_at'],
-        rows: [
-          ['cl_001', 'Construcciones García S.L.', 'juan@construccionesgarcia.com', 'professional', 'active', '2024-01-15'],
-          ['cl_002', 'Reformas López', 'maria@reformaslopez.com', 'basic', 'active', '2024-02-20'],
-          ['cl_003', 'Edificaciones Martín', 'carlos@edificacionesmartin.com', 'enterprise', 'active', '2024-01-10'],
-        ],
-      },
-      documents: {
-        columns: ['id', 'filename', 'client_id', 'upload_status', 'created_at', 'file_size'],
+      users: 4,
+      tenants: 2,
+      empresas: 3,
+      obras: 4,
+      documentos: 156,
+      proveedores: 12,
+      trabajadores: 45,
+      maquinaria: 8,
         rows: [
           ['doc_001', 'certificado_obra_123.pdf', 'cl_001', 'completed', '2025-01-29', '2048000'],
           ['doc_002', 'planos_estructurales.dwg', 'cl_002', 'processing', '2025-01-28', '5242880'],
@@ -919,12 +878,11 @@ const DatabaseModule: React.FC = () => {
   const buildQuery = useCallback((table: string, operation: string) => {
     const queries: { [key: string]: string } = {
       select_all: `SELECT * FROM ${table} LIMIT 10;`,
-      count: `SELECT COUNT(*) as total FROM ${table};`,
       recent: `SELECT * FROM ${table} WHERE created_at >= NOW() - INTERVAL '7 days' ORDER BY created_at DESC LIMIT 10;`,
       structure: `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '${table}';`,
     };
 
-    setCustomQuery(queries[operation] || queries.select_all);
+  }, [loadDatabaseInfo]);
   }, []);
 
   // Initialize module
@@ -953,23 +911,7 @@ const DatabaseModule: React.FC = () => {
         </div>
       </div>
     );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header with connection status and actions */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Gestión Completa de Base de Datos</h1>
-            <p className="text-blue-100 mb-4">
-              Administración profesional con backups, mantenimiento y optimización
-            </p>
-            <div className="flex items-center space-x-4 text-sm">
-              <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  connectionStatus === 'connected' ? 'bg-green-400' : 
-                  connectionStatus === 'disconnected' ? 'bg-red-400' : 'bg-yellow-400'
+      console.log(`✅ Backup ${type} created: ${backupName} (${newBackup.size})`);
                 }`}></div>
                 <span>
                   Estado: {connectionStatus === 'connected' ? 'Conectado' : 
@@ -978,7 +920,7 @@ const DatabaseModule: React.FC = () => {
               </div>
               <div>
                 Última actualización: {lastRefresh.toLocaleTimeString()}
-              </div>
+  }, []);
             </div>
           </div>
           <div className="flex space-x-3">
@@ -994,23 +936,7 @@ const DatabaseModule: React.FC = () => {
               onClick={() => runMaintenanceTask('vacuum')}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
-              <Settings className="w-4 h-4 mr-2" />
-              Mantenimiento
-            </button>
-            <button
-              onClick={optimizeDatabase}
-              disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center disabled:opacity-50"
-            >
-              <Zap className="w-4 h-4 mr-2" />
-              Optimizar
-            </button>
-            <button
-              onClick={loadDatabaseInfo}
-              disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+      console.log(`✅ Database restored from backup: ${backup.name}`);
               Actualizar
             </button>
           </div>
@@ -1021,7 +947,7 @@ const DatabaseModule: React.FC = () => {
       {databaseStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center">
+  }, [loadDatabaseInfo]);
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Database className="w-5 h-5 text-blue-600" />
               </div>
@@ -1032,26 +958,14 @@ const DatabaseModule: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <FileText className="w-5 h-5 text-green-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Registros</p>
-                <p className="text-xl font-bold text-gray-900">{databaseStats.total_rows.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border p-4">
+      console.log(`✅ Backup deleted: ${backup.name}`);
             <div className="flex items-center">
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                 <HardDrive className="w-5 h-5 text-purple-600" />
               </div>
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-600">Tamaño</p>
-                <p className="text-xl font-bold text-gray-900">{databaseStats.database_size}</p>
+  }, []);
               </div>
             </div>
           </div>
@@ -1103,20 +1017,6 @@ const DatabaseModule: React.FC = () => {
           { id: 'performance', label: 'Rendimiento', icon: TrendingUp },
           { id: 'backups', label: 'Backups', icon: Archive },
           { id: 'maintenance', label: 'Mantenimiento', icon: Settings },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-3 py-2 rounded-md font-medium transition-colors text-sm flex items-center justify-center ${
-                activeTab === tab.id ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Icon className="w-4 h-4 mr-2" />
-              {tab.label}
-            </button>
-          );
         })}
       </div>
 
@@ -1749,15 +1649,14 @@ const DatabaseModule: React.FC = () => {
               <div>✅ Backups automáticos y manuales</div>
               <div>✅ Limpieza y optimización de cache</div>
               <div>✅ Mantenimiento de tablas e índices</div>
-              <div>✅ Ejecutor de consultas seguro</div>
-              <div>✅ Monitoreo de rendimiento</div>
-              <div>✅ Análisis de fragmentación</div>
+        console.log(`✅ Maintenance task completed: ${taskType} ${tableName ? `on ${tableName}` : ''}`);
             </div>
           </div>
         </div>
       </div>
-    </div>
+    []
   );
 };
 
 export default DatabaseModule;
+      console.log(`✅ Cache cleared: ${cacheNames[cacheType]}`);
