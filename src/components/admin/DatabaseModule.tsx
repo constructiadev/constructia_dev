@@ -711,47 +711,7 @@ const DatabaseModule: React.FC = () => {
       console.error('❌ [DatabaseModule] Error optimizing database:', error);
       alert('❌ Error durante la optimización de la base de datos');
     }
-      const optimizationTasks = [
-        'Iniciando optimización completa de la base de datos...',
-        'Ejecutando VACUUM en todas las tablas...',
-        'Reconstruyendo índices críticos...',
-        'Actualizando estadísticas de consulta...',
-        'Limpiando archivos temporales...',
-        'Optimización completada exitosamente'
-      ];
-
-      for (let i = 0; i < optimizationTasks.length; i++) {
-        console.log(`🔄 [DatabaseModule] ${optimizationTasks[i]}`);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-      }
-
-      // Log real audit event
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        'database.optimization.completed',
-        'system',
-        undefined,
-        {
-          optimization_timestamp: new Date().toISOString(),
-          tasks_completed: optimizationTasks.length - 1,
-        }
-      );
-
-      console.log('✅ [DatabaseModule] Database optimization completed');
-      alert(
-        '✅ Optimización de base de datos completada exitosamente\n\n' +
-        '• VACUUM ejecutado en todas las tablas\n' +
-        '• Índices reconstruidos\n' +
-        '• Estadísticas actualizadas\n' +
-        '• Archivos temporales limpiados\n\n' +
-        'El rendimiento del sistema ha sido mejorado.'
-      );
-    } catch (error) {
-      console.error('❌ [DatabaseModule] Error optimizing database:', error);
-      alert('❌ Error durante la optimización');
-    }
-  }, []);
+  }, [loadDatabaseInfo]);
 
   // Execute query (real functionality with safety checks)
   const executeQuery = useCallback(async (query: string) => {
@@ -978,7 +938,7 @@ const DatabaseModule: React.FC = () => {
               Mantenimiento
             </button>
             <button
-              onClick=\{loadDatabaseInfo}
+              onClick={loadDatabaseInfo}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -1005,7 +965,7 @@ const DatabaseModule: React.FC = () => {
 
           <div className="bg-white rounded-xl shadow-sm border p-4">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-green-100 rounded-\lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                 <FileText className="w-5 h-5 text-green-600" />
               </div>
               <div className="ml-3">
@@ -1223,7 +1183,7 @@ const DatabaseModule: React.FC = () => {
                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                           <div 
                             className="bg-green-600 h-2 rounded-full transition-all duration-300" 
-                            style={{ width: \`${table.index_usage}%` }}
+                            style={{ width: `${table.index_usage}%` }}
                           ></div>
                         </div>
                         <span className="text-sm text-gray-600">{table.index_usage}%</span>
@@ -1454,11 +1414,11 @@ const DatabaseModule: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <div className="w-20 bg-gray-200 rounded-full h-2">
                         <div
-                          className={\`h-2 rounded-full transition-all duration-300 ${
+                          className={`h-2 rounded-full transition-all duration-300 ${
                             table.table_bloat > 10 ? 'bg-red-500' : 
                             table.table_bloat > 5 ? 'bg-yellow-500' : 'bg-green-500'
                           }`}
-                          style={{ width: \`${Math.min(table.table_bloat * 5, 100)}%` }}
+                          style={{ width: `${Math.min(table.table_bloat * 5, 100)}%` }}
                         ></div>
                       </div>
                       <span className="text-xs text-gray-500">{table.table_bloat}%</span>
@@ -1568,7 +1528,7 @@ const DatabaseModule: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={\`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             backup.type === 'full'
                               ? 'bg-green-100 text-green-800'
                               : backup.type === 'incremental'
@@ -1586,7 +1546,7 @@ const DatabaseModule: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={\`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             backup.status === 'completed'
                               ? 'bg-green-100 text-green-800'
                               : backup.status === 'running'
@@ -1658,7 +1618,7 @@ const DatabaseModule: React.FC = () => {
                     <tr key={task.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <span
-                          className={\`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             task.task_type === 'vacuum'
                               ? 'bg-green-100 text-green-800'
                               : task.task_type === 'reindex'
@@ -1676,7 +1636,7 @@ const DatabaseModule: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={\`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             task.status === 'completed'
                               ? 'bg-green-100 text-green-800'
                               : task.status === 'running'
@@ -1692,7 +1652,7 @@ const DatabaseModule: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {task.duration ? \`${task.duration}s` : '-'}
+                        {task.duration ? `${task.duration}s` : '-'}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {task.details}
@@ -1719,14 +1679,14 @@ const DatabaseModule: React.FC = () => {
               <div>✅ Backups automáticos y manuales</div>
               <div>✅ Limpieza y optimización de cache</div>
               <div>✅ Mantenimiento de tablas e índices</div>
-              <div>✅ Consultas SQL se\guras</div>
+              <div>✅ Consultas SQL seguras</div>
               <div>✅ Monitoreo de rendimiento</div>
               <div>✅ Análisis de bloat y estadísticas</div>
             </div>
           </div>
         </div>
       </div>
-    <\/div>
+    </div>
   );
 };
 
