@@ -373,7 +373,7 @@ export const getTenantHierarchy = async (tenantId: string) => {
 export const checkPermission = (userRole: UserRole, action: string, resource: string): boolean => {
   const permissions = {
     SuperAdmin: ['*'],
-    Admin: ['read:*', 'write:*', 'delete:own'],
+    Admin: ['read:*', 'write:*', 'delete:*'],
     Cliente: ['read:own', 'write:own'],
     ClienteDemo: ['read:own']
   };
