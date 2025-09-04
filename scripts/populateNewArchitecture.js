@@ -188,6 +188,8 @@ async function populateNewArchitecture() {
         name: 'Administrador ConstructIA',
         role: 'SuperAdmin',
         active: true
+      }, {
+        onConflict: 'tenant_id,email'
       })
       .select()
       .single();
