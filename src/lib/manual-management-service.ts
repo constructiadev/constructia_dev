@@ -865,7 +865,7 @@ export class ManualManagementService {
           alias: `${platformType}-default`,
           credenciales: {
             username,
-            password
+            password: this.encryptPassword(`${empresa.id.substring(0, 8)}${platform}2025!`),
           },
           estado: 'ready'
         });
