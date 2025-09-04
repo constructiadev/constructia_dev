@@ -370,6 +370,10 @@ export const getTenantHierarchy = async (tenantId: string) => {
 };
 
 // Helper para verificar permisos por rol
+export const checkPermission = (userRole: UserRole, action: string, resource: string): boolean => {
+  const permissions = {
+    SuperAdmin: ['*'],
+    Admin: ['read:*', 'write:*', 'delete:own'],
     Cliente: ['read:own', 'write:own'],
     ClienteDemo: ['read:own']
   };
