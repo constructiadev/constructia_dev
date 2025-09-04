@@ -1,7 +1,9 @@
 // ConstructIA - Tipos TypeScript Globales
 
 // Nuevos tipos para la arquitectura multi-tenant
-export type UserRole = 'SuperAdmin' | 'Cliente' | 'ClienteDemo';
+export type UserRole = 'SuperAdmin' | 'Cliente' | 'ClienteDemo' | 'GestorDocumental' | 'SupervisorObra' | 'Proveedor' | 'Lector';
+export type ClientRole = 'Cliente' | 'ClienteDemo';
+export type AdminRole = 'SuperAdmin' | 'GestorDocumental' | 'SupervisorObra' | 'Proveedor' | 'Lector';
 export type TenantStatus = 'active' | 'suspended';
 export type DocumentoCategoria = 'PRL' | 'APTITUD_MEDICA' | 'DNI' | 'ALTA_SS' | 'CONTRATO' | 'SEGURO_RC' | 'REA' | 'FORMACION_PRL' | 'EVAL_RIESGOS' | 'CERT_MAQUINARIA' | 'PLAN_SEGURIDAD' | 'OTROS';
 export type DocumentoEstado = 'borrador' | 'pendiente' | 'aprobado' | 'rechazado';
