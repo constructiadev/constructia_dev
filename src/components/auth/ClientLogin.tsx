@@ -20,8 +20,8 @@ export default function ClientLogin() {
 
     try {
       await signIn(email, password);
-      // Force navigation to client dashboard and prevent any admin access
-      window.location.href = '/client/dashboard';
+      // Navigate to client dashboard
+      navigate('/client/dashboard', { replace: true });
     } catch (err: any) {
       console.error('Client login error:', err);
       setError(err?.message || 'Error de autenticación');
