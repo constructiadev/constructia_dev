@@ -20,7 +20,8 @@ import {
   Smartphone,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Upload
 } from 'lucide-react';
 import Logo from '../common/Logo';
 import ContactSection from './ContactSection';
@@ -136,6 +137,9 @@ export default function LandingPage() {
               <a href="#caracteristicas" className="text-gray-600 hover:text-green-600 transition-colors">
                 Características
               </a>
+              <a href="#como-funciona" className="text-gray-600 hover:text-green-600 transition-colors">
+                Cómo Funciona
+              </a>
               <a href="#precios" className="text-gray-600 hover:text-green-600 transition-colors">
                 Precios
               </a>
@@ -235,6 +239,163 @@ export default function LandingPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section id="como-funciona" className="py-20 bg-gradient-to-br from-blue-50 to-green-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              ¿Cómo Funciona?
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Proceso simple y automatizado en 4 pasos
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="relative">
+                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Upload className="w-10 h-10 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">1</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Sube Documentos</h3>
+              <p className="text-gray-600">
+                Arrastra y suelta tus documentos PDF, imágenes o archivos de construcción
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="relative">
+                <div className="w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Brain className="w-10 h-10 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">2</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">IA Clasifica</h3>
+              <p className="text-gray-600">
+                Nuestra IA analiza y clasifica automáticamente cada documento con 95% de precisión
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="relative">
+                <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle className="w-10 h-10 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">3</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Validación</h3>
+              <p className="text-gray-600">
+                Revisión automática de calidad y validación de datos extraídos
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="relative">
+                <div className="w-20 h-20 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Globe className="w-10 h-10 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">4</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Integración</h3>
+              <p className="text-gray-600">
+                Subida automática a Obralia/Nalanda con todos los datos correctos
+              </p>
+            </div>
+          </div>
+
+          {/* Process Flow */}
+          <div className="mt-16 bg-white rounded-2xl shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+              Flujo de Procesamiento Inteligente
+            </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">Documento Original</p>
+                  <p className="text-sm text-gray-600">PDF, imagen, escaneado</p>
+                </div>
+              </div>
+              
+              <ArrowRight className="w-6 h-6 text-gray-400" />
+              
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">Análisis IA</p>
+                  <p className="text-sm text-gray-600">OCR + Clasificación</p>
+                </div>
+              </div>
+              
+              <ArrowRight className="w-6 h-6 text-gray-400" />
+              
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">Datos Estructurados</p>
+                  <p className="text-sm text-gray-600">Campos extraídos</p>
+                </div>
+              </div>
+              
+              <ArrowRight className="w-6 h-6 text-gray-400" />
+              
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Globe className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">Obralia/Nalanda</p>
+                  <p className="text-sm text-gray-600">Subida automática</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Benefits */}
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm">
+              <Clock className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">Ahorra 90% del Tiempo</h4>
+              <p className="text-gray-600">
+                Lo que antes tomaba horas, ahora se hace en minutos
+              </p>
+            </div>
+            
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm">
+              <Target className="w-12 h-12 text-green-600 mx-auto mb-4" />
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">95% de Precisión</h4>
+              <p className="text-gray-600">
+                IA entrenada específicamente para documentos de construcción
+              </p>
+            </div>
+            
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm">
+              <Shield className="w-12 h-12 text-purple-600 mx-auto mb-4" />
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">100% Seguro</h4>
+              <p className="text-gray-600">
+                Cumplimiento GDPR y encriptación de extremo a extremo
+              </p>
+            </div>
           </div>
         </div>
       </section>
