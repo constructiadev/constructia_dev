@@ -234,5 +234,8 @@ VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
   const handleCreateConsent = async () => {
     try {
       const consentData = {
+      }
+    }
+  }
 # Gemini AI Configuration
 VITE_GEMINI_API_KEY=AIzaSyDPJA1RU1KbHzOLG0tGAasXcS9H7iq625s
