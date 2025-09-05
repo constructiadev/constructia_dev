@@ -234,6 +234,7 @@ VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
   const handleCreateConsent = async () => {
     try {
       const consentData = {
+      }
       <footer className="bg-gray-700 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -437,3 +438,5 @@ VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
 
 # Gemini AI Configuration
 VITE_GEMINI_API_KEY=AIzaSyDPJA1RU1KbHzOLG0tGAasXcS9H7iq625s
+    }
+  }
