@@ -147,16 +147,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(adminUser);
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
-        // Don't auto-redirect, let the router handle it
       } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // For client roles, get full client context
-        const authenticatedClient = await ClientAuthService.getCurrentClient();
-        if (!authenticatedClient) {
-          throw new Error('Failed to get client context');
+        try {
+          const authenticatedClient = await ClientAuthService.getCurrentClient();
+          if (!authenticatedClient) {
+            console.warn('⚠️ [AuthContext] Failed to get client context, using basic user data');
+            // Fallback to basic user data for clients
+            const basicClientUser: AuthenticatedUser = {
+              id: userProfile.id,
+              email: userProfile.email,
+              name: userProfile.name || 'Cliente',
+              role: userProfile.role,
+              tenant_id: userProfile.tenant_id
+            };
+            setUser(basicClientUser);
+          } else {
+            setUser(authenticatedClient);
+          }
+        } catch (clientError) {
+          console.warn('⚠️ [AuthContext] Client context error, using fallback:', clientError);
+          const basicClientUser: AuthenticatedUser = {
+            id: userProfile.id,
+            email: userProfile.email,
+            name: userProfile.name || 'Cliente',
+            role: userProfile.role,
+            tenant_id: userProfile.tenant_id
+          };
+          setUser(basicClientUser);
         }
-        setUser(authenticatedClient);
         console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
-        // Don't auto-redirect, let the router handle it
       } else {
         // Invalid role for any access
         await supabase.auth.signOut();
