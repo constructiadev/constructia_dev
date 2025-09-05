@@ -227,6 +227,9 @@ VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
     } catch (error) {
       console.error('Error updating breach:', error);
       alert('Error al actualizar brecha');
+    }
+  };
+
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Settings, Shield, Database, Key, Bell, Users, FileText, Activity } from 'lucide-react';
 import { supabaseServiceClient } from '../../lib/supabase-real';
