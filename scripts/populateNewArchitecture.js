@@ -155,10 +155,178 @@ const maquinariaData = [
   }
 ];
 
+const complianceChecksData = [
+  {
+    category: 'Principios Fundamentales LOPD',
+    check_name: 'Licitud del tratamiento',
+    status: 'compliant',
+    description: 'Base legal establecida para todos los tratamientos',
+    last_verified: '2024-12-01T10:00:00Z',
+    next_review: '2025-03-01T10:00:00Z'
+  },
+  {
+    category: 'Principios Fundamentales LOPD',
+    check_name: 'Minimización de datos',
+    status: 'compliant',
+    description: 'Solo se recopilan datos necesarios',
+    last_verified: '2024-12-01T10:00:00Z',
+    next_review: '2025-03-01T10:00:00Z'
+  },
+  {
+    category: 'Derechos de los Interesados',
+    check_name: 'Derecho de acceso',
+    status: 'compliant',
+    description: 'Sistema de consulta de datos personales',
+    last_verified: '2024-12-01T10:00:00Z',
+    next_review: '2025-03-01T10:00:00Z'
+  },
+  {
+    category: 'Seguridad Técnica',
+    check_name: 'Cifrado de datos',
+    status: 'compliant',
+    description: 'Datos cifrados en reposo y tránsito',
+    last_verified: '2024-12-01T10:00:00Z',
+    next_review: '2025-03-01T10:00:00Z'
+  },
+  {
+    category: 'Gobernanza y Organización',
+    check_name: 'Formación del personal',
+    status: 'warning',
+    description: 'Pendiente formación trimestral',
+    last_verified: '2024-09-01T10:00:00Z',
+    next_review: '2025-01-01T10:00:00Z'
+  }
+];
+
+const dataSubjectRequestsData = [
+  {
+    request_type: 'access',
+    requester_email: 'usuario1@ejemplo.com',
+    requester_name: 'Juan Pérez',
+    status: 'pending',
+    request_details: { details: 'Solicito acceso a todos mis datos personales' },
+    deadline: '2025-01-30T23:59:59Z'
+  },
+  {
+    request_type: 'erasure',
+    requester_email: 'usuario2@ejemplo.com',
+    requester_name: 'María García',
+    status: 'completed',
+    request_details: { details: 'Solicito la eliminación de mis datos' },
+    response_data: { action: 'Data deleted successfully' },
+    completed_at: '2024-12-15T14:30:00Z',
+    deadline: '2025-01-15T23:59:59Z'
+  }
+];
+
 async function populateNewArchitecture() {
   console.log('🚀 Poblando nueva arquitectura multi-tenant...\n');
 
   try {
+    // First, create the compliance tables
+    console.log('0️⃣ Creando tablas de cumplimiento...');
+    
+    // Create compliance_checks table
+    const { error: createComplianceError } = await supabase.rpc('exec_sql', {
+      query: `
+        CREATE TABLE IF NOT EXISTS public.compliance_checks (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+          category text NOT NULL,
+          check_name text NOT NULL,
+          status text NOT NULL CHECK (status IN ('compliant', 'warning', 'non_compliant')),
+          description text,
+          last_verified timestamptz,
+          next_review timestamptz,
+          responsible_user text,
+          evidence_url text,
+          created_at timestamptz DEFAULT now() NOT NULL,
+          updated_at timestamptz DEFAULT now() NOT NULL
+        );
+        ALTER TABLE public.compliance_checks ENABLE ROW LEVEL SECURITY;
+        
+        CREATE TABLE IF NOT EXISTS public.data_subject_requests (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+          request_type text NOT NULL CHECK (request_type IN ('access', 'rectification', 'erasure', 'portability', 'objection')),
+          requester_email text NOT NULL,
+          requester_name text,
+          status text NOT NULL CHECK (status IN ('pending', 'in_progress', 'completed', 'rejected')),
+          request_details jsonb,
+          response_data jsonb,
+          completed_at timestamptz,
+          deadline timestamptz NOT NULL,
+          assigned_to text,
+          created_at timestamptz DEFAULT now() NOT NULL,
+          updated_at timestamptz DEFAULT now() NOT NULL
+        );
+        ALTER TABLE public.data_subject_requests ENABLE ROW LEVEL SECURITY;
+        
+        CREATE TABLE IF NOT EXISTS public.privacy_impact_assessments (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+          assessment_name text NOT NULL,
+          processing_purpose text,
+          data_categories text[],
+          risk_level text CHECK (risk_level IN ('low', 'medium', 'high', 'very_high')),
+          mitigation_measures text[],
+          status text NOT NULL CHECK (status IN ('draft', 'under_review', 'approved', 'requires_action')),
+          assessor_id text,
+          approved_by text,
+          approved_at timestamptz,
+          next_review timestamptz,
+          created_at timestamptz DEFAULT now() NOT NULL,
+          updated_at timestamptz DEFAULT now() NOT NULL
+        );
+        ALTER TABLE public.privacy_impact_assessments ENABLE ROW LEVEL SECURITY;
+        
+        CREATE TABLE IF NOT EXISTS public.data_breaches (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+          incident_title text NOT NULL,
+          description text,
+          severity text NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+          affected_records integer,
+          data_categories text[],
+          discovery_date timestamptz NOT NULL,
+          notification_date timestamptz,
+          authority_notified boolean,
+          subjects_notified boolean,
+          status text NOT NULL CHECK (status IN ('investigating', 'contained', 'resolved')),
+          mitigation_actions text[],
+          lessons_learned text,
+          reported_by text,
+          created_at timestamptz DEFAULT now() NOT NULL,
+          updated_at timestamptz DEFAULT now() NOT NULL
+        );
+        ALTER TABLE public.data_breaches ENABLE ROW LEVEL SECURITY;
+        
+        CREATE TABLE IF NOT EXISTS public.consent_records (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+          user_email text NOT NULL,
+          consent_type text NOT NULL,
+          purpose text NOT NULL,
+          granted boolean NOT NULL,
+          granted_at timestamptz,
+          withdrawn_at timestamptz,
+          ip_address text,
+          user_agent text,
+          legal_basis text,
+          retention_period text,
+          created_at timestamptz DEFAULT now() NOT NULL,
+          updated_at timestamptz DEFAULT now() NOT NULL
+        );
+        ALTER TABLE public.consent_records ENABLE ROW LEVEL SECURITY;
+      `
+    });
+
+    if (createComplianceError) {
+      console.log('⚠️ Some compliance tables may already exist:', createComplianceError.message);
+    } else {
+      console.log('✅ Tablas de cumplimiento creadas');
+    }
+
     // 1. Crear tenant de desarrollo
     console.log('1️⃣ Creando tenant de desarrollo...');
     const { data: tenant, error: tenantError } = await supabase
@@ -294,8 +462,44 @@ async function populateNewArchitecture() {
     }
     console.log(`✅ ${maquinaria.length} máquinas creadas`);
 
+    // 8. Crear verificaciones de cumplimiento
+    console.log('8️⃣ Creando verificaciones de cumplimiento...');
+    const complianceChecksWithTenant = complianceChecksData.map(check => ({
+      ...check,
+      tenant_id: tenant.id
+    }));
+
+    const { data: complianceChecks, error: complianceChecksError } = await supabase
+      .from('compliance_checks')
+      .upsert(complianceChecksWithTenant)
+      .select();
+
+    if (complianceChecksError) {
+      console.error('❌ Error creating compliance checks:', complianceChecksError);
+      throw complianceChecksError;
+    }
+    console.log(`✅ ${complianceChecks.length} verificaciones de cumplimiento creadas`);
+
+    // 9. Crear solicitudes de derechos de interesados
+    console.log('9️⃣ Creando solicitudes de derechos de interesados...');
+    const dataSubjectRequestsWithTenant = dataSubjectRequestsData.map(request => ({
+      ...request,
+      tenant_id: tenant.id
+    }));
+
+    const { data: dataSubjectRequests, error: dataSubjectRequestsError } = await supabase
+      .from('data_subject_requests')
+      .upsert(dataSubjectRequestsWithTenant)
+      .select();
+
+    if (dataSubjectRequestsError) {
+      console.error('❌ Error creating data subject requests:', dataSubjectRequestsError);
+      throw dataSubjectRequestsError;
+    }
+    console.log(`✅ ${dataSubjectRequests.length} solicitudes de derechos creadas`);
+
     // 8. Crear documentos de ejemplo
-    console.log('8️⃣ Creando documentos de ejemplo...');
+    console.log('🔟 Creando documentos de ejemplo...');
     const documentosData = [];
 
     // Documentos para trabajadores
@@ -392,7 +596,7 @@ async function populateNewArchitecture() {
     console.log(`✅ ${documentos.length} documentos creados`);
 
     // 9. Crear mapping templates
-    console.log('9️⃣ Creando mapping templates...');
+    console.log('1️⃣1️⃣ Creando mapping templates...');
     const mappingTemplates = [
       {
         tenant_id: tenant.id,
@@ -442,7 +646,7 @@ async function populateNewArchitecture() {
     console.log(`✅ ${mappingTemplates.length} mapping templates creados`);
 
     // 10. Crear requisitos de plataforma
-    console.log('🔟 Creando requisitos de plataforma...');
+    console.log('1️⃣2️⃣ Creando requisitos de plataforma...');
     const requisitos = [
       {
         tenant_id: tenant.id,
@@ -479,7 +683,7 @@ async function populateNewArchitecture() {
     console.log(`✅ ${requisitos.length} requisitos de plataforma creados`);
 
     // 11. Crear adaptadores
-    console.log('1️⃣1️⃣ Creando adaptadores...');
+    console.log('1️⃣3️⃣ Creando adaptadores...');
     const adaptadores = [
       {
         tenant_id: tenant.id,
@@ -516,7 +720,7 @@ async function populateNewArchitecture() {
     console.log(`✅ ${adaptadores.length} adaptadores creados`);
 
     // 12. Crear suscripción
-    console.log('1️⃣2️⃣ Creando suscripción...');
+    console.log('1️⃣4️⃣ Creando suscripción...');
     const { error: suscripcionError } = await supabase
       .from('suscripciones')
       .upsert({
@@ -538,7 +742,7 @@ async function populateNewArchitecture() {
     console.log('✅ Suscripción creada');
 
     // 13. Verificación final
-    console.log('\n1️⃣3️⃣ Verificación final...');
+    console.log('\n1️⃣5️⃣ Verificación final...');
     const stats = await getTenantStats(tenant.id);
     
     console.log('📊 Estadísticas finales:');

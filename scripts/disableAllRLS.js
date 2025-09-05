@@ -65,7 +65,12 @@ async function disableAllRLS() {
       'token_transactions',
       'checkout_providers',
       'mandatos_sepa',
-      'manual_upload_queue'
+      'manual_upload_queue',
+      'compliance_checks',
+      'data_subject_requests',
+      'privacy_impact_assessments',
+      'data_breaches',
+      'consent_records'
     ];
 
     console.log(`📋 Processing ${tableNames.length} tables`);
