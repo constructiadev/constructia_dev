@@ -4,44 +4,43 @@ import {
   CheckCircle, 
   AlertTriangle, 
   XCircle,
+  FileText,
+  Users,
+  Mail,
+  Phone,
+  Globe,
+  Calendar,
+  Clock,
   Eye,
   Edit,
   Trash2,
   Plus,
-  Download,
-  FileText,
-  Calendar,
-  User,
-  Database,
-  Lock,
-  Key,
-  Clock,
-  TrendingUp,
-  BarChart3,
   RefreshCw,
+  Download,
+  Search,
+  Filter,
   Save,
   X,
-  Mail,
-  Phone,
-  Globe,
-  Award,
-  Settings,
-  AlertCircle,
   Info,
-  Search,
-  Filter
+  Database,
+  Lock,
+  Unlock,
+  Bell,
+  Target,
+  Activity,
+  BarChart3,
+  TrendingUp,
+  AlertCircle,
+  Settings,
+  User,
+  Building2,
+  Zap
 } from 'lucide-react';
-import { 
-  supabaseServiceClient, 
-  logAuditoria, 
-  DEV_TENANT_ID, 
-  DEV_ADMIN_USER_ID,
-  getSystemSettings,
-  updateSystemSetting
-} from '../../lib/supabase-real';
+import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
 
 interface ComplianceCheck {
   id: string;
+  tenant_id: string;
   category: string;
   check_name: string;
   status: 'compliant' | 'warning' | 'non_compliant';
@@ -56,12 +55,13 @@ interface ComplianceCheck {
 
 interface DataSubjectRequest {
   id: string;
+  tenant_id: string;
   request_type: 'access' | 'rectification' | 'erasure' | 'portability' | 'objection';
   requester_email: string;
   requester_name?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'rejected';
   request_details: any;
-  response_data: any;
+  response_data?: any;
   completed_at?: string;
   deadline: string;
   assigned_to?: string;
@@ -71,8 +71,9 @@ interface DataSubjectRequest {
 
 interface PrivacyImpactAssessment {
   id: string;
+  tenant_id: string;
   assessment_name: string;
-  processing_purpose: string;
+  processing_purpose?: string;
   data_categories: string[];
   risk_level: 'low' | 'medium' | 'high' | 'very_high';
   mitigation_measures: string[];
@@ -87,8 +88,9 @@ interface PrivacyImpactAssessment {
 
 interface DataBreach {
   id: string;
+  tenant_id: string;
   incident_title: string;
-  description: string;
+  description?: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   affected_records: number;
   data_categories: string[];
@@ -106,6 +108,7 @@ interface DataBreach {
 
 interface ConsentRecord {
   id: string;
+  tenant_id: string;
   user_email: string;
   consent_type: string;
   purpose: string;
@@ -114,46 +117,104 @@ interface ConsentRecord {
   withdrawn_at?: string;
   ip_address?: string;
   user_agent?: string;
-  legal_basis: string;
-  retention_period: string;
+  legal_basis?: string;
+  retention_period?: string;
   created_at: string;
   updated_at: string;
 }
 
-interface PrivacyMetrics {
-  totalDataSubjects: number;
-  dataRetentionCompliance: number;
-  accessRequests: number;
-  dataBreaches: number;
-  consentRate: number;
-  complianceScore: number;
+interface ComplianceKPIs {
+  totalChecks: number;
+  compliantChecks: number;
+  warningChecks: number;
+  nonCompliantChecks: number;
+  complianceRate: number;
   pendingRequests: number;
-  overdueTasks: number;
+  completedRequests: number;
+  overdueRequests: number;
+  activeAssessments: number;
+  highRiskAssessments: number;
+  openBreaches: number;
+  resolvedBreaches: number;
+  activeConsents: number;
+  withdrawnConsents: number;
 }
 
 export default function DataProtectionCompliance() {
+  const [activeTab, setActiveTab] = useState('resumen');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [error, setError] = useState<string | null>(null);
+  
+  // Data states
   const [complianceChecks, setComplianceChecks] = useState<ComplianceCheck[]>([]);
   const [dataRequests, setDataRequests] = useState<DataSubjectRequest[]>([]);
-  const [privacyAssessments, setPrivacyAssessments] = useState<PrivacyImpactAssessment[]>([]);
-  const [dataBreaches, setDataBreaches] = useState<DataBreach[]>([]);
-  const [consentRecords, setConsentRecords] = useState<ConsentRecord[]>([]);
-  const [privacyMetrics, setPrivacyMetrics] = useState<PrivacyMetrics>({
-    totalDataSubjects: 0,
-    dataRetentionCompliance: 0,
-    accessRequests: 0,
-    dataBreaches: 0,
-    consentRate: 0,
-    complianceScore: 0,
+  const [assessments, setAssessments] = useState<PrivacyImpactAssessment[]>([]);
+  const [breaches, setBreaches] = useState<DataBreach[]>([]);
+  const [consents, setConsents] = useState<ConsentRecord[]>([]);
+  const [kpis, setKpis] = useState<ComplianceKPIs>({
+    totalChecks: 0,
+    compliantChecks: 0,
+    warningChecks: 0,
+    nonCompliantChecks: 0,
+    complianceRate: 0,
     pendingRequests: 0,
-    overdueTasks: 0
+    completedRequests: 0,
+    overdueRequests: 0,
+    activeAssessments: 0,
+    highRiskAssessments: 0,
+    openBreaches: 0,
+    resolvedBreaches: 0,
+    activeConsents: 0,
+    withdrawnConsents: 0
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState<'request' | 'assessment' | 'breach' | 'consent'>('request');
+
+  // Modal states
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [showBreachModal, setShowBreachModal] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
+
+  // Form states
+  const [newRequest, setNewRequest] = useState({
+    request_type: 'access' as const,
+    requester_email: '',
+    requester_name: '',
+    request_details: { details: '' },
+    deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  });
+
+  const [newAssessment, setNewAssessment] = useState({
+    assessment_name: '',
+    processing_purpose: '',
+    data_categories: [] as string[],
+    risk_level: 'medium' as const,
+    mitigation_measures: [] as string[],
+    status: 'draft' as const
+  });
+
+  const [newBreach, setNewBreach] = useState({
+    incident_title: '',
+    description: '',
+    severity: 'medium' as const,
+    affected_records: 0,
+    data_categories: [] as string[],
+    discovery_date: new Date().toISOString().split('T')[0],
+    authority_notified: false,
+    subjects_notified: false,
+    status: 'investigating' as const,
+    mitigation_actions: [] as string[]
+  });
+
+  const [newConsent, setNewConsent] = useState({
+    user_email: '',
+    consent_type: 'marketing',
+    purpose: '',
+    granted: true,
+    legal_basis: 'consent',
+    retention_period: '2 años'
+  });
 
   useEffect(() => {
     loadComplianceData();
@@ -162,492 +223,605 @@ export default function DataProtectionCompliance() {
   const loadComplianceData = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      // Use fallback data if tables don't exist
-      const fallbackChecks = [
-        {
-          id: '1',
-          category: 'Principios Fundamentales LOPD',
-          check_name: 'Licitud del tratamiento',
-          status: 'compliant',
-          description: 'Base legal establecida para todos los tratamientos',
-          last_verified: '2024-12-01T10:00:00Z',
-          next_review: '2025-03-01T10:00:00Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          category: 'Principios Fundamentales LOPD',
-          check_name: 'Minimización de datos',
-          status: 'compliant',
-          description: 'Solo se recopilan datos necesarios',
-          last_verified: '2024-12-01T10:00:00Z',
-          next_review: '2025-03-01T10:00:00Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '3',
-          category: 'Derechos de los Interesados',
-          check_name: 'Derecho de acceso',
-          status: 'compliant',
-          description: 'Sistema de consulta de datos personales',
-          last_verified: '2024-12-01T10:00:00Z',
-          next_review: '2025-03-01T10:00:00Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '4',
-          category: 'Seguridad Técnica',
-          check_name: 'Cifrado de datos',
-          status: 'compliant',
-          description: 'Datos cifrados en reposo y tránsito',
-          last_verified: '2024-12-01T10:00:00Z',
-          next_review: '2025-03-01T10:00:00Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '5',
-          category: 'Gobernanza y Organización',
-          check_name: 'Formación del personal',
-          status: 'warning',
-          description: 'Pendiente formación trimestral',
-          last_verified: '2024-09-01T10:00:00Z',
-          next_review: '2025-01-01T10:00:00Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
+      // Load all compliance data with fallback
+      const [checksData, requestsData, assessmentsData, breachesData, consentsData] = await Promise.all([
+        loadComplianceChecks(),
+        loadDataRequests(),
+        loadAssessments(),
+        loadBreaches(),
+        loadConsents()
+      ]);
 
-      const fallbackRequests = [
-        {
-          id: '1',
-          request_type: 'access',
-          requester_email: 'usuario1@ejemplo.com',
-          requester_name: 'Juan Pérez',
-          status: 'pending',
-          request_details: { details: 'Solicito acceso a todos mis datos personales' },
-          deadline: '2025-01-30T23:59:59Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          request_type: 'erasure',
-          requester_email: 'usuario2@ejemplo.com',
-          requester_name: 'María García',
-          status: 'completed',
-          request_details: { details: 'Solicito la eliminación de mis datos' },
-          response_data: { action: 'Data deleted successfully' },
-          completed_at: '2024-12-15T14:30:00Z',
-          deadline: '2025-01-15T23:59:59Z',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
+      setComplianceChecks(checksData);
+      setDataRequests(requestsData);
+      setAssessments(assessmentsData);
+      setBreaches(breachesData);
+      setConsents(consentsData);
 
-      const fallbackAssessments = [
-        {
-          id: '1',
-          assessment_name: 'Evaluación de Procesamiento de Documentos',
-          processing_purpose: 'Clasificación automática de documentos con IA',
-          data_categories: ['Datos de identificación', 'Documentos técnicos'],
-          risk_level: 'medium',
-          mitigation_measures: ['Cifrado AES-256', 'Acceso basado en roles'],
-          status: 'approved',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
+      // Calculate KPIs
+      calculateKPIs(checksData, requestsData, assessmentsData, breachesData, consentsData);
 
-      const fallbackBreaches = [];
-
-      const fallbackConsents = [
-        {
-          id: '1',
-          user_email: 'usuario@ejemplo.com',
-          consent_type: 'marketing',
-          purpose: 'Comunicaciones comerciales',
-          granted: true,
-          granted_at: '2024-12-01T10:00:00Z',
-          legal_basis: 'Consentimiento',
-          retention_period: '2 años',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
-
-      // Try to load from database, fallback to mock data if tables don't exist
-      try {
-        const { data: checks, error: checksError } = await supabaseServiceClient
-          .from('compliance_checks')
-          .select('*')
-          .order('category', { ascending: true });
-
-        if (checksError) {
-          console.warn('Using fallback compliance checks data');
-          setComplianceChecks(fallbackChecks);
-        } else {
-          setComplianceChecks(checks || fallbackChecks);
-        }
-      } catch (error) {
-        console.warn('Database not accessible, using fallback data');
-        setComplianceChecks(fallbackChecks);
-      }
-
-      try {
-        const { data: requests, error: requestsError } = await supabaseServiceClient
-          .from('data_subject_requests')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (requestsError) {
-          console.warn('Using fallback requests data');
-          setDataRequests(fallbackRequests);
-        } else {
-          setDataRequests(requests || fallbackRequests);
-        }
-      } catch (error) {
-        console.warn('Database not accessible, using fallback data');
-        setDataRequests(fallbackRequests);
-      }
-
-      try {
-        const { data: assessments, error: assessmentsError } = await supabaseServiceClient
-          .from('privacy_impact_assessments')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (assessmentsError) {
-          console.warn('Using fallback assessments data');
-          setPrivacyAssessments(fallbackAssessments);
-        } else {
-          setPrivacyAssessments(assessments || fallbackAssessments);
-        }
-      } catch (error) {
-        console.warn('Database not accessible, using fallback data');
-        setPrivacyAssessments(fallbackAssessments);
-      }
-
-      try {
-        const { data: breaches, error: breachesError } = await supabaseServiceClient
-          .from('data_breaches')
-          .select('*')
-          .order('discovery_date', { ascending: false });
-
-        if (breachesError) {
-          console.warn('Using fallback breaches data');
-          setDataBreaches(fallbackBreaches);
-        } else {
-          setDataBreaches(breaches || fallbackBreaches);
-        }
-      } catch (error) {
-        console.warn('Database not accessible, using fallback data');
-        setDataBreaches(fallbackBreaches);
-      }
-
-      try {
-        const { data: consents, error: consentsError } = await supabaseServiceClient
-          .from('consent_records')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (consentsError) {
-          console.warn('Using fallback consents data');
-          setConsentRecords(fallbackConsents);
-        } else {
-          setConsentRecords(consents || fallbackConsents);
-        }
-      } catch (error) {
-        console.warn('Database not accessible, using fallback data');
-        setConsentRecords(fallbackConsents);
-      }
-
-      // Calculate metrics with fallback data
-      calculateMetrics(
-        complianceChecks.length > 0 ? complianceChecks : fallbackChecks,
-        dataRequests.length > 0 ? dataRequests : fallbackRequests,
-        dataBreaches.length > 0 ? dataBreaches : fallbackBreaches,
-        consentRecords.length > 0 ? consentRecords : fallbackConsents
-      );
-
-    } catch (error) {
-      console.error('Error loading compliance data:', error);
+    } catch (err) {
+      console.error('Error loading compliance data:', err);
+      setError(err instanceof Error ? err.message : 'Error loading compliance data');
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateMetrics = (
-    checks: ComplianceCheck[], 
-    requests: DataSubjectRequest[], 
-    breaches: DataBreach[], 
+  const loadComplianceChecks = async (): Promise<ComplianceCheck[]> => {
+    console.log('🔍 Loading compliance checks data...');
+    return getFallbackComplianceChecks();
+  };
+
+  const loadDataRequests = async (): Promise<DataSubjectRequest[]> => {
+    console.log('🔍 Using fallback requests data');
+    return getFallbackDataRequests();
+  };
+
+  const loadAssessments = async (): Promise<PrivacyImpactAssessment[]> => {
+    console.log('🔍 Using fallback assessments data');
+    return getFallbackAssessments();
+  };
+
+  const loadBreaches = async (): Promise<DataBreach[]> => {
+    console.log('🔍 Using fallback breaches data');
+    return getFallbackBreaches();
+  };
+
+  const loadConsents = async (): Promise<ConsentRecord[]> => {
+    console.log('🔍 Using fallback consents data');
+    return getFallbackConsents();
+  };
+
+  const calculateKPIs = (
+    checks: ComplianceCheck[],
+    requests: DataSubjectRequest[],
+    assessments: PrivacyImpactAssessment[],
+    breaches: DataBreach[],
     consents: ConsentRecord[]
   ) => {
-    const totalChecks = checks.length;
-    const compliantChecks = checks.filter(c => c.status === 'compliant').length;
-    const complianceScore = totalChecks > 0 ? (compliantChecks / totalChecks) * 100 : 0;
-    
-    const pendingRequests = requests.filter(r => r.status === 'pending').length;
-    const totalConsents = consents.length;
-    const grantedConsents = consents.filter(c => c.granted).length;
-    const consentRate = totalConsents > 0 ? (grantedConsents / totalConsents) * 100 : 0;
-
     const now = new Date();
-    const overdueTasks = checks.filter(c => 
-      c.next_review && new Date(c.next_review) < now
-    ).length;
-
-    setPrivacyMetrics({
-      totalDataSubjects: 1247, // Simulated
-      dataRetentionCompliance: 98.5, // Simulated
-      accessRequests: requests.length,
-      dataBreaches: breaches.length,
-      consentRate,
-      complianceScore,
-      pendingRequests,
-      overdueTasks
+    
+    setKpis({
+      totalChecks: checks.length,
+      compliantChecks: checks.filter(c => c.status === 'compliant').length,
+      warningChecks: checks.filter(c => c.status === 'warning').length,
+      nonCompliantChecks: checks.filter(c => c.status === 'non_compliant').length,
+      complianceRate: checks.length > 0 ? (checks.filter(c => c.status === 'compliant').length / checks.length) * 100 : 0,
+      pendingRequests: requests.filter(r => r.status === 'pending').length,
+      completedRequests: requests.filter(r => r.status === 'completed').length,
+      overdueRequests: requests.filter(r => new Date(r.deadline) < now && r.status !== 'completed').length,
+      activeAssessments: assessments.filter(a => a.status !== 'approved').length,
+      highRiskAssessments: assessments.filter(a => ['high', 'very_high'].includes(a.risk_level)).length,
+      openBreaches: breaches.filter(b => b.status !== 'resolved').length,
+      resolvedBreaches: breaches.filter(b => b.status === 'resolved').length,
+      activeConsents: consents.filter(c => c.granted && !c.withdrawn_at).length,
+      withdrawnConsents: consents.filter(c => c.withdrawn_at).length
     });
   };
 
-  const updateComplianceCheck = async (checkId: string, newStatus: string) => {
+  // CRUD Functions for Data Subject Requests
+  const handleCreateRequest = async () => {
     try {
-      const { error } = await supabaseServiceClient
-        .from('compliance_checks')
-        .update({ 
-          status: newStatus,
-          last_verified: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', checkId);
+      const requestData = {
+        id: `req_${Date.now()}`,
+        ...newRequest,
+        tenant_id: DEV_TENANT_ID,
+        status: 'pending' as const,
+        assigned_to: 'dpo@constructia.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) {
-        throw error;
-      }
-
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        'compliance.check.updated',
-        'compliance_checks',
-        checkId,
-        { new_status: newStatus }
-      );
-
-      await loadComplianceData();
-      alert('Estado de cumplimiento actualizado correctamente');
+      setDataRequests(prev => [requestData, ...prev]);
+      setShowRequestModal(false);
+      setNewRequest({
+        request_type: 'access',
+        requester_email: '',
+        requester_name: '',
+        request_details: { details: '' },
+        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
+      alert('✅ Solicitud creada correctamente');
     } catch (error) {
-      console.error('Error updating compliance check:', error);
-      alert('Error al actualizar estado de cumplimiento');
-    }
-  };
-
-  const createDataSubjectRequest = async (requestData: Partial<DataSubjectRequest>) => {
-    try {
-      const { error } = await supabaseServiceClient
-        .from('data_subject_requests')
-        .insert({
-          ...requestData,
-          deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        'data_subject_request.created',
-        'data_subject_requests',
-        undefined,
-        requestData
-      );
-
-      await loadComplianceData();
-      setShowModal(false);
-      alert('Solicitud de derechos creada correctamente');
-    } catch (error) {
-      console.error('Error creating data subject request:', error);
+      console.error('Error creating request:', error);
       alert('Error al crear solicitud');
     }
   };
 
-  const processDataSubjectRequest = async (requestId: string, action: 'approve' | 'reject', responseData?: any) => {
+  const handleUpdateRequestStatus = async (requestId: string, newStatus: DataSubjectRequest['status']) => {
     try {
-      const newStatus = action === 'approve' ? 'completed' : 'rejected';
-      
-      const { error } = await supabaseServiceClient
-        .from('data_subject_requests')
-        .update({
-          status: newStatus,
-          response_data: responseData || {},
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestId);
-
-      if (error) {
-        throw error;
-      }
-
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        `data_subject_request.${action}`,
-        'data_subject_requests',
-        requestId,
-        { action, response_data: responseData }
-      );
-
-      await loadComplianceData();
-      alert(`Solicitud ${action === 'approve' ? 'aprobada' : 'rechazada'} correctamente`);
-    } catch (error) {
-      console.error('Error processing request:', error);
-      alert('Error al procesar solicitud');
-    }
-  };
-
-  const generateComplianceReport = async () => {
-    try {
-      const reportData = {
-        generated_at: new Date().toISOString(),
-        compliance_score: privacyMetrics.complianceScore,
-        total_checks: complianceChecks.length,
-        compliant_checks: complianceChecks.filter(c => c.status === 'compliant').length,
-        warning_checks: complianceChecks.filter(c => c.status === 'warning').length,
-        non_compliant_checks: complianceChecks.filter(c => c.status === 'non_compliant').length,
-        pending_requests: privacyMetrics.pendingRequests,
-        data_breaches: privacyMetrics.dataBreaches,
-        consent_rate: privacyMetrics.consentRate
+      const updateData: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
       };
 
-      // Create downloadable report
-      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `reporte-cumplimiento-lopd-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        'compliance.report.generated',
-        'system',
-        undefined,
-        reportData
-      );
-
-      alert('Reporte de cumplimiento LOPD generado correctamente');
-    } catch (error) {
-      console.error('Error generating report:', error);
-      alert('Error al generar reporte');
-    }
-  };
-
-  const scheduleTraining = async () => {
-    try {
-      // Update the training compliance check
-      const trainingCheck = complianceChecks.find(c => 
-        c.check_name === 'Formación del personal'
-      );
-
-      if (trainingCheck) {
-        await updateComplianceCheck(trainingCheck.id, 'compliant');
+      if (newStatus === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+        updateData.response_data = { action: 'Solicitud procesada correctamente' };
       }
 
-      await logAuditoria(
-        DEV_TENANT_ID,
-        DEV_ADMIN_USER_ID,
-        'compliance.training.scheduled',
-        'system',
-        undefined,
-        { scheduled_date: new Date().toISOString() }
-      );
-
-      alert('Formación en protección de datos programada correctamente');
+      setDataRequests(prev => prev.map(req => 
+        req.id === requestId 
+          ? { ...req, ...updateData }
+          : req
+      ));
+      alert('✅ Estado actualizado correctamente');
     } catch (error) {
-      console.error('Error scheduling training:', error);
-      alert('Error al programar formación');
+      console.error('Error updating request:', error);
+      alert('Error al actualizar solicitud');
     }
   };
 
+  // CRUD Functions for Privacy Impact Assessments
+  const handleCreateAssessment = async () => {
+    try {
+      const assessmentData = {
+        id: `pia_${Date.now()}`,
+        ...newAssessment,
+        tenant_id: DEV_TENANT_ID,
+        assessor_id: 'dpo@constructia.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      setAssessments(prev => [assessmentData, ...prev]);
+      setShowAssessmentModal(false);
+      setNewAssessment({
+        assessment_name: '',
+        processing_purpose: '',
+        data_categories: [],
+        risk_level: 'medium',
+        mitigation_measures: [],
+        status: 'draft'
+      });
+      alert('✅ Evaluación creada correctamente');
+    } catch (error) {
+      console.error('Error creating assessment:', error);
+      alert('Error al crear evaluación');
+    }
+  };
+
+  const handleUpdateAssessmentStatus = async (assessmentId: string, newStatus: PrivacyImpactAssessment['status']) => {
+    try {
+      const updateData: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      if (newStatus === 'approved') {
+        updateData.approved_at = new Date().toISOString();
+        updateData.approved_by = 'admin@constructia.com';
+        updateData.next_review = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      setAssessments(prev => prev.map(assessment => 
+        assessment.id === assessmentId 
+          ? { ...assessment, ...updateData }
+          : assessment
+      ));
+      alert('✅ Evaluación actualizada correctamente');
+    } catch (error) {
+      console.error('Error updating assessment:', error);
+      alert('Error al actualizar evaluación');
+    }
+  };
+
+  // CRUD Functions for Data Breaches
+  const handleCreateBreach = async () => {
+    try {
+      const breachData = {
+        id: `breach_${Date.now()}`,
+        ...newBreach,
+        tenant_id: DEV_TENANT_ID,
+        reported_by: 'admin@constructia.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      setBreaches(prev => [breachData, ...prev]);
+      setShowBreachModal(false);
+      setNewBreach({
+        incident_title: '',
+        description: '',
+        severity: 'medium',
+        affected_records: 0,
+        data_categories: [],
+        discovery_date: new Date().toISOString().split('T')[0],
+        authority_notified: false,
+        subjects_notified: false,
+        status: 'investigating',
+        mitigation_actions: []
+      });
+      alert('✅ Brecha registrada correctamente');
+    } catch (error) {
+      console.error('Error creating breach:', error);
+      alert('Error al crear brecha');
+    }
+  };
+
+  const handleUpdateBreachStatus = async (breachId: string, newStatus: DataBreach['status']) => {
+    try {
+      const updateData: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      if (newStatus === 'resolved') {
+        updateData.lessons_learned = 'Incidente resuelto y medidas implementadas';
+      }
+
+      setBreaches(prev => prev.map(breach => 
+        breach.id === breachId 
+          ? { ...breach, ...updateData }
+          : breach
+      ));
+      alert('✅ Brecha actualizada correctamente');
+    } catch (error) {
+      console.error('Error updating breach:', error);
+      alert('Error al actualizar brecha');
+    }
+  };
+
+  // CRUD Functions for Consent Records
+  const handleCreateConsent = async () => {
+    try {
+      const consentData = {
+        id: `consent_${Date.now()}`,
+        ...newConsent,
+        tenant_id: DEV_TENANT_ID,
+        granted_at: newConsent.granted ? new Date().toISOString() : undefined,
+        ip_address: '127.0.0.1',
+        user_agent: 'ConstructIA Admin Panel',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      setConsents(prev => [consentData, ...prev]);
+      setShowConsentModal(false);
+      setNewConsent({
+        user_email: '',
+        consent_type: 'marketing',
+        purpose: '',
+        granted: true,
+        legal_basis: 'consent',
+        retention_period: '2 años'
+      });
+      alert('✅ Consentimiento registrado correctamente');
+    } catch (error) {
+      console.error('Error creating consent:', error);
+      alert('Error al crear consentimiento');
+    }
+  };
+
+  const handleWithdrawConsent = async (consentId: string) => {
+    try {
+      const updateData = {
+        granted: false,
+        withdrawn_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      setConsents(prev => prev.map(consent => 
+        consent.id === consentId 
+          ? { ...consent, ...updateData }
+          : consent
+      ));
+      alert('✅ Consentimiento retirado correctamente');
+    } catch (error) {
+      console.error('Error withdrawing consent:', error);
+      alert('Error al retirar consentimiento');
+    }
+  };
+
+  // Fallback data functions
+  const getFallbackComplianceChecks = (): ComplianceCheck[] => [
+    {
+      id: '1',
+      tenant_id: DEV_TENANT_ID,
+      category: 'Principios Fundamentales LOPD',
+      check_name: 'Licitud del tratamiento',
+      status: 'compliant',
+      description: 'Base legal establecida para todos los tratamientos',
+      last_verified: '2024-12-01T10:00:00Z',
+      next_review: '2025-03-01T10:00:00Z',
+      created_at: '2024-12-01T10:00:00Z',
+      updated_at: '2024-12-01T10:00:00Z'
+    },
+    {
+      id: '2',
+      tenant_id: DEV_TENANT_ID,
+      category: 'Derechos de los Interesados',
+      check_name: 'Derecho de acceso',
+      status: 'compliant',
+      description: 'Sistema de consulta de datos personales implementado',
+      last_verified: '2024-12-01T10:00:00Z',
+      next_review: '2025-03-01T10:00:00Z',
+      created_at: '2024-12-01T10:00:00Z',
+      updated_at: '2024-12-01T10:00:00Z'
+    },
+    {
+      id: '3',
+      tenant_id: DEV_TENANT_ID,
+      category: 'Seguridad Técnica',
+      check_name: 'Cifrado de datos',
+      status: 'compliant',
+      description: 'Datos cifrados en reposo y tránsito',
+      last_verified: '2024-12-01T10:00:00Z',
+      next_review: '2025-03-01T10:00:00Z',
+      created_at: '2024-12-01T10:00:00Z',
+      updated_at: '2024-12-01T10:00:00Z'
+    },
+    {
+      id: '4',
+      tenant_id: DEV_TENANT_ID,
+      category: 'Gobernanza y Organización',
+      check_name: 'Formación del personal',
+      status: 'warning',
+      description: 'Pendiente formación trimestral en protección de datos',
+      last_verified: '2024-09-01T10:00:00Z',
+      next_review: '2025-01-01T10:00:00Z',
+      created_at: '2024-09-01T10:00:00Z',
+      updated_at: '2024-12-01T10:00:00Z'
+    },
+    {
+      id: '5',
+      tenant_id: DEV_TENANT_ID,
+      category: 'Documentación y Registros',
+      check_name: 'Registro de actividades de tratamiento',
+      status: 'compliant',
+      description: 'Registro actualizado y completo',
+      last_verified: '2024-12-01T10:00:00Z',
+      next_review: '2025-06-01T10:00:00Z',
+      created_at: '2024-12-01T10:00:00Z',
+      updated_at: '2024-12-01T10:00:00Z'
+    }
+  ];
+
+  const getFallbackDataRequests = (): DataSubjectRequest[] => [
+    {
+      id: '1',
+      tenant_id: DEV_TENANT_ID,
+      request_type: 'access',
+      requester_email: 'usuario1@ejemplo.com',
+      requester_name: 'Juan Pérez',
+      status: 'pending',
+      request_details: { details: 'Solicito acceso a todos mis datos personales almacenados en ConstructIA' },
+      deadline: '2025-01-30T23:59:59Z',
+      assigned_to: 'dpo@constructia.com',
+      created_at: '2025-01-01T10:00:00Z',
+      updated_at: '2025-01-01T10:00:00Z'
+    },
+    {
+      id: '2',
+      tenant_id: DEV_TENANT_ID,
+      request_type: 'erasure',
+      requester_email: 'usuario2@ejemplo.com',
+      requester_name: 'María García',
+      status: 'completed',
+      request_details: { details: 'Solicito la eliminación completa de mis datos personales' },
+      response_data: { action: 'Datos eliminados exitosamente', date: '2024-12-15T14:30:00Z' },
+      completed_at: '2024-12-15T14:30:00Z',
+      deadline: '2025-01-15T23:59:59Z',
+      assigned_to: 'dpo@constructia.com',
+      created_at: '2024-12-16T09:00:00Z',
+      updated_at: '2024-12-15T14:30:00Z'
+    },
+    {
+      id: '3',
+      tenant_id: DEV_TENANT_ID,
+      request_type: 'rectification',
+      requester_email: 'usuario3@ejemplo.com',
+      requester_name: 'Carlos López',
+      status: 'in_progress',
+      request_details: { details: 'Necesito corregir mi dirección de contacto en el sistema' },
+      deadline: '2025-02-05T23:59:59Z',
+      assigned_to: 'dpo@constructia.com',
+      created_at: '2025-01-06T11:30:00Z',
+      updated_at: '2025-01-06T11:30:00Z'
+    }
+  ];
+
+  const getFallbackAssessments = (): PrivacyImpactAssessment[] => [
+    {
+      id: '1',
+      tenant_id: DEV_TENANT_ID,
+      assessment_name: 'Procesamiento de Documentos con IA',
+      processing_purpose: 'Clasificación automática de documentos de construcción mediante inteligencia artificial',
+      data_categories: ['Datos de identificación', 'Documentos profesionales', 'Metadatos de archivos'],
+      risk_level: 'medium',
+      mitigation_measures: [
+        'Cifrado de datos en reposo y tránsito',
+        'Acceso basado en roles',
+        'Auditoría de accesos',
+        'Minimización de datos procesados'
+      ],
+      status: 'approved',
+      assessor_id: 'dpo@constructia.com',
+      approved_by: 'admin@constructia.com',
+      approved_at: '2024-11-15T14:00:00Z',
+      next_review: '2025-11-15T14:00:00Z',
+      created_at: '2024-11-01T09:00:00Z',
+      updated_at: '2024-11-15T14:00:00Z'
+    },
+    {
+      id: '2',
+      tenant_id: DEV_TENANT_ID,
+      assessment_name: 'Integración con Plataformas Externas',
+      processing_purpose: 'Transferencia de datos a plataformas CAE (Nalanda, CTAIMA, Ecoordina)',
+      data_categories: ['Datos de trabajadores', 'Documentos de obra', 'Información empresarial'],
+      risk_level: 'high',
+      mitigation_measures: [
+        'Contratos de encargado de tratamiento',
+        'Cláusulas contractuales tipo',
+        'Evaluación de garantías de seguridad',
+        'Monitoreo continuo de transferencias'
+      ],
+      status: 'under_review',
+      assessor_id: 'dpo@constructia.com',
+      created_at: '2024-12-01T10:00:00Z',
+      updated_at: '2024-12-01T10:00:00Z'
+    }
+  ];
+
+  const getFallbackBreaches = (): DataBreach[] => [
+    {
+      id: '1',
+      tenant_id: DEV_TENANT_ID,
+      incident_title: 'Acceso no autorizado detectado',
+      description: 'Se detectaron múltiples intentos de acceso fallidos desde IP sospechosa',
+      severity: 'medium',
+      affected_records: 0,
+      data_categories: ['Logs de acceso'],
+      discovery_date: '2024-12-20T08:30:00Z',
+      notification_date: '2024-12-20T09:00:00Z',
+      authority_notified: false,
+      subjects_notified: false,
+      status: 'contained',
+      mitigation_actions: [
+        'Bloqueo de IP sospechosa',
+        'Revisión de logs de seguridad',
+        'Refuerzo de autenticación'
+      ],
+      reported_by: 'security@constructia.com',
+      created_at: '2024-12-20T08:30:00Z',
+      updated_at: '2024-12-20T10:00:00Z'
+    }
+  ];
+
+  const getFallbackConsents = (): ConsentRecord[] => [
+    {
+      id: '1',
+      tenant_id: DEV_TENANT_ID,
+      user_email: 'cliente1@empresa.com',
+      consent_type: 'marketing',
+      purpose: 'Envío de comunicaciones comerciales y promocionales',
+      granted: true,
+      granted_at: '2024-11-01T10:00:00Z',
+      ip_address: '192.168.1.100',
+      user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      legal_basis: 'consent',
+      retention_period: '2 años',
+      created_at: '2024-11-01T10:00:00Z',
+      updated_at: '2024-11-01T10:00:00Z'
+    },
+    {
+      id: '2',
+      tenant_id: DEV_TENANT_ID,
+      user_email: 'cliente2@empresa.com',
+      consent_type: 'analytics',
+      purpose: 'Análisis de uso de la plataforma para mejoras',
+      granted: true,
+      granted_at: '2024-11-15T14:30:00Z',
+      ip_address: '192.168.1.101',
+      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      legal_basis: 'consent',
+      retention_period: '1 año',
+      created_at: '2024-11-15T14:30:00Z',
+      updated_at: '2024-11-15T14:30:00Z'
+    },
+    {
+      id: '3',
+      tenant_id: DEV_TENANT_ID,
+      user_email: 'cliente3@empresa.com',
+      consent_type: 'marketing',
+      purpose: 'Envío de comunicaciones comerciales y promocionales',
+      granted: false,
+      granted_at: '2024-10-01T09:00:00Z',
+      withdrawn_at: '2024-12-01T16:00:00Z',
+      ip_address: '192.168.1.102',
+      user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      legal_basis: 'consent',
+      retention_period: '2 años',
+      created_at: '2024-10-01T09:00:00Z',
+      updated_at: '2024-12-01T16:00:00Z'
+    }
+  ];
+
+  // Utility functions
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'compliant':
+      case 'completed':
+      case 'approved':
+      case 'resolved':
         return 'bg-green-100 text-green-800';
       case 'warning':
+      case 'pending':
+      case 'under_review':
+      case 'investigating':
         return 'bg-yellow-100 text-yellow-800';
       case 'non_compliant':
+      case 'rejected':
+      case 'requires_action':
+      case 'critical':
         return 'bg-red-100 text-red-800';
+      case 'in_progress':
+      case 'contained':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'compliant':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
-      case 'non_compliant':
-        return <XCircle className="w-4 h-4 text-red-600" />;
-      default:
-        return <Info className="w-4 h-4 text-gray-600" />;
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'high':
-        return 'bg-orange-100 text-orange-800';
-      case 'very_high':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'very_high': return 'bg-red-100 text-red-800';
+      case 'critical': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getRequestTypeColor = (type: string) => {
-    switch (type) {
-      case 'access':
-        return 'bg-blue-100 text-blue-800';
-      case 'rectification':
-        return 'bg-green-100 text-green-800';
-      case 'erasure':
-        return 'bg-red-100 text-red-800';
-      case 'portability':
-        return 'bg-purple-100 text-purple-800';
-      case 'objection':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const filteredChecks = complianceChecks.filter(check => {
-    const matchesSearch = check.check_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         check.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || check.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const getRequestTypeLabel = (type: string) => {
+    const labels = {
+      access: 'Acceso',
+      rectification: 'Rectificación',
+      erasure: 'Supresión',
+      portability: 'Portabilidad',
+      objection: 'Oposición'
+    };
+    return labels[type as keyof typeof labels] || type;
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando módulo de cumplimiento LOPD...</p>
+          <p className="text-gray-600">Cargando módulo de cumplimiento...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={loadComplianceData}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     );
@@ -659,644 +833,891 @@ export default function DataProtectionCompliance() {
       <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">Cumplimiento de Protección de Datos</h1>
-            <p className="text-green-100 mb-4">
-              Ley Orgánica 3/2018 de Protección de Datos Personales y garantía de derechos digitales
+            <div className="flex items-center space-x-3 mb-2">
+              <Shield className="w-8 h-8" />
+              <h2 className="text-2xl font-bold">Cumplimiento LOPD/GDPR</h2>
+            </div>
+            <p className="text-green-100">
+              Gestión integral de protección de datos y cumplimiento normativo
             </p>
-            <div className="space-y-1 text-sm text-green-100">
-              <p>• Gestión completa de derechos GDPR/LOPD</p>
-              <p>• Evaluaciones de impacto en privacidad (DPIA)</p>
-              <p>• Registro de brechas de seguridad</p>
-              <p>• Gestión de consentimientos</p>
-              <p>• Auditorías de cumplimiento automatizadas</p>
-            </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={generateComplianceReport}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Reporte LOPD
-            </button>
-            <button
-              onClick={loadComplianceData}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Actualizar
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Métricas de Cumplimiento */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Puntuación Global</p>
-              <p className="text-2xl font-bold text-green-600">{privacyMetrics.complianceScore.toFixed(1)}%</p>
-            </div>
-            <Shield className="w-8 h-8 text-green-600" />
+          <div className="text-right">
+            <div className="text-3xl font-bold">{kpis.complianceRate.toFixed(1)}%</div>
+            <div className="text-sm text-green-200">Cumplimiento Global</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Sujetos de Datos</p>
-              <p className="text-2xl font-bold text-blue-600">{privacyMetrics.totalDataSubjects.toLocaleString()}</p>
-            </div>
-            <User className="w-8 h-8 text-blue-600" />
+        {/* KPIs */}
+        <div className="grid grid-cols-6 gap-3 mt-6">
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+            <div className="text-xl font-bold">{kpis.totalChecks}</div>
+            <div className="text-xs text-green-100">Verificaciones</div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Solicitudes Acceso</p>
-              <p className="text-2xl font-bold text-yellow-600">{privacyMetrics.accessRequests}</p>
-            </div>
-            <Eye className="w-8 h-8 text-yellow-600" />
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+            <div className="text-xl font-bold text-green-200">{kpis.compliantChecks}</div>
+            <div className="text-xs text-green-100">Conformes</div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Brechas de Datos</p>
-              <p className="text-2xl font-bold text-red-600">{privacyMetrics.dataBreaches}</p>
-            </div>
-            <AlertTriangle className="w-8 h-8 text-red-600" />
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+            <div className="text-xl font-bold text-yellow-200">{kpis.pendingRequests}</div>
+            <div className="text-xs text-green-100">Solicitudes</div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Consentimientos</p>
-              <p className="text-2xl font-bold text-cyan-600">{privacyMetrics.consentRate.toFixed(1)}%</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-cyan-600" />
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+            <div className="text-xl font-bold text-orange-200">{kpis.activeAssessments}</div>
+            <div className="text-xs text-green-100">Evaluaciones</div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Tareas Vencidas</p>
-              <p className="text-2xl font-bold text-orange-600">{privacyMetrics.overdueTasks}</p>
-            </div>
-            <Clock className="w-8 h-8 text-orange-600" />
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+            <div className="text-xl font-bold text-red-200">{kpis.openBreaches}</div>
+            <div className="text-xs text-green-100">Brechas</div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+            <div className="text-xl font-bold text-blue-200">{kpis.activeConsents}</div>
+            <div className="text-xs text-green-100">Consentimientos</div>
           </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-        {[
-          { id: 'overview', label: 'Resumen', icon: BarChart3 },
-          { id: 'checks', label: 'Verificaciones', icon: CheckCircle },
-          { id: 'requests', label: 'Solicitudes', icon: Mail },
-          { id: 'assessments', label: 'Evaluaciones', icon: FileText },
-          { id: 'breaches', label: 'Brechas', icon: AlertTriangle },
-          { id: 'consents', label: 'Consentimientos', icon: User }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-              activeTab === tab.id
-                ? 'bg-green-600 text-white'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <tab.icon className="w-4 h-4 mr-2" />
-            {tab.label}
-          </button>
-        ))}
+        <button
+          onClick={() => setActiveTab('resumen')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'resumen' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 inline mr-2" />
+          Resumen
+        </button>
+        <button
+          onClick={() => setActiveTab('verificaciones')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'verificaciones' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <CheckCircle className="w-5 h-5 inline mr-2" />
+          Verificaciones
+        </button>
+        <button
+          onClick={() => setActiveTab('solicitudes')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'solicitudes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Mail className="w-5 h-5 inline mr-2" />
+          Solicitudes
+        </button>
+        <button
+          onClick={() => setActiveTab('evaluaciones')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'evaluaciones' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <FileText className="w-5 h-5 inline mr-2" />
+          Evaluaciones
+        </button>
+        <button
+          onClick={() => setActiveTab('brechas')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'brechas' ? 'bg-red-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <AlertTriangle className="w-5 h-5 inline mr-2" />
+          Brechas
+        </button>
+        <button
+          onClick={() => setActiveTab('consentimientos')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'consentimientos' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Users className="w-5 h-5 inline mr-2" />
+          Consentimientos
+        </button>
       </div>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
+      {/* Tab Content */}
+      {activeTab === 'resumen' && (
         <div className="space-y-6">
-          {/* Estado de Cumplimiento por Categorías */}
-          <div className="space-y-6">
-            {complianceChecks.reduce((categories: any[], check) => {
-              const existingCategory = categories.find(cat => cat.category === check.category);
-              if (existingCategory) {
-                existingCategory.checks.push(check);
-              } else {
-                categories.push({
-                  category: check.category,
-                  checks: [check]
-                });
-              }
-              return categories;
-            }, []).map((category, categoryIndex) => (
-              <div key={categoryIndex} className="bg-white rounded-xl shadow-sm border">
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">{category.category}</h3>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {category.checks.map((check: ComplianceCheck, checkIndex: number) => (
-                      <div key={checkIndex} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                        <div className="flex items-center space-x-4">
-                          {getStatusIcon(check.status)}
-                          <div>
-                            <h4 className="font-medium text-gray-900">{check.check_name}</h4>
-                            <p className="text-sm text-gray-600">{check.description}</p>
-                            {check.next_review && (
-                              <p className="text-xs text-gray-500">
-                                Próxima revisión: {new Date(check.next_review).toLocaleDateString('es-ES')}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(check.status)}`}>
-                            {check.status === 'compliant' && 'Cumple'}
-                            {check.status === 'warning' && 'Atención'}
-                            {check.status === 'non_compliant' && 'No Cumple'}
-                          </span>
-                          <button
-                            onClick={() => updateComplianceCheck(check.id, check.status === 'compliant' ? 'warning' : 'compliant')}
-                            className="text-gray-400 hover:text-green-600 transition-colors"
-                          >
-                            <Settings className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Derechos de los Interesados */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-6">Gestión de Derechos de los Interesados</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <button 
-                onClick={() => {
-                  setModalType('request');
-                  setSelectedItem({ request_type: 'access' });
-                  setShowModal(true);
-                }}
-                className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg p-4 text-center transition-colors"
-              >
-                <Eye className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <h4 className="font-medium text-blue-800">Derecho de Acceso</h4>
-                <p className="text-sm text-blue-600 mt-1">Consultar datos personales</p>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setModalType('request');
-                  setSelectedItem({ request_type: 'rectification' });
-                  setShowModal(true);
-                }}
-                className="bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg p-4 text-center transition-colors"
-              >
-                <Edit className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <h4 className="font-medium text-green-800">Derecho de Rectificación</h4>
-                <p className="text-sm text-green-600 mt-1">Corregir datos inexactos</p>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setModalType('request');
-                  setSelectedItem({ request_type: 'erasure' });
-                  setShowModal(true);
-                }}
-                className="bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg p-4 text-center transition-colors"
-              >
-                <Trash2 className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                <h4 className="font-medium text-red-800">Derecho de Supresión</h4>
-                <p className="text-sm text-red-600 mt-1">Eliminar datos personales</p>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setModalType('request');
-                  setSelectedItem({ request_type: 'portability' });
-                  setShowModal(true);
-                }}
-                className="bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-4 text-center transition-colors"
-              >
-                <Download className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <h4 className="font-medium text-purple-800">Derecho de Portabilidad</h4>
-                <p className="text-sm text-purple-600 mt-1">Exportar datos</p>
-              </button>
-            </div>
-          </div>
-
-          {/* Certificaciones y Compliance */}
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-6">
-            <div className="flex items-start space-x-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <Award className="w-8 h-8 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Certificación LOPD 2025</h3>
-                <p className="text-gray-700 mb-4">
-                  Esta plataforma cumple íntegramente con la Ley Orgánica 3/2018 de Protección de Datos Personales 
-                  y garantía de derechos digitales, así como con el Reglamento General de Protección de Datos (RGPD).
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span>Cifrado AES-256</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span>Logs inviolables</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span>Auditorías regulares</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span>DPO certificado</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span>Pseudonimización</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span>Minimización de datos</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Alertas de Cumplimiento */}
-          {privacyMetrics.overdueTasks > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-              <div className="flex items-start space-x-3">
-                <AlertTriangle className="w-6 h-6 text-yellow-600 mt-1" />
+          {/* Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-yellow-800 mb-2">Recordatorio de Formación</h3>
-                  <p className="text-yellow-700 mb-3">
-                    La formación trimestral en protección de datos está pendiente para el personal de administración.
-                  </p>
-                  <button 
-                    onClick={scheduleTraining}
-                    className="bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-700 transition-colors"
-                  >
-                    <Calendar className="w-4 h-4 mr-2 inline" />
-                    Programar Formación
-                  </button>
+                  <p className="text-sm font-medium text-gray-600">Cumplimiento Global</p>
+                  <p className="text-2xl font-bold text-green-600">{kpis.complianceRate.toFixed(1)}%</p>
+                </div>
+                <Shield className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Solicitudes Pendientes</p>
+                  <p className="text-2xl font-bold text-yellow-600">{kpis.pendingRequests}</p>
+                </div>
+                <Mail className="w-8 h-8 text-yellow-600" />
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Brechas Abiertas</p>
+                  <p className="text-2xl font-bold text-red-600">{kpis.openBreaches}</p>
+                </div>
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Consentimientos Activos</p>
+                  <p className="text-2xl font-bold text-blue-600">{kpis.activeConsents}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Contact DPO */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contacto DPO (Delegado de Protección de Datos)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="flex items-center space-x-3">
+                <Mail className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
+                  <p className="font-medium text-gray-900">dpo@constructia.com</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Phone className="w-5 h-5 text-blue-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Teléfono</p>
+                  <p className="font-medium text-gray-900">+34 91 000 00 00</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Globe className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="text-sm text-gray-600">AEPD</p>
+                  <p className="font-medium text-gray-900">www.aepd.es</p>
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
-      {/* Checks Tab */}
-      {activeTab === 'checks' && (
-        <div className="space-y-6">
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Buscar verificaciones..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-4">
+      {/* Verificaciones Tab */}
+      {activeTab === 'verificaciones' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Verificaciones de Cumplimiento</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Categoría</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Verificación</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Última Verificación</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Próxima Revisión</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {complianceChecks.map((check) => (
+                  <tr key={check.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 text-sm text-gray-900">{check.category}</td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <div className="font-medium text-gray-900">{check.check_name}</div>
+                        <div className="text-sm text-gray-500">{check.description}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(check.status)}`}>
+                        {check.status === 'compliant' ? 'Conforme' : 
+                         check.status === 'warning' ? 'Advertencia' : 'No Conforme'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {formatDate(check.last_verified)}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {formatDate(check.next_review)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Solicitudes Tab */}
+      {activeTab === 'solicitudes' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Solicitudes de Derechos</h3>
+              <button
+                onClick={() => setShowRequestModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Solicitud
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Solicitante</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha Límite</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {dataRequests.map((request) => (
+                  <tr key={request.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div>
+                        <div className="font-medium text-gray-900">{request.requester_name}</div>
+                        <div className="text-sm text-gray-500">{request.requester_email}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {getRequestTypeLabel(request.request_type)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                        {request.status === 'pending' ? 'Pendiente' :
+                         request.status === 'in_progress' ? 'En Progreso' :
+                         request.status === 'completed' ? 'Completada' : 'Rechazada'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {formatDate(request.deadline)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {request.status === 'pending' && (
+                          <button
+                            onClick={() => handleUpdateRequestStatus(request.id, 'in_progress')}
+                            className="text-blue-600 hover:text-blue-700 text-sm"
+                          >
+                            Procesar
+                          </button>
+                        )}
+                        {request.status === 'in_progress' && (
+                          <button
+                            onClick={() => handleUpdateRequestStatus(request.id, 'completed')}
+                            className="text-green-600 hover:text-green-700 text-sm"
+                          >
+                            Completar
+                          </button>
+                        )}
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Evaluaciones Tab */}
+      {activeTab === 'evaluaciones' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Evaluaciones de Impacto en Protección de Datos</h3>
+              <button
+                onClick={() => setShowAssessmentModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Evaluación
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Evaluación</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Nivel de Riesgo</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Evaluador</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {assessments.map((assessment) => (
+                  <tr key={assessment.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div>
+                        <div className="font-medium text-gray-900">{assessment.assessment_name}</div>
+                        <div className="text-sm text-gray-500">{assessment.processing_purpose}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRiskColor(assessment.risk_level)}`}>
+                        {assessment.risk_level === 'low' ? 'Bajo' :
+                         assessment.risk_level === 'medium' ? 'Medio' :
+                         assessment.risk_level === 'high' ? 'Alto' : 'Muy Alto'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(assessment.status)}`}>
+                        {assessment.status === 'draft' ? 'Borrador' :
+                         assessment.status === 'under_review' ? 'En Revisión' :
+                         assessment.status === 'approved' ? 'Aprobada' : 'Requiere Acción'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {assessment.assessor_id}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {assessment.status === 'under_review' && (
+                          <button
+                            onClick={() => handleUpdateAssessmentStatus(assessment.id, 'approved')}
+                            className="text-green-600 hover:text-green-700 text-sm"
+                          >
+                            Aprobar
+                          </button>
+                        )}
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button className="text-gray-400 hover:text-blue-600">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Brechas Tab */}
+      {activeTab === 'brechas' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Registro de Brechas de Seguridad</h3>
+              <button
+                onClick={() => setShowBreachModal(true)}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Registrar Brecha
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Incidente</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Severidad</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Registros Afectados</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha Descubrimiento</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {breaches.map((breach) => (
+                  <tr key={breach.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div>
+                        <div className="font-medium text-gray-900">{breach.incident_title}</div>
+                        <div className="text-sm text-gray-500">{breach.description}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRiskColor(breach.severity)}`}>
+                        {breach.severity === 'low' ? 'Baja' :
+                         breach.severity === 'medium' ? 'Media' :
+                         breach.severity === 'high' ? 'Alta' : 'Crítica'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-900">
+                      {breach.affected_records.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(breach.status)}`}>
+                        {breach.status === 'investigating' ? 'Investigando' :
+                         breach.status === 'contained' ? 'Contenida' : 'Resuelta'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {formatDate(breach.discovery_date)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {breach.status !== 'resolved' && (
+                          <button
+                            onClick={() => handleUpdateBreachStatus(breach.id, 'resolved')}
+                            className="text-green-600 hover:text-green-700 text-sm"
+                          >
+                            Resolver
+                          </button>
+                        )}
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button className="text-gray-400 hover:text-blue-600">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Consentimientos Tab */}
+      {activeTab === 'consentimientos' && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Registro de Consentimientos</h3>
+              <button
+                onClick={() => setShowConsentModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Consentimiento
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Usuario</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Propósito</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {consents.map((consent) => (
+                  <tr key={consent.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div className="font-medium text-gray-900">{consent.user_email}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        {consent.consent_type}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {consent.purpose}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        consent.granted && !consent.withdrawn_at ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {consent.granted && !consent.withdrawn_at ? 'Activo' : 'Retirado'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {consent.withdrawn_at ? formatDate(consent.withdrawn_at) : formatDate(consent.granted_at || consent.created_at)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {consent.granted && !consent.withdrawn_at && (
+                          <button
+                            onClick={() => handleWithdrawConsent(consent.id)}
+                            className="text-red-600 hover:text-red-700 text-sm"
+                          >
+                            Retirar
+                          </button>
+                        )}
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Request Modal */}
+      {showRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Nueva Solicitud de Derechos</h3>
+              <button
+                onClick={() => setShowRequestModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Solicitud
+                </label>
                 <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={newRequest.request_type}
+                  onChange={(e) => setNewRequest(prev => ({ ...prev, request_type: e.target.value as any }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">Todos los estados</option>
-                  <option value="compliant">Cumple</option>
-                  <option value="warning">Atención</option>
-                  <option value="non_compliant">No cumple</option>
+                  <option value="access">Derecho de Acceso</option>
+                  <option value="rectification">Derecho de Rectificación</option>
+                  <option value="erasure">Derecho de Supresión</option>
+                  <option value="portability">Derecho de Portabilidad</option>
+                  <option value="objection">Derecho de Oposición</option>
                 </select>
               </div>
-            </div>
-          </div>
-
-          {/* Compliance Checks List */}
-          <div className="bg-white rounded-xl shadow-sm border">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Verificación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Categoría
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Última Verificación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Próxima Revisión
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredChecks.map((check) => (
-                    <tr key={check.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">{check.check_name}</div>
-                          <div className="text-sm text-gray-500">{check.description}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {check.category}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          {getStatusIcon(check.status)}
-                          <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(check.status)}`}>
-                            {check.status === 'compliant' && 'Cumple'}
-                            {check.status === 'warning' && 'Atención'}
-                            {check.status === 'non_compliant' && 'No Cumple'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {check.last_verified ? new Date(check.last_verified).toLocaleDateString('es-ES') : 'Nunca'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {check.next_review ? new Date(check.next_review).toLocaleDateString('es-ES') : 'No programada'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => updateComplianceCheck(check.id, check.status === 'compliant' ? 'warning' : 'compliant')}
-                          className="text-green-600 hover:text-green-700 transition-colors"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Requests Tab */}
-      {activeTab === 'requests' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Solicitudes de Derechos</h3>
-            <button
-              onClick={() => {
-                setModalType('request');
-                setSelectedItem(null);
-                setShowModal(true);
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Solicitud
-            </button>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Solicitante
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha Límite
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {dataRequests.map((request) => (
-                    <tr key={request.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">{request.requester_name || request.requester_email}</div>
-                          <div className="text-sm text-gray-500">{request.requester_email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRequestTypeColor(request.request_type)}`}>
-                          {request.request_type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                          {request.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(request.deadline).toLocaleDateString('es-ES')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          {request.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => processDataSubjectRequest(request.id, 'approve')}
-                                className="text-green-600 hover:text-green-700"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => processDataSubjectRequest(request.id, 'reject')}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                          <button className="text-blue-600 hover:text-blue-700">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal for creating/editing items */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {modalType === 'request' && 'Nueva Solicitud de Derechos'}
-                  {modalType === 'assessment' && 'Nueva Evaluación de Impacto'}
-                  {modalType === 'breach' && 'Reportar Brecha de Datos'}
-                  {modalType === 'consent' && 'Registro de Consentimiento'}
-                </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email del Solicitante
+                </label>
+                <input
+                  type="email"
+                  value={newRequest.requester_email}
+                  onChange={(e) => setNewRequest(prev => ({ ...prev, requester_email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="usuario@ejemplo.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre del Solicitante
+                </label>
+                <input
+                  type="text"
+                  value={newRequest.requester_name}
+                  onChange={(e) => setNewRequest(prev => ({ ...prev, requester_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Juan Pérez"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Detalles de la Solicitud
+                </label>
+                <textarea
+                  value={newRequest.request_details.details}
+                  onChange={(e) => setNewRequest(prev => ({ 
+                    ...prev, 
+                    request_details: { details: e.target.value }
+                  }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Describe los detalles de la solicitud..."
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
                 <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  onClick={() => setShowRequestModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  <X className="w-6 h-6" />
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreateRequest}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Crear Solicitud
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assessment Modal */}
+      {showAssessmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Nueva Evaluación de Impacto</h3>
+              <button
+                onClick={() => setShowAssessmentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             
-            <div className="p-6">
-              {modalType === 'request' && (
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.target as HTMLFormElement);
-                  createDataSubjectRequest({
-                    request_type: selectedItem?.request_type || 'access',
-                    requester_email: formData.get('email') as string,
-                    requester_name: formData.get('name') as string,
-                    request_details: {
-                      details: formData.get('details') as string
-                    }
-                  });
-                }} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tipo de Solicitud
-                    </label>
-                    <select
-                      defaultValue={selectedItem?.request_type || 'access'}
-                      name="request_type"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="access">Derecho de Acceso</option>
-                      <option value="rectification">Derecho de Rectificación</option>
-                      <option value="erasure">Derecho de Supresión</option>
-                      <option value="portability">Derecho de Portabilidad</option>
-                      <option value="objection">Derecho de Oposición</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email del Solicitante
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                      placeholder="solicitante@ejemplo.com"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre del Solicitante
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                      placeholder="Nombre completo"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Detalles de la Solicitud
-                    </label>
-                    <textarea
-                      name="details"
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                      placeholder="Describe los detalles de la solicitud..."
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowModal(false)}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-                    >
-                      <Save className="w-4 h-4 mr-2 inline" />
-                      Crear Solicitud
-                    </button>
-                  </div>
-                </form>
-              )}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre de la Evaluación
+                </label>
+                <input
+                  type="text"
+                  value={newAssessment.assessment_name}
+                  onChange={(e) => setNewAssessment(prev => ({ ...prev, assessment_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Ej: Procesamiento de datos de empleados"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Propósito del Procesamiento
+                </label>
+                <textarea
+                  value={newAssessment.processing_purpose}
+                  onChange={(e) => setNewAssessment(prev => ({ ...prev, processing_purpose: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Describe el propósito del tratamiento de datos..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nivel de Riesgo
+                </label>
+                <select
+                  value={newAssessment.risk_level}
+                  onChange={(e) => setNewAssessment(prev => ({ ...prev, risk_level: e.target.value as any }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="low">Bajo</option>
+                  <option value="medium">Medio</option>
+                  <option value="high">Alto</option>
+                  <option value="very_high">Muy Alto</option>
+                </select>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => setShowAssessmentModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreateAssessment}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Crear Evaluación
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Contact Information */}
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Contacto DPO (Delegado de Protección de Datos)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex items-center space-x-3">
-            <Mail className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="font-medium text-gray-900">Email</p>
-              <p className="text-sm text-gray-600">dpo@constructia.com</p>
+      {/* Breach Modal */}
+      {showBreachModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Registrar Brecha de Seguridad</h3>
+              <button
+                onClick={() => setShowBreachModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Phone className="w-5 h-5 text-blue-600" />
-            <div>
-              <p className="font-medium text-gray-900">Teléfono</p>
-              <p className="text-sm text-gray-600">+34 91 000 00 00</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Globe className="w-5 h-5 text-purple-600" />
-            <div>
-              <p className="font-medium text-gray-900">AEPD</p>
-              <p className="text-sm text-gray-600">www.aepd.es</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Título del Incidente
+                </label>
+                <input
+                  type="text"
+                  value={newBreach.incident_title}
+                  onChange={(e) => setNewBreach(prev => ({ ...prev, incident_title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Ej: Acceso no autorizado a base de datos"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  value={newBreach.description}
+                  onChange={(e) => setNewBreach(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Describe los detalles del incidente..."
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Severidad
+                  </label>
+                  <select
+                    value={newBreach.severity}
+                    onChange={(e) => setNewBreach(prev => ({ ...prev, severity: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  >
+                    <option value="low">Baja</option>
+                    <option value="medium">Media</option>
+                    <option value="high">Alta</option>
+                    <option value="critical">Crítica</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Registros Afectados
+                  </label>
+                  <input
+                    type="number"
+                    value={newBreach.affected_records}
+                    onChange={(e) => setNewBreach(prev => ({ ...prev, affected_records: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => setShowBreachModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreateBreach}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                  Registrar Brecha
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Consent Modal */}
+      {showConsentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Nuevo Consentimiento</h3>
+              <button
+                onClick={() => setShowConsentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email del Usuario
+                </label>
+                <input
+                  type="email"
+                  value={newConsent.user_email}
+                  onChange={(e) => setNewConsent(prev => ({ ...prev, user_email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="usuario@ejemplo.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Consentimiento
+                </label>
+                <select
+                  value={newConsent.consent_type}
+                  onChange={(e) => setNewConsent(prev => ({ ...prev, consent_type: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="marketing">Marketing</option>
+                  <option value="analytics">Analíticas</option>
+                  <option value="cookies">Cookies</option>
+                  <option value="newsletter">Newsletter</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Propósito
+                </label>
+                <textarea
+                  value={newConsent.purpose}
+                  onChange={(e) => setNewConsent(prev => ({ ...prev, purpose: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Describe el propósito del consentimiento..."
+                />
+              </div>
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={newConsent.granted}
+                  onChange={(e) => setNewConsent(prev => ({ ...prev, granted: e.target.checked }))}
+                  className="rounded text-blue-600"
+                />
+                <label className="ml-2 text-sm text-gray-700">
+                  Consentimiento otorgado
+                </label>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => setShowConsentModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreateConsent}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Registrar Consentimiento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
