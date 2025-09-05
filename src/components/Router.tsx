@@ -23,6 +23,7 @@ import AuditModule from './admin/AuditModule';
 import SettingsModule from './admin/SettingsModule';
 import MessagingModule from './admin/MessagingModule';
 import ManualManagement from './admin/ManualManagement';
+import DataProtectionCompliance from './admin/DataProtectionCompliance';
 
 // Client pages
 import ClientDashboard from './client/Dashboard';
@@ -78,6 +79,7 @@ export default function Router() {
             <Route path="settings" element={<SettingsModule />} />
             <Route path="messaging" element={<MessagingModule />} />
             <Route path="manual" element={<ManualManagement />} />
+            <Route path="compliance" element={<DataProtectionCompliance />} />
           </Route>
 
           {/* Client routes - Protegidas por rol y tenant */}

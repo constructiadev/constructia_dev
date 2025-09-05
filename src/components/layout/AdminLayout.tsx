@@ -13,7 +13,8 @@ import {
   Shield,
   Zap,
   FileText,
-  Mail
+  Mail,
+  Shield as ShieldIcon
 } from 'lucide-react';
 import Logo from '../common/Logo';
 
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Auditoría', href: '/admin/audit', icon: Activity },
   { name: 'Mensajería', href: '/admin/messaging', icon: Mail },
   { name: 'Gestión Manual', href: '/admin/manual', icon: FileText },
+  { name: 'Cumplimiento LOPD', href: '/admin/compliance', icon: ShieldIcon },
   { name: 'Configuración', href: '/admin/settings', icon: Settings },
 ];
 
