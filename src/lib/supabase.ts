@@ -465,7 +465,9 @@ export const getDocumentStats = async () => {
       document_type: documento.categoria,
       upload_status: documento.estado === 'aprobado' ? 'completed' : 
                     documento.estado === 'pendiente' ? 'processing' : 'pending',
-      classification_confidence: Math.floor(Math.random() * 30) + 70,
+      classification_confidence: documento.metadatos?.ai_extraction?.confianza?.categoria_probable 
+        ? Math.round(documento.metadatos.ai_extraction.confianza.categoria_probable * 100)
+        : Math.floor(Math.random() * 30) + 70,
       created_at: documento.created_at,
       file_size: documento.size_bytes || 1024000
     }));
@@ -495,9 +497,35 @@ export const calculateDynamicKPIs = async () => {
       return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
     }).length;
     
+    // Calculate real AI confidence from document metadata
     const avgConfidence = documentos.length > 0 
-      ? documentos.reduce((sum, d) => sum + 85, 0) / documentos.length // Simulated confidence
+      ? documentos.reduce((sum, d) => {
+          const aiExtraction = d.metadatos?.ai_extraction;
+          const confidence = aiExtraction?.confianza?.categoria_probable || 0.85;
+          return sum + (confidence * 100);
+        }, 0) / documentos.length
       : 0;
+
+    // Calculate monthly revenue data for chart
+    const monthlyRevenueData = [];
+    for (let i = 5; i >= 0; i--) {
+      const targetDate = new Date();
+      targetDate.setMonth(targetDate.getMonth() - i);
+      
+      const monthlyTotal = receipts.filter(receipt => {
+        const receiptDate = new Date(receipt.created_at);
+        return receiptDate.getMonth() === targetDate.getMonth() && 
+               receiptDate.getFullYear() === targetDate.getFullYear();
+      }).reduce((sum, receipt) => sum + (receipt.amount || 0), 0);
+      
+      monthlyRevenueData.push(monthlyTotal);
+    }
+
+    // Calculate document status distribution
+    const completedDocumentsCount = documentos.filter(d => d.estado === 'aprobado').length;
+    const processingDocumentsCount = documentos.filter(d => d.estado === 'pendiente').length;
+    const rejectedDocumentsCount = documentos.filter(d => d.estado === 'rechazado').length;
+    const draftDocumentsCount = documentos.filter(d => d.estado === 'borrador').length;
 
     return {
       activeClients,
@@ -505,7 +533,12 @@ export const calculateDynamicKPIs = async () => {
       documentsThisMonth,
       avgConfidence: Math.round(avgConfidence * 10) / 10,
       totalDocuments: documentos.length,
-      totalClients: stats.totalEmpresas
+      totalClients: stats.totalEmpresas,
+      monthlyRevenueData,
+      completedDocumentsCount,
+      processingDocumentsCount,
+      rejectedDocumentsCount,
+      draftDocumentsCount
     };
   } catch (error) {
     console.error('Error calculating dynamic KPIs:', error);
@@ -515,7 +548,12 @@ export const calculateDynamicKPIs = async () => {
       documentsThisMonth: 0,
       avgConfidence: 0,
       totalDocuments: 0,
-      totalClients: 0
+      totalClients: 0,
+      monthlyRevenueData: [0, 0, 0, 0, 0, 0],
+      completedDocumentsCount: 0,
+      processingDocumentsCount: 0,
+      rejectedDocumentsCount: 0,
+      draftDocumentsCount: 0
     };
   }
 };

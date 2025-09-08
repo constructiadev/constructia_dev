@@ -144,7 +144,12 @@ const AdminDashboard: React.FC = () => {
         ltv,
         systemUptime: Math.round(systemUptime * 10) / 10,
         queueSize: 0,
-        clientsByPlan
+        clientsByPlan,
+        monthlyRevenueData: dynamicKPIs.monthlyRevenueData || [0, 0, 0, 0, 0, 0],
+        completedDocumentsCount: dynamicKPIs.completedDocumentsCount || 0,
+        processingDocumentsCount: dynamicKPIs.processingDocumentsCount || 0,
+        rejectedDocumentsCount: dynamicKPIs.rejectedDocumentsCount || 0,
+        draftDocumentsCount: dynamicKPIs.draftDocumentsCount || 0
       });
 
       // Generar KPIs ejecutivos con datos REALES de la base de datos
@@ -280,6 +285,48 @@ const AdminDashboard: React.FC = () => {
     setRefreshing(false);
   };
 
+  // Generate dynamic SVG path for revenue chart
+  const generateRevenuePath = (data: number[]) => {
+    if (!data || data.length === 0) return "M 20 180 L 380 180";
+    
+    const maxValue = Math.max(...data, 1);
+    const width = 360; // 380 - 20 (margins)
+    const height = 120; // 180 - 60 (chart area)
+    const stepX = width / (data.length - 1);
+    
+    let path = "";
+    data.forEach((value, index) => {
+      const x = 20 + (index * stepX);
+      const y = 180 - ((value / maxValue) * height);
+      path += index === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    });
+    
+    return path;
+  };
+
+  // Generate dynamic area path for revenue chart
+  const generateRevenueAreaPath = (data: number[]) => {
+    if (!data || data.length === 0) return "M 20 180 L 380 180 L 380 200 L 20 200 Z";
+    
+    const linePath = generateRevenuePath(data);
+    return `${linePath} L 380 200 L 20 200 Z`;
+  };
+
+  // Generate dynamic circle positions for revenue chart
+  const generateRevenueCircles = (data: number[]) => {
+    if (!data || data.length === 0) return [];
+    
+    const maxValue = Math.max(...data, 1);
+    const width = 360;
+    const height = 120;
+    const stepX = width / (data.length - 1);
+    
+    return data.map((value, index) => ({
+      x: 20 + (index * stepX),
+      y: 180 - ((value / maxValue) * height),
+      value
+    }));
+  };
   const navigateToModule = (path: string) => {
     window.location.href = path;
   };
@@ -453,20 +500,17 @@ const AdminDashboard: React.FC = () => {
               </g>
               
               <path
-                d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60 L 380 200 L 20 200 Z"
+                d={generateRevenueAreaPath(realTimeStats.monthlyRevenueData || [0, 0, 0, 0, 0, 0])}
                 fill="url(#revenueGradient)"
               />
               <path
-                d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60"
+                d={generateRevenuePath(realTimeStats.monthlyRevenueData || [0, 0, 0, 0, 0, 0])}
                 fill="none"
                 stroke="#10b981"
                 strokeWidth="3"
               />
               
-              {[
-                { x: 20, y: 180 }, { x: 80, y: 160 }, { x: 140, y: 140 },
-                { x: 200, y: 120 }, { x: 260, y: 100 }, { x: 320, y: 80 }, { x: 380, y: 60 }
-              ].map((point, index) => (
+              {generateRevenueCircles(realTimeStats.monthlyRevenueData || [0, 0, 0, 0, 0, 0]).map((point, index) => (
                 <circle
                   key={index}
                   cx={point.x}
@@ -474,7 +518,9 @@ const AdminDashboard: React.FC = () => {
                   r="4"
                   fill="#10b981"
                   className="hover:r-6 transition-all cursor-pointer"
-                />
+                >
+                  <title>€{point.value.toFixed(0)}</title>
+                </circle>
               ))}
             </svg>
           </div>
@@ -515,17 +561,48 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="flex items-center justify-center mb-6">
             <div className="relative w-32 h-32">
-              {/* Simulación de gráfico circular con CSS */}
+              {/* Gráfico circular dinámico con datos reales */}
               <div className="absolute inset-0 rounded-full" style={{
-                background: `conic-gradient(
-                  #10b981 0deg 144deg,
-                  #3b82f6 144deg 252deg,
-                  #8b5cf6 252deg 324deg,
-                  #f59e0b 324deg 360deg
-                )`
+                background: (() => {
+                  const completed = realTimeStats.completedDocumentsCount || 0;
+                  const processing = realTimeStats.processingDocumentsCount || 0;
+                  const rejected = realTimeStats.rejectedDocumentsCount || 0;
+                  const draft = realTimeStats.draftDocumentsCount || 0;
+                  const total = completed + processing + rejected + draft || 1;
+                  
+                  const completedDeg = (completed / total) * 360;
+                  const processingDeg = (processing / total) * 360;
+                  const rejectedDeg = (rejected / total) * 360;
+                  const draftDeg = (draft / total) * 360;
+                  
+                  let currentDeg = 0;
+                  const segments = [];
+                  
+                  if (completed > 0) {
+                    segments.push(`#10b981 ${currentDeg}deg ${currentDeg + completedDeg}deg`);
+                    currentDeg += completedDeg;
+                  }
+                  if (processing > 0) {
+                    segments.push(`#3b82f6 ${currentDeg}deg ${currentDeg + processingDeg}deg`);
+                    currentDeg += processingDeg;
+                  }
+                  if (rejected > 0) {
+                    segments.push(`#ef4444 ${currentDeg}deg ${currentDeg + rejectedDeg}deg`);
+                    currentDeg += rejectedDeg;
+                  }
+                  if (draft > 0) {
+                    segments.push(`#f59e0b ${currentDeg}deg ${currentDeg + draftDeg}deg`);
+                  }
+                  
+                  return segments.length > 0 ? `conic-gradient(${segments.join(', ')})` : 'conic-gradient(#e5e7eb 0deg 360deg)';
+                })()
               }}></div>
               <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-bold text-gray-900">{Math.round((realTimeStats.processingSuccessRate || 0))}%</span>
+                <span className="text-lg font-bold text-gray-900">
+                  {realTimeStats.totalDocuments > 0 
+                    ? Math.round(((realTimeStats.completedDocumentsCount || 0) / realTimeStats.totalDocuments) * 100)
+                    : 0}%
+                </span>
               </div>
             </div>
           </div>
@@ -535,28 +612,28 @@ const AdminDashboard: React.FC = () => {
                 <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
                 <span className="text-sm text-gray-600">Completados</span>
               </div>
-              <span className="text-sm font-medium">{Math.round((realTimeStats.processingSuccessRate || 0))}%</span>
+              <span className="text-sm font-medium">{realTimeStats.completedDocumentsCount || 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
                 <span className="text-sm text-gray-600">Procesando</span>
               </div>
-              <span className="text-sm font-medium">{Math.round(100 - (realTimeStats.processingSuccessRate || 0))}%</span>
+              <span className="text-sm font-medium">{realTimeStats.processingDocumentsCount || 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-                <span className="text-sm text-gray-600">Este mes</span>
+                <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                <span className="text-sm text-gray-600">Rechazados</span>
               </div>
-              <span className="text-sm font-medium">{realTimeStats.documentsThisMonth || 0}</span>
+              <span className="text-sm font-medium">{realTimeStats.rejectedDocumentsCount || 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                <span className="text-sm text-gray-600">En cola</span>
+                <span className="text-sm text-gray-600">Borradores</span>
               </div>
-              <span className="text-sm font-medium">{realTimeStats.queueSize || 0}</span>
+              <span className="text-sm font-medium">{realTimeStats.draftDocumentsCount || 0}</span>
             </div>
           </div>
         </div>
