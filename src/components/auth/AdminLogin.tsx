@@ -68,6 +68,24 @@ export default function AdminLogin() {
         throw new Error(`Access denied: Only SuperAdmin can access admin panel. Your role: ${userProfile.role}`);
       }
 
+      // Ensure DEV_ADMIN_USER_ID exists in users table for audit logging
+      const { error: adminUserError } = await supabaseServiceClient
+        .from('users')
+        .upsert({
+          id: '20000000-0000-0000-0000-000000000001', // DEV_ADMIN_USER_ID
+          tenant_id: '00000000-0000-0000-0000-000000000001',
+          email: 'system@constructia.com',
+          name: 'System Admin',
+          role: 'SuperAdmin',
+          active: true
+        }, {
+          onConflict: 'id'
+        });
+
+      if (adminUserError) {
+        console.warn('Could not create system admin user:', adminUserError);
+      }
+
       // Update auth context and let ProtectedRoute handle navigation
       await checkSession();
       navigate('/admin', { replace: true });

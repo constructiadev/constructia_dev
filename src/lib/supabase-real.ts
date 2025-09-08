@@ -649,11 +649,19 @@ export const logAuditoria = async (
   detalles?: any
 ) => {
   try {
+    // Validate userId and fallback to DEV_ADMIN_USER_ID if invalid
+    let validUserId = userId;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    
+    if (!userId || userId === 'system' || !uuidRegex.test(userId)) {
+      validUserId = DEV_ADMIN_USER_ID; // Use system admin user ID
+    }
+
     await supabase
       .from('auditoria')
       .insert({
         tenant_id: tenantId,
-        actor_user: userId,
+        actor_user: validUserId,
         accion,
         entidad,
         entidad_id: entidadId,
