@@ -204,7 +204,7 @@ export class ManualManagementService {
   }
 
   // Get platform credentials for specific platform
-  async getPlatformCredentials(clientId: string, platform?: string): Promise<PlatformCredential | null> {
+  async getSinglePlatformCredential(clientId: string, platform?: string): Promise<PlatformCredential | null> {
     try {
       console.log('🔍 [ManualManagement] Loading credentials for client:', clientId, 'platform:', platform);
       
