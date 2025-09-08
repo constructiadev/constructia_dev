@@ -326,6 +326,53 @@ export const getAllPaymentGateways = async () => {
   }
 };
 
+// Helper para obtener mandatos SEPA del cliente
+export const getSEPAMandates = async (clientId: string) => {
+  try {
+    const { data, error } = await supabaseClient
+      .from('sepa_mandates')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Error fetching SEPA mandates:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching SEPA mandates:', error);
+    return [];
+  }
+};
+
+// Helper para crear mandato SEPA
+export const createSEPAMandate = async (mandateData: Partial<SEPAMandate>) => {
+  try {
+    const { data, error } = await supabaseClient
+      .from('sepa_mandates')
+      .insert({
+        ...mandateData,
+        mandate_id: `SEPA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating SEPA mandate:', error);
+      throw new Error(`Error creating SEPA mandate: ${error.message}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating SEPA mandate:', error);
+    throw error;
+  }
+};
+
 // Helper para obtener cola de procesamiento manual
 
 // Helper para actualizar configuración del sistema
