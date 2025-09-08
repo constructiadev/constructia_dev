@@ -72,7 +72,7 @@ export default function PlatformCredentialsManager({
   const loadCredentials = async () => {
     try {
       setLoading(true);
-      const creds = await manualManagementService.getPlatformCredentials(clientId);
+      const creds = await manualManagementService.getPlatformCredentials();
       setCredentials(creds);
     } catch (error) {
       console.error('Error loading credentials:', error);
@@ -108,8 +108,7 @@ export default function PlatformCredentialsManager({
       const success = await manualManagementService.savePlatformCredentials(
         newCredential.platform_type,
         newCredential.username,
-        newCredential.password,
-        user?.id
+        newCredential.password
       );
 
       if (success) {

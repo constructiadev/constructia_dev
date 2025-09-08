@@ -110,6 +110,7 @@ export class ManualManagementService {
       for (const empresa of empresas || []) {
         // Get platform credentials for this client
         const credentials = await this.getPlatformCredentials(empresa.id);
+        const credentials = await this.getPlatformCredentials();
 
         // Get obras (projects) for this empresa
         const { data: obras, error: obrasError } = await supabaseServiceClient
@@ -153,6 +154,7 @@ export class ManualManagementService {
           client_name: empresa.razon_social,
           client_email: empresa.contacto_email || `contacto@${empresa.razon_social.toLowerCase().replace(/\s+/g, '')}.com`,
           platform_credentials: await this.getPlatformCredentials(empresa.id),
+          platform_credentials: credentials,
           companies,
           total_documents: totalDocuments,
           documents_per_hour: Math.floor(Math.random() * 10) + 5,
@@ -168,31 +170,18 @@ export class ManualManagementService {
   }
 
   // Get platform credentials for a client
-  async getPlatformCredentials(clientId: string): Promise<PlatformCredential[]> {
+  async getPlatformCredentials(): Promise<PlatformCredential[]> {
     try {
-      console.log('🔍 [ManualManagement] Loading credentials for client:', clientId);
+      console.log('🔍 [ManualManagement] Loading credentials for tenant:', this.tenantId);
       
       const { data, error } = await supabaseServiceClient
         .from('adaptadores')
         .select('*')
-        .eq('tenant_id', this.tenantId)
-        .contains('credenciales', { empresa_id: clientId });
+        .eq('tenant_id', this.tenantId);
 
       if (error) {
         console.error('Error fetching platform credentials:', error);
-        // Fallback: try to get any credentials for this tenant
-        const { data: fallbackData, error: fallbackError } = await supabaseServiceClient
-          .from('adaptadores')
-          .select('*')
-          .eq('tenant_id', this.tenantId);
-        
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          return [];
-        }
-        
-        console.log('✅ [ManualManagement] Using fallback credentials:', fallbackData?.length || 0);
-        return this.transformCredentials(fallbackData || []);
+        return [];
       }
 
       console.log('✅ [ManualManagement] Found credentials:', data?.length || 0);
@@ -855,8 +844,7 @@ export class ManualManagementService {
   async savePlatformCredentials(
     platformType: 'nalanda' | 'ctaima' | 'ecoordina',
     username: string,
-    password: string,
-    userId?: string
+    password: string
   ): Promise<boolean> {
     try {
       const { error } = await supabaseServiceClient
@@ -867,7 +855,7 @@ export class ManualManagementService {
           alias: `${platformType}-default`,
           credenciales: {
             username,
-            password: this.encryptPassword(password),
+            password: this.encryptPassword(password)
           },
           estado: 'ready'
         }, {
@@ -882,7 +870,7 @@ export class ManualManagementService {
       // Log the action
       await logAuditoria(
         this.tenantId,
-        userId || DEV_ADMIN_USER_ID,
+        DEV_ADMIN_USER_ID,
         'credentials.saved',
         'adaptadores',
         null,
