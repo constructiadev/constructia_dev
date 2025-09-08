@@ -359,7 +359,8 @@ export class ManualManagementService {
     projectId: string,
     file: File,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
-    platformTarget: 'nalanda' | 'ctaima' | 'ecoordina' = 'nalanda'
+    platformTarget: 'nalanda' | 'ctaima' | 'ecoordina' = 'nalanda',
+    userId?: string
   ): Promise<ManualDocument | null> {
     try {
       console.log('📁 Starting real file upload process...');
@@ -854,7 +855,8 @@ export class ManualManagementService {
   async savePlatformCredentials(
     platformType: 'nalanda' | 'ctaima' | 'ecoordina',
     username: string,
-    password: string
+    password: string,
+    userId?: string
   ): Promise<boolean> {
     try {
       const { error } = await supabaseServiceClient
@@ -880,7 +882,7 @@ export class ManualManagementService {
       // Log the action
       await logAuditoria(
         this.tenantId,
-        DEV_ADMIN_USER_ID,
+        userId || DEV_ADMIN_USER_ID,
         'credentials.saved',
         'adaptadores',
         null,
