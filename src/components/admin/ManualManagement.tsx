@@ -83,7 +83,7 @@ function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: Pla
       id: 'nalanda', 
       name: 'Nalanda/Obralia', 
       color: 'bg-blue-600',
-      url: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth',
+      url: 'https://identity.nalandaglobal.com/realms/nalanda/protocol/openid-connect/auth?ui_locales=es+en+pt&scope=openid&response_type=code&redirect_uri=https%3A%2F%2Fapp.nalandaglobal.com%2Fsso%2Fcallback.action&state=A_qGxYJMOi6_x7iS_nHB82svOzebK1xt_jUPTvqkQpY&nonce=Gnuep5RCKXo-9NSXhTohvgTO_B7HTFAcy5JA27gHB8s&client_id=nalanda-app',
       description: 'Plataforma principal de gestión CAE'
     },
     { 
@@ -97,7 +97,7 @@ function PlatformConnectionsModal({ isOpen, onClose, clientId, clientName }: Pla
       id: 'ecoordina', 
       name: 'Ecoordina', 
       color: 'bg-purple-600',
-      url: 'https://login.welcometotwind.io',
+      url: 'https://login.welcometotwind.io/junoprod.onmicrosoft.com/b2c_1a_signup_signin/oauth2/v2.0/authorize?client_id=b2a08c2d-92b8-48c6-8fef-b7358a110496&scope=openid%20profile%20offline_access&redirect_uri=https%3A%2F%2Fwelcometotwind.io%2F&client-request-id=76a43f68-c14b-40f3-b69c-0fb721c597f8&response_mode=fragment&response_type=code&x-client-SKU=msal.js.browser&x-client-VER=2.38.0&client_info=1&code_challenge=v5ig0AtC6pVVrqljy_BylnvEbolLoaYEwgkG_kjpdro&code_challenge_method=S256&nonce=4e4dccec-a6ff-4193-8c19-285a4908d6be&state=eyJpZCI6ImNmNTRiY2IwLTAzMTctNDNhMC1hYjU0LWRjNTUzMTk5YjBjMiIsIm1ldGEiOnsiaW50ZXJhY3Rpb25UeXBlIjoicmVkaXJlY3QifX0%3D',
       description: 'Plataforma de coordinación empresarial'
     }
   ];
