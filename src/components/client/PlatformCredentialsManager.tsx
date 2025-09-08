@@ -74,7 +74,9 @@ export default function PlatformCredentialsManager({
 
   useEffect(() => {
     const currentCredential = credentials.find(cred => cred.platform_type === selectedPlatformType);
+    console.log('🔍 [PlatformCredentials] Current credential for', selectedPlatformType, ':', currentCredential);
     if (currentCredential) {
+      console.log('🔍 [PlatformCredentials] Setting password:', currentCredential.password);
       setNewCredential({
         platform_type: currentCredential.platform_type,
         username: currentCredential.username,
@@ -82,6 +84,7 @@ export default function PlatformCredentialsManager({
       });
       setEditingCredential(currentCredential);
     } else {
+      console.log('🔍 [PlatformCredentials] No credential found for', selectedPlatformType);
       setNewCredential({ platform_type: selectedPlatformType, username: '', password: '' });
       setEditingCredential(null);
     }
