@@ -868,6 +868,8 @@ export class ManualManagementService {
             password: this.encryptPassword(`${empresa.id.substring(0, 8)}${platform}2025!`),
           },
           estado: 'ready'
+        }, {
+          onConflict: 'tenant_id,plataforma,alias'
         });
 
       if (error) {

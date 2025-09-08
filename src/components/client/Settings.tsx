@@ -71,6 +71,8 @@ export default function Settings() {
             configured: true
           },
           estado: 'ready'
+        }, {
+          onConflict: 'tenant_id,plataforma,alias'
         });
 
       if (error) {
@@ -105,6 +107,8 @@ export default function Settings() {
             configured: true
           },
           estado: 'ready'
+        }, {
+          onConflict: 'tenant_id,plataforma,alias'
         });
 
       if (error) {
