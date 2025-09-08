@@ -6,6 +6,7 @@ import {
   getDocumentStats,
   calculateDynamicKPIs 
 } from '../../lib/supabase';
+import { manualManagementService } from '../../lib/manual-management-service';
 
 interface KPI {
   id: string;
@@ -56,10 +57,11 @@ const AIIntegrationModule: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [kpisData, integrationsData, dynamicKPIs] = await Promise.all([
+      const [kpisData, integrationsData, dynamicKPIs, queueData] = await Promise.all([
         getKPIs(),
         getAPIIntegrations(),
-        calculateDynamicKPIs()
+        calculateDynamicKPIs(),
+        manualManagementService.getManualUploadQueueItems()
       ]);
 
       // Combinar KPIs estáticos con dinámicos

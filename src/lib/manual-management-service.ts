@@ -167,6 +167,57 @@ export class ManualManagementService {
     }
   }
 
+  // Get manual upload queue items for AI module
+  async getManualUploadQueueItems(): Promise<any[]> {
+    try {
+      const { data, error } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          documentos!inner(
+            id,
+            categoria,
+            file,
+            mime,
+            size_bytes,
+            metadatos
+          ),
+          empresas!inner(
+            razon_social
+          )
+        `)
+        .eq('tenant_id', this.tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching manual upload queue:', error);
+        return [];
+      }
+
+      // Transform to expected format
+      return (data || []).map((item, index) => ({
+        id: item.id,
+        document_id: item.documento_id,
+        queue_position: index + 1,
+        priority: ['low', 'normal', 'high', 'urgent'][index % 4],
+        manual_status: item.status === 'queued' ? 'pending' : 
+                      item.status === 'in_progress' ? 'processing' :
+                      item.status === 'uploaded' ? 'uploaded' : 'error',
+        created_at: item.created_at,
+        documents: {
+          filename: item.documentos?.file?.split('/').pop() || 'documento.pdf',
+          original_name: item.documentos?.metadatos?.original_filename || 'Documento'
+        },
+        clients: {
+          company_name: item.empresas?.razon_social || 'Empresa'
+        }
+      }));
+    } catch (error) {
+      console.error('Error getting manual upload queue items:', error);
+      return [];
+    }
+  }
+
   // Get platform credentials for a client
   async getPlatformCredentials(): Promise<PlatformCredential[]> {
     try {

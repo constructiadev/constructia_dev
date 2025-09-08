@@ -121,6 +121,14 @@ const AdminDashboard: React.FC = () => {
       // Calcular uptime del sistema (basado en documentos procesados exitosamente)
       const systemUptime = processingSuccessRate;
       
+      // Calcular distribución real de clientes por plan
+      const clientsByPlan = {
+        basic: clients.filter(c => c.subscription_plan === 'basic').length,
+        professional: clients.filter(c => c.subscription_plan === 'professional').length,
+        enterprise: clients.filter(c => c.subscription_plan === 'enterprise').length,
+        custom: clients.filter(c => c.subscription_plan === 'custom').length
+      };
+      
       setRealTimeStats({
         totalClients,
         activeClients,
@@ -135,7 +143,8 @@ const AdminDashboard: React.FC = () => {
         churnRate: Math.round(churnRate * 10) / 10,
         ltv,
         systemUptime: Math.round(systemUptime * 10) / 10,
-        queueSize: 0
+        queueSize: 0,
+        clientsByPlan
       });
 
       // Generar KPIs ejecutivos con datos REALES de la base de datos
@@ -480,15 +489,15 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="flex items-end justify-between h-48 space-x-2">
             {[
-              { value: Math.floor((realTimeStats.activeClients || 0) * 0.3), color: 'bg-blue-400', label: 'Básico' },
-              { value: Math.floor((realTimeStats.activeClients || 0) * 0.4), color: 'bg-blue-500', label: 'Prof.' },
-              { value: Math.floor((realTimeStats.activeClients || 0) * 0.2), color: 'bg-blue-600', label: 'Ent.' },
-              { value: Math.floor((realTimeStats.activeClients || 0) * 0.1), color: 'bg-blue-700', label: 'Custom' }
+              { value: realTimeStats.clientsByPlan?.basic || 0, color: 'bg-blue-400', label: 'Básico' },
+              { value: realTimeStats.clientsByPlan?.professional || 0, color: 'bg-blue-500', label: 'Prof.' },
+              { value: realTimeStats.clientsByPlan?.enterprise || 0, color: 'bg-blue-600', label: 'Ent.' },
+              { value: realTimeStats.clientsByPlan?.custom || 0, color: 'bg-blue-700', label: 'Custom' }
             ].map((bar, index) => (
               <div key={index} className="flex-1 flex flex-col items-center">
                 <div 
                   className={`w-full ${bar.color} rounded-t transition-all duration-500`}
-                  style={{ height: `${Math.max((bar.value / Math.max(realTimeStats.activeClients || 1, 1)) * 100, 5)}%` }}
+                  style={{ height: `${Math.max((bar.value / Math.max(realTimeStats.totalClients || 1, 1)) * 100, 5)}%` }}
                 ></div>
                 <span className="text-xs text-gray-500 mt-2">{bar.label}</span>
                 <span className="text-xs text-gray-400">{bar.value}</span>
