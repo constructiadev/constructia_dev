@@ -540,6 +540,130 @@ export default function SettingsModule() {
         )}
       </div>
 
+      {/* Database Operations */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center">
+          <Database className="w-5 h-5 mr-2" />
+          Operaciones de Base de Datos
+        </h3>
+        
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button 
+              onClick={handleExecuteBackup}
+              disabled={saving}
+              className="flex flex-col items-center p-6 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 disabled:opacity-50"
+            >
+              <HardDrive className="w-8 h-8 text-blue-600 mb-2" />
+              <span className="font-medium text-blue-800">Backup Manual</span>
+              <span className="text-xs text-blue-600">Crear copia de seguridad</span>
+            </button>
+            
+            <button 
+              onClick={handleOptimizeDatabase}
+              disabled={saving}
+              className="flex flex-col items-center p-6 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200 disabled:opacity-50"
+            >
+              <Cpu className="w-8 h-8 text-green-600 mb-2" />
+              <span className="font-medium text-green-800">Optimizar BD</span>
+              <span className="text-xs text-green-600">Mejorar rendimiento</span>
+            </button>
+            
+            <button 
+              onClick={handleCleanLogs}
+              disabled={saving}
+              className="flex flex-col items-center p-6 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors border border-yellow-200 disabled:opacity-50"
+            >
+              <Activity className="w-8 h-8 text-yellow-600 mb-2" />
+              <span className="font-medium text-yellow-800">Limpiar Logs</span>
+              <span className="text-xs text-yellow-600">Eliminar logs antiguos</span>
+            </button>
+          </div>
+          
+          {/* Backup Frequency */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-3">Frecuencia de Backup</h4>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="backup-daily"
+                  name="backup-frequency"
+                  checked={settings.backupFrequency === 'daily'}
+                  onChange={() => setSettings({...settings, backupFrequency: 'daily'})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label htmlFor="backup-daily" className="ml-2 block text-sm text-gray-900">
+                  Diario (Recomendado)
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="backup-weekly"
+                  name="backup-frequency"
+                  checked={settings.backupFrequency === 'weekly'}
+                  onChange={() => setSettings({...settings, backupFrequency: 'weekly'})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label htmlFor="backup-weekly" className="ml-2 block text-sm text-gray-900">
+                  Semanal
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="backup-monthly"
+                  name="backup-frequency"
+                  checked={settings.backupFrequency === 'monthly'}
+                  onChange={() => setSettings({...settings, backupFrequency: 'monthly'})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label htmlFor="backup-monthly" className="ml-2 block text-sm text-gray-900">
+                  Mensual
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          {/* Database Performance */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-3">Rendimiento de Base de Datos</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Conexiones activas:</span>
+                <span className="font-medium text-gray-900">12/200</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Tiempo respuesta:</span>
+                <span className="font-medium text-green-600">89ms</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Queries/min:</span>
+                <span className="font-medium text-blue-600">1,247</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Cache hit rate:</span>
+                <span className="font-medium text-purple-600">94.2%</span>
+              </div>
+            </div>
+            
+            {settings.lastBackup && (
+              <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center">
+                  <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                  <span className="text-sm text-green-800">
+                    Último backup: {new Date(settings.lastBackup).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderIntegrationsSettings = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
@@ -622,120 +746,6 @@ export default function SettingsModule() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <Database className="w-5 h-5 mr-2" />
-          Operaciones de Base de Datos
-        </h3>
-        
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button 
-              onClick={handleExecuteBackup}
-              disabled={saving}
-              className="flex flex-col items-center p-6 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 disabled:opacity-50"
-            >
-              <HardDrive className="w-8 h-8 text-blue-600 mb-2" />
-              <span className="font-medium text-blue-800">Backup Manual</span>
-              <span className="text-xs text-blue-600">Crear copia de seguridad</span>
-            </button>
-            
-            <button 
-              onClick={handleOptimizeDatabase}
-              disabled={saving}
-              className="flex flex-col items-center p-6 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200 disabled:opacity-50"
-            >
-              <Cpu className="w-8 h-8 text-green-600 mb-2" />
-              <span className="font-medium text-green-800">Optimizar BD</span>
-              <span className="text-xs text-green-600">Mejorar rendimiento</span>
-            </button>
-            
-            <button 
-              onClick={handleCleanLogs}
-              disabled={saving}
-              className="flex flex-col items-center p-6 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors border border-yellow-200 disabled:opacity-50"
-            >
-              <Activity className="w-8 h-8 text-yellow-600 mb-2" />
-              <span className="font-medium text-yellow-800">Limpiar Logs</span>
-              <span className="text-xs text-yellow-600">Eliminar logs antiguos</span>
-            </button>
-                <input
-                  type="radio"
-                  id="backup-daily"
-                  name="backup-frequency"
-                  checked={settings.backupFrequency === 'daily'}
-                  onChange={() => setSettings({...settings, backupFrequency: 'daily'})}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label htmlFor="backup-daily" className="ml-2 block text-sm text-gray-900">
-                  Diario (Recomendado)
-                </label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  id="backup-weekly"
-                  name="backup-frequency"
-                  checked={settings.backupFrequency === 'weekly'}
-                  onChange={() => setSettings({...settings, backupFrequency: 'weekly'})}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label htmlFor="backup-weekly" className="ml-2 block text-sm text-gray-900">
-                  Semanal
-                </label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  id="backup-monthly"
-                  name="backup-frequency"
-                  checked={settings.backupFrequency === 'monthly'}
-                  onChange={() => setSettings({...settings, backupFrequency: 'monthly'})}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label htmlFor="backup-monthly" className="ml-2 block text-sm text-gray-900">
-                  Mensual
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          {/* Database Performance */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-3">Rendimiento de Base de Datos</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Conexiones activas:</span>
-                <span className="font-medium text-gray-900">12/200</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Tiempo respuesta:</span>
-                <span className="font-medium text-green-600">89ms</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Queries/min:</span>
-                <span className="font-medium text-blue-600">1,247</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Cache hit rate:</span>
-                <span className="font-medium text-purple-600">94.2%</span>
-              </div>
-            </div>
-            
-            {settings.lastBackup && (
-              <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-                  <span className="text-sm text-green-800">
-                    Último backup: {new Date(settings.lastBackup).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
