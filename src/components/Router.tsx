@@ -99,16 +99,6 @@ export default function Router() {
             <Route path="settings" element={<Settings />} />
           </Route>
 
-          {/* Redirect any admin access attempts by clients to their dashboard */}
-          <Route path="/admin/*" element={<Navigate to="/client/dashboard" replace />} />
-          
-          {/* Redirect any client access attempts by admins to landing */}
-          <Route path="/client/*" element={
-            <ProtectedRoute requireRole="client" fallbackPath="/landing">
-              <Navigate to="/admin/dashboard" replace />
-            </ProtectedRoute>
-          } />
-
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/landing" replace />} />
         </Routes>

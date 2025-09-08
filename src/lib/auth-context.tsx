@@ -149,10 +149,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
       } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // For client roles, get full client context
-        let authenticatedClient = null;
+        let clientToSet = null;
         try {
-          authenticatedClient = await ClientAuthService.getCurrentClient();
-          if (!authenticatedClient) {
+          clientToSet = await ClientAuthService.getCurrentClient();
+          if (!clientToSet) {
             console.warn('⚠️ [AuthContext] Failed to get client context, using basic user data');
             // Fallback to basic user data for clients
             const basicClientUser: AuthenticatedUser = {
@@ -162,9 +162,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               role: userProfile.role,
               tenant_id: userProfile.tenant_id
             };
-            setUser(basicClientUser);
+            clientToSet = basicClientUser;
           } else {
-            setUser(authenticatedClient);
+            setUser(clientToSet);
           }
         } catch (clientError) {
           console.warn('⚠️ [AuthContext] Client context error, using fallback:', clientError);
@@ -175,11 +175,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             role: userProfile.role,
             tenant_id: userProfile.tenant_id
           };
-          setUser(basicClientUser);
+          clientToSet = basicClientUser;
         }
         
-        if (authenticatedClient) {
-          console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
+        // Set the user and log success
+        if (clientToSet) {
+          setUser(clientToSet);
+          console.log('✅ [AuthContext] Client signed in successfully:', clientToSet.email);
         }
       } else {
         // Invalid role for any access
