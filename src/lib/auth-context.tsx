@@ -136,8 +136,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('User profile not found');
       }
 
-      // Handle based on role
+      // CRITICAL: Strict role-based authentication
+      console.log('🔍 [AuthContext] User role detected:', userProfile.role);
+      
       if (userProfile.role === 'SuperAdmin') {
+        // Admin authentication
         const adminUser: AuthenticatedUser = {
           id: userProfile.id,
           email: userProfile.email,
@@ -147,46 +150,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(adminUser);
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
+        
       } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
-        // For client roles, get full client context
-        let clientToSet = null;
+        // Client authentication - ISOLATED ACCESS
+        console.log('🔐 [AuthContext] Processing client authentication for tenant:', userProfile.tenant_id);
+        
+        let authenticatedClient = null;
+        
         try {
-          clientToSet = await ClientAuthService.getCurrentClient();
-          if (!clientToSet) {
-            console.warn('⚠️ [AuthContext] Failed to get client context, using basic user data');
-            // Fallback to basic user data for clients
-            const basicClientUser: AuthenticatedUser = {
+          authenticatedClient = await ClientAuthService.getCurrentClient();
+          
+          if (!authenticatedClient) {
+            console.warn('⚠️ [AuthContext] Failed to get client context, creating fallback');
+            // Create fallback client user with isolated data
+            authenticatedClient = {
               id: userProfile.id,
+              user_id: authData.user.id,
+              tenant_id: userProfile.tenant_id,
               email: userProfile.email,
               name: userProfile.name || 'Cliente',
               role: userProfile.role,
-              tenant_id: userProfile.tenant_id
+              company_name: 'Empresa',
+              subscription_plan: 'professional',
+              subscription_status: userProfile.active ? 'active' : 'suspended',
+              storage_used: 0,
+              storage_limit: 1073741824,
+              tokens_available: 1000,
+              obralia_credentials: { configured: false }
             };
-            clientToSet = basicClientUser;
-          } else {
-            setUser(clientToSet);
           }
         } catch (clientError) {
-          console.warn('⚠️ [AuthContext] Client context error, using fallback:', clientError);
-          const basicClientUser: AuthenticatedUser = {
+          console.warn('⚠️ [AuthContext] Client service error, using fallback:', clientError);
+          // Fallback client user
+          authenticatedClient = {
             id: userProfile.id,
+            user_id: authData.user.id,
+            tenant_id: userProfile.tenant_id,
             email: userProfile.email,
             name: userProfile.name || 'Cliente',
             role: userProfile.role,
-            tenant_id: userProfile.tenant_id
+            company_name: 'Empresa',
+            subscription_plan: 'professional',
+            subscription_status: userProfile.active ? 'active' : 'suspended',
+            storage_used: 0,
+            storage_limit: 1073741824,
+            tokens_available: 1000,
+            obralia_credentials: { configured: false }
           };
-          clientToSet = basicClientUser;
         }
         
-        // Set the user and log success
-        if (clientToSet) {
-          setUser(clientToSet);
-          console.log('✅ [AuthContext] Client signed in successfully:', clientToSet.email);
-        }
+        // Set authenticated client
+        setUser(authenticatedClient);
+        console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email, 'Tenant:', authenticatedClient.tenant_id);
+        
       } else {
-        // Invalid role for any access
+        // Invalid role - force logout
+        console.error('❌ [AuthContext] Invalid user role:', userProfile.role);
         await supabase.auth.signOut();
-        throw new Error(`Invalid user role: ${userProfile.role}`);
+        throw new Error(`Acceso denegado: Rol de usuario inválido (${userProfile.role})`);
       }
 
     } catch (error) {

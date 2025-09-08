@@ -32,24 +32,27 @@ export default function ProtectedRoute({
     return <Navigate to={loginPath} replace />;
   }
 
-  // Check role requirements
-  if (requireRole === 'admin' && user.role !== 'SuperAdmin') {
-    console.warn('⚠️ [ProtectedRoute] Admin access denied for role:', user.role);
-    // Redirect non-admin users to their appropriate dashboard
-    console.log('🔒 [ProtectedRoute] Redirecting non-admin user to client dashboard');
-    return <Navigate to="/client/dashboard" replace />;
+  // CRITICAL: Strict role-based access control
+  if (requireRole === 'admin') {
+    // Only SuperAdmin can access admin routes
+    if (user.role !== 'SuperAdmin') {
+      console.error('❌ [ProtectedRoute] ADMIN ACCESS DENIED for role:', user.role);
+      console.error('❌ [ProtectedRoute] Redirecting to client login - admin access forbidden');
+      return <Navigate to="/client-login" replace />;
+    }
   }
 
-  if (requireRole === 'client' && user.role === 'SuperAdmin') {
-    console.warn('⚠️ [ProtectedRoute] Client access denied for role:', user.role);
-    // Redirect admin users to admin dashboard
-    console.log('🔒 [ProtectedRoute] Redirecting admin user to admin dashboard');
-    return <Navigate to="/admin/dashboard" replace />;
-  }
-
-  if (requireRole === 'client' && !['Cliente', 'ClienteDemo'].includes(user.role)) {
-    console.warn('⚠️ [ProtectedRoute] Invalid client role:', user.role);
-    return <Navigate to={fallbackPath} replace />;
+  if (requireRole === 'client') {
+    // Only Cliente and ClienteDemo can access client routes
+    if (!['Cliente', 'ClienteDemo'].includes(user.role)) {
+      console.error('❌ [ProtectedRoute] CLIENT ACCESS DENIED for role:', user.role);
+      if (user.role === 'SuperAdmin') {
+        console.error('❌ [ProtectedRoute] SuperAdmin cannot access client portal');
+        return <Navigate to="/admin-login" replace />;
+      }
+      console.error('❌ [ProtectedRoute] Invalid role - redirecting to landing');
+      return <Navigate to={fallbackPath} replace />;
+    }
   }
 
   console.log('✅ [ProtectedRoute] Access granted for:', user.email, 'Role:', user.role, 'Tenant:', user.tenant_id);
