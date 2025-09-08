@@ -17,6 +17,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { manualManagementService, type PlatformCredential } from '../../lib/manual-management-service';
+import { useAuth } from '../../lib/auth-context';
 
 interface PlatformCredentialsManagerProps {
   clientId: string;
@@ -27,6 +28,7 @@ export default function PlatformCredentialsManager({
   clientId, 
   onCredentialsUpdated 
 }: PlatformCredentialsManagerProps) {
+  const { user } = useAuth();
   const [credentials, setCredentials] = useState<PlatformCredential[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
