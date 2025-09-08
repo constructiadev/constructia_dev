@@ -87,6 +87,9 @@ export class ManualManagementService {
   // Get all client groups with hierarchical structure
   async getClientGroups(): Promise<ClientGroup[]> {
     try {
+      // Get platform credentials for this tenant (once, outside the loop)
+      const tenantCredentials = await this.getPlatformCredentials();
+
       // Get all clients from empresas table
       const { data: empresas, error: empresasError } = await supabaseServiceClient
         .from('empresas')
@@ -108,10 +111,6 @@ export class ManualManagementService {
       const clientGroups: ClientGroup[] = [];
 
       for (const empresa of empresas || []) {
-        // Get platform credentials for this client
-        const credentials = await this.getPlatformCredentials(empresa.id);
-        const credentials = await this.getPlatformCredentials();
-
         // Get obras (projects) for this empresa
         const { data: obras, error: obrasError } = await supabaseServiceClient
           .from('obras')
@@ -153,8 +152,7 @@ export class ManualManagementService {
           client_id: empresa.id,
           client_name: empresa.razon_social,
           client_email: empresa.contacto_email || `contacto@${empresa.razon_social.toLowerCase().replace(/\s+/g, '')}.com`,
-          platform_credentials: await this.getPlatformCredentials(empresa.id),
-          platform_credentials: credentials,
+          platform_credentials: tenantCredentials,
           companies,
           total_documents: totalDocuments,
           documents_per_hour: Math.floor(Math.random() * 10) + 5,
