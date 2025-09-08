@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { supabase, supabaseServiceClient } from '../../lib/supabase-real';
+import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const { checkSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -66,7 +68,9 @@ export default function AdminLogin() {
         throw new Error(`Access denied: Only SuperAdmin can access admin panel. Your role: ${userProfile.role}`);
       }
 
-      navigate('/admin/dashboard', { replace: true });
+      // Update auth context and let ProtectedRoute handle navigation
+      await checkSession();
+      navigate('/admin', { replace: true });
     } catch (err: any) {
       console.error('Admin login error:', err);
       setError(err?.message || 'Error de autenticación');

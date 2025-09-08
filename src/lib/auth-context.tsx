@@ -15,6 +15,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  checkSession: () => Promise<void>;
   isClient: boolean;
   isAdmin: boolean;
 }
@@ -235,6 +236,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     signIn,
     signOut,
+    checkSession,
     isClient: !!isClient,
     isAdmin: !!isAdmin
   };
