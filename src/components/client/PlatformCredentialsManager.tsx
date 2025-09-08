@@ -14,10 +14,13 @@ import {
   Unlock,
   Settings,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Edit,
+  X
 } from 'lucide-react';
 import { manualManagementService, type PlatformCredential } from '../../lib/manual-management-service';
 import { useAuth } from '../../lib/auth-context';
+import { supabaseServiceClient } from '../../lib/supabase-real';
 
 interface PlatformCredentialsManagerProps {
   clientId: string;
@@ -33,7 +36,8 @@ export default function PlatformCredentialsManager({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
-  const [editingCredential, setEditingCredential] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingCredential, setEditingCredential] = useState<PlatformCredential | null>(null);
   const [newCredential, setNewCredential] = useState({
     platform_type: 'nalanda' as const,
     username: '',
@@ -77,6 +81,22 @@ export default function PlatformCredentialsManager({
     }
   };
 
+  const handleAddCredential = () => {
+    setEditingCredential(null);
+    setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
+    setShowForm(true);
+  };
+
+  const handleEditCredential = (credential: PlatformCredential) => {
+    setEditingCredential(credential);
+    setNewCredential({
+      platform_type: credential.platform_type,
+      username: credential.username,
+      password: credential.password
+    });
+    setShowForm(true);
+  };
+
   const handleSaveCredential = async () => {
     if (!newCredential.username || !newCredential.password) {
       alert('Por favor completa todos los campos');
@@ -96,6 +116,7 @@ export default function PlatformCredentialsManager({
         await loadCredentials();
         setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
         setEditingCredential(null);
+        setShowForm(false);
         onCredentialsUpdated?.();
         alert('✅ Credenciales guardadas correctamente');
       } else {
@@ -106,6 +127,31 @@ export default function PlatformCredentialsManager({
       alert('❌ Error al guardar credenciales');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteCredential = async (credentialId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar estas credenciales?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabaseServiceClient
+        .from('adaptadores')
+        .delete()
+        .eq('id', credentialId)
+        .eq('tenant_id', user?.tenant_id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      await loadCredentials();
+      onCredentialsUpdated?.();
+      alert('✅ Credenciales eliminadas correctamente');
+    } catch (error) {
+      console.error('Error deleting credential:', error);
+      alert('❌ Error al eliminar credenciales');
     }
   };
 
@@ -138,7 +184,7 @@ export default function PlatformCredentialsManager({
           <p className="text-gray-600">Configura el acceso a las plataformas CAE</p>
         </div>
         <button
-          onClick={() => setEditingCredential('new')}
+          onClick={handleAddCredential}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -146,73 +192,95 @@ export default function PlatformCredentialsManager({
         </button>
       </div>
 
-      {/* Existing Credentials */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Existing Credentials List */}
+      <div className="space-y-4">
         {credentials.map((credential) => {
           const platformInfo = getPlatformInfo(credential.platform_type);
           
           return (
-            <div key={credential.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
+            <div key={credential.id} className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <div className={`w-10 h-10 ${platformInfo.color} rounded-lg flex items-center justify-center mr-3`}>
                     <Globe className="h-5 w-5 text-white" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">{platformInfo.name}</h4>
-                    <p className="text-xs text-gray-600">{platformInfo.description}</p>
+                    <p className="text-sm text-gray-600">{platformInfo.description}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-2">
                   {credential.validation_status === 'valid' ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <div className="flex items-center text-green-600">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      <span className="text-sm">Credenciales configuradas</span>
+                    </div>
                   ) : (
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <div className="flex items-center text-yellow-600">
+                      <AlertTriangle className="h-4 w-4 mr-1" />
+                      <span className="text-sm">Pendiente validación</span>
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Usuario</label>
-                  <div className="bg-gray-50 p-2 rounded border text-sm font-mono">
-                    {credential.username}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Usuario de {platformInfo.name}
+                  </label>
+                  <div className="bg-gray-50 p-3 rounded-lg border">
+                    <span className="text-gray-900 font-mono">{credential.username}</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
-                  <div className="flex items-center">
-                    <div className="bg-gray-50 p-2 rounded border text-sm font-mono flex-1">
-                      {showPasswords[credential.id] ? credential.password : '••••••••'}
-                    </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contraseña de {platformInfo.name}
+                  </label>
+                  <div className="flex items-center bg-gray-50 p-3 rounded-lg border">
+                    <span className="text-gray-900 font-mono flex-1">
+                      {showPasswords[credential.id] ? credential.password : '••••••••••••••••'}
+                    </span>
                     <button
                       onClick={() => togglePasswordVisibility(credential.id)}
-                      className="ml-2 p-2 text-gray-400 hover:text-gray-600"
+                      className="ml-2 text-gray-400 hover:text-gray-600"
                     >
                       {showPasswords[credential.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>Estado: {credential.validation_status}</span>
-                  {credential.last_validated && (
-                    <span>Validado: {new Date(credential.last_validated).toLocaleDateString()}</span>
-                  )}
-                </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
-                <button
-                  onClick={() => setEditingCredential(credential.id)}
-                  className="text-blue-600 hover:text-blue-700 text-sm"
-                >
-                  Editar
-                </button>
-                <button className="text-red-600 hover:text-red-700 text-sm">
-                  Eliminar
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-500">
+                  {credential.last_validated && (
+                    <span>Última validación: {new Date(credential.last_validated).toLocaleDateString('es-ES')}</span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleEditCredential(credential)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center text-sm"
+                  >
+                    <Shield className="h-4 w-4 mr-1" />
+                    Guardar Credenciales
+                  </button>
+                  <button
+                    onClick={() => handleEditCredential(credential)}
+                    className="text-blue-600 hover:text-blue-700 p-2"
+                    title="Editar credenciales"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCredential(credential.id)}
+                    className="text-red-600 hover:text-red-700 p-2"
+                    title="Eliminar credenciales"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -220,17 +288,21 @@ export default function PlatformCredentialsManager({
       </div>
 
       {/* Add/Edit Credential Form */}
-      {editingCredential && (
+      {showForm && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-semibold text-gray-900">
-              {editingCredential === 'new' ? 'Nueva Credencial' : 'Editar Credencial'}
+              {editingCredential ? 'Editar Credencial' : 'Nueva Credencial'}
             </h4>
             <button
-              onClick={() => setEditingCredential(null)}
+              onClick={() => {
+                setShowForm(false);
+                setEditingCredential(null);
+                setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
+              }}
               className="text-gray-400 hover:text-gray-600"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -290,7 +362,11 @@ export default function PlatformCredentialsManager({
 
           <div className="mt-4 flex justify-end space-x-3">
             <button
-              onClick={() => setEditingCredential(null)}
+              onClick={() => {
+                setShowForm(false);
+                setEditingCredential(null);
+                setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
+              }}
               className="px-4 py-2 text-gray-600 hover:text-gray-800"
             >
               Cancelar
@@ -317,7 +393,7 @@ export default function PlatformCredentialsManager({
       )}
 
       {/* Warning if no credentials */}
-      {credentials.length === 0 && (
+      {credentials.length === 0 && !showForm && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-center">
             <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />

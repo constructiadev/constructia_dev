@@ -13,118 +13,12 @@ import {
 import { useClientData } from '../../hooks/useClientData';
 import { supabase } from '../../lib/supabase-real';
 
-import ObraliaCredentialsModal from './ObraliaCredentialsModal';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
 
 export default function Settings() {
   const { client, loading, error, refreshData } = useClientData();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [showObraliaModal, setShowObraliaModal] = useState(false);
-  const [obraliaCredentials, setObraliaCredentials] = useState({
-    username: '',
-    password: ''
-  });
-
-  useEffect(() => {
-    if (client) {
-      // Configurar credenciales existentes
-      if (client.obralia_credentials) {
-        setObraliaCredentials({
-          username: client.obralia_credentials.username || '',
-          password: client.obralia_credentials.password || ''
-        });
-      }
-      
-      // Mostrar modal si no está configurado
-      if (!client.obralia_credentials?.configured) {
-        setShowObraliaModal(true);
-      }
-    }
-  }, [client]);
-
-  const handleSaveObraliaCredentials = async () => {
-    if (!client || !obraliaCredentials.username || !obraliaCredentials.password) return;
-    
-    try {
-      setSaving(true);
-      // Validar formato de credenciales
-      if (obraliaCredentials.username.length < 3) {
-        setMessage({ type: 'error', text: 'El usuario debe tener al menos 3 caracteres' });
-        return;
-      }
-      if (obraliaCredentials.password.length < 6) {
-        setMessage({ type: 'error', text: 'La contraseña debe tener al menos 6 caracteres' });
-        return;
-      }
-      
-      // Update Obralia credentials in adaptadores table
-      const { error } = await supabase
-        .from('adaptadores')
-        .upsert({
-          tenant_id: client.tenant_id,
-          plataforma: 'nalanda',
-          alias: 'Obralia-Default',
-          credenciales: {
-            username: obraliaCredentials.username,
-            password: obraliaCredentials.password,
-            configured: true
-          },
-          estado: 'ready'
-        }, {
-          onConflict: 'tenant_id,plataforma,alias'
-        });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      await refreshData(); // Recargar datos
-      setMessage({ type: 'success', text: 'Credenciales de Obralia actualizadas correctamente' });
-      setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
-      console.error('Error saving Obralia credentials:', error);
-      setMessage({ type: 'error', text: 'Error al guardar las credenciales. Verifica los datos e inténtalo de nuevo.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleObraliaModalSave = async (credentials: { username: string; password: string }) => {
-    if (!client) return;
-    
-    try {
-      // Update Obralia credentials in adaptadores table
-      const { error } = await supabase
-        .from('adaptadores')
-        .upsert({
-          tenant_id: client.tenant_id,
-          plataforma: 'nalanda',
-          alias: 'Obralia-Default',
-          credenciales: {
-            username: credentials.username,
-            password: credentials.password,
-            configured: true
-          },
-          estado: 'ready'
-        }, {
-          onConflict: 'tenant_id,plataforma,alias'
-        });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      await refreshData();
-      setShowObraliaModal(false);
-      setMessage({ type: 'success', text: 'Credenciales de Obralia configuradas correctamente' });
-      setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
-      console.error('Error saving Obralia credentials:', error);
-      setMessage({ type: 'error', text: 'Error al configurar las credenciales de Obralia' });
-      throw error;
-    }
-  };
 
   if (loading) {
     return (
@@ -279,69 +173,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Credenciales de Obralia */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center space-x-3 mb-6">
-            <Key className="w-6 h-6 text-gray-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Credenciales de Obralia</h2>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="obralia-username" className="block text-sm font-medium text-gray-700 mb-2">
-                Usuario de Obralia
-              </label>
-              <input
-                type="text"
-                id="obralia-username"
-                value={obraliaCredentials.username}
-                onChange={(e) => setObraliaCredentials(prev => ({ ...prev, username: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Introduce tu usuario de Obralia"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="obralia-password" className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña de Obralia
-              </label>
-              <input
-                type="password"
-                id="obralia-password"
-                value={obraliaCredentials.password}
-                onChange={(e) => setObraliaCredentials(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Introduce tu contraseña de Obralia"
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                {client.obralia_credentials?.configured ? (
-                  <>
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-sm text-green-600">Credenciales configuradas</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-5 h-5 text-yellow-500" />
-                    <span className="text-sm text-yellow-600">Credenciales no configuradas</span>
-                  </>
-                )}
-              </div>
-              
-              <button
-                onClick={handleSaveObraliaCredentials}
-                disabled={saving || !obraliaCredentials.username || !obraliaCredentials.password}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Save className="w-4 h-4" />
-                <span>{saving ? 'Guardando...' : 'Guardar Credenciales'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Platform Credentials Management */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center space-x-3 mb-6">
@@ -385,13 +216,6 @@ export default function Settings() {
           </div>
         </div>
       </div>
-      
-      {/* Modal de Credenciales Obralia */}
-      <ObraliaCredentialsModal
-        isOpen={showObraliaModal}
-        onSave={handleObraliaModalSave}
-        clientName={client?.company_name || 'Cliente'}
-      />
     </>
   );
 }
