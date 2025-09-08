@@ -192,7 +192,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
         </button>
       </div>
 
-      {empresas.length === 0 ? (
+      {!empresas || empresas.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
           <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No hay empresas</h3>
@@ -801,7 +801,7 @@ export default function DocumentUpload() {
           <h4 className="font-medium text-blue-800 mb-2">Destino Seleccionado</h4>
           <div className="text-sm text-blue-700">
             {selectedEmpresa && (
-              <p>📍 Empresa: {empresas.find(e => e.id === selectedEmpresa)?.razon_social}</p>
+              <p>📍 Empresa: {empresas?.find(e => e.id === selectedEmpresa)?.razon_social}</p>
             )}
             {selectedObra && (
               <p>📁 Obra: {Object.values(obras).flat().find(o => o.id === selectedObra)?.nombre_obra}</p>
