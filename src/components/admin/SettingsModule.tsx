@@ -215,7 +215,7 @@ export default function SettingsModule() {
       setMessage(null);
 
       const { data: configurations, error } = await supabaseServiceClient
-        .from('system_configurations')
+        .from('system_settings')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -267,7 +267,7 @@ export default function SettingsModule() {
       setMessage(null);
 
       const { data, error } = await supabaseServiceClient
-        .from('system_configurations')
+        .from('system_settings')
         .upsert([{
           ...systemConfig,
           updated_at: new Date().toISOString()
