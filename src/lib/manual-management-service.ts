@@ -842,7 +842,8 @@ export class ManualManagementService {
   async savePlatformCredentials(
     platformType: 'nalanda' | 'ctaima' | 'ecoordina',
     username: string,
-    password: string
+    password: string,
+    userId?: string
   ): Promise<boolean> {
     try {
       const { error } = await supabaseServiceClient
@@ -868,7 +869,7 @@ export class ManualManagementService {
       // Log the action
       await logAuditoria(
         this.tenantId,
-        DEV_ADMIN_USER_ID,
+        userId || null,
         'credentials.saved',
         'adaptadores',
         null,
@@ -1202,13 +1203,14 @@ export class ManualManagementService {
     action: string,
     status: 'success' | 'error' | 'warning' | 'info',
     message: string,
-    details: any = {}
+    details: any = {},
+    actorUserId?: string
   ): Promise<void> {
     try {
       // Log to auditoria table instead since upload_logs doesn't exist
       await logAuditoria(
         this.tenantId,
-        DEV_ADMIN_USER_ID,
+        actorUserId || null,
         action,
         'manual_upload_queue',
         documentId,

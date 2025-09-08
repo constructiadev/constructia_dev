@@ -108,7 +108,8 @@ export default function PlatformCredentialsManager({
       const success = await manualManagementService.savePlatformCredentials(
         newCredential.platform_type,
         newCredential.username,
-        newCredential.password
+        newCredential.password,
+        user?.id
       );
 
       if (success) {
