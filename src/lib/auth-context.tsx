@@ -149,8 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
       } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // For client roles, get full client context
+        let authenticatedClient = null;
         try {
-          const authenticatedClient = await ClientAuthService.getCurrentClient();
+          authenticatedClient = await ClientAuthService.getCurrentClient();
           if (!authenticatedClient) {
             console.warn('⚠️ [AuthContext] Failed to get client context, using basic user data');
             // Fallback to basic user data for clients
@@ -176,7 +177,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           };
           setUser(basicClientUser);
         }
-        console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
+        
+        if (authenticatedClient) {
+          console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email);
+        }
       } else {
         // Invalid role for any access
         await supabase.auth.signOut();
