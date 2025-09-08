@@ -483,10 +483,11 @@ export const getDocumentStats = async () => {
 export const calculateDynamicKPIs = async () => {
   try {
     const tenantId = DEV_TENANT_ID;
-    const [stats, documentos, receipts] = await Promise.all([
+    const [stats, documentos, receipts, clients] = await Promise.all([
       getTenantStats(tenantId),
       getAllTenantDocumentsNoRLS(tenantId),
-      getAllReceipts()
+      getAllReceipts(),
+      getAllClients()
     ]);
 
     const activeClients = stats.totalEmpresas; // Use empresas as active clients
@@ -526,6 +527,14 @@ export const calculateDynamicKPIs = async () => {
     const processingDocumentsCount = documentos.filter(d => d.estado === 'pendiente').length;
     const rejectedDocumentsCount = documentos.filter(d => d.estado === 'rechazado').length;
     const draftDocumentsCount = documentos.filter(d => d.estado === 'borrador').length;
+
+    // Calculate clients by plan
+    const clientsByPlan = {
+      basic: clients.filter(c => c.subscription_plan === 'basic').length,
+      professional: clients.filter(c => c.subscription_plan === 'professional').length,
+      enterprise: clients.filter(c => c.subscription_plan === 'enterprise').length,
+      custom: clients.filter(c => c.subscription_plan === 'custom').length
+    };
 
     return {
       activeClients,
