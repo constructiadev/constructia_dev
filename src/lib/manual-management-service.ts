@@ -219,14 +219,15 @@ export class ManualManagementService {
   }
 
   // Get platform credentials for a client
-  async getPlatformCredentials(): Promise<PlatformCredential[]> {
+  async getPlatformCredentials(targetTenantId?: string): Promise<PlatformCredential[]> {
     try {
-      console.log('🔍 [ManualManagement] Loading credentials for tenant:', this.tenantId);
+      const tenantToQuery = targetTenantId || this.tenantId;
+      console.log('🔍 [ManualManagement] Loading credentials for tenant:', tenantToQuery);
       
       const { data, error } = await supabaseServiceClient
         .from('adaptadores')
         .select('*')
-        .eq('tenant_id', this.tenantId);
+        .eq('tenant_id', tenantToQuery);
 
       if (error) {
         console.error('Error fetching platform credentials:', error);
@@ -894,13 +895,16 @@ export class ManualManagementService {
     platformType: 'nalanda' | 'ctaima' | 'ecoordina',
     username: string,
     password: string,
-    userId?: string
+    userId?: string,
+    targetTenantId?: string
   ): Promise<boolean> {
     try {
+      const tenantToSave = targetTenantId || this.tenantId;
+      
       const { error } = await supabaseServiceClient
         .from('adaptadores')
         .upsert({
-          tenant_id: this.tenantId,
+          tenant_id: tenantToSave,
           plataforma: platformType,
           alias: `${platformType}-default`,
           credenciales: {
@@ -919,7 +923,7 @@ export class ManualManagementService {
 
       // Log the action
       await logAuditoria(
-        this.tenantId,
+        tenantToSave,
         userId || null,
         'credentials.saved',
         'adaptadores',

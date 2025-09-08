@@ -55,6 +55,8 @@ import {
   calculateDynamicKPIs,
   supabase 
 } from '../../lib/supabase';
+import { supabaseServiceClient } from '../../lib/supabase-real';
+import PlatformCredentialsManager from '../client/PlatformCredentialsManager';
 
 interface Client {
   id: string;
@@ -333,6 +335,9 @@ const ClientsManagement: React.FC = () => {
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [credentialsModalTenantId, setCredentialsModalTenantId] = useState<string | null>(null);
+  const [credentialsModalClientName, setCredentialsModalClientName] = useState<string>('');
 
   useEffect(() => {
     loadClients();
@@ -465,6 +470,30 @@ const ClientsManagement: React.FC = () => {
         ? { ...c, subscription_status: 'active', updated_at: new Date().toISOString() }
         : c
     ));
+  };
+
+  const handleViewClientCredentials = async (client: Client) => {
+    try {
+      // Get tenant_id for this client from users table
+      const { data: userProfile, error: userError } = await supabaseServiceClient
+        .from('users')
+        .select('tenant_id')
+        .eq('id', client.id)
+        .single();
+
+      if (userError || !userProfile) {
+        console.error('Error fetching tenant ID for client:', userError);
+        alert('No se pudo obtener el ID de tenant del cliente.');
+        return;
+      }
+
+      setCredentialsModalTenantId(userProfile.tenant_id);
+      setCredentialsModalClientName(client.company_name);
+      setShowCredentialsModal(true);
+    } catch (error) {
+      console.error('Error opening credentials modal:', error);
+      alert('Error al abrir las credenciales del cliente.');
+    }
   };
 
   const exportClients = () => {
@@ -805,6 +834,13 @@ const ClientsManagement: React.FC = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => handleViewClientCredentials(client)}
+                          className="p-1 text-gray-400 hover:text-purple-600 transition-colors"
+                          title="Ver credenciales de plataforma"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
                         {client.subscription_status === 'active' ? (
                           <button
                             onClick={() => handleSuspendClient(client.id)}
@@ -877,6 +913,33 @@ const ClientsManagement: React.FC = () => {
         client={selectedClient}
         mode={modalMode}
       />
+
+      {/* Credentials Modal */}
+      {showCredentialsModal && credentialsModalTenantId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
+              <div>
+                <h2 className="text-xl font-bold">Credenciales de Plataforma</h2>
+                <p className="text-purple-100">{credentialsModalClientName}</p>
+              </div>
+              <button 
+                onClick={() => setShowCredentialsModal(false)} 
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <PlatformCredentialsManager
+                clientId={credentialsModalTenantId}
+                isReadOnly={true}
+                onCredentialsUpdated={() => {}}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
