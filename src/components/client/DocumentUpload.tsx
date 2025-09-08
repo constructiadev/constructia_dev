@@ -22,6 +22,7 @@ import {
   logAuditoria,
   DEV_TENANT_ID 
 } from '../../lib/supabase-real';
+import { useAuth } from '../../lib/auth-context';
 import { manualManagementService } from '../../lib/manual-management-service';
 
 interface Empresa {

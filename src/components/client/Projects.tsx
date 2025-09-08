@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
 import { useClientProjects } from '../../hooks/useClientData';
 import { useAuth } from '../../lib/auth-context';
+import { ClientIsolatedDataService } from '../../lib/client-isolated-data';
 
 interface Project {
   id: string;
@@ -55,8 +56,7 @@ export default function Projects() {
       }
       
       // Obtener empresas del cliente
-      const { getClientCompanies } = await import('../../lib/client-isolated-data');
-      const companiesData = await getClientCompanies(user.tenant_id);
+      const companiesData = await ClientIsolatedDataService.getClientCompanies(user.tenant_id);
       setCompanies(companiesData || []);
       
     } catch (err) {
