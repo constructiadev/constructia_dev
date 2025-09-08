@@ -539,6 +539,7 @@ export const calculateDynamicKPIs = async () => {
       processingDocumentsCount,
       rejectedDocumentsCount,
       draftDocumentsCount
+     clientsByPlan
     };
   } catch (error) {
     console.error('Error calculating dynamic KPIs:', error);

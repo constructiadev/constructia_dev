@@ -535,15 +535,15 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="flex items-end justify-between h-48 space-x-2">
             {[
-              { value: realTimeStats.clientsByPlan?.basic || 0, color: 'bg-blue-400', label: 'Básico' },
-              { value: realTimeStats.clientsByPlan?.professional || 0, color: 'bg-blue-500', label: 'Prof.' },
-              { value: realTimeStats.clientsByPlan?.enterprise || 0, color: 'bg-blue-600', label: 'Ent.' },
-              { value: realTimeStats.clientsByPlan?.custom || 0, color: 'bg-blue-700', label: 'Custom' }
+             { value: realTimeStats.clientsByPlan?.basic || 0, color: 'bg-blue-400', label: 'Básico' },
+             { value: realTimeStats.clientsByPlan?.professional || 0, color: 'bg-blue-500', label: 'Prof.' },
+             { value: realTimeStats.clientsByPlan?.enterprise || 0, color: 'bg-blue-600', label: 'Ent.' },
+             { value: realTimeStats.clientsByPlan?.custom || 0, color: 'bg-blue-700', label: 'Custom' }
             ].map((bar, index) => (
               <div key={index} className="flex-1 flex flex-col items-center">
                 <div 
                   className={`w-full ${bar.color} rounded-t transition-all duration-500`}
-                  style={{ height: `${Math.max((bar.value / Math.max(realTimeStats.totalClients || 1, 1)) * 100, 5)}%` }}
+                 style={{ height: `${Math.max((bar.value / Math.max(realTimeStats.totalClients || 1, 1)) * 180, 10)}px` }}
                 ></div>
                 <span className="text-xs text-gray-500 mt-2">{bar.label}</span>
                 <span className="text-xs text-gray-400">{bar.value}</span>
