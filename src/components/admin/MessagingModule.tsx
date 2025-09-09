@@ -22,6 +22,8 @@ import {
   Building2
 } from 'lucide-react';
 import { getAllClients, supabase } from '../../lib/supabase';
+import { supabaseServiceClient, DEV_TENANT_ID } from '../../lib/supabase-real';
+import { useAuth } from '../../lib/auth-context';
 
 interface Client {
   id: string;
@@ -59,6 +61,7 @@ interface MessageKPIs {
 }
 
 export default function MessagingModule() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'send-message' | 'message-history' | 'client-status'>('send-message');
   const [clients, setClients] = useState<Client[]>([]);
@@ -95,37 +98,42 @@ export default function MessagingModule() {
       // Cargar clientes reales
       const clientsData = await getAllClients();
       
-      // Simular mensajes (en producción vendría de la tabla admin_client_messages)
-      const mockMessages: AdminMessage[] = [
-        {
-          id: '1',
-          admin_user_id: 'admin-1',
-          client_id: clientsData[0]?.id || 'client-1',
-          subject: 'Actualización del Sistema',
-          message: 'Hemos implementado nuevas funcionalidades de IA para mejorar la clasificación de documentos.',
-          message_type: 'update',
-          priority: 'medium',
-          read_status: true,
-          read_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          client_name: clientsData[0]?.company_name || 'Cliente 1',
-          client_email: clientsData[0]?.email || 'cliente1@example.com'
-        },
-        {
-          id: '2',
-          admin_user_id: 'admin-1',
-          client_id: clientsData[1]?.id || 'client-2',
-          subject: 'Mantenimiento Programado',
-          message: 'El sistema estará en mantenimiento el próximo domingo de 2:00 AM a 4:00 AM.',
-          message_type: 'alert',
-          priority: 'high',
-          read_status: false,
-          created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          client_name: clientsData[1]?.company_name || 'Cliente 2',
-          client_email: clientsData[1]?.email || 'cliente2@example.com'
-        }
-      ];
+      // Cargar mensajes reales de la base de datos
+      const { data: mensajesData, error: mensajesError } = await supabaseServiceClient
+        .from('mensajes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (mensajesError) {
+        console.error('Error loading messages:', mensajesError);
+      }
+
+      // Transformar mensajes de la base de datos al formato esperado
+      const realMessages: AdminMessage[] = (mensajesData || []).map(mensaje => {
+        // Buscar cliente por tenant_id
+        const client = clientsData.find(c => {
+          // Buscar por email en destinatarios o usar primer cliente como fallback
+          return mensaje.destinatarios?.includes(c.email) || 
+                 mensaje.destinatarios?.includes('ClienteAdmin') ||
+                 mensaje.destinatarios?.includes('Cliente');
+        }) || clientsData[0];
+
+        return {
+          id: mensaje.id,
+          admin_user_id: user?.id || 'admin-user',
+          client_id: client?.id || 'unknown-client',
+          subject: mensaje.titulo || 'Sin asunto',
+          message: mensaje.contenido || '',
+          message_type: mensaje.tipo as AdminMessage['message_type'],
+          priority: mensaje.prioridad as AdminMessage['priority'],
+          read_status: mensaje.estado === 'enviado', // Simular estado de lectura
+          read_at: mensaje.estado === 'enviado' ? mensaje.updated_at : undefined,
+          created_at: mensaje.created_at,
+          expires_at: mensaje.vence || undefined,
+          client_name: client?.company_name || 'Cliente',
+          client_email: client?.email || ''
+        };
+      });
 
       // Mapear clientes con datos de mensajes no leídos
       const clientsWithUnread: Client[] = clientsData.map(client => ({
@@ -135,19 +143,19 @@ export default function MessagingModule() {
         email: client.email,
         subscription_status: client.subscription_status,
         last_activity: client.updated_at,
-        unread_messages: mockMessages.filter(msg => msg.client_id === client.id && !msg.read_status).length
+        unread_messages: realMessages.filter(msg => msg.client_id === client.id && !msg.read_status).length
       }));
 
       setClients(clientsWithUnread);
-      setMessages(mockMessages);
+      setMessages(realMessages);
 
       // Calcular KPIs
       const totalClients = clientsWithUnread.length;
       const activeClients = clientsWithUnread.filter(c => c.subscription_status === 'active').length;
-      const messagesSent = mockMessages.length;
-      const messagesRead = mockMessages.filter(m => m.read_status).length;
+      const messagesSent = realMessages.length;
+      const messagesRead = realMessages.filter(m => m.read_status).length;
       const readRate = messagesSent > 0 ? (messagesRead / messagesSent) * 100 : 0;
-      const urgentMessages = mockMessages.filter(m => m.priority === 'urgent').length;
+      const urgentMessages = realMessages.filter(m => m.priority === 'urgent').length;
 
       setKpis({
         totalClients,
@@ -176,52 +184,41 @@ export default function MessagingModule() {
     try {
       setSendingMessage(true);
 
-      // Crear mensajes para cada cliente seleccionado
-      const messagesToSend = messageForm.client_ids.map(clientId => ({
-        admin_user_id: 'admin-user-temp-id',
-        client_id: clientId,
-        subject: messageForm.subject,
-        message: messageForm.message,
-        message_type: messageForm.message_type,
-        priority: messageForm.priority,
-        expires_at: messageForm.expires_at || null,
-        created_at: new Date().toISOString(),
-        read_status: false
-      }));
-
-      // Simular envío (en producción insertaría en admin_client_messages)
-      const newMessages: AdminMessage[] = messagesToSend.map(msg => {
-        const client = clients.find(c => c.id === msg.client_id);
+      // Crear mensajes reales en la base de datos para cada cliente seleccionado
+      const messagesToInsert = messageForm.client_ids.map(clientId => {
+        const client = clients.find(c => c.id === clientId);
         return {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          ...msg,
-          client_name: client?.company_name || 'Cliente',
-          client_email: client?.email || ''
+          tenant_id: DEV_TENANT_ID,
+          tipo: messageForm.message_type,
+          titulo: messageForm.subject,
+          contenido: messageForm.message,
+          prioridad: messageForm.priority,
+          vence: messageForm.expires_at ? new Date(messageForm.expires_at).toISOString() : null,
+          destinatarios: [client?.email || 'ClienteAdmin'],
+          estado: 'enviado'
         };
       });
 
-      setMessages(prev => [...newMessages, ...prev]);
+      // Insertar mensajes en la base de datos
+      const { data: insertedMessages, error: insertError } = await supabaseServiceClient
+        .from('mensajes')
+        .insert(messagesToInsert)
+        .select();
 
-      // Actualizar contador de mensajes no leídos
-      setClients(prev => prev.map(client =>
-        messageForm.client_ids.includes(client.id)
-          ? { ...client, unread_messages: client.unread_messages + 1 }
-          : client
-      ));
+      if (insertError) {
+        console.error('Error inserting messages:', insertError);
+        throw new Error(`Error al enviar mensajes: ${insertError.message}`);
+      }
 
-      // Actualizar KPIs
-      setKpis(prev => ({
-        ...prev,
-        messagesSent: prev.messagesSent + newMessages.length,
-        urgentMessages: messageForm.priority === 'urgent' ? prev.urgentMessages + newMessages.length : prev.urgentMessages
-      }));
+      // Recargar datos para reflejar los nuevos mensajes
+      await loadClientsAndMessages();
 
       clearForm();
-      alert(`✅ Mensaje enviado exitosamente a ${messageForm.client_ids.length} cliente(s)`);
+      alert(`✅ Mensaje enviado exitosamente a ${messageForm.client_ids.length} cliente(s) y guardado en la base de datos`);
 
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('❌ Error al enviar mensaje. Inténtelo nuevamente.');
+      alert(`❌ Error al enviar mensaje: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setSendingMessage(false);
     }
@@ -233,8 +230,8 @@ export default function MessagingModule() {
     }
 
     try {
-      // Eliminar de la base de datos
-      await supabase
+      // Eliminar mensaje real de la base de datos
+      const { error } = await supabaseServiceClient
         .from('mensajes')
         .delete()
         .eq('id', messageId);
@@ -242,11 +239,13 @@ export default function MessagingModule() {
       if (error) {
         throw new Error(`Error eliminando mensaje: ${error.message}`);
       }
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      
+      // Recargar mensajes después de eliminar
+      await loadClientsAndMessages();
       alert('✅ Mensaje eliminado correctamente');
     } catch (error) {
       console.error('Error deleting message:', error);
-      alert('❌ Error al eliminar mensaje');
+      alert(`❌ Error al eliminar mensaje: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   };
 
