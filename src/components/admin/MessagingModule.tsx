@@ -187,12 +187,21 @@ export default function MessagingModule() {
       // Crear mensajes reales en la base de datos para cada cliente seleccionado
       const messagesToInsert = messageForm.client_ids.map(clientId => {
         const client = clients.find(c => c.id === clientId);
+        
+        // Mapear prioridad de inglés a español para la base de datos
+        const priorityMap: Record<string, 'baja' | 'media' | 'alta'> = {
+          'low': 'baja',
+          'medium': 'media',
+          'high': 'alta',
+          'urgent': 'alta'
+        };
+        
         return {
           tenant_id: DEV_TENANT_ID,
           tipo: messageForm.message_type,
           titulo: messageForm.subject,
           contenido: messageForm.message,
-          prioridad: messageForm.priority as 'baja' | 'media' | 'alta',
+          prioridad: priorityMap[messageForm.priority] || 'media',
           vence: messageForm.expires_at ? new Date(messageForm.expires_at).toISOString() : null,
           destinatarios: [client?.email || 'ClienteAdmin'],
           estado: 'enviado'
