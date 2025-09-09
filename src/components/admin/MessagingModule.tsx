@@ -192,7 +192,7 @@ export default function MessagingModule() {
           tipo: messageForm.message_type,
           titulo: messageForm.subject,
           contenido: messageForm.message,
-          prioridad: messageForm.priority,
+          prioridad: messageForm.priority as 'baja' | 'media' | 'alta',
           vence: messageForm.expires_at ? new Date(messageForm.expires_at).toISOString() : null,
           destinatarios: [client?.email || 'ClienteAdmin'],
           estado: 'enviado'
