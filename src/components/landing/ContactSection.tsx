@@ -257,7 +257,7 @@ export default function ContactSection({ id = 'contacto' }: ContactSectionProps)
                 </div>
                 <div className="flex items-center">
                   <Users className="w-5 h-5 text-purple-600 mr-3" />
-                  <span className="text-gray-700">+500 empresas confían en nosotros</span>
+                  <span className="text-gray-700">+50 empresas confían en nosotros</span>
                 </div>
                 <div className="flex items-center">
                   <Globe className="w-5 h-5 text-orange-600 mr-3" />
