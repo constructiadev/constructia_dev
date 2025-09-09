@@ -74,9 +74,7 @@ export default function PlatformCredentialsManager({
 
   useEffect(() => {
     const currentCredential = credentials.find(cred => cred.platform_type === selectedPlatformType);
-    console.log('🔍 [PlatformCredentials] Current credential for', selectedPlatformType, ':', currentCredential);
     if (currentCredential) {
-      console.log('🔍 [PlatformCredentials] Setting password:', currentCredential.password);
       setNewCredential({
         platform_type: currentCredential.platform_type,
         username: currentCredential.username,
@@ -84,7 +82,6 @@ export default function PlatformCredentialsManager({
       });
       setEditingCredential(currentCredential);
     } else {
-      console.log('🔍 [PlatformCredentials] No credential found for', selectedPlatformType);
       setNewCredential({ platform_type: selectedPlatformType, username: '', password: '' });
       setEditingCredential(null);
     }
@@ -286,14 +283,16 @@ export default function PlatformCredentialsManager({
                 }`}
                 placeholder="usuario@plataforma.com"
               />
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(newCredential.username)}
-                className="ml-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-                title="Copiar usuario"
-              >
-                Copiar
-              </button>
+              {newCredential.username && (
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(newCredential.username)}
+                  className="ml-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                  title="Copiar usuario"
+                >
+                  Copiar
+                </button>
+              )}
             </div>
           </div>
 
@@ -317,14 +316,16 @@ export default function PlatformCredentialsManager({
                   {showPasswords[selectedPlatformType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(newCredential.password)}
-                className="ml-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-                title="Copiar contraseña"
-              >
-                Copiar
-              </button>
+              {newCredential.password && (
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(newCredential.password)}
+                  className="ml-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                  title="Copiar contraseña"
+                >
+                  Copiar
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -406,7 +407,7 @@ export default function PlatformCredentialsManager({
       </div>
 
       {/* Add/Edit Credential Form */}
-      {showForm && !isReadOnly && (
+      {showForm && !isReadOnly && !newCredential.username && !newCredential.password && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-semibold text-gray-900">
