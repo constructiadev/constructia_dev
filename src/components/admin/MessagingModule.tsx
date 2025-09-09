@@ -196,9 +196,18 @@ export default function MessagingModule() {
           'urgent': 'alta'
         };
         
+        // Mapear tipo de mensaje de inglés a español para la base de datos
+        const messageTypeMap: Record<string, 'info' | 'notificacion' | 'alerta' | 'recordatorio' | 'urgencia'> = {
+          'notification': 'notificacion',
+          'alert': 'alerta',
+          'update': 'info',
+          'reminder': 'recordatorio',
+          'urgent': 'urgencia'
+        };
+        
         return {
           tenant_id: DEV_TENANT_ID,
-          tipo: messageForm.message_type,
+          tipo: messageTypeMap[messageForm.message_type] || 'notificacion',
           titulo: messageForm.subject,
           contenido: messageForm.message,
           prioridad: priorityMap[messageForm.priority] || 'media',
