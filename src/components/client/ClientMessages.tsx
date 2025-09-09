@@ -57,7 +57,7 @@ export default function ClientMessages({ isOpen, onClose, tenantId, userEmail }:
         .from('mensajes')
         .select('*')
         .eq('tenant_id', tenantId)
-        .contains('destinatarios', [userEmail])
+        .overlaps('destinatarios', [userEmail])
         .order('created_at', { ascending: false });
 
       if (mensajesError) {
