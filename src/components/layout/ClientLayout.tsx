@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
+import ClientMessages from '../client/ClientMessages';
 
 const navigation = [
   { name: 'Dashboard', href: '/client/dashboard', icon: LayoutDashboard },
@@ -31,6 +32,34 @@ const navigation = [
 export default function ClientLayout() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Load unread messages count
+  useEffect(() => {
+    if (user?.tenant_id && user?.email) {
+      loadUnreadCount();
+    }
+  }, [user]);
+
+  const loadUnreadCount = async () => {
+    try {
+      const { supabaseServiceClient } = await import('../../lib/supabase-real');
+      
+      const { count, error } = await supabaseServiceClient
+        .from('mensajes')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', user?.tenant_id)
+        .contains('destinatarios', [user?.email])
+        .eq('estado', 'programado');
+
+      if (!error) {
+        setUnreadCount(count || 0);
+      }
+    } catch (error) {
+      console.error('Error loading unread count:', error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -104,7 +133,19 @@ export default function ClientLayout() {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
-            <Bell className="h-5 w-5 text-gray-600 cursor-pointer hover:text-green-600" />
+            <div className="relative">
+              <button
+                onClick={() => setShowMessagesModal(true)}
+                className="relative p-2 text-gray-600 hover:text-green-600 transition-colors"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-green-600" />
               <span className="text-sm font-medium text-gray-700">
@@ -120,6 +161,19 @@ export default function ClientLayout() {
         <main className="p-6">
           <Outlet />
         </main>
+
+        {/* Messages Modal */}
+        {user?.tenant_id && user?.email && (
+          <ClientMessages
+            isOpen={showMessagesModal}
+            onClose={() => {
+              setShowMessagesModal(false);
+              loadUnreadCount(); // Refresh unread count when closing
+            }}
+            tenantId={user.tenant_id}
+            userEmail={user.email}
+          />
+        )}
       </div>
     </div>
   );
