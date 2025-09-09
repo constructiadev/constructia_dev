@@ -50,7 +50,7 @@ export default function ClientLayout() {
         .from('mensajes')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', user?.tenant_id)
-        .contains('destinatarios', [user?.email])
+        .contains('destinatarios', JSON.stringify([user?.email]))
         .eq('estado', 'programado');
 
       if (!error) {
