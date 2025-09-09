@@ -16,7 +16,7 @@ import {
   Eye,
   Database,
   AlertTriangle,
-  Activity
+  Activity,
   ShieldCheck,
   Hourglass,
   LifeBuoy
