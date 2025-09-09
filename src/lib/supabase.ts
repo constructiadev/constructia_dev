@@ -693,6 +693,7 @@ export const createTestData = async () => {
         .from('users')
         .insert({
           id: TEST_USER_UUID,
+          tenant_id: DEV_TENANT_ID,
           email: 'test@construccionesgarcia.com',
           role: 'client'
         });

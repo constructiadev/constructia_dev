@@ -474,11 +474,11 @@ const ClientsManagement: React.FC = () => {
 
   const handleViewClientCredentials = async (client: Client) => {
     try {
-      // Get tenant_id for this client from users table
+      // Get tenant_id for this client's user from users table
       const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('tenant_id')
-        .eq('id', client.id)
+        .eq('id', client.user_id)
         .single();
 
       if (userError || !userProfile) {
