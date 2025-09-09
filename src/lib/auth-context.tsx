@@ -133,14 +133,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Error fetching user profile');
       }
 
-      if (!userProfile) {
-        throw new Error('User profile not found');
-      }
 
       // CRITICAL: Strict role-based authentication
-      console.log('🔍 [AuthContext] User role detected:', userProfile.role);
+      console.log('🔍 [AuthContext] User role detected:', userProfile?.role);
       
-      if (userProfile.role === 'SuperAdmin') {
+      if (userProfile?.role === 'SuperAdmin') {
         // Admin authentication
         const adminUser: AuthenticatedUser = {
           id: userProfile.id,
@@ -152,7 +149,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(adminUser);
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
         
-      } else if (['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
+      } else if (userProfile?.role && ['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // Client authentication - ISOLATED ACCESS
         console.log('🔐 [AuthContext] Processing client authentication for tenant:', userProfile.tenant_id);
         
@@ -205,10 +202,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email, 'Tenant:', authenticatedClient.tenant_id);
         
       } else {
-        // Invalid role - force logout
-        console.error('❌ [AuthContext] Invalid user role:', userProfile.role);
-        await supabase.auth.signOut();
-        throw new Error(`Acceso denegado: Rol de usuario inválido (${userProfile.role})`);
+        // No user profile found or invalid role - use ClientAuthService to handle authentication
+        console.log('🔐 [AuthContext] No user profile found or invalid role, delegating to ClientAuthService');
+        
+        try {
+          const authenticatedClient = await ClientAuthService.authenticateClient(email, password);
+          setUser(authenticatedClient);
+          console.log('✅ [AuthContext] Client authenticated via ClientAuthService:', authenticatedClient.email);
+        } catch (clientError) {
+          console.error('❌ [AuthContext] ClientAuthService authentication failed:', clientError);
+          await supabase.auth.signOut();
+          throw new Error('Authentication failed: Unable to authenticate client');
+        }
       }
 
     } catch (error) {
