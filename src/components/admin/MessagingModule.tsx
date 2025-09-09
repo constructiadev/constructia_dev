@@ -155,7 +155,7 @@ export default function MessagingModule() {
       const messagesSent = realMessages.length;
       const messagesRead = realMessages.filter(m => m.read_status).length;
       const readRate = messagesSent > 0 ? (messagesRead / messagesSent) * 100 : 0;
-      const urgentMessages = realMessages.filter(m => m.message_type === 'urgent').length;
+      const urgentMessages = realMessages.filter(m => m.message_type === 'urgencia').length;
 
       setKpis({
         totalClients,
