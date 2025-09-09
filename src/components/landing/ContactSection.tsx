@@ -183,8 +183,8 @@ export default function ContactSection({ id = 'contacto' }: ContactSectionProps)
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">Oficina</h4>
-                    <p className="text-gray-600">Calle Innovación 123</p>
-                    <p className="text-gray-600">28001 Madrid, España</p>
+                    <p className="text-gray-600">Passeig de L´Agricola, 1</p>
+                    <p className="text-gray-600">08039 Barcelona, España</p>
                   </div>
                 </div>
 
