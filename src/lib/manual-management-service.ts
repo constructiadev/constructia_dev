@@ -435,6 +435,26 @@ export class ManualManagementService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
+      // Get the next version number for this document type
+      const { data: existingVersions, error: versionError } = await supabaseServiceClient
+        .from('documentos')
+        .select('version')
+        .eq('tenant_id', this.tenantId)
+        .eq('entidad_tipo', 'obra')
+        .eq('entidad_id', projectId)
+        .eq('categoria', extraction.categoria_probable)
+        .order('version', { ascending: false })
+        .limit(1);
+
+      if (versionError) {
+        console.error('Error checking existing versions:', versionError);
+        throw new Error(`Version check failed: ${versionError.message}`);
+      }
+
+      const nextVersion = existingVersions && existingVersions.length > 0 
+        ? (existingVersions[0].version || 0) + 1 
+        : 1;
+
       // First, create document record in documentos table
       const documentoData = {
         tenant_id: this.tenantId,
@@ -445,7 +465,7 @@ export class ManualManagementService {
         mime: file.type,
         size_bytes: file.size,
         hash_sha256: hash,
-        version: 1,
+        version: nextVersion,
         estado: 'pendiente',
         metadatos: {
           ai_extraction: extraction,
