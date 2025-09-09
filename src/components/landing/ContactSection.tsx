@@ -194,7 +194,7 @@ export default function ContactSection({ id = 'contacto' }: ContactSectionProps)
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">Horario</h4>
-                    <p className="text-gray-600">Lunes - Viernes: 9:00 - 18:00</p>
+                    <p className="text-gray-600">Lunes - Viernes: 8:00 - 18:00</p>
                     <p className="text-sm text-gray-500">Soporte 24/7 para clientes Enterprise</p>
                   </div>
                 </div>
