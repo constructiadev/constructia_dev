@@ -11,7 +11,8 @@
     "populate-new-architecture": "node scripts/populateNewArchitecture.js",
     "populate-manual-queue": "tsx scripts/populateManualQueue.ts",
     "disable-rls": "node scripts/disableAllRLS.js",
-    "create-auth-users": "node scripts/createAuthUsers.js"
+    "create-auth-users": "node scripts/createAuthUsers.js",
+    "delete-duplicate-clients": "node scripts/deleteDuplicateClients.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
