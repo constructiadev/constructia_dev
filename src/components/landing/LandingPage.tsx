@@ -89,7 +89,7 @@ export default function LandingPage() {
                 onClick={() => navigate('/client-login')}
                 className="bg-white text-green-600 px-6 py-2 rounded-lg hover:bg-green-50 transition-colors font-semibold"
               >
-                Comenzar Gratis
+                Registrate
               </button>
             </div>
           </div>
