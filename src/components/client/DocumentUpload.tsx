@@ -49,7 +49,7 @@ interface SelectedFile {
 }
 
 interface HierarchicalSelectorProps {
-  onSelectionChange: (empresaId: string | null, obraId: string | null) => void;
+  onSelectionChange: (empresaId: string | null, obraId: string | null, empresa?: Empresa, obra?: Obra) => void;
   selectedEmpresa: string | null;
   selectedObra: string | null;
 }
@@ -213,7 +213,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
                   selectedEmpresa === empresa.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
                 }`}
                 onClick={() => {
-                  onSelectionChange(empresa.id, null);
+                  onSelectionChange(empresa.id, null, empresa);
                   toggleEmpresa(empresa.id);
                 }}
               >
@@ -277,7 +277,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectionChange(empresa.id, obra.id);
+                            onSelectionChange(empresa.id, obra.id, empresa, obra);
                           }}
                         >
                           <div className="flex items-center space-x-3">
@@ -488,6 +488,8 @@ export default function DocumentUpload() {
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
   const [selectedObra, setSelectedObra] = useState<string | null>(null);
+  const [selectedEmpresaObj, setSelectedEmpresaObj] = useState<Empresa | null>(null);
+  const [selectedObraObj, setSelectedObraObj] = useState<Obra | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [fileId: string]: number }>({});
   const [uploadResults, setUploadResults] = useState<{ [fileId: string]: { success: boolean; message: string } }>({});
@@ -653,9 +655,11 @@ export default function DocumentUpload() {
       {/* Hierarchical Selection */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <HierarchicalSelector
-          onSelectionChange={(empresaId, obraId) => {
+          onSelectionChange={(empresaId, obraId, empresa, obra) => {
             setSelectedEmpresa(empresaId);
             setSelectedObra(obraId);
+            setSelectedEmpresaObj(empresa || null);
+            setSelectedObraObj(obra || null);
           }}
           selectedEmpresa={selectedEmpresa}
           selectedObra={selectedObra}
@@ -801,10 +805,10 @@ export default function DocumentUpload() {
           <h4 className="font-medium text-blue-800 mb-2">Destino Seleccionado</h4>
           <div className="text-sm text-blue-700">
             {selectedEmpresa && (
-              <p>📍 Empresa: {empresas?.find(e => e.id === selectedEmpresa)?.razon_social}</p>
+              <p>📍 Empresa: {selectedEmpresaObj?.razon_social}</p>
             )}
             {selectedObra && (
-              <p>📁 Obra: {Object.values(obras).flat().find(o => o.id === selectedObra)?.nombre_obra}</p>
+              <p>📁 Obra: {selectedObraObj?.nombre_obra}</p>
             )}
             {selectedCategory && (
               <p>📄 Categoría: {selectedCategory}</p>
