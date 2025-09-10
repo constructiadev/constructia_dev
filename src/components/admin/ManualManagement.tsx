@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { manualManagementService, type ManualDocument, type ClientGroup, type PlatformCredential } from '../../lib/manual-management-service';
 import { useAuth } from '../../lib/auth-context';
+import PlatformCredentialsModal from './PlatformCredentialsModal';
 
 interface QueueStats {
   total: number;
@@ -930,6 +931,13 @@ export default function ManualManagement() {
                   <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
                     {client.platform_credentials.length} plataformas
                   </span>
+                  <button
+                    onClick={() => handleViewCredentials(client)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-xs flex items-center"
+                  >
+                    <Key className="w-3 h-3 mr-1" />
+                    Ver Credenciales
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -953,25 +961,14 @@ export default function ManualManagement() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Information Panel */}
-      <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
-        <div className="flex items-start space-x-3">
-          <Info className="w-6 h-6 text-purple-600 mt-1" />
-          <div>
-            <h3 className="font-bold text-purple-800 mb-2">📋 Gestión Manual de Documentos - Cola FIFO</h3>
-            <p className="text-purple-700 mb-3">
-              Sistema de gestión manual donde el administrador procesa documentos subidos por clientes en orden FIFO (First In, First Out).
-            </p>
-            <div className="text-sm text-purple-600 space-y-1">
-              <div><strong>Flujo del sistema:</strong></div>
-              <div>• 📤 Cliente sube documento (Cliente → Empresa → Proyecto → Documento)</div>
-              <div>• ⏳ Documento entra automáticamente en cola FIFO</div>
-              <div>• 👨‍💼 Administrador procesa documentos en orden de llegada</div>
-              <div>• 🔄 Cliente ve cambios de estado en tiempo real</div>
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  {client.platform_credentials.length} plataforma(s) configurada(s)
+                </p>
+                <p className="text-xs text-gray-500">
+                  Haz clic en "Ver Credenciales" para acceder a las credenciales operativas
+                </p>
+              </div>
               <div>• 🎯 Administrador sube a plataformas CAE (Nalanda, CTAIMA, Ecoordina)</div>
               <div>• ✅ Documento queda validado y disponible en plataforma destino</div>
               <div className="mt-2 pt-2 border-t border-purple-300">
@@ -983,5 +980,16 @@ export default function ManualManagement() {
         </div>
       </div>
     </div>
+      {/* Credentials Modal */}
+      {showCredentialsModal && selectedClientForCredentials && (
+        <PlatformCredentialsModal
+          isOpen={showCredentialsModal}
+          onClose={() => {
+            setShowCredentialsModal(false);
+            setSelectedClientForCredentials(null);
+          }}
+          client={selectedClientForCredentials}
+        />
+      )}
   );
 }
