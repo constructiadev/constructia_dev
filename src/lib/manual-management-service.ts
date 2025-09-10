@@ -917,12 +917,17 @@ export class ManualManagementService {
   // Start upload session
   async startUploadSession(adminUserId: string): Promise<string | null> {
     try {
+      // Get current user ID for the session
+      const { data: { user } } = await this.supabase.auth.getUser();
+      const adminUserId = user?.id || DEV_ADMIN_USER_ID;
+
       const { data, error } = await supabaseServiceClient
         .from('manual_upload_sessions')
         .insert({
           admin_user_id: adminUserId,
           session_status: 'active',
-          session_notes: `Session started at ${new Date().toLocaleString()}`
+          session_status: 'active',
+          admin_user_id: adminUserId
         })
         .select()
         .single();
