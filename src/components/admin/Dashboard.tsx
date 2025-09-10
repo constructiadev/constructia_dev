@@ -65,7 +65,6 @@ const AdminDashboard: React.FC = () => {
     loadDashboardData();
   }, []);
 
-  }, []);
 
   const loadDashboardData = async () => {
     try {
