@@ -20,7 +20,8 @@ import {
   createObra, 
   getCurrentUserTenant,
   logAuditoria,
-  DEV_TENANT_ID 
+  DEV_TENANT_ID,
+  DEV_ADMIN_USER_ID
 } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
 import { manualManagementService } from '../../lib/manual-management-service';
@@ -594,7 +595,7 @@ export default function DocumentUpload() {
           selectedFile.file,
           'normal',        // priority
           'nalanda',       // platformTarget
-          user?.id         // userId
+          user?.id || DEV_ADMIN_USER_ID // userId
         );
 
         if (!document) {
@@ -612,7 +613,7 @@ export default function DocumentUpload() {
         const tenantId = user?.tenant_id || DEV_TENANT_ID;
         await logAuditoria(
           tenantId,
-          user?.id || 'unknown-user',
+          user?.id || DEV_ADMIN_USER_ID,
           'document.uploaded_to_queue',
           'documento',
           document.document_id,
