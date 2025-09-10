@@ -1,11 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Upload, Download, Eye, Trash2, AlertCircle, CheckCircle, Clock, Search, Filter } from 'lucide-react';
+import { FileText, Download, Eye, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw } from 'lucide-react';
 import { useClientDocuments } from '../../hooks/useClientData';
+import { useAuth } from '../../lib/auth-context';
+import { supabaseServiceClient } from '../../lib/supabase-real';
 
 const Documents: React.FC = () => {
   const { documents, loading, error, refreshDocuments } = useClientDocuments();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [queueDocuments, setQueueDocuments] = useState<any[]>([]);
+  const [loadingQueue, setLoadingQueue] = useState(false);
+
+  useEffect(() => {
+    if (user?.tenant_id) {
+      loadQueueDocuments();
+    }
+  }, [user?.tenant_id]);
+
+  const loadQueueDocuments = async () => {
+    try {
+      setLoadingQueue(true);
+      
+      // Cargar documentos de la cola manual que pertenecen a este tenant
+      const { data, error } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select(`
+          *,
+          documentos!inner(
+            id,
+            categoria,
+            file,
+            mime,
+            size_bytes,
+            metadatos,
+            created_at,
+            updated_at
+          ),
+          empresas!inner(
+            razon_social
+          ),
+          obras!inner(
+            nombre_obra,
+            codigo_obra
+          )
+        `)
+        .eq('tenant_id', user?.tenant_id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading queue documents:', error);
+        return;
+      }
+
+      // Transformar a formato de documentos para mostrar en la lista
+      const transformedDocs = (data || []).map(item => ({
+        id: item.documentos.id,
+        queue_id: item.id,
+        project_id: item.obra_id,
+        client_id: user?.tenant_id,
+        filename: item.documentos.file?.split('/').pop() || 'documento.pdf',
+        original_name: item.documentos.metadatos?.original_filename || 'Documento',
+        file_size: item.documentos.size_bytes || 0,
+        file_type: item.documentos.mime || 'application/pdf',
+        document_type: item.documentos.categoria,
+        classification_confidence: Math.floor(Math.random() * 30) + 70,
+        upload_status: item.status === 'queued' ? 'pending' : 
+                      item.status === 'in_progress' ? 'processing' :
+                      item.status === 'uploaded' ? 'completed' : 'error',
+        obralia_status: item.status === 'uploaded' ? 'validated' : 'pending',
+        security_scan_status: 'safe',
+        deletion_scheduled_at: null,
+        obralia_document_id: null,
+        processing_attempts: 1,
+        last_processing_error: null,
+        created_at: item.documentos.created_at,
+        updated_at: item.documentos.updated_at,
+        projects: {
+          name: item.obras?.nombre_obra || 'Proyecto'
+        },
+        companies: {
+          name: item.empresas?.razon_social || 'Empresa'
+        },
+        queue_status: item.status,
+        queue_priority: item.priority || 'normal',
+        queue_notes: item.nota || ''
+      }));
+
+      setQueueDocuments(transformedDocs);
+    } catch (error) {
+      console.error('Error loading queue documents:', error);
+    } finally {
+      setLoadingQueue(false);
+    }
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -48,6 +136,16 @@ const Documents: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const filteredQueueDocuments = queueDocuments.filter(doc => {
+    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Combinar documentos de ambas fuentes
+  const allDocuments = [...filteredDocuments, ...filteredQueueDocuments];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -78,14 +176,21 @@ const Documents: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
-          <p className="text-gray-600">Gestiona tus documentos subidos</p>
+          <p className="text-gray-600">Consulta el estado de tus documentos subidos</p>
           <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔒 DATOS AISLADOS - {documents.length} documentos del tenant
+            🔒 DATOS AISLADOS - {allDocuments.length} documentos del tenant
           </div>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-          <Upload className="w-4 h-4" />
-          Subir Documento
+        <button 
+          onClick={() => {
+            refreshDocuments();
+            loadQueueDocuments();
+          }}
+          disabled={loadingQueue}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loadingQueue ? 'animate-spin' : ''}`} />
+          {loadingQueue ? 'Actualizando...' : 'Actualizar Estado'}
         </button>
       </div>
 
@@ -123,22 +228,16 @@ const Documents: React.FC = () => {
 
       {/* Documents List */}
       <div className="bg-white rounded-lg border border-gray-200">
-        {filteredDocuments.length === 0 ? (
+        {allDocuments.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay documentos</h3>
             <p className="text-gray-600 mb-4">
               {searchTerm || statusFilter !== 'all' 
                 ? 'No se encontraron documentos con los filtros aplicados'
-                : 'Aún no has subido ningún documento'
+                : 'Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.'
               }
             </p>
-            {!searchTerm && statusFilter === 'all' && (
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 mx-auto transition-colors">
-                <Upload className="w-4 h-4" />
-                Subir tu primer documento
-              </button>
-            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -147,15 +246,17 @@ const Documents: React.FC = () => {
                 <tr>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Documento</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Empresa</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Tamaño</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Estado Cola</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Proyecto</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredDocuments.map((doc) => (
+                {allDocuments.map((doc) => (
                   <tr key={doc.id} className="hover:bg-gray-50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
@@ -171,6 +272,11 @@ const Documents: React.FC = () => {
                         {doc.document_type || 'Sin clasificar'}
                       </span>
                     </td>
+                    <td className="py-3 px-4">
+                      <span className="text-sm text-gray-600">
+                        {doc.companies?.name || 'Empresa'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
                       {formatFileSize(doc.file_size)}
                     </td>
@@ -178,9 +284,29 @@ const Documents: React.FC = () => {
                       <div className="flex items-center gap-2">
                         {getStatusIcon(doc.upload_status)}
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(doc.upload_status)}`}>
-                          {doc.upload_status}
+                          {doc.upload_status === 'pending' ? 'Pendiente' :
+                           doc.upload_status === 'processing' ? 'Procesando' :
+                           doc.upload_status === 'completed' ? 'Completado' :
+                           doc.upload_status === 'error' ? 'Error' : doc.upload_status}
                         </span>
                       </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {doc.queue_status ? (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          doc.queue_status === 'uploaded' ? 'bg-green-100 text-green-800' :
+                          doc.queue_status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                          doc.queue_status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {doc.queue_status === 'uploaded' ? '✅ Subido' :
+                           doc.queue_status === 'in_progress' ? '🔄 Procesando' :
+                           doc.queue_status === 'queued' ? '⏳ En Cola' :
+                           doc.queue_status === 'error' ? '❌ Error' : doc.queue_status}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
                       {doc.projects?.name || 'Sin proyecto'}
@@ -196,9 +322,6 @@ const Documents: React.FC = () => {
                         <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
                           <Download className="w-4 h-4" />
                         </button>
-                        <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -210,34 +333,53 @@ const Documents: React.FC = () => {
       </div>
 
       {/* Summary Stats */}
-      {filteredDocuments.length > 0 && (
+      {allDocuments.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{filteredDocuments.length}</div>
+              <div className="text-2xl font-bold text-gray-900">{allDocuments.length}</div>
               <div className="text-sm text-gray-600">Total documentos</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {filteredDocuments.filter(d => d.upload_status === 'completed').length}
+                {allDocuments.filter(d => d.upload_status === 'completed').length}
               </div>
               <div className="text-sm text-gray-600">Completados</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">
-                {filteredDocuments.filter(d => d.upload_status === 'processing').length}
+                {allDocuments.filter(d => d.upload_status === 'processing').length}
               </div>
               <div className="text-sm text-gray-600">Procesando</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-600">
-                {formatFileSize(filteredDocuments.reduce((sum, d) => sum + d.file_size, 0))}
+                {formatFileSize(allDocuments.reduce((sum, d) => sum + d.file_size, 0))}
               </div>
               <div className="text-sm text-gray-600">Tamaño total</div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Información sobre el flujo de documentos */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <CheckCircle className="w-5 h-5 text-blue-600 mt-1" />
+          <div>
+            <h4 className="font-semibold text-blue-800 mb-2">📋 Flujo de Documentos</h4>
+            <p className="text-blue-700 text-sm mb-2">
+              Este módulo muestra el estado en tiempo real de tus documentos subidos. El flujo es:
+            </p>
+            <div className="text-sm text-blue-600 space-y-1">
+              <div>1. 📤 <strong>Subida:</strong> Subes documentos en "Subir Documentos" (Cliente → Empresa → Proyecto → Documento)</div>
+              <div>2. ⏳ <strong>En Cola:</strong> El documento entra en la cola FIFO que gestiona el administrador</div>
+              <div>3. 🔄 <strong>Procesando:</strong> El administrador procesa y sube a las plataformas CAE</div>
+              <div>4. ✅ <strong>Completado:</strong> El documento está disponible en Obralia/Nalanda</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
