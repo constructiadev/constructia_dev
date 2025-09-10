@@ -86,6 +86,8 @@ export default function ManualManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedClient, setSelectedClient] = useState<string>('all');
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [selectedClientForCredentials, setSelectedClientForCredentials] = useState<ClientGroup | null>(null);
 
   useEffect(() => {
     loadData();
@@ -276,6 +278,11 @@ export default function ManualManagement() {
     }
   };
 
+  const handleViewCredentials = (client: ClientGroup) => {
+    setSelectedClientForCredentials(client);
+    setShowCredentialsModal(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -364,10 +371,7 @@ export default function ManualManagement() {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) 
-  }
-  )
-}/ Math.log(k));
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
@@ -931,16 +935,18 @@ export default function ManualManagement() {
                     <h4 className="font-semibold text-gray-900">{client.client_name}</h4>
                     <p className="text-sm text-gray-600">{client.client_email}</p>
                   </div>
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                    {client.platform_credentials.length} plataformas
-                  </span>
-                  <button
-                    onClick={() => handleViewCredentials(client)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-xs flex items-center"
-                  >
-                    <Key className="w-3 h-3 mr-1" />
-                    Ver Credenciales
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                      {client.platform_credentials.length} plataformas
+                    </span>
+                    <button
+                      onClick={() => handleViewCredentials(client)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-xs flex items-center"
+                    >
+                      <Key className="w-3 h-3 mr-1" />
+                      Ver Credenciales
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -962,16 +968,25 @@ export default function ManualManagement() {
                     </div>
                   ))}
                 </div>
+
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-600 mb-2">
+                    {client.platform_credentials.length} plataforma(s) configurada(s)
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Haz clic en "Ver Credenciales" para acceder a las credenciales operativas
+                  </p>
+                </div>
               </div>
             ))}
-              <div className="text-center py-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  {client.platform_credentials.length} plataforma(s) configurada(s)
-                </p>
-                <p className="text-xs text-gray-500">
-                  Haz clic en "Ver Credenciales" para acceder a las credenciales operativas
-                </p>
-              </div>
+          </div>
+
+          <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <h4 className="font-semibold text-purple-800 mb-2">Flujo de Trabajo Manual</h4>
+            <div className="text-sm text-purple-700 space-y-1">
+              <div>• 📋 Cliente sube documentos a través del portal</div>
+              <div>• ⏳ Documentos entran en cola FIFO por prioridad</div>
+              <div>• 👨‍💼 Administrador procesa documentos manualmente</div>
               <div>• 🎯 Administrador sube a plataformas CAE (Nalanda, CTAIMA, Ecoordina)</div>
               <div>• ✅ Documento queda validado y disponible en plataforma destino</div>
               <div className="mt-2 pt-2 border-t border-purple-300">
@@ -981,8 +996,8 @@ export default function ManualManagement() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+
       {/* Credentials Modal */}
       {showCredentialsModal && selectedClientForCredentials && (
         <PlatformCredentialsModal
@@ -994,5 +1009,6 @@ export default function ManualManagement() {
           client={selectedClientForCredentials}
         />
       )}
+    </div>
   );
 }
