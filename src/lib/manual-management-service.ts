@@ -87,6 +87,9 @@ export class ManualManagementService {
   // Get all client groups with hierarchical structure
   async getClientGroups(): Promise<ClientGroup[]> {
     try {
+      // Add error handling for network issues
+      console.log('🔍 [ManualManagement] Starting to load client groups...');
+      
       // Get platform credentials for this tenant (once, outside the loop)
       const tenantCredentials = await this.getPlatformCredentials();
 
@@ -105,8 +108,10 @@ export class ManualManagementService {
 
       if (empresasError) {
         console.error('Error fetching empresas:', empresasError);
-        return [];
+        throw new Error(`Database error: ${empresasError.message}`);
       }
+      
+      console.log('✅ [ManualManagement] Loaded empresas:', empresas?.length || 0);
 
       const clientGroups: ClientGroup[] = [];
 
@@ -164,6 +169,8 @@ export class ManualManagementService {
       return clientGroups;
     } catch (error) {
       console.error('Error getting client groups:', error);
+      // Return empty array instead of throwing to prevent UI crash
+      console.warn('⚠️ [ManualManagement] Returning empty client groups due to error');
       return [];
     }
   }

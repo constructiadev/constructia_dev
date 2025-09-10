@@ -5,11 +5,27 @@ const supabaseUrl = getEnvVar('VITE_SUPABASE_URL') || '';
 const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY') || '';
 const supabaseServiceKey = getEnvVar('VITE_SUPABASE_SERVICE_ROLE_KEY') || '';
 
+// Validate environment variables
+if (!supabaseUrl) {
+  console.error('❌ VITE_SUPABASE_URL is not configured');
+}
+if (!supabaseAnonKey) {
+  console.error('❌ VITE_SUPABASE_ANON_KEY is not configured');
+}
+if (!supabaseServiceKey) {
+  console.error('❌ VITE_SUPABASE_SERVICE_ROLE_KEY is not configured');
+}
+
 // Service role client for bypassing RLS
 export const supabaseServiceClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  global: {
+    headers: {
+      'x-client-info': 'constructia-admin'
+    }
   }
 });
 
