@@ -61,8 +61,6 @@ const AdminDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [realTimeStats, setRealTimeStats] = useState<any>({});
 
-  useEffect(() => {
-    loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {

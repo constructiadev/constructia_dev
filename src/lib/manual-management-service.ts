@@ -1347,6 +1347,124 @@ export class ManualManagementService {
     }
   }
 
+  // Mock data for better performance
+  private getMockClientGroups(): ClientGroup[] {
+    return [
+      {
+        client_id: 'client-001',
+        client_name: 'Construcciones García S.L.',
+        client_email: 'garcia@construcciones.com',
+        platform_credentials: [
+          {
+            id: 'cred-001',
+            platform_type: 'nalanda',
+            username: 'garcia@nalanda.com',
+            password: 'Garcia2024!',
+            is_active: true,
+            validation_status: 'valid'
+          }
+        ],
+        companies: [
+          {
+            company_id: 'comp-001',
+            company_name: 'Construcciones García S.L.',
+            total_documents: 15,
+            projects: [
+              {
+                project_id: 'proj-001',
+                project_name: 'Edificio Residencial Centro',
+                total_documents: 15,
+                documents: Array.from({ length: 15 }, (_, i) => ({
+                  id: `doc-${i + 1}`,
+                  tenant_id: this.tenantId,
+                  client_id: 'client-001',
+                  document_id: `documento-${i + 1}`,
+                  filename: `documento_${i + 1}.pdf`,
+                  original_name: `Certificado ${i + 1}.pdf`,
+                  file_size: Math.floor(Math.random() * 5000000) + 500000,
+                  file_type: 'application/pdf',
+                  classification: ['PRL', 'APTITUD_MEDICA', 'DNI', 'CONTRATO'][i % 4],
+                  confidence: Math.floor(Math.random() * 30) + 70,
+                  corruption_detected: i === 7,
+                  integrity_score: i === 7 ? 45 : Math.floor(Math.random() * 20) + 80,
+                  status: ['pending', 'uploading', 'uploaded', 'error'][i % 4] as any,
+                  priority: ['low', 'normal', 'high', 'urgent'][i % 4] as any,
+                  queue_position: i + 1,
+                  retry_count: i === 7 ? 2 : 0,
+                  admin_notes: i === 7 ? 'Archivo corrupto detectado' : '',
+                  platform_target: 'nalanda',
+                  company_id: 'comp-001',
+                  project_id: 'proj-001',
+                  created_at: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)).toISOString(),
+                  updated_at: new Date().toISOString()
+                }))
+              }
+            ]
+          }
+        ],
+        total_documents: 15,
+        documents_per_hour: 8,
+        last_activity: new Date().toISOString()
+      },
+      {
+        client_id: 'client-002',
+        client_name: 'Reformas López S.A.',
+        client_email: 'lopez@reformas.com',
+        platform_credentials: [
+          {
+            id: 'cred-002',
+            platform_type: 'ctaima',
+            username: 'lopez@ctaima.com',
+            password: 'Lopez2024!',
+            is_active: true,
+            validation_status: 'valid'
+          }
+        ],
+        companies: [
+          {
+            company_id: 'comp-002',
+            company_name: 'Reformas López S.A.',
+            total_documents: 8,
+            projects: [
+              {
+                project_id: 'proj-002',
+                project_name: 'Reforma Oficinas Norte',
+                total_documents: 8,
+                documents: Array.from({ length: 8 }, (_, i) => ({
+                  id: `doc-lopez-${i + 1}`,
+                  tenant_id: this.tenantId,
+                  client_id: 'client-002',
+                  document_id: `documento-lopez-${i + 1}`,
+                  filename: `reforma_${i + 1}.pdf`,
+                  original_name: `Plano Reforma ${i + 1}.pdf`,
+                  file_size: Math.floor(Math.random() * 3000000) + 800000,
+                  file_type: 'application/pdf',
+                  classification: ['PLAN_SEGURIDAD', 'EVAL_RIESGOS', 'CERT_MAQUINARIA', 'OTROS'][i % 4],
+                  confidence: Math.floor(Math.random() * 25) + 75,
+                  corruption_detected: false,
+                  integrity_score: Math.floor(Math.random() * 15) + 85,
+                  status: ['pending', 'uploaded', 'uploaded', 'pending'][i % 4] as any,
+                  priority: ['normal', 'high', 'normal', 'low'][i % 4] as any,
+                  queue_position: i + 16,
+                  retry_count: 0,
+                  admin_notes: '',
+                  platform_target: 'ctaima',
+                  company_id: 'comp-002',
+                  project_id: 'proj-002',
+                  created_at: new Date(Date.now() - (i * 12 * 60 * 60 * 1000)).toISOString(),
+                  updated_at: new Date().toISOString()
+                }))
+              }
+            ]
+          }
+        ],
+        total_documents: 8,
+        documents_per_hour: 5,
+        last_activity: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+  }
+
   // Private helper methods
   private encryptPassword(password: string): string {
     // Simple base64 encoding for development

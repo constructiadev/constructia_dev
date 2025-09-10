@@ -86,17 +86,6 @@ export default function ManualManagement() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedClient, setSelectedClient] = useState<string>('all');
 
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!refreshing && !processingBatch) {
-        refreshData();
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [refreshing, processingBatch]);
-
   useEffect(() => {
     loadData();
   }, []);

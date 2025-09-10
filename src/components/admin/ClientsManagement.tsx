@@ -606,13 +606,6 @@ const ClientsManagement: React.FC = () => {
             {refreshing ? 'Actualizando...' : 'Actualizar'}
           </button>
           <button
-            onClick={exportClients}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Exportar CSV
-          </button>
-          <button
             onClick={handleCreateClient}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
