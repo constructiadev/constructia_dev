@@ -46,12 +46,12 @@ export default function ProtectedRoute({
   if (requireRole === 'client') {
     // Only Cliente and ClienteDemo can access client routes
     if (!['Cliente', 'ClienteDemo'].includes(user.role)) {
-      console.error('❌ [ProtectedRoute] CLIENT ACCESS DENIED for role:', user.role);
+      console.log('🔐 [ProtectedRoute] CLIENT ACCESS DENIED for role:', user.role);
       if (user.role === 'SuperAdmin') {
-        console.error('❌ [ProtectedRoute] SuperAdmin cannot access client portal');
+        console.log('🔐 [ProtectedRoute] SuperAdmin cannot access client portal');
         return <Navigate to="/admin-login" replace />;
       }
-      console.error('❌ [ProtectedRoute] Invalid role - redirecting to landing');
+      console.log('🔐 [ProtectedRoute] Invalid role - redirecting to landing');
       return <Navigate to={fallbackPath} replace />;
     }
   }
