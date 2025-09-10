@@ -86,28 +86,19 @@ export const getCurrentClientData = async (userId: string) => {
 // Helper para obtener todos los clientes (admin)
 export const getAllClients = async () => {
   try {
-    const { data: clientsData, error: clientsError } = await supabaseClient
+    // Get clients from the actual clients table
     const { data, error } = await supabaseClient
       .from('clients')
-      .select(`
-        *,
-        users(tenant_id) // Join with users table to get tenant_id
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (clientsError) {
-      console.error('Error fetching clients:', clientsError);
+    if (error) {
+      console.error('Error fetching clients:', error);
       return [];
     }
 
-    // Map the data to include tenant_id directly in the client object
-    const clientsWithTenantId = (clientsData || []).map(client => ({
-      ...client,
-      tenant_id: client.users?.tenant_id || DEV_TENANT_ID // Fallback if user not found or tenant_id is null
-    }));
-
-    return clientsWithTenantId;
-  } catch (error) { // Catch any unexpected errors
+    return data || [];
+  } catch (error) {
     console.error('Error fetching all clients:', error);
     return [];
   }
