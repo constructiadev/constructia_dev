@@ -9,6 +9,7 @@ import ClientLayout from './layout/ClientLayout';
 // Auth
 import AdminLogin from './auth/AdminLogin';
 import ClientLogin from './auth/ClientLogin';
+import ClientRegister from './auth/ClientRegister';
 
 // Admin pages
 import AdminDashboard from './admin/Dashboard';
@@ -53,6 +54,9 @@ export default function Router() {
         
         {/* Client login - Acceso aislado para clientes externos - FUNCIONAL */}
         <Route path="/client-login" element={<ClientLogin />} />
+        
+        {/* Client registration - Registro detallado de nuevos clientes */}
+        <Route path="/client-register" element={<ClientRegister />} />
 
         {/* Legal pages */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />

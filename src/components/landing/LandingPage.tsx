@@ -86,7 +86,7 @@ export default function LandingPage() {
                 Iniciar Sesión
               </button>
               <button 
-                onClick={() => navigate('/client-login')}
+                onClick={() => navigate('/client-register')}
                 className="bg-white text-green-600 px-6 py-2 rounded-lg hover:bg-green-50 transition-colors font-semibold"
               >
                 Registrate

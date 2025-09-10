@@ -1,6 +1,6 @@
 // ConstructIA - Client Authentication and Data Isolation Service
 import { supabase, supabaseServiceClient } from './supabase-real';
-import { getCurrentUserTenant, DEV_TENANT_ID } from './supabase-real';
+import { getCurrentUserTenant, DEV_TENANT_ID, logAuditoria } from './supabase-real';
 
 export interface AuthenticatedClient {
   id: string;
@@ -22,7 +22,219 @@ export interface AuthenticatedClient {
   };
 }
 
+interface ClientRegistrationData {
+  // User data
+  email: string;
+  password: string;
+  contact_name: string;
+  
+  // Company data
+  company_name: string;
+  cif_nif: string;
+  address: string;
+  phone: string;
+  postal_code: string;
+  city: string;
+  
+  // CAE credentials
+  cae_credentials: Array<{
+    platform: 'nalanda' | 'ctaima' | 'ecoordina';
+    username: string;
+    password: string;
+  }>;
+  
+  // Marketing preferences
+  accept_marketing: boolean;
+}
+
 export class ClientAuthService {
+  // Register new client with complete setup
+  static async registerNewClient(registrationData: ClientRegistrationData): Promise<AuthenticatedClient | null> {
+    try {
+      console.log('🔐 [ClientAuth] Starting new client registration:', registrationData.email);
+
+      // Step 1: Create new tenant
+      const { data: newTenant, error: tenantError } = await supabaseServiceClient
+        .from('tenants')
+        .insert({
+          name: registrationData.company_name,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (tenantError) {
+        console.error('❌ [ClientAuth] Error creating tenant:', tenantError);
+        throw new Error(`Error creating tenant: ${tenantError.message}`);
+      }
+
+      console.log('✅ [ClientAuth] Tenant created:', newTenant.id);
+
+      // Step 2: Create Supabase Auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: registrationData.email,
+        password: registrationData.password,
+        options: {
+          emailRedirectTo: undefined // Disable email confirmation for development
+        }
+      });
+
+      if (authError || !authData.user) {
+        console.error('❌ [ClientAuth] Error creating auth user:', authError);
+        throw new Error(authError?.message || 'Error creating user account');
+      }
+
+      console.log('✅ [ClientAuth] Auth user created:', authData.user.id);
+
+      // Step 3: Create user profile
+      const { data: userProfile, error: userError } = await supabaseServiceClient
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          tenant_id: newTenant.id,
+          email: registrationData.email,
+          name: registrationData.contact_name,
+          role: 'Cliente',
+          active: true
+        })
+        .select()
+        .single();
+
+      if (userError) {
+        console.error('❌ [ClientAuth] Error creating user profile:', userError);
+        throw new Error(`Error creating user profile: ${userError.message}`);
+      }
+
+      console.log('✅ [ClientAuth] User profile created');
+
+      // Step 4: Create empresa (company)
+      const { data: empresa, error: empresaError } = await supabaseServiceClient
+        .from('empresas')
+        .insert({
+          tenant_id: newTenant.id,
+          razon_social: registrationData.company_name,
+          cif: registrationData.cif_nif,
+          direccion: `${registrationData.address}, ${registrationData.postal_code} ${registrationData.city}`,
+          contacto_email: registrationData.email,
+          estado_compliance: 'pendiente'
+        })
+        .select()
+        .single();
+
+      if (empresaError) {
+        console.error('❌ [ClientAuth] Error creating empresa:', empresaError);
+        throw new Error(`Error creating company: ${empresaError.message}`);
+      }
+
+      console.log('✅ [ClientAuth] Empresa created');
+
+      // Step 5: Create CAE platform credentials (adaptadores)
+      if (registrationData.cae_credentials.length > 0) {
+        const adaptadores = registrationData.cae_credentials.map(cred => ({
+          tenant_id: newTenant.id,
+          plataforma: cred.platform,
+          alias: 'Principal',
+          credenciales: {
+            username: cred.username,
+            password: cred.password,
+            configured: true
+          },
+          estado: 'ready'
+        }));
+
+        const { error: adaptadoresError } = await supabaseServiceClient
+          .from('adaptadores')
+          .insert(adaptadores);
+
+        if (adaptadoresError) {
+          console.warn('⚠️ [ClientAuth] Error creating adaptadores:', adaptadoresError);
+          // Don't throw error, just log warning as credentials are optional
+        } else {
+          console.log('✅ [ClientAuth] CAE credentials saved');
+        }
+      }
+
+      // Step 6: Create client record in old schema for compatibility
+      const { data: clientRecord, error: clientError } = await supabaseServiceClient
+        .from('clients')
+        .insert({
+          user_id: authData.user.id,
+          client_id: `CLI-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+          company_name: registrationData.company_name,
+          contact_name: registrationData.contact_name,
+          email: registrationData.email,
+          phone: registrationData.phone,
+          address: `${registrationData.address}, ${registrationData.postal_code} ${registrationData.city}`,
+          subscription_plan: 'basic',
+          subscription_status: 'active',
+          storage_used: 0,
+          storage_limit: 524288000, // 500MB for basic plan
+          documents_processed: 0,
+          tokens_available: 500,
+          obralia_credentials: {
+            configured: registrationData.cae_credentials.some(c => c.platform === 'nalanda'),
+            username: registrationData.cae_credentials.find(c => c.platform === 'nalanda')?.username,
+            password: registrationData.cae_credentials.find(c => c.platform === 'nalanda')?.password
+          }
+        })
+        .select()
+        .single();
+
+      if (clientError) {
+        console.error('❌ [ClientAuth] Error creating client record:', clientError);
+        throw new Error(`Error creating client record: ${clientError.message}`);
+      }
+
+      console.log('✅ [ClientAuth] Client record created');
+
+      // Step 7: Log audit event
+      await logAuditoria(
+        newTenant.id,
+        authData.user.id,
+        'client.registered',
+        'empresa',
+        empresa.id,
+        {
+          company_name: registrationData.company_name,
+          cif_nif: registrationData.cif_nif,
+          platforms_configured: registrationData.cae_credentials.length,
+          marketing_consent: registrationData.accept_marketing
+        }
+      );
+
+      // Step 8: Build authenticated client object
+      const authenticatedClient: AuthenticatedClient = {
+        id: userProfile.id,
+        user_id: authData.user.id,
+        tenant_id: newTenant.id,
+        email: registrationData.email,
+        name: registrationData.contact_name,
+        role: 'Cliente',
+        company_name: registrationData.company_name,
+        subscription_plan: 'basic',
+        subscription_status: 'active',
+        storage_used: 0,
+        storage_limit: 524288000,
+        tokens_available: 500,
+        obralia_credentials: {
+          configured: registrationData.cae_credentials.some(c => c.platform === 'nalanda'),
+          username: registrationData.cae_credentials.find(c => c.platform === 'nalanda')?.username,
+          password: registrationData.cae_credentials.find(c => c.platform === 'nalanda')?.password
+        }
+      };
+
+      console.log('✅ [ClientAuth] Client registration completed successfully');
+      return authenticatedClient;
+
+    } catch (error) {
+      console.error('❌ [ClientAuth] Registration error:', error);
+      
+      // In a production environment, you might want to implement rollback logic here
+      // For now, we'll just throw the error to be handled by the UI
+      throw error;
+    }
+  }
+
   // Authenticate client and get their isolated data context
   static async authenticateClient(email: string, password: string): Promise<AuthenticatedClient | null> {
     try {

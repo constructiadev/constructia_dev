@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building, ArrowUp } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
 import CheckoutModal from './CheckoutModal';
 
 export default function Subscription() {
   const { client, loading, error, refreshData } = useClientData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+
+  useEffect(() => {
+    // Check if we should auto-open checkout modal (from registration)
+    if (searchParams.get('showCheckout') === 'true') {
+      setShowCheckoutModal(true);
+      // Remove the query parameter
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (client) {

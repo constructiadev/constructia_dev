@@ -16,6 +16,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   checkSession: () => Promise<void>;
+  registerClient: (registrationData: any) => Promise<void>;
   isClient: boolean;
   isAdmin: boolean;
 }
@@ -232,6 +233,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const registerClient = async (registrationData: any) => {
+    try {
+      console.log('🔐 [AuthContext] Starting client registration');
+      
+      const authenticatedClient = await ClientAuthService.registerNewClient(registrationData);
+      
+      if (!authenticatedClient) {
+        throw new Error('Registration failed');
+      }
+      
+      setUser(authenticatedClient);
+      console.log('✅ [AuthContext] Client registered and authenticated:', authenticatedClient.email);
+      
+    } catch (error) {
+      console.error('Error registering client:', error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -252,6 +272,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signOut,
     checkSession,
+    registerClient,
     isClient: !!isClient,
     isAdmin: !!isAdmin
   };
