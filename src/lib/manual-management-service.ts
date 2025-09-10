@@ -129,12 +129,7 @@ export class ManualManagementService {
       // Get all clients from the old schema with their user data for tenant_id
       const { data: clients, error: clientsError } = await supabaseServiceClient
         .from('clients')
-        .select(`
-          *,
-          users!inner(
-            tenant_id
-          )
-        `)
+        .select('*')
         .order('company_name');
 
       if (clientsError) {
@@ -142,11 +137,34 @@ export class ManualManagementService {
         return [];
       }
 
+      // Get all users to create a mapping from user_id to tenant_id
+      const { data: users, error: usersError } = await supabaseServiceClient
+        .from('users')
+        .select('id, tenant_id');
+
+      if (usersError) {
+        console.error('Error loading users:', usersError);
+        return [];
+      }
+
+      // Create a map from user_id to tenant_id
+      const userTenantMap = new Map<string, string>();
+      (users || []).forEach(user => {
+        userTenantMap.set(user.id, user.tenant_id);
+      });
+
       // Group queue items by client
       const clientGroups: ClientGroup[] = [];
 
       // Process each client
       for (const client of clients) {
+        // Get tenant_id for this client using the user mapping
+        const tenantId = client.user_id ? userTenantMap.get(client.user_id) : DEV_TENANT_ID;
+        
+        if (!tenantId) {
+          console.warn(`No tenant_id found for client ${client.company_name}, using default`);
+        }
+
         // Get queue items for this client (using empresa_id as proxy for client relationship)
         const clientQueueItems = queueItems?.filter(item => {
           // In the new schema, we need to map client to tenant
@@ -157,9 +175,8 @@ export class ManualManagementService {
         if (clientQueueItems.length === 0) continue;
 
         // Get platform credentials for this client using their tenant_id
-        const tenantId = (client as any).users?.tenant_id || DEV_TENANT_ID;
         console.log(`🔑 Loading credentials for client ${client.company_name} with tenant_id: ${tenantId}`);
-        const credentials = await this.getPlatformCredentials(tenantId);
+        const credentials = await this.getPlatformCredentials(tenantId || DEV_TENANT_ID);
 
         // Group by company
         const companiesMap = new Map<string, CompanyGroup>();
