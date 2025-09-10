@@ -335,12 +335,9 @@ export class ManualManagementService {
         validation_status: cred.estado === 'ready' ? 'valid' : 'pending',
         last_validated: cred.updated_at
       }));
-      total: 5,
-      pending: 3,
   private transformSingleCredential(cred: any): PlatformCredential {
       uploaded: 1,
       errors: 1,
-      urgent: 1,
       high: 1,
       normal: 2,
       is_active: cred.estado === 'ready',
