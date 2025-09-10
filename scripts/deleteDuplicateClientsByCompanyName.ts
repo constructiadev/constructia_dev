@@ -1,24 +1,32 @@
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import { getEnvVar } from '../src/utils/env';
 
 // Load environment variables from .env file
 dotenv.config();
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
-const supabaseServiceKey = getEnvVar('VITE_SUPABASE_SERVICE_ROLE_KEY');
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('❌ Missing Supabase configuration');
-  console.error('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_SERVICE_ROLE_KEY are set in .env');
+  console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
+  console.error('VITE_SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET' : 'MISSING');
+  console.error('Please ensure both variables are set in .env file');
   process.exit(1);
 }
+
+console.log('🔧 Configuration loaded:');
+console.log('   - Supabase URL:', supabaseUrl);
+console.log('   - Service Key:', supabaseServiceKey ? `${supabaseServiceKey.substring(0, 20)}...` : 'MISSING');
 
 // Create Supabase client with service role (bypasses RLS)
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  global: {
+    fetch: fetch
   }
 });
 
