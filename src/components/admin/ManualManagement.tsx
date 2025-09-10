@@ -753,7 +753,8 @@ export default function ManualManagement() {
               </div>
             )}
           </div>
-        )}
+        </div>
+      )}
 
       {/* Tab: Vista por Clientes */}
       {activeTab === 'clients' && (
