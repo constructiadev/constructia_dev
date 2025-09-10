@@ -205,7 +205,7 @@ export class ClientAuthService {
       // Step 8: Build authenticated client object
       const authenticatedClient: AuthenticatedClient = {
         id: userProfile.id,
-        user_id: authData.user.id,
+        client_record_id: clientRecord.id,
         tenant_id: newTenant.id,
         email: registrationData.email,
         name: registrationData.contact_name,
@@ -322,6 +322,23 @@ export class ClientAuthService {
 
       console.log('✅ [ClientAuth] User profile loaded:', finalUserProfile.email, 'Role:', finalUserProfile.role);
 
+      // Step 3: Get client record from clients table using user_id
+      const { data: clientRecord, error: clientError } = await supabaseServiceClient
+        .from('clients')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (clientError) {
+        console.error('❌ [ClientAuth] Error fetching client record:', clientError);
+        throw new Error('Error fetching client record');
+      }
+
+      if (!clientRecord) {
+        console.error('❌ [ClientAuth] No client record found for user:', userId);
+        throw new Error('Client record not found');
+      }
+
       // Step 3: Get client's empresa data (using tenant_id for isolation)
       const { data: empresa, error: empresaError } = await supabaseServiceClient
         .from('empresas')
@@ -339,7 +356,7 @@ export class ClientAuthService {
       // Step 4: Build authenticated client context
       const authenticatedClient: AuthenticatedClient = {
         id: finalUserProfile.id,
-        user_id: userId,
+        client_record_id: clientRecord.id,
         tenant_id: finalUserProfile.tenant_id,
         email: finalUserProfile.email,
         name: finalUserProfile.name || 'Usuario',
@@ -418,9 +435,26 @@ export class ClientAuthService {
         console.warn('⚠️ [ClientAuth] Error fetching empresa:', empresaError);
       }
 
+      // Get client record from clients table using user_id
+      const { data: clientRecord, error: clientError } = await supabaseServiceClient
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (clientError) {
+        console.warn('⚠️ [ClientAuth] Error fetching client record:', clientError);
+        return null;
+      }
+
+      if (!clientRecord) {
+        console.warn('⚠️ [ClientAuth] No client record found for user:', user.id);
+        return null;
+      }
+
       return {
         id: userProfile.id,
-        user_id: user.id,
+        client_record_id: clientRecord.id,
         tenant_id: userProfile.tenant_id,
         email: userProfile.email,
         name: userProfile.name || 'Usuario',
@@ -549,7 +583,7 @@ export class ClientAuthService {
 
         clients.push({
           id: user.id,
-          user_id: user.id,
+          client_record_id: user.id, // This would need to be updated with actual client record lookup
           tenant_id: user.tenant_id,
           email: user.email,
           name: user.name || 'Usuario',

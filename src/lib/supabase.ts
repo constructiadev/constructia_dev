@@ -356,6 +356,7 @@ export const createSEPAMandate = async (mandateData: Partial<SEPAMandate>) => {
       .insert({
         ...mandateData,
         mandate_id: `SEPA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    console.log('🔍 [SEPA] Creating SEPA mandate for client_id:', mandateData.client_id);
         created_at: new Date().toISOString()
       })
       .select()
@@ -363,9 +364,11 @@ export const createSEPAMandate = async (mandateData: Partial<SEPAMandate>) => {
 
     if (error) {
       console.error('Error creating SEPA mandate:', error);
+      console.error('❌ [SEPA] Error creating SEPA mandate:', error);
       throw new Error(`Error creating SEPA mandate: ${error.message}`);
     }
     
+    console.log('✅ [SEPA] SEPA mandate created successfully');
     return data;
   } catch (error) {
     console.error('Error creating SEPA mandate:', error);
@@ -837,6 +840,7 @@ export const createTestData = async () => {
 // Helper para obtener insights de IA
 export const getAIInsights = async () => {
   try {
+    console.log('🔍 [SEPA] Getting SEPA mandates for client_id:', clientId);
     const { data, error } = await supabase
       .from('ai_insights')
       .select('*')
@@ -844,11 +848,13 @@ export const getAIInsights = async () => {
       .order('created_at', { ascending: false })
       .limit(10);
 
+      console.error('❌ [SEPA] Error fetching SEPA mandates:', error);
     if (error) {
       console.warn('Error fetching AI insights:', error);
       return [];
     }
     
+    console.log('✅ [SEPA] Found', data?.length || 0, 'SEPA mandates');
     return data || [];
   } catch (error) {
     console.error('Error fetching AI insights:', error);

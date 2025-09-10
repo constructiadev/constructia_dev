@@ -37,7 +37,7 @@ export interface AuthenticatedUser {
 }
 
 export interface AuthenticatedClient extends AuthenticatedUser {
-  user_id: string;
+  client_record_id: string;
   company_name: string;
   subscription_plan: string;
   subscription_status: string;

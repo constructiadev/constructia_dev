@@ -179,6 +179,12 @@ export default function CheckoutModal({
   const handleSEPAMandateUpdate = async () => {
     if (!selectedPlan) return;
 
+    // Verify client_record_id is present
+    if (!currentClient.client_record_id) {
+      alert('❌ Error: No se pudo identificar el registro del cliente. Por favor, contacta con soporte.');
+      return;
+    }
+
     try {
       setProcessing(true);
       
@@ -193,7 +199,7 @@ export default function CheckoutModal({
 
       // Create new SEPA mandate with updated amount
       const mandateData = {
-        client_id: currentClient.id,
+        client_id: currentClient.client_record_id,
         deudor_nombre: sepaFormData.deudor_nombre,
         deudor_direccion: sepaFormData.deudor_direccion,
         deudor_codigo_postal: sepaFormData.deudor_codigo_postal,
