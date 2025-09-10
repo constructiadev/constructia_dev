@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building, ArrowUp } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
 import CheckoutModal from './CheckoutModal';
 
 export default function Subscription() {
+  const navigate = useNavigate();
   const { client, loading, error, refreshData } = useClientData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
@@ -36,6 +38,8 @@ export default function Subscription() {
   const handleUpgradeSuccess = () => {
     refreshData();
     setShowCheckoutModal(false);
+    // Navigate to client dashboard after successful payment
+    navigate('/client/dashboard', { replace: true });
   };
 
   const getStatusColor = (status: string) => {

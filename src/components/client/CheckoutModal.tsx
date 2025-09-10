@@ -219,7 +219,6 @@ export default function CheckoutModal({
       if (mandate) {
         alert('✅ Mandato SEPA actualizado correctamente. Tu suscripción se actualizará en el próximo ciclo de facturación.');
         onUpgradeSuccess();
-        onClose();
       } else {
         throw new Error('Error al crear el mandato SEPA');
       }
@@ -244,7 +243,6 @@ export default function CheckoutModal({
       if (Math.random() > 0.1) {
         alert('✅ Pago procesado correctamente. Tu suscripción se ha actualizado.');
         onUpgradeSuccess();
-        onClose();
       } else {
         throw new Error('Error en el procesamiento del pago');
       }
