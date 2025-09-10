@@ -241,34 +241,84 @@ export class ManualManagementService {
   // Get queue statistics
   async getQueueStats(): Promise<QueueStats> {
     try {
-      const { data: queueItems, error } = await supabaseServiceClient
+      // Get all queue items with their current status
+      const { data: queueItems, error: queueError } = await supabaseServiceClient
         .from('manual_upload_queue')
         .select('status, priority')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error getting queue stats:', error);
+      if (queueError) {
+        console.error('Error getting queue stats:', queueError);
         return {
           total: 0, pending: 0, in_progress: 0, uploaded: 0, errors: 0,
           urgent: 0, high: 0, normal: 0, low: 0, corrupted: 0, validated: 0
         };
       }
 
-      const items = queueItems || [];
+      // Get all documents from manual_document_queue for additional stats
+      const { data: manualQueueItems, error: manualError } = await supabaseServiceClient
+        .from('manual_document_queue')
+        .select('manual_status, priority, corruption_detected')
+        .order('created_at', { ascending: true });
+
+      if (manualError) {
+        console.warn('Error getting manual queue stats:', manualError);
+      }
+
+      // Combine both queue sources for comprehensive stats
+      const allQueueItems = queueItems || [];
+      const allManualItems = manualQueueItems || [];
       
-      return {
-        total: items.length,
-        pending: items.filter(item => item.status === 'queued').length,
-        in_progress: items.filter(item => item.status === 'in_progress').length,
-        uploaded: items.filter(item => item.status === 'uploaded').length,
-        errors: items.filter(item => item.status === 'error').length,
-        urgent: items.filter(item => item.priority === 'urgent').length,
-        high: items.filter(item => item.priority === 'high').length,
-        normal: items.filter(item => item.priority === 'normal').length,
-        low: items.filter(item => item.priority === 'low').length,
-        corrupted: 0, // Not implemented in current schema
-        validated: 0  // Not implemented in current schema
+      // Count upload queue items
+      const uploadQueueStats = {
+        total: allQueueItems.length,
+        pending: allQueueItems.filter(item => item.status === 'queued').length,
+        in_progress: allQueueItems.filter(item => item.status === 'in_progress').length,
+        uploaded: allQueueItems.filter(item => item.status === 'uploaded').length,
+        errors: allQueueItems.filter(item => item.status === 'error').length,
+        urgent: allQueueItems.filter(item => item.priority === 'urgent').length,
+        high: allQueueItems.filter(item => item.priority === 'high').length,
+        normal: allQueueItems.filter(item => item.priority === 'normal').length,
+        low: allQueueItems.filter(item => item.priority === 'low').length
       };
+
+      // Count manual queue items
+      const manualQueueStats = {
+        total: allManualItems.length,
+        pending: allManualItems.filter(item => item.manual_status === 'pending').length,
+        in_progress: allManualItems.filter(item => item.manual_status === 'in_progress').length,
+        uploaded: allManualItems.filter(item => item.manual_status === 'uploaded').length,
+        validated: allManualItems.filter(item => item.manual_status === 'validated').length,
+        errors: allManualItems.filter(item => item.manual_status === 'error').length,
+        corrupted: allManualItems.filter(item => item.corruption_detected === true).length,
+        urgent: allManualItems.filter(item => item.priority === 'urgent').length,
+        high: allManualItems.filter(item => item.priority === 'high').length,
+        normal: allManualItems.filter(item => item.priority === 'normal').length,
+        low: allManualItems.filter(item => item.priority === 'low').length
+      };
+
+      // Combine stats from both queues for accurate totals
+      const combinedStats = {
+        total: uploadQueueStats.total + manualQueueStats.total,
+        pending: uploadQueueStats.pending + manualQueueStats.pending,
+        in_progress: uploadQueueStats.in_progress + manualQueueStats.in_progress,
+        uploaded: uploadQueueStats.uploaded + manualQueueStats.uploaded,
+        errors: uploadQueueStats.errors + manualQueueStats.errors,
+        urgent: uploadQueueStats.urgent + manualQueueStats.urgent,
+        high: uploadQueueStats.high + manualQueueStats.high,
+        normal: uploadQueueStats.normal + manualQueueStats.normal,
+        low: uploadQueueStats.low + manualQueueStats.low,
+        corrupted: manualQueueStats.corrupted,
+        validated: manualQueueStats.validated
+      };
+
+      console.log('📊 [ManualManagement] Queue stats calculated:', {
+        upload_queue: uploadQueueStats,
+        manual_queue: manualQueueStats,
+        combined: combinedStats
+      });
+      
+      return combinedStats;
 
     } catch (error) {
       console.error('Error getting queue stats:', error);

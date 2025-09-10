@@ -98,15 +98,17 @@ export default function ManualManagement() {
       setLoading(true);
       
       // Load data sequentially to avoid overwhelming the database
-      console.log('📋 Loading manual management data...');
+      console.log('📋 [ManualManagement] Loading manual management data...');
       
       const groups = await manualManagementService.getClientGroups();
+      console.log('📋 [ManualManagement] Client groups loaded:', groups.length);
       setClientGroups(groups);
       
       const stats = await manualManagementService.getQueueStats();
+      console.log('📊 [ManualManagement] Queue stats loaded:', stats);
       setQueueStats(stats);
 
-      console.log('✅ Manual management data loaded successfully');
+      console.log('✅ [ManualManagement] Data loaded - Total documents in queue:', stats.total);
     } catch (error) {
       console.error('Error loading manual management data:', error);
       // Set fallback data instead of empty arrays
@@ -121,7 +123,7 @@ export default function ManualManagement() {
   };
 
   const refreshData = async () => {
-    console.log('🔄 Manual refresh triggered by admin');
+    console.log('🔄 [ManualManagement] Manual refresh triggered by admin');
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
@@ -414,27 +416,27 @@ export default function ManualManagement() {
         <div className="grid grid-cols-6 gap-3 mt-6">
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-yellow-200">{queueStats.pending}</div>
-            <div className="text-xs text-purple-100">Pendientes</div>
+            <div className="text-xs text-purple-100">⏳ Pendientes</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-blue-200">{queueStats.in_progress}</div>
-            <div className="text-xs text-purple-100">Procesando</div>
+            <div className="text-xs text-purple-100">🔄 Procesando</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-green-200">{queueStats.uploaded}</div>
-            <div className="text-xs text-purple-100">Subidos</div>
+            <div className="text-xs text-purple-100">✅ Subidos</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-red-200">{queueStats.errors}</div>
-            <div className="text-xs text-purple-100">Errores</div>
+            <div className="text-xs text-purple-100">❌ Errores</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-orange-200">{queueStats.corrupted}</div>
-            <div className="text-xs text-purple-100">Corruptos</div>
+            <div className="text-xs text-purple-100">⚠️ Corruptos</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-emerald-200">{queueStats.validated}</div>
-            <div className="text-xs text-purple-100">Validados</div>
+            <div className="text-xs text-purple-100">🎯 Validados</div>
           </div>
         </div>
       </div>
