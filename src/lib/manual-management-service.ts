@@ -593,7 +593,8 @@ export class ManualManagementService {
           categoria: extraction.categoria_probable,
           storage_path: uploadResult.filePath,
           real_upload: true
-        }
+        },
+        userId
       );
 
       // Return in ManualDocument format
