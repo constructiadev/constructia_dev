@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Globe, 
+  Globe, // Changed to Globe for consistency
   Key, 
   Eye, 
   EyeOff, 
@@ -17,7 +17,8 @@ import {
   ExternalLink,
   Edit,
   X
-} from 'lucide-react';
+} from 'lucide-react'; // Changed to X for consistency
+
 import { manualManagementService, type PlatformCredential } from '../../lib/manual-management-service';
 import { useAuth } from '../../lib/auth-context';
 import { supabaseServiceClient } from '../../lib/supabase-real';
@@ -329,7 +330,11 @@ export default function PlatformCredentialsManager({
             </div>
           </div>
         </div>
-
+        {/* Display message if no credentials are found for the selected platform */}
+        {(!newCredential.username && !newCredential.password) && (
+          <div className="text-center text-gray-500 mt-4">No hay credenciales configuradas para esta plataforma.</div>
+        )}
+        
         {newCredential.username || newCredential.password ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center">
