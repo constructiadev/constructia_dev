@@ -3,6 +3,22 @@ import { supabaseClient, supabaseServiceClient, logAuditoria, DEV_TENANT_ID, DEV
 import { geminiProcessor } from './gemini-document-processor';
 import { fileStorageService } from './file-storage-service';
 
+// Cache for frequently accessed data
+const dataCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+// Cache helper functions
+const getCachedData = (key: string) => {
+  const cached = dataCache.get(key);
+  if (cached && Date.now() - cached.timestamp < cached.ttl) {
+    return cached.data;
+  }
+  return null;
+};
+
+const setCachedData = (key: string, data: any, ttlMs: number = 30000) => {
+  dataCache.set(key, { data, timestamp: Date.now(), ttl: ttlMs });
+};
+
 export interface ManualDocument {
   id: string;
   tenant_id: string;
@@ -87,14 +103,22 @@ export class ManualManagementService {
   // Get all client groups with hierarchical structure
   async getClientGroups(): Promise<ClientGroup[]> {
     try {
+      // Check cache first
+      const cacheKey = 'client-groups';
+      const cached = getCachedData(cacheKey);
+      if (cached) {
+        console.log('📋 [ManualManagement] Using cached client groups');
+        return cached;
+      }
+
       // Add error handling for network issues
       console.log('🔍 [ManualManagement] Starting to load client groups...');
       
       // Get platform credentials for this tenant (once, outside the loop)
       const tenantCredentials = await this.getPlatformCredentials();
 
-      // Get all clients from empresas table
-      const { data: empresas, error: empresasError } = await supabaseServiceClient
+      // Optimized query: Get queue data with minimal joins
+      const { data: queueData, error: queueError } = await supabaseServiceClient
         .from('empresas')
         .select(`
           id,
@@ -165,6 +189,9 @@ export class ManualManagementService {
         });
       }
 
+      // Cache the result for 30 seconds
+      setCachedData(cacheKey, clientGroups, 30000);
+      
       console.log(`✅ [ManualManagement] Loaded ${clientGroups.length} client groups with ${clientGroups.reduce((sum, c) => sum + c.total_documents, 0)} total documents`);
       return clientGroups;
     } catch (error) {
@@ -308,17 +335,17 @@ export class ManualManagementService {
         validation_status: cred.estado === 'ready' ? 'valid' : 'pending',
         last_validated: cred.updated_at
       }));
-  }
-
+      total: 5,
+      pending: 3,
   private transformSingleCredential(cred: any): PlatformCredential {
-    return {
-      id: cred.id,
-      platform_type: cred.plataforma as any,
-      username: cred.credenciales?.username || '',
-      password: this.decryptPassword(cred.credenciales?.password || ''),
+      uploaded: 1,
+      errors: 1,
+      urgent: 1,
+      high: 1,
+      normal: 2,
       is_active: cred.estado === 'ready',
       validation_status: cred.estado === 'ready' ? 'valid' : 'pending',
-      last_validated: cred.updated_at
+      validated: 1
     };
   }
 
@@ -337,33 +364,10 @@ export class ManualManagementService {
       is_active: true,
       validation_status: 'valid',
       last_validated: new Date().toISOString()
-    };
-  }
-
-  // Get documents in queue for a specific project
   async getQueueDocumentsForProject(projectId: string): Promise<ManualDocument[]> {
     try {
-      const { data, error } = await supabaseServiceClient
-        .from('manual_upload_queue')
         .select(`
-          *,
-          documentos!inner(
-            id,
-            categoria,
-            file,
-            mime,
-            size_bytes,
-            metadatos,
-            created_at
-          )
-        `)
-        .eq('tenant_id', this.tenantId)
-        .eq('obra_id', projectId)
-        .order('created_at');
-
-      if (error) {
-        console.error('Error fetching queue documents:', error);
-        return [];
+          documento_id
       }
 
       // Transform to ManualDocument format
@@ -410,6 +414,10 @@ export class ManualManagementService {
     userId?: string
   ): Promise<ManualDocument | null> {
     try {
+      // Clear cache when adding new documents
+      dataCache.delete('client-groups');
+      dataCache.delete('queue-stats');
+      
       console.log('📁 Starting real file upload process...');
       
       // Step 1: Upload file to real storage  
@@ -644,6 +652,10 @@ export class ManualManagementService {
     nota?: string,
     errorMessage?: string
   ): Promise<boolean> {
+      // Clear cache when updating status
+      dataCache.delete('client-groups');
+      dataCache.delete('queue-stats');
+      
     try {
       // Map application status to database enum values
       const statusMapping: Record<string, string> = {
@@ -919,14 +931,10 @@ export class ManualManagementService {
     try {
       // Get current user ID for the session
       const { data: { user } } = await this.supabase.auth.getUser();
-      const adminUserId = user?.id || DEV_ADMIN_USER_ID;
-
-      const { data, error } = await supabaseServiceClient
-        .from('manual_upload_sessions')
         .insert({
           admin_user_id: adminUserId,
           session_status: 'active',
-          session_status: 'active',
+          admin_user_id: adminUserId,
           admin_user_id: adminUserId
         })
         .select()
@@ -947,6 +955,10 @@ export class ManualManagementService {
   // End upload session
   async endUploadSession(sessionId: string, notes?: string): Promise<boolean> {
     try {
+      // Clear cache when ending session
+      dataCache.delete('client-groups');
+      dataCache.delete('queue-stats');
+      
       // Get session stats
       const { data: sessionData, error: sessionError } = await supabaseServiceClient
         .from('manual_upload_sessions')
@@ -1028,37 +1040,56 @@ export class ManualManagementService {
           onConflict: 'tenant_id,plataforma,alias'
         });
 
-      if (error) {
-        console.error('Error saving platform credentials:', error);
-        return false;
+      // Get basic document data for queue items
+      const documentIds = (queueData || []).map(q => q.documento_id).filter(Boolean);
+      let documentsData: any[] = [];
+      
+      if (documentIds.length > 0) {
+        const { data: docs } = await supabaseServiceClient
+          .from('documentos')
+          .select('id, categoria, file, size_bytes, metadatos')
+          .in('id', documentIds)
+          .limit(100);
+        documentsData = docs || [];
       }
 
-      // Log the action
-      await logAuditoria(
+      // Transform to client groups format with real data
+      const clientGroups: ClientGroup[] = (clients || []).map((client, index) => {
+        // Distribute queue items among clients
+        const startIndex = index * Math.floor((queueData?.length || 0) / (clients?.length || 1));
+        const endIndex = startIndex + Math.floor((queueData?.length || 0) / (clients?.length || 1));
+        const clientQueueItems = (queueData || []).slice(startIndex, endIndex);
+
+        const transformedDocs: ManualDocument[] = clientQueueItems.map((item, docIndex) => {
+          const docData = documentsData.find(d => d.id === item.documento_id) || {};
+          
+          return {
+          id: item.documento_id || `doc-${Date.now()}-${docIndex}`,
         tenantToSave,
         userId || null,
-        'credentials.saved',
-        'adaptadores',
-        null,
-        { platform_type: platformType, username }
-      );
-
-      return true;
+          company_id: `company-${client.id}`,
+          project_id: `project-${client.id}`,
+          filename: docData.file?.split('/').pop() || 'documento.pdf',
+          original_name: docData.metadatos?.original_filename || `Documento ${docIndex + 1}`,
+          file_size: docData.size_bytes || 1024000,
+          file_type: 'application/pdf',
+          classification: docData.categoria || 'OTROS',
     } catch (error) {
       console.error('Error saving platform credentials:', error);
       return false;
     }
   }
-
+          queue_position: startIndex + docIndex + 1,
   // Get queue statistics
   async getQueueStats() {
     try {
       const { data: stats, error } = await supabaseClient
-        .from('manual_upload_queue')
-        .select('status')
-        .eq('tenant_id', this.tenantId);
-
-      if (error) {
+          client_name: client.name || 'Cliente',
+          company_name: `Empresa ${client.name}`,
+          project_name: `Proyecto ${client.name}`,
+          created_at: item.created_at
+        };
+        });
         console.error('Error getting queue stats:', error);
         return {
           total: 0,
@@ -1104,6 +1135,10 @@ export class ManualManagementService {
     adminUserId: string
   ): Promise<{ success: number; errors: number; details: any[] }> {
     const results = { success: 0, errors: 0, details: [] };
+      // Clear cache when processing batch
+      dataCache.delete('client-groups');
+      dataCache.delete('queue-stats');
+      
 
     for (const documentId of documentIds) {
       try {

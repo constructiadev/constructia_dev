@@ -94,21 +94,31 @@ export default function ManualManagement() {
     try {
       setLoading(true);
       
-      const [groups, stats] = await Promise.all([
-        manualManagementService.getClientGroups(),
-        manualManagementService.getQueueStats()
-      ]);
-
+      // Load data sequentially to avoid overwhelming the database
+      console.log('📋 Loading manual management data...');
+      
+      const groups = await manualManagementService.getClientGroups();
       setClientGroups(groups);
+      
+      const stats = await manualManagementService.getQueueStats();
       setQueueStats(stats);
+
+      console.log('✅ Manual management data loaded successfully');
     } catch (error) {
       console.error('Error loading manual management data:', error);
+      // Set fallback data instead of empty arrays
+      setClientGroups([]);
+      setQueueStats({
+        total: 0, pending: 0, in_progress: 0, uploaded: 0, errors: 0,
+        urgent: 0, high: 0, normal: 0, low: 0, corrupted: 0, validated: 0
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const refreshData = async () => {
+    console.log('🔄 Manual refresh triggered by admin');
     setRefreshing(true);
     await loadData();
     setRefreshing(false);

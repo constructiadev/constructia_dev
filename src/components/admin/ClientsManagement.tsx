@@ -351,7 +351,10 @@ const ClientsManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('👥 Loading clients from database...');
       const data = await getAllClients();
+      console.log('✅ Clients loaded:', data?.length || 0);
       setClients(data || []);
     } catch (err) {
       console.error('Error loading clients:', err);
@@ -362,6 +365,7 @@ const ClientsManagement: React.FC = () => {
   };
 
   const refreshData = async () => {
+    console.log('🔄 Clients refresh triggered by admin');
     setRefreshing(true);
     await loadClients();
     setRefreshing(false);

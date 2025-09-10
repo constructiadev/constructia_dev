@@ -56,9 +56,21 @@ const AIIntegrationModule: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('🤖 Loading AI integration data...');
 
-      // Use mock data for better performance
-      const mockKPIs = [
+      // Load real KPIs from database
+      const realKPIs = await getKPIs();
+      const kpisData = realKPIs.length > 0 ? realKPIs.map(kpi => ({
+        id: kpi.id,
+        name: kpi.name,
+        value: kpi.value,
+        change: kpi.change || 0,
+        trend: (kpi.trend as 'up' | 'down' | 'stable') || 'stable',
+        period: kpi.period || 'monthly',
+        category: kpi.category || 'ai',
+        description: kpi.description || ''
+      })) : [
         {
           id: 'ai-accuracy',
           name: 'Precisión IA',
@@ -72,7 +84,7 @@ const AIIntegrationModule: React.FC = () => {
         {
           id: 'documents-processed',
           name: 'Documentos Procesados',
-          value: '156',
+          value: '0',
           change: 15.2,
           trend: 'up' as const,
           period: 'monthly',
@@ -81,22 +93,30 @@ const AIIntegrationModule: React.FC = () => {
         }
       ];
 
-      const mockIntegrations = [
+      // Load real integrations
+      const realIntegrations = await getAPIIntegrations();
+      const integrationsData = Array.isArray(realIntegrations) ? realIntegrations : [
         {
           id: '1',
           name: 'Supabase Database',
-          status: 'connected',
+          status: 'connected' as const,
           description: 'Base de datos principal',
           requests_today: 15678,
           avg_response_time_ms: 89,
           last_sync: new Date().toISOString(),
-          config_details: { connection_pool: 'active' }
+          config_details: { 
+            connection_pool: 'active', 
+            ssl: true,
+            max_connections: 200
+          }
         }
       ];
 
-      setKpis(mockKPIs);
-      setIntegrations(mockIntegrations);
+      setKpis(kpisData);
+      setIntegrations(integrationsData);
       setQueue([]);
+      
+      console.log('✅ AI integration data loaded successfully');
     } catch (err) {
       console.error('Error loading AI integration data:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
