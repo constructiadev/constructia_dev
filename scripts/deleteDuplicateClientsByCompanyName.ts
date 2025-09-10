@@ -1,5 +1,9 @@
+import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { getEnvVar } from '../src/utils/env';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
 const supabaseServiceKey = getEnvVar('VITE_SUPABASE_SERVICE_ROLE_KEY');
