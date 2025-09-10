@@ -335,6 +335,25 @@ export class ManualManagementService {
         validation_status: cred.estado === 'ready' ? 'valid' : 'pending',
         last_validated: cred.updated_at
       }));
+    } catch (error) {
+      console.error('Error getting platform credentials:', error);
+      return [];
+    }
+  }
+
+  private transformSingleCredential(cred: any): PlatformCredential {
+    return {
+      id: cred.id,
+      tenant_id: cred.tenant_id,
+      client_id: cred.client_id || 'unknown',
+      platform_type: cred.plataforma,
+      username: cred.credenciales?.username || '',
+      password: cred.credenciales?.password || '',
+      is_active: cred.estado === 'ready',
+      validation_status: cred.estado === 'ready' ? 'valid' : 'invalid',
+      last_validated: cred.updated_at
+    };
+  }
   private transformSingleCredential(cred: any): PlatformCredential {
       uploaded: 1,
       errors: 1,
