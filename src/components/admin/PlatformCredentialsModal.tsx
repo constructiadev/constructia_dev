@@ -37,21 +37,21 @@ export default function PlatformCredentialsModal({
       type: 'nalanda', 
       name: 'Nalanda/Obralia', 
       color: 'bg-blue-600',
-      url: 'https://www.obralia.com',
+      url: 'https://app.obralia.com/login',
       description: 'Plataforma principal de gestión CAE'
     },
     { 
       type: 'ctaima', 
       name: 'CTAIMA', 
       color: 'bg-green-600',
-      url: 'https://www.ctaima.com',
+      url: 'https://www.ctaima.com/login',
       description: 'Sistema de coordinación de actividades'
     },
     { 
       type: 'ecoordina', 
       name: 'Ecoordina', 
       color: 'bg-purple-600',
-      url: 'https://www.ecoordina.com',
+      url: 'https://www.ecoordina.com/login',
       description: 'Plataforma de coordinación empresarial'
     }
   ];

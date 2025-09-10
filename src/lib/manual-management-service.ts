@@ -126,10 +126,15 @@ export class ManualManagementService {
         return [];
       }
 
-      // Get all clients from the old schema for client information
+      // Get all clients from the old schema with their user data for tenant_id
       const { data: clients, error: clientsError } = await supabaseServiceClient
         .from('clients')
-        .select('*')
+        .select(`
+          *,
+          users!inner(
+            tenant_id
+          )
+        `)
         .order('company_name');
 
       if (clientsError) {
@@ -151,8 +156,10 @@ export class ManualManagementService {
 
         if (clientQueueItems.length === 0) continue;
 
-        // Get platform credentials for this client
-        const credentials = await this.getPlatformCredentials(client.id);
+        // Get platform credentials for this client using their tenant_id
+        const tenantId = (client as any).users?.tenant_id || DEV_TENANT_ID;
+        console.log(`🔑 Loading credentials for client ${client.company_name} with tenant_id: ${tenantId}`);
+        const credentials = await this.getPlatformCredentials(tenantId);
 
         // Group by company
         const companiesMap = new Map<string, CompanyGroup>();
@@ -360,7 +367,8 @@ export class ManualManagementService {
       username: cred.credenciales?.username || '',
       password: cred.credenciales?.password || '',
       is_active: cred.estado === 'ready',
-      validation_status: 'valid',
+      validation_status: cred.estado === 'ready' ? 'valid' : 
+                        cred.estado === 'error' ? 'invalid' : 'pending',
       last_validated: cred.updated_at
     };
   }

@@ -779,9 +779,18 @@ export default function ManualManagement() {
                       <p className="text-sm text-gray-600">{client.client_email}</p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => handleViewCredentials(client)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm flex items-center"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Ver Credenciales
+                    </button>
+                    <div className="text-right">
                     <div className="text-2xl font-bold text-purple-600">{client.total_documents}</div>
                     <div className="text-sm text-gray-600">Documentos</div>
+                    </div>
                   </div>
                 </div>
               </div>
