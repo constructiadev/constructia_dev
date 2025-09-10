@@ -246,6 +246,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(authenticatedClient);
       console.log('✅ [AuthContext] Client registered and authenticated:', authenticatedClient.email);
       
+      // Force session revalidation to ensure auth state is consistent
+      console.log('🔄 [AuthContext] Revalidating session after registration...');
+      await checkSession();
+      console.log('✅ [AuthContext] Session revalidated successfully');
+      
     } catch (error) {
       console.error('Error registering client:', error);
       throw error;
