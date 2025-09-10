@@ -435,61 +435,116 @@ export class ManualManagementService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-      // Get the next version number for this document type
-      const { data: existingVersions, error: versionError } = await supabaseServiceClient
+      // Check if document with same hash already exists
+      const { data: existingDocument, error: existingError } = await supabaseServiceClient
         .from('documentos')
-        .select('version')
+        .select('*')
         .eq('tenant_id', this.tenantId)
-        .eq('entidad_tipo', 'obra')
-        .eq('entidad_id', projectId)
-        .eq('categoria', extraction.categoria_probable)
-        .order('version', { ascending: false })
-        .limit(1);
-
-      if (versionError) {
-        console.error('Error checking existing versions:', versionError);
-        throw new Error(`Version check failed: ${versionError.message}`);
-      }
-
-      const nextVersion = existingVersions && existingVersions.length > 0 
-        ? (existingVersions[0].version || 0) + 1 
-        : 1;
-
-      // First, create document record in documentos table
-      const documentoData = {
-        tenant_id: this.tenantId,
-        entidad_tipo: 'obra',
-        entidad_id: projectId,
-        categoria: extraction.categoria_probable,
-        file: uploadResult.filePath || `${this.tenantId}/obra/${projectId}/${extraction.categoria_probable}/${hash}.${file.name.split('.').pop()}`,
-        mime: file.type,
-        size_bytes: file.size,
-        hash_sha256: hash,
-        version: nextVersion,
-        estado: 'pendiente',
-        metadatos: {
-          ai_extraction: extraction,
-          original_filename: file.name,
-          upload_timestamp: new Date().toISOString(),
-          storage_url: uploadResult.publicUrl,
-          real_file_uploaded: true
-        },
-        origen: 'usuario'
-      };
-
-      const { data: documento, error: docError } = await supabaseServiceClient
-        .from('documentos')
-        .insert(documentoData)
-        .select()
+        .eq('hash_sha256', hash)
         .single();
 
-      if (docError) {
-        console.error('Error creating documento:', docError);
-        // If document creation fails, clean up uploaded file
+      if (existingError && existingError.code !== 'PGRST116') {
+        console.error('Error checking existing document:', existingError);
+        throw new Error(`Document check failed: ${existingError.message}`);
+      }
+
+      let documento;
+      let isNewDocument = !existingDocument;
+
+      if (existingDocument) {
+        // Document with same hash exists, update it instead of creating new one
+        console.log('📄 Document with same hash exists, updating existing document');
+        
+        // Clean up the newly uploaded file since we'll reuse the existing one
         if (uploadResult.filePath) {
           await fileStorageService.deleteFile(uploadResult.filePath);
         }
-        return null;
+
+        // Update existing document
+        const { data: updatedDoc, error: updateError } = await supabaseServiceClient
+          .from('documentos')
+          .update({
+            estado: 'pendiente',
+            metadatos: {
+              ...existingDocument.metadatos,
+              ai_extraction: extraction,
+              last_reupload: {
+                original_filename: file.name,
+                upload_timestamp: new Date().toISOString(),
+                reason: 'duplicate_hash_detected'
+              }
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingDocument.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error updating existing documento:', updateError);
+          throw new Error(`Document update failed: ${updateError.message}`);
+        }
+        
+        documento = updatedDoc;
+      } else {
+        // Get the next version number for this document type
+        const { data: existingVersions, error: versionError } = await supabaseServiceClient
+          .from('documentos')
+          .select('version')
+          .eq('tenant_id', this.tenantId)
+          .eq('entidad_tipo', 'obra')
+          .eq('entidad_id', projectId)
+          .eq('categoria', extraction.categoria_probable)
+          .order('version', { ascending: false })
+          .limit(1);
+
+        if (versionError) {
+          console.error('Error checking existing versions:', versionError);
+          throw new Error(`Version check failed: ${versionError.message}`);
+        }
+
+        const nextVersion = existingVersions && existingVersions.length > 0 
+          ? (existingVersions[0].version || 0) + 1 
+          : 1;
+
+        // Create new document record
+        const documentoData = {
+          tenant_id: this.tenantId,
+          entidad_tipo: 'obra',
+          entidad_id: projectId,
+          categoria: extraction.categoria_probable,
+          file: uploadResult.filePath || `${this.tenantId}/obra/${projectId}/${extraction.categoria_probable}/${hash}.${file.name.split('.').pop()}`,
+          mime: file.type,
+          size_bytes: file.size,
+          hash_sha256: hash,
+          version: nextVersion,
+          estado: 'pendiente',
+          metadatos: {
+            ai_extraction: extraction,
+            original_filename: file.name,
+            upload_timestamp: new Date().toISOString(),
+            storage_url: uploadResult.publicUrl,
+            real_file_uploaded: true
+          },
+          origen: 'usuario'
+        };
+
+        const { data: newDoc, error: docError } = await supabaseServiceClient
+          .from('documentos')
+          .insert(documentoData)
+          .select()
+          .single();
+
+        if (docError) {
+          console.error('Error creating documento:', docError);
+          // If document creation fails, clean up uploaded file
+          if (uploadResult.filePath) {
+            await fileStorageService.deleteFile(uploadResult.filePath);
+          }
+          throw new Error(`Document creation failed: ${docError.message}`);
+        }
+        
+        documento = newDoc;
       }
 
       // Then, create entry in manual_upload_queue
