@@ -53,7 +53,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
-        console.error('❌ [AuthContext] Auth error:', authError);
+        if (authError.message === 'Auth session missing!') {
+          console.log('ℹ️ [AuthContext] No active session (expected for public pages)');
+        } else {
+          console.error('❌ [AuthContext] Auth error:', authError);
+        }
         setUser(null);
         return;
       }
