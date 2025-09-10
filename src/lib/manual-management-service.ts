@@ -1087,10 +1087,7 @@ export class ManualManagementService {
           client_name: client.name || 'Cliente',
           company_name: \`Empresa ${client.name}`,
           project_name: \`Proyecto ${client.name}`,
-          created_at: item.created_at
-        };
         });
-        console.error('Error getting queue stats:', error);
         return {
           total: 0,
           pending: 0,
