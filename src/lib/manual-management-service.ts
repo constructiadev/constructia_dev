@@ -989,10 +989,12 @@ export class ManualManagementService {
         in_progress: documents.filter(d => d.status === 'in_progress').length,
         uploaded: documents.filter(d => d.status === 'uploaded').length,
         errors: documents.filter(d => d.status === 'error').length,
-        urgent: Math.floor(documents.length * 0.1),
-        high: Math.floor(documents.length * 0.2),
-        normal: Math.floor(documents.length * 0.5),
-        low: Math.floor(documents.length * 0.2),
+        urgent: documents.filter(d => d.priority === 'urgent').length,
+        high: documents.filter(d => d.priority === 'high').length,
+        normal: documents.filter(d => d.priority === 'normal').length,
+        low: documents.filter(d => d.priority === 'low').length,
+        corrupted: documents.filter(d => d.corruption_detected).length,
+        validated: documents.filter(d => d.status === 'uploaded').length // Assuming 'uploaded' means validated for this KPI
         corrupted: Math.floor(documents.length * 0.05),
         validated: Math.floor(documents.length * 0.3)
       };
