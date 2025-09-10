@@ -351,19 +351,19 @@ export const getSEPAMandates = async (clientId: string) => {
 // Helper para crear mandato SEPA
 export const createSEPAMandate = async (mandateData: Partial<SEPAMandate>) => {
   try {
+    console.log('🔍 [SEPA] Creating SEPA mandate for client_id:', mandateData.client_id);
+    
     const { data, error } = await supabaseClient
       .from('sepa_mandates')
       .insert({
         ...mandateData,
         mandate_id: `SEPA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    console.log('🔍 [SEPA] Creating SEPA mandate for client_id:', mandateData.client_id);
         created_at: new Date().toISOString()
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating SEPA mandate:', error);
       console.error('❌ [SEPA] Error creating SEPA mandate:', error);
       throw new Error(`Error creating SEPA mandate: ${error.message}`);
     }
