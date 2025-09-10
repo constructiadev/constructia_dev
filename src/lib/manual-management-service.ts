@@ -118,7 +118,7 @@ export class ManualManagementService {
       const tenantCredentials = await this.getPlatformCredentials();
 
       // Optimized query: Get queue data with minimal joins
-      const { data: queueData, error: queueError } = await supabaseServiceClient
+      const { data: empresas, error: empresasError } = await supabaseServiceClient
         .from('empresas')
         .select(`
           id,
@@ -326,7 +326,8 @@ export class ManualManagementService {
   }
 
   private transformCredentials(data: any[]): PlatformCredential[] {
-    return data.map(cred => ({
+    try {
+      return data.map(cred => ({
         id: cred.id,
         platform_type: cred.plataforma as any,
         username: cred.credenciales?.username || '',
@@ -344,24 +345,12 @@ export class ManualManagementService {
   private transformSingleCredential(cred: any): PlatformCredential {
     return {
       id: cred.id,
-      tenant_id: cred.tenant_id,
-      client_id: cred.client_id || 'unknown',
       platform_type: cred.plataforma,
       username: cred.credenciales?.username || '',
       password: cred.credenciales?.password || '',
       is_active: cred.estado === 'ready',
       validation_status: cred.estado === 'ready' ? 'valid' : 'invalid',
       last_validated: cred.updated_at
-    };
-  }
-  private transformSingleCredential(cred: any): PlatformCredential {
-      uploaded: 1,
-      errors: 1,
-      high: 1,
-      normal: 2,
-      is_active: cred.estado === 'ready',
-      validation_status: cred.estado === 'ready' ? 'valid' : 'pending',
-      validated: 1
     };
   }
 
@@ -380,10 +369,31 @@ export class ManualManagementService {
       is_active: true,
       validation_status: 'valid',
       last_validated: new Date().toISOString()
+    };
+  }
+
   async getQueueDocumentsForProject(projectId: string): Promise<ManualDocument[]> {
     try {
+      const { data, error } = await supabaseServiceClient
+        .from('manual_upload_queue')
         .select(`
-          documento_id
+          *,
+          documentos!inner(
+            id,
+            categoria,
+            file,
+            mime,
+            size_bytes,
+            metadatos
+          )
+        `)
+        .eq('tenant_id', this.tenantId)
+        .eq('obra_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching queue documents:', error);
+        return [];
       }
 
       // Transform to ManualDocument format
@@ -458,7 +468,7 @@ export class ManualManagementService {
           throw new Error('Error de conexión. Verifique su conexión a internet e inténtelo de nuevo.');
         }
         
-        throw new Error(\`Error al subir archivo: ${uploadResult.error}`);
+        throw new Error(`Error al subir archivo: ${uploadResult.error}`);
       }
 
       console.log('✅ File uploaded successfully to:', uploadResult.filePath);
@@ -583,7 +593,7 @@ export class ManualManagementService {
           if (uploadResult.filePath) {
             await fileStorageService.deleteFile(uploadResult.filePath);
           }
-          throw new Error(\`Document creation failed: ${docError.message}`);
+          throw new Error(`Document creation failed: ${docError.message}`);
         }
         
         documento = newDoc;
@@ -598,7 +608,7 @@ export class ManualManagementService {
           obra_id: projectId,
           documento_id: documento.id,
           status: 'queued',
-          nota: \`Añadido por administrador - ${file.name} (archivo real subido)`
+          nota: `Añadido por administrador - ${file.name} (archivo real subido)`
         })
         .select()
         .single();
@@ -619,7 +629,7 @@ export class ManualManagementService {
         queueEntry.id,
         'document_added',
         'success',
-        \`Document ${file.name} added to queue with real file upload`,
+        `Document ${file.name} added to queue with real file upload`,
         { 
           file_size: file.size, 
           categoria: extraction.categoria_probable,
@@ -635,7 +645,7 @@ export class ManualManagementService {
         tenant_id: this.tenantId,
         client_id: clientId,
         document_id: documento.id,
-        filename: \`${hash}.${file.name.split('.').pop()}`,
+        filename: `${hash}.${file.name.split('.').pop()}`,
         original_name: file.name,
         file_size: file.size,
         file_type: file.type,
@@ -647,7 +657,7 @@ export class ManualManagementService {
         priority,
         queue_position: 1,
         retry_count: 0,
-        admin_notes: \`Añadido por administrador - ${new Date().toLocaleString()} (archivo real)`,
+        admin_notes: `Añadido por administrador - ${new Date().toLocaleString()} (archivo real)`,
         platform_target: platformTarget,
         company_id: clientId,
         project_id: projectId,
@@ -668,11 +678,11 @@ export class ManualManagementService {
     nota?: string,
     errorMessage?: string
   ): Promise<boolean> {
+    try {
       // Clear cache when updating status
       dataCache.delete('client-groups');
       dataCache.delete('queue-stats');
       
-    try {
       // Map application status to database enum values
       const statusMapping: Record<string, string> = {
         'pending': 'queued',
@@ -701,7 +711,7 @@ export class ManualManagementService {
 
       // Add platform info if uploading
       if (newStatus === 'uploaded' && targetPlatform) {
-        updateData.nota = \`${nota || ''} - Subido a ${targetPlatform}`.trim();
+        updateData.nota = `${nota || ''} - Subido a ${targetPlatform}`.trim();
       }
 
       const { error } = await supabaseServiceClient
@@ -721,7 +731,7 @@ export class ManualManagementService {
         documentId,
         'status_changed',
         'success',
-        \`Status changed to ${newStatus}`,
+        `Status changed to ${newStatus}`,
         { 
           new_status: newStatus, 
           nota: nota,
@@ -826,7 +836,7 @@ export class ManualManagementService {
           tenant_id: this.tenantId,
           tipo: 'alerta',
           titulo: 'Archivo Corrupto Detectado',
-          contenido: \`El archivo "${fileName}\" presenta problemas de integridad: ${corruptionDetails}. Por favor, suba una nueva versión del documento.`,
+          contenido: `El archivo "${fileName}" presenta problemas de integridad: ${corruptionDetails}. Por favor, suba una nueva versión del documento.`,
           prioridad: 'alta',
           destinatarios: [clientEmail],
           estado: 'programado'
@@ -843,7 +853,7 @@ export class ManualManagementService {
         documentId,
         'client_notified_corruption',
         'success',
-        \`Client notified about corrupted file: ${fileName}`,
+        `Client notified about corrupted file: ${fileName}`,
         { 
           client_email: clientEmail,
           corruption_details: corruptionDetails,
@@ -929,7 +939,7 @@ export class ManualManagementService {
         .from('manual_upload_queue')
         .update({
           status: 'queued',
-          nota: \`Archivo re-subido por corrupción detectada - ${new Date().toLocaleString()}`,
+          nota: `Archivo re-subido por corrupción detectada - ${new Date().toLocaleString()}`,
           updated_at: new Date().toISOString()
         })
         .eq('id', documentId);
@@ -945,13 +955,11 @@ export class ManualManagementService {
   // Start upload session
   async startUploadSession(adminUserId: string): Promise<string | null> {
     try {
-      // Get current user ID for the session
-      const { data: { user } } = await this.supabase.auth.getUser();
+      const { data, error } = await supabaseServiceClient
+        .from('manual_upload_sessions')
         .insert({
           admin_user_id: adminUserId,
-          session_status: 'active',
-          admin_user_id: adminUserId,
-          admin_user_id: adminUserId
+          session_status: 'active'
         })
         .select()
         .single();
@@ -1046,7 +1054,7 @@ export class ManualManagementService {
         .upsert({
           tenant_id: tenantToSave,
           plataforma: platformType,
-          alias: \`${platformType}-default`,
+          alias: `${platformType}-default`,
           credenciales: {
             username,
             password: this.encryptPassword(password)
@@ -1056,54 +1064,42 @@ export class ManualManagementService {
           onConflict: 'tenant_id,plataforma,alias'
         });
 
-      // Get basic document data for queue items
-      const documentIds = (queueData || []).map(q => q.documento_id).filter(Boolean);
-      let documentsData: any[] = [];
-      
-      if (documentIds.length > 0) {
-        const { data: docs } = await supabaseServiceClient
-          .from('documentos')
-          .select('id, categoria, file, size_bytes, metadatos')
-          .in('id', documentIds)
-          .limit(100);
-        documentsData = docs || [];
+      if (error) {
+        console.error('Error saving platform credentials:', error);
+        return false;
       }
 
-      // Transform to client groups format with real data
-      const clientGroups: ClientGroup[] = (clients || []).map((client, index) => {
-        // Distribute queue items among clients
-        const startIndex = index * Math.floor((queueData?.length || 0) / (clients?.length || 1));
-        const endIndex = startIndex + Math.floor((queueData?.length || 0) / (clients?.length || 1));
-        const clientQueueItems = (queueData || []).slice(startIndex, endIndex);
+      // Log the action
+      await this.logUploadAction(
+        null,
+        null,
+        'credentials_saved',
+        'success',
+        `Platform credentials saved for ${platformType}`,
+        { 
+          platform: platformType,
+          tenant_id: tenantToSave,
+          user_id: userId || null
+        }
+      );
 
-        const transformedDocs: ManualDocument[] = clientQueueItems.map((item, docIndex) => {
-          const docData = documentsData.find(d => d.id === item.documento_id) || {};
-          
-          return {
-          id: item.documento_id || \`doc-${Date.now()}-${docIndex}`,
-        tenantToSave,
-        userId || null,
-          company_id: \`company-${client.id}`,
-          project_id: \`project-${client.id}`,
-          filename: docData.file?.split('/').pop() || 'documento.pdf',
-          original_name: docData.metadatos?.original_filename || \`Documento ${docIndex + 1}`,
-          file_size: docData.size_bytes || 1024000,
-          file_type: 'application/pdf',
-          classification: docData.categoria || 'OTROS',
+      return true;
     } catch (error) {
       console.error('Error saving platform credentials:', error);
       return false;
     }
   }
-          queue_position: startIndex + docIndex + 1,
+
   // Get queue statistics
   async getQueueStats() {
     try {
-      const { data: stats, error } = await supabaseClient
-          client_name: client.name || 'Cliente',
-          company_name: \`Empresa ${client.name}`,
-          project_name: \`Proyecto ${client.name}`,
-        });
+      const { data: stats, error } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select('status')
+        .eq('tenant_id', this.tenantId);
+
+      if (error) {
+        console.error('Error getting queue stats:', error);
         return {
           total: 0,
           pending: 0,
@@ -1148,10 +1144,10 @@ export class ManualManagementService {
     adminUserId: string
   ): Promise<{ success: number; errors: number; details: any[] }> {
     const results = { success: 0, errors: 0, details: [] };
-      // Clear cache when processing batch
-      dataCache.delete('client-groups');
-      dataCache.delete('queue-stats');
-      
+    
+    // Clear cache when processing batch
+    dataCache.delete('client-groups');
+    dataCache.delete('queue-stats');
 
     for (const documentId of documentIds) {
       try {
@@ -1290,9 +1286,9 @@ export class ManualManagementService {
           const obra = empresaObras[Math.floor(Math.random() * empresaObras.length)] || obras[0];
           const docType = documentTypes[Math.floor(Math.random() * documentTypes.length)];
           const fileExtension = Math.random() > 0.8 ? 'jpg' : 'pdf';
-          const hash = \`hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
-          const fileName = \`${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${i}.${fileExtension}`;
-          const filePath = \`${this.tenantId}/obra/${obra.id}/OTROS/v1/${hash}.${fileExtension}`;
+          const hash = `hash_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+          const fileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${i}.${fileExtension}`;
+          const filePath = `${this.tenantId}/obra/${obra.id}/OTROS/v1/${hash}.${fileExtension}`;
           
           documentosData.push({
             tenant_id: this.tenantId,
@@ -1345,7 +1341,7 @@ export class ManualManagementService {
           obra_id: obra.id,
           documento_id: documento.id,
           status: statuses[Math.floor(Math.random() * statuses.length)],
-          nota: \`${documento.metadatos?.original_filename || 'Documento'} - Añadido automáticamente`
+          nota: `${documento.metadatos?.original_filename || 'Documento'} - Añadido automáticamente`
         });
       }
 
@@ -1367,10 +1363,10 @@ export class ManualManagementService {
           credentialsData.push({
             tenant_id: this.tenantId,
             plataforma: platform,
-            alias: \`${platform}-${empresa.razon_social.substring(0, 10)}`,
+            alias: `${platform}-${empresa.razon_social.substring(0, 10)}`,
             credenciales: {
-              username: \`${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@${platform}.com`,
-              password: \`${empresa.id.substring(0, 8)}${platform}2025!`,
+              username: `${empresa.razon_social.toLowerCase().replace(/\s+/g, '.')}@${platform}.com`,
+              password: `${empresa.id.substring(0, 8)}${platform}2025!`,
               configured: true,
               empresa_id: empresa.id
             },
@@ -1387,7 +1383,7 @@ export class ManualManagementService {
         console.warn('Error creating credentials:', credentialsError.message);
       }
 
-      console.log(\`✅ Created ${documentosData.length} documentos and ${queueData.length} queue entries`);
+      console.log(`✅ Created ${documentosData.length} documentos and ${queueData.length} queue entries`);
       console.log('✅ Test data populated successfully');
     } catch (error) {
       console.error('Error populating test data:', error);
@@ -1423,12 +1419,12 @@ export class ManualManagementService {
                 project_name: 'Edificio Residencial Centro',
                 total_documents: 15,
                 documents: Array.from({ length: 15 }, (_, i) => ({
-                  id: \`doc-${i + 1}`,
+                  id: `doc-${i + 1}`,
                   tenant_id: this.tenantId,
                   client_id: 'client-001',
-                  document_id: \`documento-${i + 1}`,
-                  filename: \`documento_${i + 1}.pdf`,
-                  original_name: \`Certificado ${i + 1}.pdf`,
+                  document_id: `documento-${i + 1}`,
+                  filename: `documento_${i + 1}.pdf`,
+                  original_name: `Certificado ${i + 1}.pdf`,
                   file_size: Math.floor(Math.random() * 5000000) + 500000,
                   file_type: 'application/pdf',
                   classification: ['PRL', 'APTITUD_MEDICA', 'DNI', 'CONTRATO'][i % 4],
@@ -1479,12 +1475,12 @@ export class ManualManagementService {
                 project_name: 'Reforma Oficinas Norte',
                 total_documents: 8,
                 documents: Array.from({ length: 8 }, (_, i) => ({
-                  id: \`doc-lopez-${i + 1}`,
+                  id: `doc-lopez-${i + 1}`,
                   tenant_id: this.tenantId,
                   client_id: 'client-002',
-                  document_id: \`documento-lopez-${i + 1}`,
-                  filename: \`reforma_${i + 1}.pdf`,
-                  original_name: \`Plano Reforma ${i + 1}.pdf`,
+                  document_id: `documento-lopez-${i + 1}`,
+                  filename: `reforma_${i + 1}.pdf`,
+                  original_name: `Plano Reforma ${i + 1}.pdf`,
                   file_size: Math.floor(Math.random() * 3000000) + 800000,
                   file_type: 'application/pdf',
                   classification: ['PLAN_SEGURIDAD', 'EVAL_RIESGOS', 'CERT_MAQUINARIA', 'OTROS'][i % 4],
@@ -1532,7 +1528,7 @@ export class ManualManagementService {
 
   private async logUploadAction(
     sessionId: string | null,
-    documentId: string,
+    documentId: string | null,
     action: string,
     status: 'success' | 'error' | 'warning' | 'info',
     message: string,
