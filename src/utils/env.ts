@@ -7,7 +7,7 @@
  */
 export function getEnvVar(key: string): string | undefined {
   // In browser context (Vite), use import.meta.env
-  if (typeof window !== 'undefined' && import.meta?.env) {
+  if (typeof window !== 'undefined' && typeof import !== 'undefined' && import.meta?.env) {
     return import.meta.env[key];
   }
   
@@ -16,6 +16,7 @@ export function getEnvVar(key: string): string | undefined {
     return process.env[key];
   }
   
+  console.warn(`⚠️ Environment variable ${key} not found in any context`);
   return undefined;
 }
 

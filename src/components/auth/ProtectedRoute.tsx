@@ -20,13 +20,14 @@ export default function ProtectedRoute({
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Verificando acceso del tenant...</p>
+          <p className="text-gray-600">Verificando acceso...</p>
         </div>
       </div>
     );
   }
 
   if (!user) {
+    console.log('🔐 [ProtectedRoute] No user found, redirecting to login');
     // Redirect to appropriate login based on required role
     const loginPath = requireRole === 'admin' ? '/admin-login' : '/client-login';
     return <Navigate to={loginPath} replace />;

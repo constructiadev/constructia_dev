@@ -35,7 +35,13 @@ export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    debug: false
+  },
+  global: {
+    headers: {
+      'x-client-info': 'constructia-client'
+    }
   }
 });
 

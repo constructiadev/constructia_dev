@@ -27,10 +27,17 @@ export class FileStorageService {
   // Verify bucket exists and is accessible
   private async ensureBucketExists(): Promise<boolean> {
     try {
+      // Check if we can access storage first
+      if (!supabaseServiceClient) {
+        console.error('❌ [FileStorage] Supabase service client not available');
+        return false;
+      }
+      
       const { data: buckets, error: bucketsError } = await supabaseServiceClient.storage.listBuckets();
       
       if (bucketsError) {
-        console.error('❌ [FileStorage] Error listing buckets:', bucketsError);
+        console.warn('⚠️ [FileStorage] Cannot access storage buckets:', bucketsError.message);
+        // Return true to allow file operations to continue with fallback behavior
         return false;
       }
       

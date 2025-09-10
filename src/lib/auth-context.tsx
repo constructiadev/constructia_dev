@@ -49,8 +49,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
-      // Get current authenticated user from Supabase
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      // Get current authenticated user from Supabase with error handling
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('❌ [AuthContext] Auth error:', authError);
+        setUser(null);
+        return;
+      }
       
       if (!authUser) {
         console.log('⚠️ [AuthContext] No authenticated user found');

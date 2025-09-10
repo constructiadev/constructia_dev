@@ -157,7 +157,12 @@ export class ClientAuthService {
   // Get current authenticated client context
   static async getCurrentClient(): Promise<AuthenticatedClient | null> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('❌ [ClientAuth] Auth error:', authError);
+        return null;
+      }
       
       if (!user) {
         console.log('⚠️ [ClientAuth] No authenticated user found');
