@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -26,7 +27,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     persistSession: false
   },
   global: {
-    fetch: fetch
+    fetch: fetch as any
   }
 });
 
