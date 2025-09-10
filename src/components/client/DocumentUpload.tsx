@@ -593,7 +593,8 @@ export default function DocumentUpload() {
           selectedObra,    // projectId
           selectedFile.file,
           'normal',        // priority
-          'nalanda'        // platformTarget
+          'nalanda',       // platformTarget
+          user?.id         // userId
         );
 
         if (!document) {
