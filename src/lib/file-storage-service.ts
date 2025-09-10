@@ -147,6 +147,22 @@ export class FileStorageService {
 
       if (error) {
         console.error('❌ Error uploading file:', error);
+        
+        // Provide more specific error messages
+        if (error.message.includes('Failed to fetch')) {
+          return {
+            success: false,
+            error: 'Network error: Unable to connect to Supabase Storage. Please check your internet connection and Supabase configuration.'
+          };
+        }
+        
+        if (error.message.includes('Invalid API key')) {
+          return {
+            success: false,
+            error: 'Invalid Supabase Service Role Key. Please check your .env configuration.'
+          };
+        }
+        
         return {
           success: false,
           error: `Error uploading file: ${error.message}`

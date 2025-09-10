@@ -416,7 +416,17 @@ export class ManualManagementService {
 
       if (!uploadResult.success) {
         console.error('❌ File upload failed:', uploadResult.error);
-        throw new Error(`File upload failed: ${uploadResult.error}`);
+        
+        // Provide user-friendly error messages
+        if (uploadResult.error?.includes('Service role key not configured')) {
+          throw new Error('Configuración de Supabase incompleta. Contacte al administrador del sistema.');
+        }
+        
+        if (uploadResult.error?.includes('Network error')) {
+          throw new Error('Error de conexión. Verifique su conexión a internet e inténtelo de nuevo.');
+        }
+        
+        throw new Error(`Error al subir archivo: ${uploadResult.error}`);
       }
 
       console.log('✅ File uploaded successfully to:', uploadResult.filePath);

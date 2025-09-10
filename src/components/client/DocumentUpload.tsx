@@ -597,7 +597,7 @@ export default function DocumentUpload() {
         );
 
         if (!document) {
-          throw new Error('Error al subir archivo a la cola de procesamiento');
+          throw new Error('Error al subir archivo a la cola de procesamiento. Verifique la configuración de Supabase.');
         }
         setUploadResults(prev => ({
           ...prev,
