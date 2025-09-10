@@ -626,6 +626,17 @@ export default function ManualManagement() {
     };
   }, []);
 
+  useEffect(() => {
+    // Auto-refresh every 30 seconds to show real-time updates
+    const interval = setInterval(() => {
+      if (!loading) {
+        loadClientGroups();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -913,6 +924,9 @@ export default function ManualManagement() {
           <div>
             <h1 className="text-2xl font-bold mb-2">Gestión Manual de Documentos</h1>
             <p className="text-orange-100 mb-4">
+            <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
+              🔄 COLA EN TIEMPO REAL - Actualización automática cada 30s
+            </div>
               Administración directa de la cola de procesamiento con archivos reales
             </p>
             <div className="space-y-1 text-sm text-orange-100">
@@ -1021,16 +1035,18 @@ export default function ManualManagement() {
           </div>
         </div>
       </div>
-
+              Sistema de cola FIFO (First In, First Out) conectado con las subidas de clientes. Los documentos que suben los clientes aparecen automáticamente aquí.
       {/* Client Groups */}
       <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+              <div><strong>Flujo de documentos:</strong></div>
+              <div>• 📤 Cliente sube documento en "Subir Documentos" (Cliente → Empresa → Proyecto → Documento)</div>
+              <div>• ⏳ Documento aparece automáticamente en esta cola FIFO</div>
             <h3 className="text-lg font-semibold text-gray-900">
               Clientes con Documentos ({filteredClients.length})
-            </h3>
+              <div>• 📊 Cliente ve cambios de estado en tiempo real en su módulo "Documentos"</div>
             <div className="text-sm text-gray-600">
-              Procesamiento FIFO por cliente
+              <div>• 📋 Notas del administrador visibles para el cliente</div>
+              <div>• 🔄 Actualización automática cada 30 segundos</div>
             </div>
           </div>
         </div>
@@ -1133,7 +1149,12 @@ export default function ManualManagement() {
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center">
                                     <Folder className="w-4 h-4 text-purple-600 mr-2" />
-                                    <span className="font-medium text-gray-800">{project.project_name}</span>
+                                className={`flex items-center justify-between p-3 bg-white rounded-lg border transition-all ${
+                                  document.status === 'uploaded' ? 'border-green-300 bg-green-50' :
+                                  document.status === 'uploading' ? 'border-blue-300 bg-blue-50' :
+                                  document.status === 'error' ? 'border-red-300 bg-red-50' :
+                                  'border-gray-200 hover:shadow-sm'
+                                }`}
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <span className="text-sm text-gray-600">{project.total_documents} docs</span>
@@ -1143,8 +1164,12 @@ export default function ManualManagement() {
                                     >
                                       <Plus className="w-3 h-3 mr-1" />
                                       Subir
+                                      {document.platform_target && (
+                                        <span className="ml-2 text-blue-600">→ {document.platform_target}</span>
+                                      )}
                                     </button>
                                   </div>
+                                    {/* Botón para cambiar estado */}
                                 </div>
 
                                 {/* Documents */}
@@ -1258,10 +1283,27 @@ export default function ManualManagement() {
                                                   <Mail className="w-3 h-3" />
                                                 </button>
                                               )}
-                                            </div>
+                                      title={
+                                        document.status === 'pending' ? 'Marcar como procesando' :
+                                        document.status === 'uploading' ? 'Marcar como subido' :
+                                        document.status === 'uploaded' ? 'Marcar como validado' :
+                                        'Cambiar estado'
+                                      }
                                           </div>
-                                        );
+                                      {document.status === 'pending' ? <Play className="w-4 h-4" /> :
+                                       document.status === 'uploading' ? <CheckCircle className="w-4 h-4" /> :
+                                       document.status === 'uploaded' ? <Award className="w-4 h-4" /> :
+                                       <Settings className="w-4 h-4" />}
                                       })}
+                                  </div>
+                                )}
+                                
+                                {/* Notas del administrador */}
+                                {document.admin_notes && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200">
+                                    <div className="text-xs text-gray-600">
+                                      <strong>Notas:</strong> {document.admin_notes}
+                                    </div>
                                   </div>
                                 )}
                               </div>

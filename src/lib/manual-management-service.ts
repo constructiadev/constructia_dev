@@ -160,6 +160,7 @@ export class ManualManagementService {
         });
       }
 
+      console.log(`✅ [ManualManagement] Loaded ${clientGroups.length} client groups with ${clientGroups.reduce((sum, c) => sum + c.total_documents, 0)} total documents`);
       return clientGroups;
     } catch (error) {
       console.error('Error getting client groups:', error);
