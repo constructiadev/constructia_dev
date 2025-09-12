@@ -594,6 +594,7 @@ export default function DocumentUpload() {
           selectedEmpresa, // clientId
           selectedObra,    // projectId
           selectedFile.file,
+          selectedCategory, // category
           'normal',        // priority
           'nalanda',       // platformTarget
           user?.id || DEV_ADMIN_USER_ID // userId

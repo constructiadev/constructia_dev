@@ -413,6 +413,7 @@ export class ManualManagementService {
     clientId: string,
     projectId: string,
     file: File,
+    category: string,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
     platformTarget: string = 'nalanda',
     userId?: string
@@ -420,14 +421,33 @@ export class ManualManagementService {
     try {
       console.log('📁 Adding document to manual queue...');
 
+      // First, determine the next version number for this document category and entity
+      const { data: existingDocs, error: versionError } = await supabaseServiceClient
+        .from('documentos')
+        .select('version')
+        .eq('tenant_id', DEV_TENANT_ID)
+        .eq('entidad_tipo', 'obra')
+        .eq('entidad_id', projectId)
+        .eq('categoria', category)
+        .order('version', { ascending: false })
+        .limit(1);
+
+      if (versionError) {
+        console.error('❌ Error checking existing document versions:', versionError);
+        throw new Error(`Error checking existing versions: ${versionError.message}`);
+      }
+
+      const nextVersion = existingDocs && existingDocs.length > 0 ? existingDocs[0].version + 1 : 1;
+      console.log(`📄 Next version for category ${category}: ${nextVersion}`);
+
       // First, upload the file to storage
       const uploadResult = await fileStorageService.uploadFile(
         file,
         DEV_TENANT_ID,
         'obra',
         projectId,
-        'OTROS',
-        1
+        category,
+        nextVersion
       );
 
       if (!uploadResult.success) {
@@ -442,11 +462,11 @@ export class ManualManagementService {
           tenant_id: DEV_TENANT_ID,
           entidad_tipo: 'obra',
           entidad_id: projectId,
-          categoria: 'OTROS',
+          categoria: category,
           file: uploadResult.filePath || '',
           mime: file.type,
           size_bytes: file.size,
-          version: 1,
+          version: nextVersion,
           estado: 'pendiente',
           metadatos: {
             original_filename: file.name,
