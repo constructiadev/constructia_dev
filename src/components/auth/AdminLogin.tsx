@@ -41,7 +41,7 @@ export default function AdminLogin() {
         await supabase.auth.signOut();
         throw new Error(`Database error: ${profileError.message}`);
       } else if (!userProfile) {
-        // Profile doesn't exist, create it for SuperAdmin
+        // Profile doesn't exist, create it as SuperAdmin
         const { error: createError } = await supabaseServiceClient
           .from('users')
           .upsert({
@@ -60,12 +60,25 @@ export default function AdminLogin() {
           throw new Error(`Failed to create admin profile: ${createError.message}`);
         }
 
-        // Profile created successfully, continue with SuperAdmin role
-      }
+        console.log('✅ [AdminLogin] Created new SuperAdmin profile for:', authData.user.email);
+      } else if (userProfile.role !== 'SuperAdmin') {
+        // User exists but doesn't have SuperAdmin role - upgrade them for admin login
+        console.log('🔄 [AdminLogin] Upgrading user role to SuperAdmin for admin access');
+        
+        const { error: upgradeError } = await supabaseServiceClient
+          .from('users')
+          .update({
+            role: 'SuperAdmin',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', authData.user.id);
 
-      if (userProfile && userProfile.role !== 'SuperAdmin') {
-        await supabase.auth.signOut(); // Sign out if not admin
-        throw new Error(`Access denied: Only SuperAdmin can access admin panel. Your role: ${userProfile.role}`);
+        if (upgradeError) {
+          await supabase.auth.signOut();
+          throw new Error(`Failed to upgrade user to SuperAdmin: ${upgradeError.message}`);
+        }
+
+        console.log('✅ [AdminLogin] Successfully upgraded user to SuperAdmin role');
       }
 
       // Ensure DEV_ADMIN_USER_ID exists in users table for audit logging
