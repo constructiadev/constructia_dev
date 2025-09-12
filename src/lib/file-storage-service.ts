@@ -149,7 +149,7 @@ export class FileStorageService {
         .from(this.bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (error) {
