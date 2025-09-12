@@ -486,6 +486,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
 }
 
 export default function DocumentUpload() {
+  const { user } = useAuth();
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
   const [selectedObra, setSelectedObra] = useState<string | null>(null);
