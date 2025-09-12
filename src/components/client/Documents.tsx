@@ -129,7 +129,7 @@ const Documents: React.FC = () => {
     }
   };
 
-  const filteredDocuments = documents.filter(doc => {
+  const filteredDocuments = transformedDocuments.filter(doc => {
     const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;

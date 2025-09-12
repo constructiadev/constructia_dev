@@ -412,8 +412,31 @@ export class ClientAuthService {
 
       if (!userProfile) {
         console.warn('⚠️ [ClientAuth] User profile not found for user:', user.id);
-        console.warn('⚠️ [ClientAuth] This user needs to be created in the users table first');
-        return null;
+        console.warn('⚠️ [ClientAuth] Creating default user profile...');
+        
+        // Create default user profile automatically
+        const defaultName = user.email?.split('@')[0] || 'Usuario';
+        
+        const { data: newProfile, error: createError } = await supabaseServiceClient
+          .from('users')
+          .insert({
+            id: user.id,
+            tenant_id: DEV_TENANT_ID,
+            email: user.email!,
+            name: defaultName,
+            role: 'Cliente',
+            active: true
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('❌ [ClientAuth] Failed to create default profile:', createError.message);
+          return null;
+        }
+
+        userProfile = newProfile;
+        console.log('✅ [ClientAuth] Default profile created successfully');
       }
 
       // Verify client role
