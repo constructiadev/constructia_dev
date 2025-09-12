@@ -44,7 +44,7 @@ export default function PlatformCredentialsModal({
       type: 'ctaima', 
       name: 'CTAIMA', 
       color: 'bg-green-600',
-      url: 'https://www.ctaima.com/login',
+      url: 'https://login.ctaima.com/Account/Login?ReturnUrl=%2Fconnect%2Fauthorize%2Fcallback%3Fclient_id%3Dmy_account_local%26redirect_uri%3Dhttps%253A%252F%252Fmyaccount.ctaima.com%26response_type%3Did_token%2520token%26scope%3Dopenid%2520profile%2520email%2520Abacus.read_product%26nonce%3DN0.405965576346192241756710652344%26state%3D17567106520800.5509632605791698',
       description: 'Sistema de coordinación de actividades'
     },
     { 
