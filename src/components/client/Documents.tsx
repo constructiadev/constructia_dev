@@ -1,28 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, Eye, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw } from 'lucide-react';
-import { useClientData } from '../../hooks/useClientData';
+import { fileStorageService } from '../../lib/file-storage-service';
 import { useAuth } from '../../lib/auth-context';
 import { supabaseServiceClient } from '../../lib/supabase-real';
+import { getTenantDocumentos } from '../../lib/supabase-new';
 
 const Documents: React.FC = () => {
-  const { documentos, loading, error, refreshData } = useClientData();
   const { user } = useAuth();
+  const [documentos, setDocumentos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [queueDocuments, setQueueDocuments] = useState<any[]>([]);
   const [loadingQueue, setLoadingQueue] = useState(false);
 
   useEffect(() => {
-    if (user?.tenant_id) {
-      loadQueueDocuments();
-    }
+    loadClientDocuments();
   }, [user?.tenant_id]);
 
+  const loadClientDocuments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!user?.tenant_id) {
+        console.log('⚠️ [ClientDocuments] No tenant_id available');
+        setDocumentos([]);
+        setQueueDocuments([]);
+        return;
+      }
+
+      console.log('🔍 [ClientDocuments] Loading documents for tenant:', user.tenant_id);
+      
+      // SECURITY: Load ONLY documents for current user's tenant
+      const tenantDocumentos = await getTenantDocumentos(user.tenant_id);
+      setDocumentos(tenantDocumentos);
+      
+      // Load queue documents for this tenant only
+      await loadQueueDocuments();
+      
+      console.log('✅ [ClientDocuments] Loaded', tenantDocumentos.length, 'documents for tenant');
+    } catch (err) {
+      console.error('❌ [ClientDocuments] Error loading documents:', err);
+      setError(err instanceof Error ? err.message : 'Error loading documents');
+    } finally {
+      setLoading(false);
+    }
+  };
   const loadQueueDocuments = async () => {
     try {
       setLoadingQueue(true);
       
-      // Cargar documentos de la cola manual que pertenecen a este tenant
+      if (!user?.tenant_id) {
+        setQueueDocuments([]);
+        return;
+      }
+      
+      // SECURITY: Load ONLY queue documents for current user's tenant
       const { data, error } = await supabaseServiceClient
         .from('manual_upload_queue')
         .select(`
@@ -101,6 +136,44 @@ const Documents: React.FC = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleDownloadDocument = async (documentPath: string, originalFileName: string) => {
+    try {
+      const downloadUrl = await fileStorageService.getDownloadUrl(documentPath);
+      
+      if (downloadUrl) {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = originalFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert('No se pudo generar el enlace de descarga.');
+      }
+    } catch (err) {
+      console.error('Error downloading document:', err);
+      alert('Error al descargar el documento.');
+    }
+  };
+
+  const handleViewDocument = async (documentPath: string) => {
+    try {
+      const viewUrl = await fileStorageService.getDownloadUrl(documentPath);
+      if (viewUrl) {
+        window.open(viewUrl, '_blank');
+      } else {
+        alert('No se pudo abrir el documento.');
+      }
+    } catch (err) {
+      console.error('Error viewing document:', err);
+      alert('Error al ver el documento.');
+    }
+  };
+
+  const refreshData = async () => {
+    await loadClientDocuments();
   };
 
   const getStatusIcon = (status: string) => {
@@ -354,11 +427,19 @@ const Documents: React.FC = () => {
                       {new Date(doc.created_at).toLocaleDateString('es-ES')}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => handleViewDocument(doc.file || doc.filename)}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Ver documento"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
+                        <button 
+                          onClick={() => handleDownloadDocument(doc.file || doc.filename, doc.original_name)}
+                          className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                          title="Descargar documento"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
                       </div>
