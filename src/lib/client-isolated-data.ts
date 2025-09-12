@@ -27,7 +27,7 @@ export class ClientIsolatedDataService {
       // Get authenticated client
       const client = await ClientAuthService.getCurrentClient();
       if (!client) {
-        console.error('❌ [ClientData] No authenticated client found');
+        console.info('ℹ️ [ClientData] No authenticated client found - user not logged in');
         return null;
       }
 

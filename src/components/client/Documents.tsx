@@ -129,13 +129,6 @@ const Documents: React.FC = () => {
     }
   };
 
-  const filteredDocuments = transformedDocuments.filter(doc => {
-    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
   // Transform documentos to match expected format for filtering
   const transformedDocuments = documentos.map(documento => ({
     id: documento.id,
@@ -168,6 +161,13 @@ const Documents: React.FC = () => {
     queue_priority: null,
     queue_notes: ''
   }));
+
+  const filteredDocuments = transformedDocuments.filter(doc => {
+    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const filteredTransformedDocuments = transformedDocuments.filter(doc => {
     const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
