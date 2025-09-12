@@ -51,7 +51,7 @@ export default function PlatformCredentialsModal({
       type: 'ecoordina', 
       name: 'Ecoordina', 
       color: 'bg-purple-600',
-      url: 'https://www.ecoordina.com/login',
+      url: 'https://login.welcometotwind.io/junoprod.onmicrosoft.com/b2c_1a_signup_signin/oauth2/v2.0/authorize?client_id=b2a08c2d-92b8-48c6-8fef-b7358a110496&scope=openid%20profile%20offline_access&redirect_uri=https%3A%2F%2Fwelcometotwind.io%2F&client-request-id=76a43f68-c14b-40f3-b69c-0fb721c597f8&response_mode=fragment&response_type=code&x-client-SKU=msal.js.browser&x-client-VER=2.38.0&client_info=1&code_challenge=v5ig0AtC6pVVrqljy_BylnvEbolLoaYEwgkG_kjpdro&code_challenge_method=S256&nonce=4e4dccec-a6ff-4193-8c19-285a4908d6be&state=eyJpZCI6ImNmNTRiY2IwLTAzMTctNDNhMC1hYjU0LWRjNTUzMTk5YjBjMiIsIm1ldGEiOnsiaW50ZXJhY3Rpb25UeXBlIjoicmVkaXJlY3QifX0%3D',
       description: 'Plataforma de coordinación empresarial'
     }
   ];
