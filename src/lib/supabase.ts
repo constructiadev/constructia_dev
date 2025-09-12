@@ -196,33 +196,6 @@ export const getAllTenantDocumentsNoRLS = async (tenantId: string) => {
 };
 
 // Helper para obtener documentos del cliente
-export const getClientDocuments = async (clientId: string) => {
-  try {
-    if (!clientId) {
-      throw new Error('Client ID is required');
-    }
-
-    // Get documents from the actual documents table
-    const { data, error } = await supabaseClient
-      .from('documents')
-      .select(`
-        *,
-        projects(name)
-      `)
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching documents:', error);
-      return [];
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    return [];
-  }
-};
 
 // Helper para obtener logs de auditoría
 export const getAuditLogs = async (

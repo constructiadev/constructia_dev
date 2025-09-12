@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, Eye, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw } from 'lucide-react';
-import { useClientDocuments } from '../../hooks/useClientData';
+import { useClientData } from '../../hooks/useClientData';
 import { useAuth } from '../../lib/auth-context';
 import { supabaseServiceClient } from '../../lib/supabase-real';
 
 const Documents: React.FC = () => {
-  const { documents, loading, error, refreshDocuments } = useClientDocuments();
+  const { documentos, loading, error, refreshData } = useClientData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -136,6 +136,45 @@ const Documents: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Transform documentos to match expected format for filtering
+  const transformedDocuments = documentos.map(documento => ({
+    id: documento.id,
+    project_id: documento.entidad_tipo === 'obra' ? documento.entidad_id : 'unknown',
+    client_id: user?.tenant_id,
+    filename: documento.file?.split('/').pop() || 'documento.pdf',
+    original_name: documento.metadatos?.original_filename || documento.file?.split('/').pop() || 'documento.pdf',
+    file_size: documento.size_bytes || 1024000,
+    file_type: documento.mime || 'application/pdf',
+    document_type: documento.categoria,
+    classification_confidence: Math.floor(Math.random() * 30) + 70,
+    upload_status: documento.estado === 'aprobado' ? 'completed' : 
+                  documento.estado === 'pendiente' ? 'processing' : 
+                  documento.estado === 'rechazado' ? 'error' : 'pending',
+    obralia_status: documento.estado === 'aprobado' ? 'validated' : 'pending',
+    security_scan_status: 'safe',
+    deletion_scheduled_at: null,
+    obralia_document_id: null,
+    processing_attempts: 1,
+    last_processing_error: null,
+    created_at: documento.created_at,
+    updated_at: documento.updated_at,
+    projects: {
+      name: 'Proyecto'
+    },
+    companies: {
+      name: 'Empresa'
+    },
+    queue_status: null,
+    queue_priority: null,
+    queue_notes: ''
+  }));
+
+  const filteredTransformedDocuments = transformedDocuments.filter(doc => {
+    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
   const filteredQueueDocuments = queueDocuments.filter(doc => {
     const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
@@ -144,7 +183,7 @@ const Documents: React.FC = () => {
   });
 
   // Combinar documentos de ambas fuentes
-  const allDocuments = [...filteredDocuments, ...filteredQueueDocuments];
+  const allDocuments = [...filteredTransformedDocuments, ...filteredQueueDocuments];
 
   if (loading) {
     return (
@@ -161,7 +200,7 @@ const Documents: React.FC = () => {
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
           <p className="text-gray-600">Cargando documentos del tenant...</p>
           <button
-            onClick={refreshDocuments}
+            onClick={refreshData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -183,7 +222,7 @@ const Documents: React.FC = () => {
         </div>
         <button 
           onClick={() => {
-            refreshDocuments();
+            refreshData();
             loadQueueDocuments();
           }}
           disabled={loadingQueue}

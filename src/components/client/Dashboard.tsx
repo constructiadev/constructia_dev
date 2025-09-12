@@ -241,7 +241,7 @@ export default function ClientDashboard() {
             <FileText className="w-5 h-5 text-blue-500 mr-3" />
             <div>
               <p className="font-medium text-gray-900">
-                {stats.totalDocuments} documentos en tu tenant
+                {documentos.length} documentos en tu tenant
               </p>
               <p className="text-sm text-gray-500">Gestión documental activa - hace 5 min</p>
             </div>

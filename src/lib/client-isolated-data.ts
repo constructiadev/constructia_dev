@@ -127,7 +127,9 @@ export class ClientIsolatedDataService {
   // Get client documents (transformed from documentos)
   static async getClientDocuments(tenantId: string): Promise<any[]> {
     try {
-      const documentos = await getAllTenantDocumentsNoRLS(tenantId);
+      // Import the correct function from supabase-new
+      const { getTenantDocumentos } = await import('./supabase-new');
+      const documentos = await getTenantDocumentos(tenantId);
       
       // Transform documentos to document format for client interface
       return documentos.map(documento => ({
