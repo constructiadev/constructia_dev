@@ -652,7 +652,7 @@ export default function DocumentUpload() {
         <h1 className="text-2xl font-bold text-gray-900">Subir Documentos</h1>
         <p className="text-gray-600">Sube tus documentos siguiendo la estructura jerárquica</p>
         <div className="mt-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-          ✅ ARCHIVOS SELECCIONADOS POR EMPRESA > PROYECTO
+          ✅ ARCHIVOS SELECCIONADOS POR JERARQUIA
         </div>
       </div>
 
