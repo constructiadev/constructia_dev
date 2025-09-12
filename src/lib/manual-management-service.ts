@@ -92,9 +92,9 @@ export class ManualManagementService {
   // Get all client groups with their documents in queue
   async getClientGroups(): Promise<ClientGroup[]> {
     try {
-      console.log('📋 Loading client groups for manual management...');
+      console.log('📋 [ManualManagement] Loading client groups for manual management...');
 
-      // Get all items from manual upload queue with related data
+      // CRITICAL FIX: Get all items from manual upload queue with complete related data
       const { data: queueItems, error: queueError } = await supabaseServiceClient
         .from('manual_upload_queue')
         .select(`
@@ -111,181 +111,171 @@ export class ManualManagementService {
           ),
           empresas!inner(
             id,
-            razon_social
+            razon_social,
+            cif,
+            contacto_email
           ),
           obras!inner(
             id,
             nombre_obra,
-            codigo_obra
+            codigo_obra,
+            direccion
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true }); // FIFO order
 
       if (queueError) {
-        console.error('Error loading queue items:', queueError);
+        console.error('❌ [ManualManagement] Error loading queue items:', queueError);
         return [];
       }
 
-      // Get all clients from the old schema with their user data for tenant_id
-      const { data: clients, error: clientsError } = await supabaseServiceClient
-        .from('clients')
-        .select('*')
-        .order('company_name');
+      console.log(`📊 [ManualManagement] Found ${queueItems?.length || 0} items in manual upload queue`);
 
-      if (clientsError) {
-        console.error('Error loading clients:', clientsError);
+      if (!queueItems || queueItems.length === 0) {
+        console.log('ℹ️ [ManualManagement] No items in queue - returning empty list');
         return [];
       }
 
-      // Get all users to create a mapping from user_id to tenant_id
-      const { data: users, error: usersError } = await supabaseServiceClient
-        .from('users')
-        .select('id, tenant_id');
+      // Get all unique tenant_ids from queue items
+      const uniqueTenantIds = [...new Set(queueItems.map(item => item.tenant_id))];
+      console.log(`🏢 [ManualManagement] Found ${uniqueTenantIds.length} unique tenants in queue`);
 
-      if (usersError) {
-        console.error('Error loading users:', usersError);
+      // Get tenant information for each unique tenant
+      const { data: tenants, error: tenantsError } = await supabaseServiceClient
+        .from('tenants')
+        .select('id, name')
+        .in('id', uniqueTenantIds);
+
+      if (tenantsError) {
+        console.error('❌ [ManualManagement] Error loading tenants:', tenantsError);
         return [];
       }
 
-      // Create a map from user_id to tenant_id
-      const userTenantMap = new Map<string, string>();
-      (users || []).forEach(user => {
-        userTenantMap.set(user.id, user.tenant_id);
+      // Create tenant name mapping
+      const tenantNameMap = new Map<string, string>();
+      (tenants || []).forEach(tenant => {
+        tenantNameMap.set(tenant.id, tenant.name);
       });
 
-      // Group queue items by client
+      // CRITICAL FIX: Build client groups directly from queue items by tenant_id
       const clientGroups: ClientGroup[] = [];
 
-      // Process each client
-      for (const client of clients) {
-        // Get tenant_id for this client using the user mapping
-        const tenantId = client.user_id ? userTenantMap.get(client.user_id) : DEV_TENANT_ID;
+      // Process each unique tenant
+      for (const tenantId of uniqueTenantIds) {
+        const tenantName = tenantNameMap.get(tenantId) || `Tenant ${tenantId.substring(0, 8)}`;
         
-        if (!tenantId) {
-          console.warn(`No tenant_id found for client ${client.company_name}, using default`);
-        }
+        // Get all queue items for this tenant
+        const tenantQueueItems = queueItems.filter(item => item.tenant_id === tenantId);
+        console.log(`🔒 [ManualManagement] Processing tenant ${tenantName}: ${tenantQueueItems.length} queue items`);
 
-        // CRITICAL SECURITY FIX: Get queue items ONLY for this specific client's tenant
-        const clientQueueItems = queueItems?.filter(item => {
-          // Strict tenant isolation - only show items from this client's tenant
-          return item.tenant_id === tenantId;
-        }) || [];
+        if (tenantQueueItems.length === 0) continue;
 
-        console.log(`🔒 [ManualManagement] Client ${client.company_name} (tenant: ${tenantId}) has ${clientQueueItems.length} queue items`);
+        // Get platform credentials for this tenant
+        const credentials = await this.getPlatformCredentials(tenantId);
 
-        if (clientQueueItems.length === 0) continue;
-
-        // Get platform credentials for this client using their tenant_id
-        console.log(`🔑 Loading credentials for client ${client.company_name} with tenant_id: ${tenantId}`);
-        const credentials = await this.getPlatformCredentials(tenantId || DEV_TENANT_ID);
-
-        // Group by company
+        // Group items by empresa (company)
         const companiesMap = new Map<string, CompanyGroup>();
+        let queuePosition = 1; // FIFO position counter
 
-        for (const item of clientQueueItems) {
-          const companyId = item.empresas.id;
-          const companyName = item.empresas.razon_social;
+        for (const item of tenantQueueItems) {
+          try {
+            const companyId = item.empresas.id;
+            const companyName = item.empresas.razon_social;
 
-          // SECURITY VALIDATION: Verify empresa belongs to this client's tenant
-          if (item.tenant_id !== tenantId) {
-            console.error(`❌ [SECURITY] Empresa ${companyName} does not belong to client ${client.company_name} tenant`);
-            continue; // Skip this item - security violation
-          }
-
-          if (!companiesMap.has(companyId)) {
-            companiesMap.set(companyId, {
-              company_id: companyId,
-              company_name: companyName,
-              total_documents: 0,
-              projects: []
-            });
-          }
-
-          const company = companiesMap.get(companyId)!;
-
-          // Group by project
-          let project = company.projects.find(p => p.project_id === item.obras.id);
-          if (!project) {
-            // SECURITY VALIDATION: Verify obra belongs to this empresa
-            if (item.obra_id !== item.obras.id) {
-              console.error(`❌ [SECURITY] Obra ID mismatch for ${item.obras.nombre_obra}`);
-              continue; // Skip this item - data integrity violation
+            // Create company group if it doesn't exist
+            if (!companiesMap.has(companyId)) {
+              companiesMap.set(companyId, {
+                company_id: companyId,
+                company_name: companyName,
+                total_documents: 0,
+                projects: []
+              });
             }
 
-            project = {
+            const company = companiesMap.get(companyId)!;
+
+            // Find or create project group
+            let project = company.projects.find(p => p.project_id === item.obras.id);
+            if (!project) {
+              project = {
+                project_id: item.obras.id,
+                project_name: item.obras.nombre_obra,
+                total_documents: 0,
+                documents: []
+              };
+              company.projects.push(project);
+            }
+
+            // Transform queue item to manual document with FIFO position
+            const manualDoc: ManualDocument = {
+              id: item.id,
+              document_id: item.documento_id,
+              client_id: tenantId, // Use tenant_id as client identifier
+              filename: item.documentos.file?.split('/').pop() || 'documento.pdf',
+              original_name: item.documentos.metadatos?.original_filename || 'Documento',
+              file_size: item.documentos.size_bytes || 0,
+              file_type: item.documentos.mime || 'application/pdf',
+              classification: item.documentos.categoria,
+              confidence: Math.floor(Math.random() * 30) + 70,
+              corruption_detected: false,
+              integrity_score: 100,
+              status: item.status === 'queued' ? 'pending' : 
+                     item.status === 'in_progress' ? 'uploading' :
+                     item.status === 'uploaded' ? 'uploaded' : 'error',
+              priority: (item.priority as 'low' | 'normal' | 'high' | 'urgent') || 'normal',
+              queue_position: queuePosition++, // Assign FIFO position
+              retry_count: 0,
+              admin_notes: item.nota || '',
+              platform_target: 'nalanda',
+              company_id: companyId,
               project_id: item.obras.id,
-              project_name: item.obras.nombre_obra,
-              total_documents: 0,
-              documents: []
+              created_at: item.created_at,
+              updated_at: item.updated_at
             };
-            company.projects.push(project);
+
+            project.documents.push(manualDoc);
+            project.total_documents++;
+            company.total_documents++;
+
+          } catch (itemError) {
+            console.error(`❌ [ManualManagement] Error processing queue item ${item.id}:`, itemError);
+            continue; // Skip problematic items but continue processing
           }
-
-          // Transform queue item to manual document
-          const manualDoc: ManualDocument = {
-            id: item.id,
-            document_id: item.documento_id,
-            client_id: client.id, // This is the OLD schema client.id
-            filename: item.documentos.file?.split('/').pop() || 'documento.pdf',
-            original_name: item.documentos.metadatos?.original_filename || 'Documento',
-            file_size: item.documentos.size_bytes || 0,
-            file_type: item.documentos.mime || 'application/pdf',
-            classification: item.documentos.categoria,
-            confidence: Math.floor(Math.random() * 30) + 70,
-            corruption_detected: false,
-            integrity_score: 100,
-            status: item.status === 'queued' ? 'pending' : 
-                   item.status === 'in_progress' ? 'uploading' :
-                   item.status === 'uploaded' ? 'uploaded' : 'error',
-            priority: item.priority || 'normal',
-            queue_position: Math.floor(Math.random() * 100) + 1,
-            retry_count: 0,
-            admin_notes: item.nota || '',
-            platform_target: 'nalanda',
-            company_id: companyId,
-            project_id: item.obras.id,
-            created_at: item.created_at,
-            updated_at: item.updated_at
-          };
-
-          // FINAL SECURITY CHECK: Verify document belongs to correct tenant
-          if (item.tenant_id !== tenantId) {
-            console.error(`❌ [SECURITY] Document ${manualDoc.original_name} does not belong to client ${client.company_name}`);
-            continue; // Skip this document - critical security violation
-          }
-
-          project.documents.push(manualDoc);
-          project.total_documents++;
-          company.total_documents++;
         }
 
+        // Create client group for this tenant
         const clientGroup: ClientGroup = {
-          client_id: client.id,
-          client_name: client.company_name,
-          client_email: client.email,
-          total_documents: clientQueueItems.length,
-          pending_documents: clientQueueItems.filter(item => item.status === 'queued').length,
+          client_id: tenantId,
+          client_name: tenantName,
+          client_email: `contact@${tenantName.toLowerCase().replace(/\s+/g, '')}.com`,
+          total_documents: tenantQueueItems.length,
+          pending_documents: tenantQueueItems.filter(item => item.status === 'queued').length,
           companies: Array.from(companiesMap.values()),
           platform_credentials: credentials
         };
 
         clientGroups.push(clientGroup);
+        console.log(`✅ [ManualManagement] Created client group for ${tenantName}: ${clientGroup.total_documents} documents, ${clientGroup.companies.length} companies`);
       }
 
-      // SECURITY AUDIT LOG: Report data isolation results
-      console.log('🔒 [SECURITY AUDIT] Client groups loaded with strict tenant isolation:');
+      // AUDIT LOG: Report final results
+      console.log('📊 [ManualManagement] Final client groups summary:');
       clientGroups.forEach(group => {
-        console.log(`   - ${group.client_name}: ${group.total_documents} documents, ${group.companies.length} companies`);
+        console.log(`   🏢 ${group.client_name}: ${group.total_documents} documents, ${group.companies.length} companies`);
         group.companies.forEach(company => {
-          console.log(`     └─ ${company.company_name}: ${company.total_documents} documents, ${company.projects.length} projects`);
+          console.log(`      └─ 🏗️ ${company.company_name}: ${company.total_documents} documents, ${company.projects.length} projects`);
+          company.projects.forEach(project => {
+            console.log(`         └─ 📁 ${project.project_name}: ${project.total_documents} documents`);
+          });
         });
       });
-      console.log('✅ Data isolation verified - no cross-tenant contamination');
+      
+      console.log(`✅ [ManualManagement] Successfully loaded ${clientGroups.length} client groups with ${queueItems.length} total documents`);
       
       return clientGroups;
 
     } catch (error) {
-      console.error('Error getting client groups:', error);
+      console.error('❌ [ManualManagement] Critical error getting client groups:', error);
       return [];
     }
   }
