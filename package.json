@@ -13,7 +13,8 @@
     "disable-rls": "node scripts/disableAllRLS.js",
     "create-auth-users": "node scripts/createAuthUsers.js",
     "delete-duplicate-clients": "tsx scripts/deleteDuplicateClients.ts",
-    "delete-duplicate-companies": "tsx scripts/deleteDuplicateClientsByCompanyName.ts"
+    "delete-duplicate-companies": "tsx scripts/deleteDuplicateClientsByCompanyName.ts",
+    "insert-test-documents": "node scripts/executeTestDocuments.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
