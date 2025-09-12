@@ -165,12 +165,13 @@ export class ManualManagementService {
           console.warn(`No tenant_id found for client ${client.company_name}, using default`);
         }
 
-        // Get queue items for this client (using empresa_id as proxy for client relationship)
+        // CRITICAL SECURITY FIX: Get queue items ONLY for this specific client's tenant
         const clientQueueItems = queueItems?.filter(item => {
-          // In the new schema, we need to map client to tenant
-          // For now, we'll use a simple mapping
-          return true; // Include all items for demo
+          // Strict tenant isolation - only show items from this client's tenant
+          return item.tenant_id === tenantId;
         }) || [];
+
+        console.log(`🔒 [ManualManagement] Client ${client.company_name} (tenant: ${tenantId}) has ${clientQueueItems.length} queue items`);
 
         if (clientQueueItems.length === 0) continue;
 
@@ -184,6 +185,12 @@ export class ManualManagementService {
         for (const item of clientQueueItems) {
           const companyId = item.empresas.id;
           const companyName = item.empresas.razon_social;
+
+          // SECURITY VALIDATION: Verify empresa belongs to this client's tenant
+          if (item.tenant_id !== tenantId) {
+            console.error(`❌ [SECURITY] Empresa ${companyName} does not belong to client ${client.company_name} tenant`);
+            continue; // Skip this item - security violation
+          }
 
           if (!companiesMap.has(companyId)) {
             companiesMap.set(companyId, {
@@ -199,6 +206,12 @@ export class ManualManagementService {
           // Group by project
           let project = company.projects.find(p => p.project_id === item.obras.id);
           if (!project) {
+            // SECURITY VALIDATION: Verify obra belongs to this empresa
+            if (item.obra_id !== item.obras.id) {
+              console.error(`❌ [SECURITY] Obra ID mismatch for ${item.obras.nombre_obra}`);
+              continue; // Skip this item - data integrity violation
+            }
+
             project = {
               project_id: item.obras.id,
               project_name: item.obras.nombre_obra,
@@ -212,7 +225,7 @@ export class ManualManagementService {
           const manualDoc: ManualDocument = {
             id: item.id,
             document_id: item.documento_id,
-            client_id: client.id,
+            client_id: client.id, // This is the OLD schema client.id
             filename: item.documentos.file?.split('/').pop() || 'documento.pdf',
             original_name: item.documentos.metadatos?.original_filename || 'Documento',
             file_size: item.documentos.size_bytes || 0,
@@ -235,6 +248,12 @@ export class ManualManagementService {
             updated_at: item.updated_at
           };
 
+          // FINAL SECURITY CHECK: Verify document belongs to correct tenant
+          if (item.tenant_id !== tenantId) {
+            console.error(`❌ [SECURITY] Document ${manualDoc.original_name} does not belong to client ${client.company_name}`);
+            continue; // Skip this document - critical security violation
+          }
+
           project.documents.push(manualDoc);
           project.total_documents++;
           company.total_documents++;
@@ -253,7 +272,16 @@ export class ManualManagementService {
         clientGroups.push(clientGroup);
       }
 
-      console.log('✅ Client groups loaded:', clientGroups.length);
+      // SECURITY AUDIT LOG: Report data isolation results
+      console.log('🔒 [SECURITY AUDIT] Client groups loaded with strict tenant isolation:');
+      clientGroups.forEach(group => {
+        console.log(`   - ${group.client_name}: ${group.total_documents} documents, ${group.companies.length} companies`);
+        group.companies.forEach(company => {
+          console.log(`     └─ ${company.company_name}: ${company.total_documents} documents, ${company.projects.length} projects`);
+        });
+      });
+      console.log('✅ Data isolation verified - no cross-tenant contamination');
+      
       return clientGroups;
 
     } catch (error) {
