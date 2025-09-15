@@ -704,7 +704,7 @@ export default function DocumentUpload() {
               Arrastra archivos aquí o haz clic para seleccionar
             </h4>
             <p className="text-gray-600 mb-4">
-              Formatos soportados: PDF, JPG, PNG (máx. 20MB)
+              Formatos soportados: PDF, JPG, JPEG, PNG,  (máx. 20MB)
             </p>
             <input
               type="file"
