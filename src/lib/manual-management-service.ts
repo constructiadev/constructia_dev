@@ -1,5 +1,6 @@
 // ConstructIA - Manual Management Service
 import { supabaseServiceClient, DEV_TENANT_ID, DEV_ADMIN_USER_ID, logAuditoria } from './supabase-real';
+import { ensureDevTenantExists } from './supabase-real';
 import { fileStorageService } from './file-storage-service';
 
 export interface ManualDocument {
@@ -420,6 +421,12 @@ export class ManualManagementService {
   ): Promise<{ id: string; document_id: string } | null> {
     try {
       console.log('📁 Adding document to manual queue...');
+
+      // Ensure DEV_TENANT_ID exists before proceeding
+      const tenantExists = await ensureDevTenantExists();
+      if (!tenantExists) {
+        throw new Error('Failed to ensure tenant exists in database');
+      }
 
       // First, determine the next version number for this document category and entity
       const { data: existingDocs, error: versionError } = await supabaseServiceClient
