@@ -8,7 +8,8 @@ import {
   Save,
   AlertCircle,
   CheckCircle,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  RefreshCw
 } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
 import { supabase } from '../../lib/supabase-real';
