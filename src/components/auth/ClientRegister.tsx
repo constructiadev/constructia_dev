@@ -92,7 +92,7 @@ export default function ClientRegister() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const validateStep = (step: number): boolean => {
+  const validateStep = (step: number): FormErrors => {
     const newErrors: FormErrors = {};
 
     if (step === 1) {
@@ -162,12 +162,18 @@ export default function ClientRegister() {
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
+  };
+
+  const isStepValid = (step: number): boolean => {
+    const stepErrors = validateStep(step);
+    return Object.keys(stepErrors).length === 0;
   };
 
   const handleNextStep = () => {
-    if (validateStep(currentStep)) {
+    const stepErrors = validateStep(currentStep);
+    setErrors(stepErrors);
+    if (Object.keys(stepErrors).length === 0) {
       setCurrentStep(prev => Math.min(prev + 1, 4));
     }
   };
@@ -194,7 +200,9 @@ export default function ClientRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateStep(4)) return;
+    const stepErrors = validateStep(4);
+    setErrors(stepErrors);
+    if (Object.keys(stepErrors).length > 0) return;
 
     try {
       setSubmitting(true);
@@ -907,7 +915,7 @@ export default function ClientRegister() {
                   <button
                     type="button"
                     onClick={handleNextStep}
-                    disabled={!validateStep(currentStep)}
+                    disabled={!isStepValid(currentStep)}
                     className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Siguiente
