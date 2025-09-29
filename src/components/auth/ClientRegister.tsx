@@ -195,6 +195,8 @@ export default function ClientRegister() {
     try {
       setSubmitting(true);
       setError('');
+      
+      console.log('🔐 [ClientRegister] Starting registration process...');
 
       // Prepare CAE credentials
       const caeCredentials = [];
@@ -245,18 +247,37 @@ export default function ClientRegister() {
         accept_marketing: formData.accept_marketing
       };
 
+      console.log('📋 [ClientRegister] Registration data prepared, calling service...');
       const authenticatedClient = await ClientAuthService.registerNewClient(registrationData);
       
       if (!authenticatedClient) {
-        throw new Error('Error en el registro. Por favor, inténtalo de nuevo.');
+        throw new Error('❌ Error en el registro: No se pudo completar el proceso. Por favor, inténtalo de nuevo.');
       }
 
-      // Navigate to subscription with checkout modal
+      console.log('✅ [ClientRegister] Registration successful, navigating to checkout...');
+      
+      // CRITICAL: Navigate to subscription with checkout modal - NO CLIENT ACCESS UNTIL PAYMENT
       navigate('/client/subscription?showCheckout=true', { replace: true });
 
     } catch (err: any) {
       console.error('Registration error:', err);
-      setError(err?.message || 'Error durante el registro');
+      
+      // Mostrar error específico al usuario
+      let userFriendlyError = 'Error durante el registro. Por favor, inténtalo de nuevo.';
+      
+      if (err?.message) {
+        if (err.message.includes('Failed to fetch')) {
+          userFriendlyError = '❌ Error de conexión: No se puede conectar al servidor. Verifica tu conexión a internet.';
+        } else if (err.message.includes('Invalid API key')) {
+          userFriendlyError = '❌ Error de configuración: Problema con la configuración del servidor.';
+        } else if (err.message.includes('already exists') || err.message.includes('duplicate')) {
+          userFriendlyError = '❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.';
+        } else {
+          userFriendlyError = err.message;
+        }
+      }
+      
+      setError(userFriendlyError);
     } finally {
       setSubmitting(false);
     }

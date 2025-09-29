@@ -260,22 +260,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('🔐 [AuthContext] Starting client registration');
       
+      // CRITICAL: Registration must complete successfully before setting user
+      console.log('📋 [AuthContext] Calling ClientAuthService.registerNewClient...');
+      
       const authenticatedClient = await ClientAuthService.registerNewClient(registrationData);
       
       if (!authenticatedClient) {
-        throw new Error('Registration failed');
+        throw new Error('❌ Error en el registro: No se pudo completar el proceso de registro');
       }
       
+      // IMPORTANT: Only set user after successful registration
+      console.log('✅ [AuthContext] Registration successful, setting authenticated client');
       setUser(authenticatedClient);
       console.log('✅ [AuthContext] Client registered and authenticated:', authenticatedClient.email);
       
-      // Force session revalidation to ensure auth state is consistent
+      // CRITICAL: Force session revalidation to ensure auth state is consistent
       console.log('🔄 [AuthContext] Revalidating session after registration...');
-      await checkSession();
+      try {
+        await checkSession();
+      } catch (sessionError) {
+        console.warn('⚠️ [AuthContext] Session revalidation failed (non-critical):', sessionError);
+        // No lanzar error, la sesión ya está establecida
+      }
       console.log('✅ [AuthContext] Session revalidated successfully');
       
     } catch (error) {
       console.error('Error registering client:', error);
+      
+      // CRITICAL: Ensure user is not set if registration fails
+      setUser(null);
+      
+      // Provide specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          throw new Error('❌ Error de conexión: No se puede conectar al servidor. Verifica tu conexión a internet y la configuración de Supabase.');
+        } else if (error.message.includes('Invalid API key')) {
+          throw new Error('❌ Error de configuración: Las credenciales de Supabase no son válidas.');
+        } else {
+          throw error; // Mantener el mensaje original si ya es descriptivo
+        }
+      }
       throw error;
     }
   };
