@@ -60,19 +60,153 @@ if (!isSupabaseConfigured) {
 
 // Create a safe dummy client that prevents network requests
 const createDummyClient = () => {
-  const dummyError = { message: 'Supabase not configured - check .env file' };
+  const dummyError = { 
+    message: 'Supabase not configured - check .env file',
+    details: 'Please verify VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, and VITE_SUPABASE_SERVICE_ROLE_KEY are set correctly'
+  };
   
   return {
     auth: {
-      getUser: () => Promise.resolve({ 
-        data: { user: null }, 
-        error: null // Return null error to prevent "Failed to fetch" 
-      }),
-      getSession: () => Promise.resolve({ 
-        data: { session: null }, 
-        error: null // Return null error to prevent "Failed to fetch"
-      }),
-      signInWithPassword: () => Promise.resolve({
+      getUser: () => {
+        console.warn('⚠️ Supabase not configured - returning empty user data');
+        return Promise.resolve({ 
+          data: { user: null }, 
+          error: null
+        });
+      },
+      getSession: () => {
+        console.warn('⚠️ Supabase not configured - returning empty session data');
+        return Promise.resolve({ 
+          data: { session: null }, 
+          error: null
+        });
+      },
+      signInWithPassword: () => {
+        console.error('❌ Cannot sign in - Supabase not configured');
+        return Promise.resolve({
+          data: { user: null, session: null },
+          error: dummyError
+        });
+      },
+      signUp: () => {
+        console.error('❌ Cannot sign up - Supabase not configured');
+        return Promise.resolve({
+          data: { user: null, session: null },
+          error: dummyError
+        });
+      },
+      signOut: () => {
+        console.warn('⚠️ Supabase not configured - mock sign out');
+        return Promise.resolve({ error: null });
+      },
+      onAuthStateChange: (callback) => {
+        console.warn('⚠️ Supabase not configured - mock auth state change');
+        // Call callback immediately with null session to prevent waiting
+        setTimeout(() => callback('SIGNED_OUT', null), 0);
+        return { 
+          data: { 
+            subscription: { 
+              unsubscribe: () => console.warn('⚠️ Mock auth subscription unsubscribed') 
+            } 
+          } 
+        };
+      }
+    },
+    from: (table) => ({
+      select: (columns) => {
+        console.error(`❌ Cannot select from ${table} - Supabase not configured`);
+        return Promise.resolve({ 
+          data: [], 
+          error: dummyError
+        });
+      },
+      insert: (data) => {
+        console.error(`❌ Cannot insert into ${table} - Supabase not configured`);
+        return Promise.resolve({
+          data: null,
+          error: dummyError
+        });
+      },
+      update: (data) => {
+        console.error(`❌ Cannot update ${table} - Supabase not configured`);
+        return Promise.resolve({
+          data: null,
+          error: dummyError
+        });
+      },
+      delete: () => {
+        console.error(`❌ Cannot delete from ${table} - Supabase not configured`);
+        return Promise.resolve({
+          data: null,
+          error: dummyError
+        });
+      },
+      upsert: (data) => {
+        console.error(`❌ Cannot upsert into ${table} - Supabase not configured`);
+        return Promise.resolve({
+          data: null,
+          error: dummyError
+        });
+      },
+      eq: function(column, value) { return this; },
+      neq: function(column, value) { return this; },
+      gt: function(column, value) { return this; },
+      gte: function(column, value) { return this; },
+      lt: function(column, value) { return this; },
+      lte: function(column, value) { return this; },
+      like: function(column, pattern) { return this; },
+      ilike: function(column, pattern) { return this; },
+      is: function(column, value) { return this; },
+      in: function(column, values) { return this; },
+      contains: function(column, value) { return this; },
+      containedBy: function(column, value) { return this; },
+      rangeGt: function(column, range) { return this; },
+      rangeGte: function(column, range) { return this; },
+      rangeLt: function(column, range) { return this; },
+      rangeLte: function(column, range) { return this; },
+      rangeAdjacent: function(column, range) { return this; },
+      overlaps: function(column, value) { return this; },
+      textSearch: function(column, query) { return this; },
+      match: function(query) { return this; },
+      not: function(column, operator, value) { return this; },
+      or: function(filters) { return this; },
+      filter: function(column, operator, value) { return this; },
+      order: function(column, options) { return this; },
+      limit: function(count) { return this; },
+      range: function(from, to) { return this; },
+      single: function() { 
+        console.error(`❌ Cannot execute single query on ${table} - Supabase not configured`);
+        return Promise.resolve({
+          data: null,
+          error: dummyError
+        });
+      },
+      maybeSingle: function() { 
+        console.error(`❌ Cannot execute maybeSingle query on ${table} - Supabase not configured`);
+        return Promise.resolve({
+          data: null,
+          error: dummyError
+        });
+      }
+    }),
+    channel: (name) => ({
+      on: (event, filter, callback) => ({
+        subscribe: () => {
+          console.warn(`⚠️ Supabase not configured - mock subscription to ${name}`);
+          return { unsubscribe: () => {} };
+        }
+      })
+    }),
+    removeChannel: (channel) => {
+      console.warn('⚠️ Supabase not configured - mock remove channel');
+      return Promise.resolve('ok');
+    },
+    removeAllChannels: () => {
+      console.warn('⚠️ Supabase not configured - mock remove all channels');
+      return Promise.resolve('ok');
+    }
+  };
+};
         data: { user: null, session: null },
         error: dummyError
       }),
