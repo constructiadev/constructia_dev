@@ -663,15 +663,23 @@ export class ManualManagementService {
     platformType: 'nalanda' | 'ctaima' | 'ecoordina',
     username: string,
     password: string,
-    userId?: string
+    userId?: string,
+    tenantId?: string
   ): Promise<boolean> {
     try {
-      const tenantId = DEV_TENANT_ID;
+      const targetTenantId = tenantId || DEV_TENANT_ID;
+      
+      console.log('💾 [ManualManagement] Saving platform credentials:', {
+        platformType,
+        username,
+        tenantId: targetTenantId,
+        userId
+      });
 
-      const { error } = await supabaseServiceClient
+      const { data, error } = await supabaseServiceClient
         .from('adaptadores')
         .upsert({
-          tenant_id: tenantId,
+          tenant_id: targetTenantId,
           plataforma: platformType,
           alias: 'Principal',
           credenciales: {
@@ -679,19 +687,24 @@ export class ManualManagementService {
             password,
             configured: true
           },
-          estado: 'ready'
+          estado: 'ready',
+          updated_at: new Date().toISOString()
         }, {
           onConflict: 'tenant_id,plataforma,alias'
-        });
+        })
+        .select();
 
       if (error) {
         console.error('Error saving platform credentials:', error);
+        console.error('Error details:', error.message);
         return false;
       }
 
+      console.log('✅ [ManualManagement] Platform credentials saved successfully:', data);
+
       // Log audit event
       await logAuditoria(
-        tenantId,
+        targetTenantId,
         userId || DEV_ADMIN_USER_ID,
         'platform.credentials_updated',
         'adaptador',

@@ -552,7 +552,20 @@ const ClientsManagement: React.FC = () => {
 
   const handleViewClientCredentials = async (client: Client) => {
     try {
-      setCredentialsModalTenantId(client.id);
+      // Use the client's user_id to find their tenant_id
+      const { data: userProfile, error } = await supabaseServiceClient
+        .from('users')
+        .select('tenant_id')
+        .eq('id', client.user_id)
+        .single();
+
+      if (error || !userProfile) {
+        console.error('Error getting user tenant:', error);
+        alert('❌ Error al obtener información del cliente');
+        return;
+      }
+
+      setCredentialsModalTenantId(userProfile.tenant_id);
       setCredentialsModalClientName(client.company_name);
       setShowCredentialsModal(true);
     } catch (error) {
@@ -898,9 +911,7 @@ const ClientsManagement: React.FC = () => {
                         </button>
                         <button
                           onClick={() => {
-                            setCredentialsModalTenantId(client.id);
-                            setCredentialsModalClientName(client.company_name);
-                            setShowCredentialsModal(true);
+                            handleViewClientCredentials(client);
                           }}
                           className="p-1 text-gray-400 hover:text-purple-600 transition-colors"
                           title="Ver credenciales de plataforma"
