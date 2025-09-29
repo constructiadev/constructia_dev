@@ -6,6 +6,7 @@ export type ClientRole = 'Cliente' | 'ClienteDemo';
 export type AdminRole = 'SuperAdmin';
 export type TenantStatus = 'active' | 'suspended';
 export type DocumentoCategoria = 'PRL' | 'APTITUD_MEDICA' | 'DNI' | 'ALTA_SS' | 'CONTRATO' | 'SEGURO_RC' | 'REA' | 'FORMACION_PRL' | 'EVAL_RIESGOS' | 'CERT_MAQUINARIA' | 'PLAN_SEGURIDAD' | 'OTROS';
+export type DocumentoCategoria = 'prl' | 'aptitud_medica' | 'dni' | 'alta_ss' | 'contrato' | 'seguro_rc' | 'rea' | 'formacion_prl' | 'eval_riesgos' | 'cert_maquinaria' | 'plan_seguridad' | 'otros';
 export type DocumentoEstado = 'borrador' | 'pendiente' | 'aprobado' | 'rechazado';
 export type EntidadTipo = 'empresa' | 'trabajador' | 'maquinaria' | 'obra';
 export type PlataformaTipo = 'nalanda' | 'ctaima' | 'ecoordina' | 'otro';

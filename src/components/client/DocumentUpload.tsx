@@ -531,9 +531,9 @@ export default function DocumentUpload() {
     }
   ];
   const documentCategories = [
-    'PRL', 'APTITUD_MEDICA', 'DNI', 'ALTA_SS', 'CONTRATO', 
-    'SEGURO_RC', 'REA', 'FORMACION_PRL', 'EVAL_RIESGOS', 
-    'CERT_MAQUINARIA', 'PLAN_SEGURIDAD', 'OTROS'
+    'prl', 'aptitud_medica', 'dni', 'alta_ss', 'contrato', 
+    'seguro_rc', 'rea', 'formacion_prl', 'eval_riesgos', 
+    'cert_maquinaria', 'plan_seguridad', 'otros'
   ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
