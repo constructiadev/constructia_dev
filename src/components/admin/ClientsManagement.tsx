@@ -478,20 +478,7 @@ const ClientsManagement: React.FC = () => {
 
   const handleViewClientCredentials = async (client: Client) => {
     try {
-      // Get tenant_id for this client's user from users table
-      const { data: userProfile, error: userError } = await supabaseServiceClient
-        .from('users')
-        .select('tenant_id')
-        .eq('id', client.user_id)
-        .single();
-
-      if (userError || !userProfile) {
-        console.error('Error fetching tenant ID for client:', userError);
-        alert('No se pudo obtener el ID de tenant del cliente.');
-        return;
-      }
-
-      setCredentialsModalTenantId(userProfile.tenant_id);
+      setCredentialsModalTenantId(client.id);
       setCredentialsModalClientName(client.company_name);
       setShowCredentialsModal(true);
     } catch (error) {
@@ -751,6 +738,7 @@ const ClientsManagement: React.FC = () => {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Cliente</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">ID Cliente</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Plan</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Almacenamiento</th>
@@ -771,6 +759,9 @@ const ClientsManagement: React.FC = () => {
                           <div className="text-sm text-gray-500">{client.email}</div>
                         </div>
                       </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-mono text-sm text-gray-900">{client.client_id}</div>
                     </td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPlanColor(client.subscription_plan)}`}>
@@ -832,7 +823,11 @@ const ClientsManagement: React.FC = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleViewClientCredentials(client)}
+                          onClick={() => {
+                            setCredentialsModalTenantId(client.id);
+                            setCredentialsModalClientName(client.company_name);
+                            setShowCredentialsModal(true);
+                          }}
                           className="p-1 text-gray-400 hover:text-purple-600 transition-colors"
                           title="Ver credenciales de plataforma"
                         >
