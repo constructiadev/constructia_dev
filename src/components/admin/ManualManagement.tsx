@@ -37,7 +37,8 @@ import {
   Copy,
   ExternalLink,
   Info,
-  Loader2
+  Loader2,
+  Edit3
 } from 'lucide-react';
 import { manualManagementService, type ManualDocument, type ClientGroup, type PlatformCredential } from '../../lib/manual-management-service';
 import { useAuth } from '../../lib/auth-context';
@@ -88,7 +89,14 @@ export default function ManualManagement() {
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [selectedClientForCredentials, setSelectedClientForCredentials] = useState<ClientGroup | null>(null);
+  const [editingDocument, setEditingDocument] = useState<string | null>(null);
+  const [documentPlatforms, setDocumentPlatforms] = useState<{[docId: string]: string}>({});
 
+  const platformOptions = [
+    { id: 'nalanda', name: 'Nalanda/Obralia', color: 'bg-blue-600', icon: Globe },
+    { id: 'ctaima', name: 'CTAIMA', color: 'bg-green-600', icon: Target },
+    { id: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-600', icon: Building2 }
+  ];
   useEffect(() => {
     loadData();
   }, []);
@@ -699,9 +707,48 @@ export default function ManualManagement() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            {doc.platform_target}
-                          </span>
+                          {editingDocument === doc.id ? (
+                            <div className="flex items-center space-x-2">
+                              <select
+                                value={documentPlatforms[doc.id] || doc.platform_target}
+                                onChange={(e) => setDocumentPlatforms(prev => ({ ...prev, [doc.id]: e.target.value }))}
+                                className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-purple-500"
+                              >
+                                {platformOptions.map(platform => (
+                                  <option key={platform.id} value={platform.id}>
+                                    {platform.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleSavePlatformChange(doc.id)}
+                                className="p-1 text-green-600 hover:text-green-700"
+                                title="Guardar cambio"
+                              >
+                                <CheckCircle className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleCancelPlatformEdit(doc.id)}
+                                className="p-1 text-gray-400 hover:text-gray-600"
+                                title="Cancelar"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                {platformOptions.find(p => p.id === doc.platform_target)?.name || doc.platform_target}
+                              </span>
+                              <button
+                                onClick={() => handleEditDocumentPlatform(doc.id, doc.platform_target)}
+                                className="p-1 text-gray-400 hover:text-purple-600"
+                                title="Cambiar plataforma"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {new Date(doc.created_at).toLocaleDateString('es-ES')}

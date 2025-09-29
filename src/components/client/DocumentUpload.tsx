@@ -11,7 +11,9 @@ import {
   Plus,
   X,
   Save,
-  Loader2
+  Loader2,
+  Globe,
+  Target
 } from 'lucide-react';
 import { 
   getTenantEmpresas, 
@@ -49,6 +51,13 @@ interface SelectedFile {
   preview?: string;
 }
 
+interface PlatformOption {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: React.ElementType;
+}
 interface HierarchicalSelectorProps {
   onSelectionChange: (empresaId: string | null, obraId: string | null, empresa?: Empresa, obra?: Obra) => void;
   selectedEmpresa: string | null;
@@ -496,7 +505,31 @@ export default function DocumentUpload() {
   const [uploadProgress, setUploadProgress] = useState<{ [fileId: string]: number }>({});
   const [uploadResults, setUploadResults] = useState<{ [fileId: string]: { success: boolean; message: string } }>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('nalanda');
 
+  const platformOptions: PlatformOption[] = [
+    {
+      id: 'nalanda',
+      name: 'Nalanda/Obralia',
+      description: 'Plataforma principal de gestión CAE',
+      color: 'bg-blue-600',
+      icon: Globe
+    },
+    {
+      id: 'ctaima',
+      name: 'CTAIMA',
+      description: 'Sistema de coordinación de actividades',
+      color: 'bg-green-600',
+      icon: Target
+    },
+    {
+      id: 'ecoordina',
+      name: 'Ecoordina',
+      description: 'Plataforma de coordinación empresarial',
+      color: 'bg-purple-600',
+      icon: Building2
+    }
+  ];
   const documentCategories = [
     'PRL', 'APTITUD_MEDICA', 'DNI', 'ALTA_SS', 'CONTRATO', 
     'SEGURO_RC', 'REA', 'FORMACION_PRL', 'EVAL_RIESGOS', 
@@ -596,7 +629,7 @@ export default function DocumentUpload() {
           selectedFile.file,
           selectedCategory, // category
           'normal',        // priority
-          'nalanda',       // platformTarget
+          selectedPlatform, // platformTarget
           user?.id || DEV_ADMIN_USER_ID // userId
         );
 
@@ -688,8 +721,44 @@ export default function DocumentUpload() {
         </div>
       )}
 
-      {/* File Upload Area */}
+      {/* Platform Selection */}
       {selectedEmpresa && selectedObra && selectedCategory && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Plataforma de Destino</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {platformOptions.map((platform) => {
+              const Icon = platform.icon;
+              const isSelected = selectedPlatform === platform.id;
+              
+              return (
+                <button
+                  key={platform.id}
+                  type="button"
+                  onClick={() => setSelectedPlatform(platform.id)}
+                  className={`flex items-center p-4 border-2 rounded-lg transition-all ${
+                    isSelected 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`w-10 h-10 ${platform.color} rounded-lg flex items-center justify-center mr-3`}>
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-semibold text-gray-900">{platform.name}</h4>
+                    <p className="text-sm text-gray-600">{platform.description}</p>
+                  </div>
+                  {isSelected && (
+                    <CheckCircle className="w-5 h-5 text-green-600 ml-auto" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* File Upload Area */}
+      {selectedEmpresa && selectedObra && selectedCategory && selectedPlatform && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Archivos</h3>
           
@@ -783,7 +852,7 @@ export default function DocumentUpload() {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleUpload}
-                disabled={!canUpload || uploading}
+                disabled={!selectedEmpresa || !selectedObra || !selectedCategory || !selectedPlatform || selectedFiles.length === 0 || uploading}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
               >
                 {uploading ? (
@@ -816,6 +885,9 @@ export default function DocumentUpload() {
             )}
             {selectedCategory && (
               <p>📄 Categoría: {selectedCategory}</p>
+            )}
+            {selectedPlatform && (
+              <p>🌐 Plataforma: {platformOptions.find(p => p.id === selectedPlatform)?.name}</p>
             )}
           </div>
         </div>

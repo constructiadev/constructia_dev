@@ -374,7 +374,7 @@ export class ManualManagementService {
     file: File,
     category: string,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
-    platformTarget: string = 'nalanda',
+    platformTarget: string,
     userId?: string
   ): Promise<{ id: string; document_id: string } | null> {
     try {
