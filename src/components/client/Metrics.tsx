@@ -160,7 +160,7 @@ export default function Metrics() {
             <option value="year">Este año</option>
           </select>
           <button 
-            onClick={refreshDocuments}
+            onClick={refreshData}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
