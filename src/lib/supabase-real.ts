@@ -43,7 +43,10 @@ if (!supabaseServiceKey) {
 }
 
 // Check if all required environment variables are present
-const isSupabaseConfigured = supabaseUrl && supabaseAnonKey && supabaseServiceKey;
+const isSupabaseConfigured = supabaseUrl && 
+  supabaseUrl.startsWith('https://') && 
+  supabaseAnonKey && 
+  supabaseServiceKey;
 
 // Log configuration status
 if (!isSupabaseConfigured) {
