@@ -369,8 +369,10 @@ export class ManualManagementService {
   }
 
   private transformSingleCredential(cred: any): PlatformCredential {
-    const isConfigured = cred.credenciales?.configured === true || 
-                        (cred.credenciales?.username && cred.credenciales?.password);
+    // Check if credentials are properly configured
+    const hasUsername = cred.credenciales?.username && cred.credenciales.username.trim().length > 0;
+    const hasPassword = cred.credenciales?.password && cred.credenciales.password.trim().length > 0;
+    const isConfigured = hasUsername && hasPassword;
     
     return {
       id: cred.id,

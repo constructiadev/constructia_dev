@@ -166,6 +166,20 @@ export default function PlatformCredentialsManager({
 
       if (success) {
         await loadCredentials();
+        // Force update the credentials state to show as configured
+        setCredentials(prev => {
+          const updated = prev.filter(c => c.platform_type !== newCredential.platform_type);
+          updated.push({
+            id: `temp_${Date.now()}`,
+            platform_type: newCredential.platform_type,
+            username: newCredential.username,
+            password: newCredential.password,
+            is_active: true,
+            validation_status: 'valid',
+            last_validated: new Date().toISOString()
+          });
+          return updated;
+        });
         setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
         setEditingCredential(null);
         setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });
