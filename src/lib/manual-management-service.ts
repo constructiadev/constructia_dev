@@ -298,22 +298,10 @@ export class ManualManagementService {
         };
       }
 
-      // Get all documents from manual_document_queue for additional stats
-      const { data: manualQueueItems, error: manualError } = await supabaseServiceClient
-        .from('manual_document_queue')
-        .select('manual_status, priority, corruption_detected')
-        .order('created_at', { ascending: true });
-
-      if (manualError) {
-        console.warn('Error getting manual queue stats:', manualError);
-      }
-
-      // Combine both queue sources for comprehensive stats
       const allQueueItems = queueItems || [];
-      const allManualItems = manualQueueItems || [];
       
-      // Count upload queue items
-      const uploadQueueStats = {
+      // Count queue items from manual_upload_queue
+      const queueStats = {
         total: allQueueItems.length,
         pending: allQueueItems.filter(item => item.status === 'queued').length,
         in_progress: allQueueItems.filter(item => item.status === 'in_progress').length,
@@ -322,46 +310,16 @@ export class ManualManagementService {
         urgent: allQueueItems.filter(item => item.priority === 'urgent').length,
         high: allQueueItems.filter(item => item.priority === 'high').length,
         normal: allQueueItems.filter(item => item.priority === 'normal').length,
-        low: allQueueItems.filter(item => item.priority === 'low').length
-      };
-
-      // Count manual queue items
-      const manualQueueStats = {
-        total: allManualItems.length,
-        pending: allManualItems.filter(item => item.manual_status === 'pending').length,
-        in_progress: allManualItems.filter(item => item.manual_status === 'in_progress').length,
-        uploaded: allManualItems.filter(item => item.manual_status === 'uploaded').length,
-        validated: allManualItems.filter(item => item.manual_status === 'validated').length,
-        errors: allManualItems.filter(item => item.manual_status === 'error').length,
-        corrupted: allManualItems.filter(item => item.corruption_detected === true).length,
-        urgent: allManualItems.filter(item => item.priority === 'urgent').length,
-        high: allManualItems.filter(item => item.priority === 'high').length,
-        normal: allManualItems.filter(item => item.priority === 'normal').length,
-        low: allManualItems.filter(item => item.priority === 'low').length
-      };
-
-      // Combine stats from both queues for accurate totals
-      const combinedStats = {
-        total: uploadQueueStats.total + manualQueueStats.total,
-        pending: uploadQueueStats.pending + manualQueueStats.pending,
-        in_progress: uploadQueueStats.in_progress + manualQueueStats.in_progress,
-        uploaded: uploadQueueStats.uploaded + manualQueueStats.uploaded,
-        errors: uploadQueueStats.errors + manualQueueStats.errors,
-        urgent: uploadQueueStats.urgent + manualQueueStats.urgent,
-        high: uploadQueueStats.high + manualQueueStats.high,
-        normal: uploadQueueStats.normal + manualQueueStats.normal,
-        low: uploadQueueStats.low + manualQueueStats.low,
-        corrupted: manualQueueStats.corrupted,
-        validated: manualQueueStats.validated
+        low: allQueueItems.filter(item => item.priority === 'low').length,
+        corrupted: 0, // Not available in manual_upload_queue schema
+        validated: 0  // Not available in manual_upload_queue schema
       };
 
       console.log('📊 [ManualManagement] Queue stats calculated:', {
-        upload_queue: uploadQueueStats,
-        manual_queue: manualQueueStats,
-        combined: combinedStats
+        queue_stats: queueStats
       });
       
-      return combinedStats;
+      return queueStats;
 
     } catch (error) {
       console.error('Error getting queue stats:', error);
