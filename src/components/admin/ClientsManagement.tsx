@@ -455,25 +455,99 @@ const ClientsManagement: React.FC = () => {
   };
 
   const handleDeleteClient = async (clientId: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-      setClients(prev => prev.filter(c => c.id !== clientId));
+    if (confirm('¿Estás seguro de que quieres eliminar este cliente? Esta acción no se puede deshacer.')) {
+      try {
+        // Delete client from database
+        const { error } = await supabaseServiceClient
+          .from('clients')
+          .delete()
+          .eq('id', clientId);
+
+        if (error) {
+          console.error('Error deleting client:', error);
+          alert('Error al eliminar cliente');
+          return;
+        }
+
+        // Update local state
+        setClients(prev => prev.filter(c => c.id !== clientId));
+        
+        alert('✅ Cliente eliminado correctamente');
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        alert('Error al eliminar cliente');
+      }
     }
   };
 
   const handleSuspendClient = async (clientId: string) => {
-    setClients(prev => prev.map(c => 
-      c.id === clientId 
-        ? { ...c, subscription_status: 'suspended', updated_at: new Date().toISOString() }
-        : c
-    ));
+    if (!confirm('¿Estás seguro de que quieres suspender este cliente?')) {
+      return;
+    }
+
+    try {
+      // Update client status in database
+      const { error } = await supabaseServiceClient
+        .from('clients')
+        .update({ 
+          subscription_status: 'suspended',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', clientId);
+
+      if (error) {
+        console.error('Error suspending client:', error);
+        alert('Error al suspender cliente');
+        return;
+      }
+
+      // Update local state
+      setClients(prev => prev.map(c => 
+        c.id === clientId 
+          ? { ...c, subscription_status: 'suspended', updated_at: new Date().toISOString() }
+          : c
+      ));
+      
+      alert('✅ Cliente suspendido correctamente');
+    } catch (error) {
+      console.error('Error suspending client:', error);
+      alert('Error al suspender cliente');
+    }
   };
 
   const handleActivateClient = async (clientId: string) => {
-    setClients(prev => prev.map(c => 
-      c.id === clientId 
-        ? { ...c, subscription_status: 'active', updated_at: new Date().toISOString() }
-        : c
-    ));
+    if (!confirm('¿Estás seguro de que quieres activar este cliente?')) {
+      return;
+    }
+
+    try {
+      // Update client status in database
+      const { error } = await supabaseServiceClient
+        .from('clients')
+        .update({ 
+          subscription_status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', clientId);
+
+      if (error) {
+        console.error('Error activating client:', error);
+        alert('Error al activar cliente');
+        return;
+      }
+
+      // Update local state
+      setClients(prev => prev.map(c => 
+        c.id === clientId 
+          ? { ...c, subscription_status: 'active', updated_at: new Date().toISOString() }
+          : c
+      ));
+      
+      alert('✅ Cliente activado correctamente');
+    } catch (error) {
+      console.error('Error activating client:', error);
+      alert('Error al activar cliente');
+    }
   };
 
   const handleViewClientCredentials = async (client: Client) => {
