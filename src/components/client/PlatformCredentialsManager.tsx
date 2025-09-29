@@ -357,27 +357,51 @@ export default function PlatformCredentialsManager({
                     title="Copiar contraseña"
                   >
                     Copiar
-
-      {/* Instructions for Client */}
-      {!isReadOnly && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <Info className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
-            <div>
-              <h4 className="font-semibold text-green-800 mb-2">Configuración de Credenciales</h4>
-              <p className="text-sm text-green-700 mb-2">
-                Configura tus credenciales de acceso a las plataformas CAE para permitir la integración automática.
-              </p>
-              <div className="text-sm text-green-600 space-y-1">
-                <div>• 🔐 Las credenciales se almacenan de forma segura y encriptada</div>
-                <div>• 🔄 Permiten la subida automática de documentos a las plataformas</div>
-                <div>• ⚙️ Puedes configurar múltiples plataformas según tus necesidades</div>
-                <div>• 🛡️ Solo tú y los administradores autorizados pueden ver estas credenciales</div>
+                  </button>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center">
+                <input
+                  type={showPasswords[selectedPlatformType] ? "text" : "password"}
+                  value={newCredential.password}
+                  onChange={(e) => setNewCredential(prev => ({ ...prev, password: e.target.value }))}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(prev => ({
+                    ...prev,
+                    [selectedPlatformType]: !prev[selectedPlatformType]
+                  }))}
+                  className="ml-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  {showPasswords[selectedPlatformType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {!isReadOnly && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveCredential}
+              disabled={savingCredentials || !newCredential.username.trim() || !newCredential.password.trim()}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center"
+            >
+              {savingCredentials ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {editingCredential ? 'Actualizar' : 'Guardar'} Credenciales
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Instructions for Client */}
       {!isReadOnly && (
