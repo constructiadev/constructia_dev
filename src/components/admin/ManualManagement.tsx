@@ -92,6 +92,46 @@ export default function ManualManagement() {
   const [editingDocument, setEditingDocument] = useState<string | null>(null);
   const [documentPlatforms, setDocumentPlatforms] = useState<{[docId: string]: string}>({});
 
+  const handleEditDocumentPlatform = (docId: string, currentPlatform: string) => {
+    setEditingDocument(docId);
+    setDocumentPlatforms(prev => ({ ...prev, [docId]: currentPlatform }));
+  };
+
+  const handleSavePlatformChange = async (docId: string) => {
+    const newPlatform = documentPlatforms[docId];
+    if (!newPlatform) return;
+
+    try {
+      // Update the platform in the queue item's notes
+      const success = await manualManagementService.updateDocumentStatus(
+        docId,
+        'pending', // Keep current status
+        newPlatform,
+        `Plataforma cambiada a ${newPlatform} por administrador`
+      );
+
+      if (success) {
+        setEditingDocument(null);
+        await refreshData();
+        alert(`✅ Plataforma actualizada a ${newPlatform}`);
+      } else {
+        alert('❌ Error al actualizar plataforma');
+      }
+    } catch (error) {
+      console.error('Error updating platform:', error);
+      alert('❌ Error al actualizar plataforma');
+    }
+  };
+
+  const handleCancelPlatformEdit = (docId: string) => {
+    setEditingDocument(null);
+    setDocumentPlatforms(prev => {
+      const newState = { ...prev };
+      delete newState[docId];
+      return newState;
+    });
+  };
+
   const platformOptions = [
     { id: 'nalanda', name: 'Nalanda/Obralia', color: 'bg-blue-600', icon: Globe },
     { id: 'ctaima', name: 'CTAIMA', color: 'bg-green-600', icon: Target },

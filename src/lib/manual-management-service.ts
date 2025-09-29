@@ -227,7 +227,7 @@ export class ManualManagementService {
               queue_position: queuePosition++, // Assign FIFO position
               retry_count: 0,
               admin_notes: item.nota || '',
-              platform_target: 'nalanda',
+              platform_target: this.extractPlatformFromNotes(item.nota) || 'nalanda',
               company_id: companyId,
               project_id: item.obras.id,
               created_at: item.created_at,
@@ -279,6 +279,18 @@ export class ManualManagementService {
       console.error('❌ [ManualManagement] Critical error getting client groups:', error);
       return [];
     }
+  }
+
+  // Extract platform from notes field
+  private extractPlatformFromNotes(nota: string | null): string {
+    if (!nota) return 'nalanda';
+    
+    const lowerNota = nota.toLowerCase();
+    if (lowerNota.includes('ctaima')) return 'ctaima';
+    if (lowerNota.includes('ecoordina')) return 'ecoordina';
+    if (lowerNota.includes('nalanda') || lowerNota.includes('obralia')) return 'nalanda';
+    
+    return 'nalanda'; // Default fallback
   }
 
   // Get queue statistics
@@ -374,7 +386,7 @@ export class ManualManagementService {
     file: File,
     category: string,
     priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
-    platformTarget: string,
+    platformTarget: string = 'nalanda',
     userId?: string
   ): Promise<{ id: string; document_id: string } | null> {
     try {
@@ -458,7 +470,7 @@ export class ManualManagementService {
           documento_id: documento.id,
           status: 'queued',
           priority: priority,
-          nota: `Documento subido por usuario ${userId || 'unknown'}`
+          nota: `Documento subido por usuario ${userId || 'unknown'} - Plataforma destino: ${platformTarget}`
         })
         .select()
         .single();
@@ -583,15 +595,21 @@ export class ManualManagementService {
     notes?: string
   ): Promise<boolean> {
     try {
+      const updateData: any = {
+        status: newStatus === 'pending' ? 'queued' :
+               newStatus === 'uploading' ? 'in_progress' :
+               newStatus === 'uploaded' ? 'uploaded' : 'error',
+        updated_at: new Date().toISOString()
+      };
+
+      // If notes are provided, update them
+      if (notes) {
+        updateData.nota = notes;
+      }
+
       const { error } = await supabaseServiceClient
         .from('manual_upload_queue')
-        .update({
-          status: newStatus === 'pending' ? 'queued' :
-                 newStatus === 'uploading' ? 'in_progress' :
-                 newStatus === 'uploaded' ? 'uploaded' : 'error',
-          nota: notes || '',
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', queueItemId);
 
       if (error) {
