@@ -273,10 +273,10 @@ export default function PlatformCredentialsManager({
                   </div>
                 )}
               </div>
-            );
-          </button>
-          })}
-        </div>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Selected Platform Credentials */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
