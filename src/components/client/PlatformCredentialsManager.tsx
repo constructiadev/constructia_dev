@@ -16,7 +16,9 @@ import {
   RefreshCw,
   ExternalLink,
   Edit,
-  X
+  X,
+  Loader2,
+  Info
 } from 'lucide-react';
 import { manualManagementService, type PlatformCredential } from '../../lib/manual-management-service';
 import { useAuth } from '../../lib/auth-context';
@@ -355,108 +357,6 @@ export default function PlatformCredentialsManager({
                     title="Copiar contraseña"
                   >
                     Copiar
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center bg-gray-50 p-3 rounded-lg border">
-                <input
-                  type={showPasswords[selectedPlatformType] ? 'text' : 'password'}
-                  value={newCredential.password}
-                  onChange={(e) => setNewCredential(prev => ({ ...prev, password: e.target.value }))}
-                  className="flex-1 bg-transparent border-none outline-none"
-                  placeholder="••••••••••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords(prev => ({
-                    ...prev,
-                    [selectedPlatformType]: !prev[selectedPlatformType]
-                  }))}
-                  className="ml-2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPasswords[selectedPlatformType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Save Button for Client */}
-        {!isReadOnly && (
-          <div className="mb-4">
-            <button
-              onClick={handleSaveCredential}
-              disabled={savingCredentials || !newCredential.username.trim() || !newCredential.password.trim()}
-              className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {savingCredentials ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Guardando credenciales...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5 mr-2" />
-                  Guardar Credenciales de {getPlatformInfo(selectedPlatformType).name}
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Status Display */}
-        {newCredential.username || newCredential.password ? (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <CheckCircle className="h-5 w-5 text-blue-600 mr-3" />
-              <div>
-                <h4 className="font-semibold text-blue-800">Credenciales Configuradas</h4>
-                <p className="text-sm text-blue-700">
-                  {isReadOnly 
-                    ? 'Estas son las credenciales que el cliente ha configurado para esta plataforma.'
-                    : 'Credenciales guardadas correctamente para esta plataforma.'
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />
-              <div>
-                <h4 className="font-semibold text-yellow-800">Sin Credenciales</h4>
-                <p className="text-sm text-yellow-700">
-                  {isReadOnly 
-                    ? 'El cliente no ha configurado credenciales para esta plataforma.'
-                    : 'No hay credenciales configuradas para esta plataforma. Completa los campos de arriba y haz clic en "Guardar Credenciales".'
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Instructions for Admin */}
-      {isReadOnly && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <Settings className="h-5 w-5 text-purple-600 mr-3 mt-0.5" />
-            <div>
-              <h4 className="font-semibold text-purple-800 mb-2">Instrucciones para el Administrador</h4>
-              <ol className="text-sm text-purple-700 space-y-1">
-                <li>1. Copia las credenciales usando los botones "Copiar"</li>
-                <li>2. Abre la plataforma en nueva pestaña</li>
-                <li>3. Inicia sesión con las credenciales copiadas</li>
-                <li>4. Sube los documentos manualmente</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Instructions for Client */}
       {!isReadOnly && (
@@ -478,83 +378,23 @@ export default function PlatformCredentialsManager({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-                <span className="text-gray-900 font-mono flex-1">
-                  {showPasswords[selectedPlatformType] ? newCredential.password : '••••••••••••••••'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords(prev => ({
-                    ...prev,
-                    [selectedPlatformType]: !prev[selectedPlatformType]
-                  }))}
-                  className="ml-2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPasswords[selectedPlatformType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {newCredential.password && (
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(newCredential.password)}
-                  className="ml-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-                  title="Copiar contraseña"
-                >
-                  Copiar
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {newCredential.username || newCredential.password ? (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <CheckCircle className="h-5 w-5 text-blue-600 mr-3" />
-              <div>
-                <h4 className="font-semibold text-blue-800">Credenciales Configuradas</h4>
-                <p className="text-sm text-blue-700">
-                  {isReadOnly 
-                    ? 'Estas son las credenciales que el cliente ha configurado para esta plataforma.'
-                    : 'Credenciales guardadas correctamente para esta plataforma.'
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />
-              <div>
-                <h4 className="font-semibold text-yellow-800">Sin Credenciales</h4>
-                <p className="text-sm text-yellow-700">
-                  {isReadOnly 
-                    ? 'El cliente no ha configurado credenciales para esta plataforma.'
-                    : 'No hay credenciales configuradas para esta plataforma.'
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Instructions for Admin */}
-      {isReadOnly && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+      {/* Instructions for Client */}
+      {!isReadOnly && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-start">
-            <Settings className="h-5 w-5 text-purple-600 mr-3 mt-0.5" />
+            <Info className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
             <div>
-              <h4 className="font-semibold text-purple-800 mb-2">Instrucciones para el Administrador</h4>
-              <ol className="text-sm text-purple-700 space-y-1">
-                <li>1. Copia las credenciales usando los botones "Copiar"</li>
-                <li>2. Abre la plataforma en nueva pestaña</li>
-                <li>3. Inicia sesión con las credenciales copiadas</li>
-                <li>4. Sube los documentos manualmente</li>
-              </ol>
+              <h4 className="font-semibold text-green-800 mb-2">Configuración de Credenciales</h4>
+              <p className="text-sm text-green-700 mb-2">
+                Configura tus credenciales de acceso a las plataformas CAE para permitir la integración automática.
+              </p>
+              <div className="text-sm text-green-600 space-y-1">
+                <div>• 🔐 Las credenciales se almacenan de forma segura y encriptada</div>
+                <div>• 🔄 Permiten la subida automática de documentos a las plataformas</div>
+                <div>• ⚙️ Puedes configurar múltiples plataformas según tus necesidades</div>
+                <div>• 🛡️ Solo tú y los administradores autorizados pueden ver estas credenciales</div>
+              </div>
             </div>
           </div>
         </div>
