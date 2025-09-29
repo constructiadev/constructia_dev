@@ -263,17 +263,20 @@ export default function ClientRegister() {
       console.error('Registration error:', err);
       
       // Mostrar error específico al usuario
-      let userFriendlyError = 'Error durante el registro. Por favor, inténtalo de nuevo.';
+      let userFriendlyError = '❌ Error durante el registro. Por favor, inténtalo de nuevo.';
       
       if (err?.message) {
-        if (err.message.includes('Failed to fetch')) {
-          userFriendlyError = '❌ Error de conexión: No se puede conectar al servidor. Verifica tu conexión a internet.';
-        } else if (err.message.includes('Invalid API key')) {
-          userFriendlyError = '❌ Error de configuración: Problema con la configuración del servidor.';
-        } else if (err.message.includes('already exists') || err.message.includes('duplicate')) {
-          userFriendlyError = '❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.';
-        } else {
+        if (err.message.includes('❌')) {
+          // Error message already formatted
           userFriendlyError = err.message;
+        } else if (err.message.includes('Failed to fetch')) {
+          userFriendlyError = '❌ Error de conexión: No se puede conectar al servidor. Verifica tu conexión a internet y contacta con soporte si persiste.';
+        } else if (err.message.includes('Invalid API key') || err.message.includes('Clave de API inválida')) {
+          userFriendlyError = '❌ Error de configuración del sistema: Contacta con el administrador para resolver este problema.';
+        } else if (err.message.includes('already registered') || err.message.includes('duplicate') || err.message.includes('ya está registrado')) {
+          userFriendlyError = '❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión en su lugar.';
+        } else {
+          userFriendlyError = `❌ ${err.message}`;
         }
       }
       
@@ -900,7 +903,8 @@ export default function ClientRegister() {
                   <button
                     type="button"
                     onClick={handleNextStep}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
+                    disabled={!validateStep(currentStep)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Siguiente
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -908,7 +912,7 @@ export default function ClientRegister() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !formData.accept_terms || !formData.accept_privacy}
                     className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
                     {submitting ? (
