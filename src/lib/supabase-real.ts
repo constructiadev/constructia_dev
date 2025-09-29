@@ -128,51 +128,6 @@ export const ensureDevTenantExists = async () => {
   }
 };
 
-// Development tenant ID
-export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
-export const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
-
-// Ensure DEV_TENANT_ID exists in tenants table
-export const ensureDevTenantExists = async () => {
-  try {
-    // Check if DEV_TENANT_ID exists
-    const { data: existingTenant, error: checkError } = await supabaseServiceClient
-      .from('tenants')
-      .select('id')
-      .eq('id', DEV_TENANT_ID)
-      .maybeSingle();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking for existing tenant:', checkError);
-      return false;
-    }
-
-    // If tenant doesn't exist, create it
-    if (!existingTenant) {
-      const { error: insertError } = await supabaseServiceClient
-        .from('tenants')
-        .insert({
-          id: DEV_TENANT_ID,
-          name: 'Development Tenant',
-          status: 'active'
-        });
-
-      if (insertError) {
-        console.error('Error creating DEV_TENANT_ID:', insertError);
-        return false;
-      }
-
-      console.log('✅ DEV_TENANT_ID created successfully');
-    } else {
-      console.log('✅ DEV_TENANT_ID already exists');
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error ensuring DEV_TENANT_ID exists:', error);
-    return false;
-  }
-};
 // Helper para obtener configuraciones del sistema
 export const getSystemSettings = async () => {
   try {
