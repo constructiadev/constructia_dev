@@ -121,8 +121,9 @@ export class ClientAuthService {
 
         if (authError || !authData.user) {
           if (authError?.message.includes('User already registered')) {
-            console.warn('⚠️ [ClientAuth] User already registered:', registrationData.email);
-            throw new Error('❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
+            // This should not happen now due to pre-check, but handle it just in case
+            console.error('❌ [ClientAuth] Unexpected: User already registered after pre-check');
+            throw new Error('❌ Error inesperado: El email ya está registrado.');
           } else if (authError?.message.includes('Failed to fetch')) {
             console.error('❌ [ClientAuth] Network error during auth user creation:', authError);
             throw new Error('❌ Error de conexión: No se puede conectar al servicio de autenticación.');
@@ -337,7 +338,12 @@ export class ClientAuthService {
       }
 
     } catch (error) {
-      console.error('❌ [ClientAuth] Registration error:', error);
+      // Only log as error if it's not a user-friendly duplicate email message
+      if (error instanceof Error && error.message.includes('Este email ya está registrado')) {
+        console.warn('⚠️ [ClientAuth] Registration blocked - email already exists:', error.message);
+      } else {
+        console.error('❌ [ClientAuth] Registration error:', error);
+      }
       throw error;
     }
   }
@@ -678,6 +684,31 @@ export class ClientAuthService {
     try {
       console.log('🔧 [ClientAuth] Creating user profile for:', email);
 
+      
+      // STEP 0.5: Check if email already exists before creating tenant
+      console.log('🔍 [ClientAuth] Checking if email already exists...');
+      try {
+        const { data: existingUser, error: checkError } = await supabaseServiceClient.auth.admin.getUserByEmail(registrationData.email);
+        
+        if (checkError && !checkError.message.includes('User not found')) {
+          console.error('❌ [ClientAuth] Error checking existing user:', checkError);
+          throw new Error(`Error verificando usuario existente: ${checkError.message}`);
+        }
+        
+        if (existingUser && existingUser.user) {
+          console.warn('⚠️ [ClientAuth] Email already registered:', registrationData.email);
+          throw new Error('❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
+        }
+        
+        console.log('✅ [ClientAuth] Email is available for registration');
+      } catch (emailCheckError) {
+        if (emailCheckError instanceof Error && emailCheckError.message.includes('Este email ya está registrado')) {
+          throw emailCheckError; // Re-throw the user-friendly message
+        }
+        console.error('❌ [ClientAuth] Unexpected error during email check:', emailCheckError);
+        throw new Error('Error verificando disponibilidad del email. Inténtalo de nuevo.');
+      }
+      
       const { data, error } = await supabaseServiceClient
         .from('users')
         .insert({
