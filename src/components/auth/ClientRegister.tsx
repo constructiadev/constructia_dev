@@ -178,9 +178,13 @@ export default function ClientRegister() {
 
   const handleInputChange = (field: keyof RegistrationForm, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    setErrors(prev => {
+      if (prev[field]) {
+        const { [field]: _, ...rest } = prev;
+        return rest;
+      }
+      return prev;
+    });
   };
 
   const togglePasswordVisibility = (field: string) => {
