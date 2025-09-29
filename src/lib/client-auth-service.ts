@@ -58,30 +58,6 @@ export class ClientAuthService {
         throw new Error('❌ Error de configuración: Supabase no está configurado correctamente. Contacta con el administrador del sistema.');
       }
 
-      // Test database connectivity before starting registration
-      try {
-        console.log('🔌 [ClientAuth] Testing database connectivity...');
-        const { data: testData, error: testError } = await supabaseServiceClient
-          .from('tenants')
-          .select('id')
-          .limit(1);
-        
-        if (testError) {
-          console.error('❌ [ClientAuth] Database connectivity test failed:', testError);
-          if (testError.message.includes('Invalid API key')) {
-            throw new Error('❌ Error de configuración: La clave de API de Supabase no es válida. Contacta con el administrador del sistema.');
-          } else if (testError.message.includes('Failed to fetch')) {
-            throw new Error('❌ Error de conexión: No se puede conectar a la base de datos. Verifica tu conexión a internet.');
-          } else {
-            throw new Error(`❌ Error de base de datos: ${testError.message}`);
-          }
-        }
-        console.log('✅ [ClientAuth] Database connectivity verified');
-      } catch (connectivityError) {
-        console.error('❌ [ClientAuth] Connectivity test failed:', connectivityError);
-        throw connectivityError;
-      }
-
       // STEP 0.6: Check for duplicate company name and CIF
       console.log('🔍 [ClientAuth] Checking for duplicate company name and CIF...');
       try {
@@ -169,9 +145,8 @@ export class ClientAuthService {
 
         if (authError || !authData.user) {
           if (authError?.message.includes('User already registered')) {
-            // This should not happen now due to pre-check, but handle it just in case
-            console.error('❌ [ClientAuth] Unexpected: User already registered after pre-check');
-            throw new Error('❌ Error inesperado: El email ya está registrado.');
+            console.warn('⚠️ [ClientAuth] Email already registered:', registrationData.email);
+            throw new Error('❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
           } else if (authError?.message.includes('Failed to fetch')) {
             console.error('❌ [ClientAuth] Network error during auth user creation:', authError);
             throw new Error('❌ Error de conexión: No se puede conectar al servicio de autenticación.');
