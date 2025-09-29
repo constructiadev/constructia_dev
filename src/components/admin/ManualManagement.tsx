@@ -451,7 +451,7 @@ export default function ManualManagement() {
             </p>
             <div className="space-y-1 text-sm text-purple-100">
               <div>• 📋 Cola FIFO con {queueStats.total} documentos pendientes</div>
-              <div>• 🔄 Actualización automática de la Cola Adhoc </div>
+              <div>• 🔄 Actualización OnDemand de la Cola Adhoc </div>
             </div>
           </div>
           <div className="text-right">
