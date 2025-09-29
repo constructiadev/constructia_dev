@@ -240,6 +240,11 @@ export class ClientAuthService {
     try {
       console.log('🔐 [ClientAuth] Authenticating client:', email);
 
+      // Check if Supabase is properly configured before making requests
+      if (!supabase || typeof supabase.auth?.signInWithPassword !== 'function') {
+        throw new Error('Supabase not properly configured. Check environment variables.');
+      }
+
       // Step 1: Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -248,6 +253,9 @@ export class ClientAuthService {
 
       if (authError || !authData.user) {
         console.error('❌ [ClientAuth] Authentication failed:', authError?.message);
+        if (authError?.message === 'Failed to fetch') {
+          throw new Error('Network error: Cannot connect to Supabase. Check VITE_SUPABASE_URL in .env file.');
+        }
         throw new Error(authError?.message || 'Authentication failed');
       }
 
@@ -386,10 +394,20 @@ export class ClientAuthService {
   // Get current authenticated client context
   static async getCurrentClient(): Promise<AuthenticatedClient | null> {
     try {
+      // Check if Supabase is properly configured before making requests
+      if (!supabase || typeof supabase.auth?.getUser !== 'function') {
+        console.warn('⚠️ [ClientAuth] Supabase not properly configured - using fallback');
+        return null;
+      }
+
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
-        console.error('❌ [ClientAuth] Auth error:', authError);
+        if (authError.message === 'Failed to fetch') {
+          console.warn('⚠️ [ClientAuth] Network error - Supabase unreachable. Check VITE_SUPABASE_URL in .env');
+        } else {
+          console.error('❌ [ClientAuth] Auth error:', authError);
+        }
         return null;
       }
       

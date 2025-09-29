@@ -28,12 +28,37 @@ export function useClientData() {
 
       console.log('🔍 [useClientData] Loading data for user:', user.email);
 
-      // Use tenant-isolated data service
-      const context = await ClientIsolatedDataService.getClientDataContext();
-      
-      if (!context) {
-        console.warn('⚠️ [useClientData] No context from isolated service, using fallback');
-        // Fallback to basic client data
+      try {
+        // Use tenant-isolated data service
+        const context = await ClientIsolatedDataService.getClientDataContext();
+        
+        if (!context) {
+          console.warn('⚠️ [useClientData] No context from isolated service, using fallback');
+          // Fallback to basic client data
+          const fallbackContext = {
+            client: user,
+            empresas: [],
+            obras: [],
+            documentos: [],
+            stats: {
+              totalCompanies: 0,
+              totalProjects: 0,
+              totalDocuments: 0,
+              documentsProcessed: 0,
+              storageUsed: user.storage_used || 0,
+              storageLimit: user.storage_limit || 1073741824
+            }
+          };
+          setDataContext(fallbackContext);
+          return;
+        }
+
+        setDataContext(context);
+        console.log('✅ [useClientData] Data context loaded successfully');
+      } catch (networkError: any) {
+        console.warn('⚠️ [useClientData] Network error, using fallback data:', networkError.message);
+        
+        // Create fallback context when network fails
         const fallbackContext = {
           client: user,
           empresas: [],
@@ -51,14 +76,13 @@ export function useClientData() {
         setDataContext(fallbackContext);
         return;
       }
-
-      setDataContext(context);
-      console.log('✅ [useClientData] Data context loaded successfully');
-
+      
     } catch (err) {
       console.error('❌ [useClientData] Error loading client data:', err);
-      // Don't set error, use fallback instead
+      
+      // Always provide fallback data instead of showing error
       if (user) {
+        console.log('🔄 [useClientData] Using fallback data due to error');
         const fallbackContext = {
           client: user,
           empresas: [],
@@ -75,7 +99,7 @@ export function useClientData() {
         };
         setDataContext(fallbackContext);
       } else {
-        setError(err instanceof Error ? err.message : 'Error loading client data');
+        setError('No user authenticated');
         setDataContext(null);
       }
     } finally {
