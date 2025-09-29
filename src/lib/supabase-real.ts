@@ -1,22 +1,33 @@
 import { createClient } from '@supabase/supabase-js';
 import { getEnvVar } from '../utils/env';
 
+// Validate environment variables with detailed logging
 const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
 const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 const supabaseServiceKey = getEnvVar('VITE_SUPABASE_SERVICE_ROLE_KEY');
 
-// Validate environment variables
+// Log configuration status for debugging
+console.log('🔧 [Supabase] Configuration check:');
+console.log('   VITE_SUPABASE_URL:', supabaseUrl ? '✅ SET' : '❌ MISSING');
+console.log('   VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ SET' : '❌ MISSING');
+console.log('   VITE_SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? '✅ SET' : '❌ MISSING');
+
+// Validate environment variables with detailed error messages
 if (!supabaseUrl) {
   console.error('❌ VITE_SUPABASE_URL is not configured in .env file');
   console.error('Please add: VITE_SUPABASE_URL=https://your-project.supabase.co');
+  console.error('Expected format: https://[project-id].supabase.co');
 }
 if (!supabaseAnonKey) {
   console.error('❌ VITE_SUPABASE_ANON_KEY is not configured in .env file');
   console.error('Please add: VITE_SUPABASE_ANON_KEY=your-anon-key');
+  console.error('Find this key in: Supabase Dashboard > Settings > API');
 }
 if (!supabaseServiceKey) {
   console.error('❌ VITE_SUPABASE_SERVICE_ROLE_KEY is not configured in .env file');
   console.error('Please add: VITE_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key');
+  console.error('Find this key in: Supabase Dashboard > Settings > API');
+  console.error('⚠️ WARNING: Service role key is required for admin functions');
 }
 
 // Check if all required environment variables are present
@@ -26,24 +37,55 @@ const isSupabaseConfigured = supabaseUrl && supabaseAnonKey && supabaseServiceKe
 if (!isSupabaseConfigured) {
   console.error('❌ Supabase configuration incomplete. Please check your .env file.');
   console.error('Required variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_SUPABASE_SERVICE_ROLE_KEY');
+  console.error('📋 To fix this:');
+  console.error('   1. Copy .env.example to .env');
+  console.error('   2. Update the Supabase values with your project credentials');
+  console.error('   3. Restart the development server');
 }
 
-// Create a dummy client that returns configuration errors
+// Create a safe dummy client that prevents network requests
 const createDummyClient = () => ({
   auth: {
-    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
-    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-    signInWithPassword: () => Promise.reject(new Error('Supabase not configured - check .env file')),
-    signUp: () => Promise.reject(new Error('Supabase not configured - check .env file')),
+    getUser: () => Promise.resolve({ 
+      data: { user: null }, 
+      error: { message: 'Supabase not configured - check .env file' } 
+    }),
+    getSession: () => Promise.resolve({ 
+      data: { session: null }, 
+      error: { message: 'Supabase not configured - check .env file' } 
+    }),
+    signInWithPassword: () => Promise.resolve({
+      data: { user: null, session: null },
+      error: { message: 'Supabase not configured - check .env file' }
+    }),
+    signUp: () => Promise.resolve({
+      data: { user: null, session: null },
+      error: { message: 'Supabase not configured - check .env file' }
+    }),
     signOut: () => Promise.resolve({ error: null }),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
   },
   from: () => ({
-    select: () => Promise.resolve({ data: [], error: null }),
-    insert: () => Promise.reject(new Error('Supabase not configured - check .env file')),
-    update: () => Promise.reject(new Error('Supabase not configured - check .env file')),
-    delete: () => Promise.reject(new Error('Supabase not configured - check .env file')),
-    upsert: () => Promise.reject(new Error('Supabase not configured - check .env file'))
+    select: () => Promise.resolve({ 
+      data: [], 
+      error: { message: 'Supabase not configured - check .env file' } 
+    }),
+    insert: () => Promise.resolve({
+      data: null,
+      error: { message: 'Supabase not configured - check .env file' }
+    }),
+    update: () => Promise.resolve({
+      data: null,
+      error: { message: 'Supabase not configured - check .env file' }
+    }),
+    delete: () => Promise.resolve({
+      data: null,
+      error: { message: 'Supabase not configured - check .env file' }
+    }),
+    upsert: () => Promise.resolve({
+      data: null,
+      error: { message: 'Supabase not configured - check .env file' }
+    })
   }),
   channel: () => ({
     on: () => ({ subscribe: () => {} })
