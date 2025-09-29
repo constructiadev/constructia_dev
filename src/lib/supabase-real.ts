@@ -16,37 +16,117 @@ if (!supabaseServiceKey) {
   console.error('❌ VITE_SUPABASE_SERVICE_ROLE_KEY is not configured');
 }
 
-// Service role client for bypassing RLS
-export const supabaseServiceClient = createClient(supabaseUrl, supabaseServiceKey, {
+// Check if all required environment variables are present
+const isSupabaseConfigured = supabaseUrl && supabaseAnonKey && supabaseServiceKey;
+
+// Create a dummy client that returns configuration errors
+const createDummyClient = () => ({
   auth: {
-    autoRefreshToken: false,
-    persistSession: false
+    getUser: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    getSession: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    signInWithPassword: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    signUp: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    signOut: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
   },
-  global: {
-    headers: {
-      'x-client-info': 'constructia-admin'
-    }
-  }
+  from: () => ({
+    select: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    insert: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    update: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    delete: () => Promise.reject(new Error('Supabase not configured - missing environment variables')),
+    upsert: () => Promise.reject(new Error('Supabase not configured - missing environment variables'))
+  }),
+  channel: () => ({
+    on: () => ({ subscribe: () => {} })
+  })
 });
 
+// Service role client for bypassing RLS
+export const supabaseServiceClient = isSupabaseConfigured 
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      },
+      global: {
+        headers: {
+          'x-client-info': 'constructia-admin'
+        }
+      }
+    })
+  : createDummyClient();
+
 // Centralized Supabase client - single instance for entire app
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-    flowType: 'pkce',
-    debug: false
-  },
-  global: {
-    headers: {
-      'x-client-info': 'constructia-client'
-    }
-  }
-});
+export const supabaseClient = isSupabaseConfigured 
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
+        debug: false
+      },
+      global: {
+        headers: {
+          'x-client-info': 'constructia-client'
+        }
+      }
+    })
+  : createDummyClient();
 
 // Re-export as supabase for backward compatibility
 export const supabase = supabaseClient;
+
+// Development tenant ID
+export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+export const DEV_ADMIN_USER_ID = '20000000-0000-0000-0000-000000000001';
+
+// Ensure DEV_TENANT_ID exists in tenants table
+export const ensureDevTenantExists = async () => {
+  if (!isSupabaseConfigured) {
+    console.error('❌ Cannot ensure dev tenant exists - Supabase not configured');
+    return false;
+  }
+
+  try {
+    // Check if DEV_TENANT_ID exists
+    const { data: existingTenant, error: checkError } = await supabaseServiceClient
+      .from('tenants')
+      .select('id')
+      .eq('id', DEV_TENANT_ID)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking for existing tenant:', checkError);
+      return false;
+    }
+
+    // If tenant doesn't exist, create it
+    if (!existingTenant) {
+      const { error: insertError } = await supabaseServiceClient
+        .from('tenants')
+        .insert({
+          id: DEV_TENANT_ID,
+          name: 'Development Tenant',
+          status: 'active'
+        });
+
+      if (insertError) {
+        console.error('Error creating DEV_TENANT_ID:', insertError);
+        return false;
+      }
+
+      console.log('✅ DEV_TENANT_ID created successfully');
+    } else {
+      console.log('✅ DEV_TENANT_ID already exists');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error ensuring DEV_TENANT_ID exists:', error);
+    return false;
+  }
+};
 
 // Development tenant ID
 export const DEV_TENANT_ID = '00000000-0000-0000-0000-000000000001';
