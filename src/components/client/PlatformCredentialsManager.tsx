@@ -274,6 +274,7 @@ export default function PlatformCredentialsManager({
                 )}
               </div>
             );
+          </button>
           })}
         </div>
 
