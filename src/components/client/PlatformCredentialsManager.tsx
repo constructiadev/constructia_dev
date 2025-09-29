@@ -49,6 +49,7 @@ export default function PlatformCredentialsManager({
     username: '',
     password: ''
   });
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const platforms = [
     { 
@@ -117,6 +118,11 @@ export default function PlatformCredentialsManager({
     }
   };
 
+  const refreshCredentials = async () => {
+    await loadCredentials();
+    setMessage({ type: 'success', text: 'Credenciales actualizadas correctamente' });
+    setTimeout(() => setMessage(null), 3000);
+  };
   const handleAddCredential = () => {
     setEditingCredential(null);
     setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
@@ -162,14 +168,17 @@ export default function PlatformCredentialsManager({
         await loadCredentials();
         setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
         setEditingCredential(null);
+        setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });
         onCredentialsUpdated?.();
-        alert('✅ Credenciales guardadas correctamente');
       } else {
-        alert('❌ Error al guardar credenciales');
+        setMessage({ type: 'error', text: 'Error al guardar credenciales' });
       }
+      
+      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error saving credential:', error);
-      alert('❌ Error al guardar credenciales');
+      setMessage({ type: 'error', text: 'Error al guardar credenciales' });
+      setTimeout(() => setMessage(null), 3000);
     } finally {
       setSavingCredentials(false);
     }
@@ -193,10 +202,12 @@ export default function PlatformCredentialsManager({
 
       await loadCredentials();
       onCredentialsUpdated?.();
-      alert('✅ Credenciales eliminadas correctamente');
+      setMessage({ type: 'success', text: 'Credenciales eliminadas correctamente' });
+      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error deleting credential:', error);
-      alert('❌ Error al eliminar credenciales');
+      setMessage({ type: 'error', text: 'Error al eliminar credenciales' });
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -230,22 +241,48 @@ export default function PlatformCredentialsManager({
             {isReadOnly ? 'Credenciales configuradas por el cliente' : 'Configura el acceso a las plataformas CAE'}
           </p>
         </div>
-        {!isReadOnly && (
+        <div className="flex items-center space-x-3">
           <button
-            onClick={handleAddCredential}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+            onClick={refreshCredentials}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Credencial
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
           </button>
-        )}
+          {!isReadOnly && (
+            <button
+              onClick={handleAddCredential}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Credencial
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Message Display */}
+      {message && (
+        <div className={`mb-6 p-4 rounded-lg flex items-center space-x-3 ${
+          message.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-800' 
+            : 'bg-red-50 border border-red-200 text-red-800'
+        }`}>
+          {message.type === 'success' ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <AlertTriangle className="w-5 h-5" />
+          )}
+          <span>{message.text}</span>
+        </div>
+      )}
 
       {/* Platform Selection Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {platforms.map((platform) => {
           const isSelected = selectedPlatformType === platform.type;
           const hasCredentials = credentials.some(cred => cred.platform_type === platform.type);
+          const credentialForPlatform = credentials.find(cred => cred.platform_type === platform.type);
           
           return (
             <button
@@ -261,10 +298,15 @@ export default function PlatformCredentialsManager({
               <div className="text-left">
                 <h4 className="font-semibold text-gray-900">{platform.name}</h4>
                 <p className="text-sm text-gray-600">{platform.description}</p>
-                {hasCredentials ? (
+                {hasCredentials && credentialForPlatform?.is_active ? (
                   <div className="flex items-center mt-1">
                     <CheckCircle className="h-3 w-3 text-green-600 mr-1" />
                     <span className="text-xs text-green-600">Configurado</span>
+                  </div>
+                ) : hasCredentials && !credentialForPlatform?.is_active ? (
+                  <div className="flex items-center mt-1">
+                    <AlertTriangle className="h-3 w-3 text-yellow-600 mr-1" />
+                    <span className="text-xs text-yellow-600">Inactivo</span>
                   </div>
                 ) : (
                   <div className="flex items-center mt-1">

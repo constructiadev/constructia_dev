@@ -175,6 +175,17 @@ const Documents: React.FC = () => {
   const refreshData = async () => {
     await loadClientDocuments();
   };
+  
+  // Auto-refresh every 30 seconds to catch new uploads
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!loading) {
+        loadClientDocuments();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

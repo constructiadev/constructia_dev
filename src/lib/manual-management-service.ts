@@ -358,7 +358,9 @@ export class ManualManagementService {
         return [];
       }
 
-      return (adaptadores || []).map(cred => this.transformSingleCredential(cred));
+      const transformedCredentials = (adaptadores || []).map(cred => this.transformSingleCredential(cred));
+      console.log('🔍 [ManualManagement] Transformed credentials:', transformedCredentials);
+      return transformedCredentials;
 
     } catch (error) {
       console.error('Error getting platform credentials:', error);
@@ -367,13 +369,16 @@ export class ManualManagementService {
   }
 
   private transformSingleCredential(cred: any): PlatformCredential {
+    const isConfigured = cred.credenciales?.configured === true || 
+                        (cred.credenciales?.username && cred.credenciales?.password);
+    
     return {
       id: cred.id,
       platform_type: cred.plataforma,
       username: cred.credenciales?.username || '',
       password: cred.credenciales?.password || '',
-      is_active: cred.estado === 'ready',
-      validation_status: cred.estado === 'ready' ? 'valid' : 
+      is_active: isConfigured && cred.estado === 'ready',
+      validation_status: isConfigured && cred.estado === 'ready' ? 'valid' : 
                         cred.estado === 'error' ? 'invalid' : 'pending',
       last_validated: cred.updated_at
     };

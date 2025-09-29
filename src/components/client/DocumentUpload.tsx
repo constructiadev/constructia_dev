@@ -674,6 +674,11 @@ export default function DocumentUpload() {
     }
 
     setUploading(false);
+    
+    // Refresh documents list after upload
+    setTimeout(() => {
+      window.location.href = '/client/documents';
+    }, 2000);
   };
 
   const canUpload = selectedEmpresa && selectedObra && selectedFiles.length > 0 && selectedCategory;
