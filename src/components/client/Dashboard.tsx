@@ -190,7 +190,10 @@ export default function ClientDashboard() {
       <div className="bg-white rounded-lg shadow-sm p-6 border">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={() => window.location.href = '/client/upload'}
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <Upload className="w-8 h-8 text-green-600 mr-3" />
             <div className="text-left">
               <p className="font-medium text-gray-900">Subir Documentos</p>
@@ -198,7 +201,10 @@ export default function ClientDashboard() {
             </div>
           </button>
 
-          <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={() => window.location.href = '/client/metrics'}
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <BarChart3 className="w-8 h-8 text-blue-600 mr-3" />
             <div className="text-left">
               <p className="font-medium text-gray-900">Ver Métricas</p>
@@ -206,7 +212,10 @@ export default function ClientDashboard() {
             </div>
           </button>
 
-          <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={() => window.location.href = '/client/settings'}
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <Settings className="w-8 h-8 text-purple-600 mr-3" />
             <div className="text-left">
               <p className="font-medium text-gray-900">Configuración</p>
