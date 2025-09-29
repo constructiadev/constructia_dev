@@ -88,8 +88,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (userError) {
         console.error('❌ [AuthContext] Error fetching user profile:', userError);
-        setUser(null);
-        return;
+        // Handle network errors gracefully
+        if (userError.message === 'Failed to fetch') {
+          console.warn('⚠️ [AuthContext] Network error fetching user profile - Supabase unreachable');
+          console.warn('⚠️ [AuthContext] Check VITE_SUPABASE_URL and VITE_SUPABASE_SERVICE_ROLE_KEY in .env file');
+          setUser(null);
+          return;
+        }
+        throw new Error(`Error fetching user profile: ${userError.message}`);
       }
 
       if (!userProfile) {
@@ -122,9 +128,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
     } catch (error) {
-      if (error instanceof Error && error.message === 'Failed to fetch') {
+      if (error instanceof Error && (error.message === 'Failed to fetch' || error.message.includes('Failed to fetch'))) {
         console.warn('⚠️ [AuthContext] Network connection failed - check Supabase configuration');
         console.warn('⚠️ [AuthContext] Verify VITE_SUPABASE_URL in .env file');
+        console.warn('⚠️ [AuthContext] Expected format: https://your-project-id.supabase.co');
+        console.warn('⚠️ [AuthContext] Also verify VITE_SUPABASE_SERVICE_ROLE_KEY is set correctly');
       } else {
         console.error('❌ [AuthContext] Error checking session:', error);
       }
