@@ -50,12 +50,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
+      // Check if Supabase is properly configured before making requests
+      if (!supabase || typeof supabase.auth?.getUser !== 'function') {
+        console.warn('⚠️ [AuthContext] Supabase not properly configured - check .env file');
+        setUser(null);
+        return;
+      }
+      
       // Get current authenticated user from Supabase with error handling
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
         if (authError.message === 'Auth session missing!') {
           console.log('ℹ️ [AuthContext] No active session (expected for public pages)');
+        } else if (authError.message === 'Failed to fetch') {
+          console.warn('⚠️ [AuthContext] Network error - Supabase unreachable. Check VITE_SUPABASE_URL in .env file');
+          console.warn('⚠️ [AuthContext] Expected URL format: https://your-project.supabase.co');
         } else {
           console.error('❌ [AuthContext] Auth error:', authError);
         }
@@ -112,7 +122,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
     } catch (error) {
-      console.error('Error checking session:', error);
+      if (error instanceof Error && error.message === 'Failed to fetch') {
+        console.warn('⚠️ [AuthContext] Network connection failed - check Supabase configuration');
+        console.warn('⚠️ [AuthContext] Verify VITE_SUPABASE_URL in .env file');
+      } else {
+        console.error('❌ [AuthContext] Error checking session:', error);
+      }
       setUser(null);
     } finally {
       setLoading(false);
