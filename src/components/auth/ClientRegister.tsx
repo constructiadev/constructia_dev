@@ -272,7 +272,6 @@ export default function ClientRegister() {
       navigate('/client/subscription?showCheckout=true', { replace: true });
 
     } catch (err: any) {
-      console.error('Registration error:', err);
       
       // Mostrar error específico al usuario
       let userFriendlyError = '❌ Error durante el registro. Por favor, inténtalo de nuevo.';
@@ -281,15 +280,28 @@ export default function ClientRegister() {
         if (err.message.includes('❌')) {
           // Error message already formatted
           userFriendlyError = err.message;
+          
+          // Log as warning if it's a user already registered error
+          if (err.message.includes('ya está registrado')) {
+            console.warn('⚠️ [ClientRegister] User registration attempt with existing email:', formData.email);
+          } else {
+            console.error('❌ [ClientRegister] Registration error:', err);
+          }
         } else if (err.message.includes('Failed to fetch')) {
+          console.error('❌ [ClientRegister] Network error during registration:', err);
           userFriendlyError = '❌ Error de conexión: No se puede conectar al servidor. Verifica tu conexión a internet y contacta con soporte si persiste.';
         } else if (err.message.includes('Invalid API key') || err.message.includes('Clave de API inválida')) {
+          console.error('❌ [ClientRegister] API configuration error:', err);
           userFriendlyError = '❌ Error de configuración del sistema: Contacta con el administrador para resolver este problema.';
         } else if (err.message.includes('already registered') || err.message.includes('duplicate') || err.message.includes('ya está registrado')) {
+          console.warn('⚠️ [ClientRegister] Duplicate registration attempt:', formData.email);
           userFriendlyError = '❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión en su lugar.';
         } else {
+          console.error('❌ [ClientRegister] Unexpected registration error:', err);
           userFriendlyError = `❌ ${err.message}`;
         }
+      } else {
+        console.error('❌ [ClientRegister] Unknown registration error:', err);
       }
       
       setError(userFriendlyError);

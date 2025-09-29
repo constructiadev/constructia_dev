@@ -120,12 +120,14 @@ export class ClientAuthService {
         });
 
         if (authError || !authData.user) {
-          console.error('❌ [ClientAuth] Error creating auth user:', authError);
           if (authError?.message.includes('User already registered')) {
+            console.warn('⚠️ [ClientAuth] User already registered:', registrationData.email);
             throw new Error('❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
           } else if (authError?.message.includes('Failed to fetch')) {
+            console.error('❌ [ClientAuth] Network error during auth user creation:', authError);
             throw new Error('❌ Error de conexión: No se puede conectar al servicio de autenticación.');
           } else {
+            console.error('❌ [ClientAuth] Error creating auth user:', authError);
             throw new Error(`❌ Error al crear la cuenta de usuario: ${authError?.message || 'Error desconocido'}`);
           }
         }
