@@ -29,9 +29,15 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
   const loadIntegrations = async () => {
     try {
       if (!refreshing) setLoading(true);
-      // Load platform credentials to show integration status
-      const { manualManagementService } = await import('../../lib/manual-management-service');
-      const credentials = await manualManagementService.getPlatformCredentials();
+      
+      // Cargar credenciales desde localStorage
+      const storageKey = `constructia_credentials_${clientId || 'default'}`;
+      const stored = localStorage.getItem(storageKey);
+      let credentials: any[] = [];
+      
+      if (stored) {
+        credentials = JSON.parse(stored);
+      }
       
       // Transform to integration status format
       const platforms = [

@@ -345,56 +345,56 @@ export class ManualManagementService {
   // Get platform credentials for a client
   async getPlatformCredentials(clientId?: string): Promise<PlatformCredential[]> {
     try {
-      // If clientId is provided and looks like a tenant ID, use it directly
-      const tenantId = clientId || DEV_TENANT_ID;
+      // Usar localStorage para obtener credenciales locales
+      const storageKey = `constructia_credentials_${clientId || 'default'}`;
+      const stored = localStorage.getItem(storageKey);
       
-      const { data: adaptadores, error } = await supabaseServiceClient
-        .from('adaptadores')
-        .select('*')
-        .eq('tenant_id', tenantId);
-
-      if (error) {
-        console.error('Error getting platform credentials:', error);
-        return [];
+      if (stored) {
+        const credentials = JSON.parse(stored);
+        console.log('✅ [ManualManagement] Loaded credentials from localStorage:', credentials.length);
+        return credentials;
       }
-
-      const transformedCredentials = (adaptadores || []).map(cred => this.transformSingleCredential(cred));
-      console.log('🔍 [ManualManagement] Transformed credentials:', transformedCredentials);
-      return transformedCredentials;
+      
+      // Credenciales por defecto para demo
+      const defaultCredentials: PlatformCredential[] = [
+        {
+          id: 'nalanda-default',
+          platform_type: 'nalanda',
+          username: 'demo@construcciones.com',
+          password: 'nalanda2024',
+          is_active: true,
+          validation_status: 'valid',
+          last_validated: new Date().toISOString()
+        },
+        {
+          id: 'ctaima-default',
+          platform_type: 'ctaima',
+          username: 'demo@construcciones.com',
+          password: 'ctaima2024',
+          is_active: false,
+          validation_status: 'pending',
+          last_validated: new Date().toISOString()
+        },
+        {
+          id: 'ecoordina-default',
+          platform_type: 'ecoordina',
+          username: '',
+          password: '',
+          is_active: false,
+          validation_status: 'pending',
+          last_validated: new Date().toISOString()
+        }
+      ];
+      
+      // Guardar credenciales por defecto
+      localStorage.setItem(storageKey, JSON.stringify(defaultCredentials));
+      console.log('✅ [ManualManagement] Created default credentials');
+      return defaultCredentials;
 
     } catch (error) {
       console.error('Error getting platform credentials:', error);
       return [];
     }
-  }
-
-  private transformSingleCredential(cred: any): PlatformCredential {
-    // Check if credentials are properly configured
-    const hasUsername = cred.credenciales?.username && 
-                       typeof cred.credenciales.username === 'string' && 
-                       cred.credenciales.username.trim().length > 0;
-    const hasPassword = cred.credenciales?.password && 
-                       typeof cred.credenciales.password === 'string' && 
-                       cred.credenciales.password.trim().length > 0;
-    const isConfigured = hasUsername && hasPassword;
-    
-    console.log(`🔍 [ManualManagement] Transforming credential for ${cred.plataforma}:`, {
-      hasUsername,
-      hasPassword,
-      isConfigured,
-      estado: cred.estado,
-      credenciales: cred.credenciales
-    });
-    return {
-      id: cred.id,
-      platform_type: cred.plataforma,
-      username: cred.credenciales?.username || '',
-      password: cred.credenciales?.password || '',
-      is_active: isConfigured && cred.estado === 'ready',
-      validation_status: isConfigured && cred.estado === 'ready' ? 'valid' : 
-                        cred.estado === 'error' ? 'invalid' : 'pending',
-      last_validated: cred.updated_at
-    };
   }
 
   // Add document to manual queue
@@ -685,51 +685,36 @@ export class ManualManagementService {
     tenantId?: string
   ): Promise<boolean> {
     try {
-      const targetTenantId = tenantId || DEV_TENANT_ID;
+      // Guardar en localStorage en lugar de base de datos
+      const storageKey = `constructia_credentials_${tenantId || 'default'}`;
+      const stored = localStorage.getItem(storageKey);
+      let credentials: PlatformCredential[] = [];
       
-      console.log('💾 [ManualManagement] Saving platform credentials:', {
-        platformType,
-        username,
-        tenantId: targetTenantId,
-        userId
-      });
-
-      const { data, error } = await supabaseServiceClient
-        .from('adaptadores')
-        .upsert({
-          tenant_id: targetTenantId,
-          plataforma: platformType,
-          alias: 'Principal',
-          credenciales: {
-            username,
-            password,
-            configured: true
-          },
-          estado: 'ready',
-          ultimo_envio: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'tenant_id,plataforma,alias'
-        })
-        .select();
-
-      if (error) {
-        console.error('Error saving platform credentials:', error);
-        console.error('Error details:', error.message);
-        return false;
+      if (stored) {
+        credentials = JSON.parse(stored);
       }
-
-      console.log('✅ [ManualManagement] Platform credentials saved successfully:', data);
-
-      // Log audit event
-      await logAuditoria(
-        targetTenantId,
-        userId || DEV_ADMIN_USER_ID,
-        'platform.credentials_updated',
-        'adaptador',
-        platformType,
-        { platform: platformType, username }
-      );
+      
+      // Actualizar o añadir credencial
+      const existingIndex = credentials.findIndex(c => c.platform_type === platformType);
+      const newCredential: PlatformCredential = {
+        id: `${platformType}-${Date.now()}`,
+        platform_type: platformType,
+        username,
+        password,
+        is_active: true,
+        validation_status: 'valid',
+        last_validated: new Date().toISOString()
+      };
+      
+      if (existingIndex >= 0) {
+        credentials[existingIndex] = newCredential;
+      } else {
+        credentials.push(newCredential);
+      }
+      
+      // Guardar en localStorage
+      localStorage.setItem(storageKey, JSON.stringify(credentials));
+      console.log('✅ [ManualManagement] Platform credentials saved to localStorage');
 
       return true;
     } catch (error) {
