@@ -370,10 +370,21 @@ export class ManualManagementService {
 
   private transformSingleCredential(cred: any): PlatformCredential {
     // Check if credentials are properly configured
-    const hasUsername = cred.credenciales?.username && cred.credenciales.username.trim().length > 0;
-    const hasPassword = cred.credenciales?.password && cred.credenciales.password.trim().length > 0;
+    const hasUsername = cred.credenciales?.username && 
+                       typeof cred.credenciales.username === 'string' && 
+                       cred.credenciales.username.trim().length > 0;
+    const hasPassword = cred.credenciales?.password && 
+                       typeof cred.credenciales.password === 'string' && 
+                       cred.credenciales.password.trim().length > 0;
     const isConfigured = hasUsername && hasPassword;
     
+    console.log(`🔍 [ManualManagement] Transforming credential for ${cred.plataforma}:`, {
+      hasUsername,
+      hasPassword,
+      isConfigured,
+      estado: cred.estado,
+      credenciales: cred.credenciales
+    });
     return {
       id: cred.id,
       platform_type: cred.plataforma,
@@ -695,6 +706,7 @@ export class ManualManagementService {
             configured: true
           },
           estado: 'ready',
+          ultimo_envio: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'tenant_id,plataforma,alias'

@@ -165,12 +165,11 @@ export default function PlatformCredentialsManager({
       );
 
       if (success) {
-        await loadCredentials();
-        // Force update the credentials state to show as configured
+        // Immediately update the credentials state to show as configured
         setCredentials(prev => {
           const updated = prev.filter(c => c.platform_type !== newCredential.platform_type);
           updated.push({
-            id: `temp_${Date.now()}`,
+            id: editingCredential?.id || `temp_${Date.now()}`,
             platform_type: newCredential.platform_type,
             username: newCredential.username,
             password: newCredential.password,
@@ -180,6 +179,9 @@ export default function PlatformCredentialsManager({
           });
           return updated;
         });
+        
+        // Then reload from database to ensure consistency
+        await loadCredentials();
         setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
         setEditingCredential(null);
         setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });

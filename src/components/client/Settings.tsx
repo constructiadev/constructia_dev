@@ -15,6 +15,86 @@ import { supabase } from '../../lib/supabase-real';
 
 import PlatformCredentialsManager from './PlatformCredentialsManager';
 
+// Component to show integration status for all platforms
+function IntegrationStatus({ clientId }: { clientId: string }) {
+  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadIntegrations();
+  }, [clientId]);
+
+  const loadIntegrations = async () => {
+    try {
+      setLoading(true);
+      // Load platform credentials to show integration status
+      const { manualManagementService } = await import('../../lib/manual-management-service');
+      const credentials = await manualManagementService.getPlatformCredentials();
+      
+      // Transform to integration status format
+      const platforms = [
+        { type: 'nalanda', name: 'Obralia/Nalanda', description: 'Plataforma de gestión de documentos' },
+        { type: 'ctaima', name: 'CTAIMA', description: 'Sistema de coordinación de actividades' },
+        { type: 'ecoordina', name: 'Ecoordina', description: 'Plataforma de coordinación empresarial' }
+      ];
+      
+      const integrationStatus = platforms.map(platform => {
+        const credential = credentials.find(c => c.platform_type === platform.type);
+        return {
+          ...platform,
+          configured: credential?.is_active || false,
+          username: credential?.username || '',
+          status: credential?.validation_status || 'pending'
+        };
+      });
+      
+      setIntegrations(integrationStatus);
+    } catch (error) {
+      console.error('Error loading integrations:', error);
+      setIntegrations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {integrations.map((integration) => (
+        <div key={integration.type} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <h3 className="font-medium text-gray-900">{integration.name}</h3>
+            <p className="text-sm text-gray-600">{integration.description}</p>
+            {integration.configured && integration.username && (
+              <p className="text-xs text-gray-500 mt-1">Usuario: {integration.username}</p>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {integration.configured ? (
+              <>
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                <span className="text-sm text-green-600">Configurado</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-5 h-5 text-yellow-500" />
+                <span className="text-sm text-yellow-600">No configurado</span>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { client, loading, error, refreshData } = useClientData();
   const [saving, setSaving] = useState(false);
@@ -193,27 +273,7 @@ export default function Settings() {
             <h2 className="text-xl font-semibold text-gray-900">Estado de Integración</h2>
           </div>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <h3 className="font-medium text-gray-900">Obralia/Nalanda</h3>
-                <p className="text-sm text-gray-600">Plataforma de gestión de documentos</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                {client.obralia_credentials?.configured ? (
-                  <>
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-sm text-green-600">Conectado</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-5 h-5 text-yellow-500" />
-                    <span className="text-sm text-yellow-600">No configurado</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+          <IntegrationStatus clientId={client?.id || ''} />
         </div>
       </div>
     </>
