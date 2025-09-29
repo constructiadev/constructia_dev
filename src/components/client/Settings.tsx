@@ -19,6 +19,7 @@ import PlatformCredentialsManager from './PlatformCredentialsManager';
 function IntegrationStatus({ clientId }: { clientId: string }) {
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadIntegrations();
@@ -26,7 +27,7 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
 
   const loadIntegrations = async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       // Load platform credentials to show integration status
       const { manualManagementService } = await import('../../lib/manual-management-service');
       const credentials = await manualManagementService.getPlatformCredentials();
@@ -40,11 +41,18 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
       
       const integrationStatus = platforms.map(platform => {
         const credential = credentials.find(c => c.platform_type === platform.type);
+        const isConfigured = credential && 
+                           credential.username && 
+                           credential.username.trim().length > 0 && 
+                           credential.password && 
+                           credential.password.trim().length > 0;
+        
         return {
           ...platform,
-          configured: credential?.is_active || false,
+          configured: isConfigured || false,
           username: credential?.username || '',
-          status: credential?.validation_status || 'pending'
+          status: isConfigured ? 'valid' : 'pending',
+          is_active: credential?.is_active || false
         };
       });
       
@@ -54,7 +62,13 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
       setIntegrations([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadIntegrations();
   };
 
   if (loading) {
@@ -67,6 +81,17 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium text-gray-900">Estado de Plataformas</h4>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Actualizando...' : 'Actualizar'}
+        </button>
+      </div>
       {integrations.map((integration) => (
         <div key={integration.type} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
           <div>
@@ -262,7 +287,11 @@ export default function Settings() {
           
           <PlatformCredentialsManager 
             clientId={client?.id || ''}
-            onCredentialsUpdated={refreshData}
+            onCredentialsUpdated={() => {
+              refreshData();
+              // Force refresh of integration status
+              window.location.reload();
+            }}
           />
         </div>
 

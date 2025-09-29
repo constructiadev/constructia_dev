@@ -156,6 +156,21 @@ export default function PlatformCredentialsManager({
         return;
       }
       
+      // IMMEDIATELY update the credentials state to show as configured
+      setCredentials(prev => {
+        const filtered = prev.filter(c => c.platform_type !== newCredential.platform_type);
+        const newCred: PlatformCredential = {
+          id: editingCredential?.id || `temp_${Date.now()}`,
+          platform_type: newCredential.platform_type,
+          username: newCredential.username,
+          password: newCredential.password,
+          is_active: true,
+          validation_status: 'valid',
+          last_validated: new Date().toISOString()
+        };
+        return [...filtered, newCred];
+      });
+      
       const success = await manualManagementService.savePlatformCredentials(
         newCredential.platform_type,
         newCredential.username,
@@ -165,34 +180,26 @@ export default function PlatformCredentialsManager({
       );
 
       if (success) {
-        // Immediately update the credentials state to show as configured
-        setCredentials(prev => {
-          const updated = prev.filter(c => c.platform_type !== newCredential.platform_type);
-          updated.push({
-            id: editingCredential?.id || `temp_${Date.now()}`,
-            platform_type: newCredential.platform_type,
-            username: newCredential.username,
-            password: newCredential.password,
-            is_active: true,
-            validation_status: 'valid',
-            last_validated: new Date().toISOString()
-          });
-          return updated;
-        });
-        
-        // Then reload from database to ensure consistency
-        await loadCredentials();
         setNewCredential({ platform_type: 'nalanda', username: '', password: '' });
         setEditingCredential(null);
         setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });
         onCredentialsUpdated?.();
+        
+        // Reload from database after a short delay to ensure consistency
+        setTimeout(async () => {
+          await loadCredentials();
+        }, 500);
       } else {
+        // Revert the immediate update if save failed
+        await loadCredentials();
         setMessage({ type: 'error', text: 'Error al guardar credenciales' });
       }
       
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error saving credential:', error);
+      // Revert the immediate update if save failed
+      await loadCredentials();
       setMessage({ type: 'error', text: 'Error al guardar credenciales' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
