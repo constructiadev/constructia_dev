@@ -417,7 +417,7 @@ export class ClientAuthService {
       }
 
       // Get user profile - check if exists first
-      const { data: userProfile, error: userError } = await supabaseServiceClient
+      let { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('*')
         .eq('id', user.id)
