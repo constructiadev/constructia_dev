@@ -55,12 +55,13 @@ export default function Projects() {
         return;
       }
       
-      // Obtener empresas del cliente
+      // Obtener empresas del cliente (using empresas table directly)
       const companiesData = await ClientIsolatedDataService.getClientCompanies(user.tenant_id);
       setCompanies(companiesData || []);
       
     } catch (err) {
       console.error('Error loading companies:', err);
+      setCompanies([]);
     }
   };
 

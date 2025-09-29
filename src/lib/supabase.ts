@@ -153,14 +153,14 @@ export const getClientCompanies = async (clientId: string) => {
     const tenantId = DEV_TENANT_ID;
     const empresas = await getTenantEmpresasNoRLS(tenantId);
 
-    // Transform empresas to company format
+    // Transform empresas to company format (using empresas table directly)
     const companies = empresas.map(empresa => ({
       id: empresa.id,
       client_id: clientId,
       name: empresa.razon_social,
       cif: empresa.cif,
       address: empresa.direccion || '',
-      phone: '+34 600 000 000',
+      phone: '+34 600 000 000', // Default phone since empresas table doesn't have phone
       email: empresa.contacto_email || '',
       created_at: empresa.created_at,
       updated_at: empresa.updated_at

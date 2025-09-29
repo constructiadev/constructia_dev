@@ -82,6 +82,54 @@ export class ClientAuthService {
         throw connectivityError;
       }
 
+      // STEP 0.6: Check for duplicate company name and CIF
+      console.log('🔍 [ClientAuth] Checking for duplicate company name and CIF...');
+      try {
+        // Check for duplicate company name
+        const { data: existingCompanyByName, error: nameCheckError } = await supabaseServiceClient
+          .from('empresas')
+          .select('id, razon_social, tenant_id')
+          .ilike('razon_social', registrationData.company_name.trim())
+          .limit(1)
+          .maybeSingle();
+
+        if (nameCheckError && !nameCheckError.message.includes('No rows found')) {
+          console.error('❌ [ClientAuth] Error checking company name:', nameCheckError);
+          throw new Error(`Error verificando nombre de empresa: ${nameCheckError.message}`);
+        }
+
+        if (existingCompanyByName) {
+          console.warn('⚠️ [ClientAuth] Company name already exists:', registrationData.company_name);
+          throw new Error(`❌ El nombre de empresa "${registrationData.company_name}" ya está registrado. Por favor, utiliza un nombre diferente.`);
+        }
+
+        // Check for duplicate CIF
+        const { data: existingCompanyByCIF, error: cifCheckError } = await supabaseServiceClient
+          .from('empresas')
+          .select('id, cif, razon_social, tenant_id')
+          .eq('cif', registrationData.cif_nif.toUpperCase().trim())
+          .limit(1)
+          .maybeSingle();
+
+        if (cifCheckError && !cifCheckError.message.includes('No rows found')) {
+          console.error('❌ [ClientAuth] Error checking CIF:', cifCheckError);
+          throw new Error(`Error verificando CIF: ${cifCheckError.message}`);
+        }
+
+        if (existingCompanyByCIF) {
+          console.warn('⚠️ [ClientAuth] CIF already exists:', registrationData.cif_nif);
+          throw new Error(`❌ El CIF "${registrationData.cif_nif}" ya está registrado por la empresa "${existingCompanyByCIF.razon_social}". Cada empresa debe tener un CIF único.`);
+        }
+
+        console.log('✅ [ClientAuth] Company name and CIF are available for registration');
+      } catch (companyCheckError) {
+        if (companyCheckError instanceof Error && companyCheckError.message.includes('❌')) {
+          throw companyCheckError; // Re-throw user-friendly messages
+        }
+        console.error('❌ [ClientAuth] Unexpected error during company validation:', companyCheckError);
+        throw new Error('Error verificando datos de empresa. Inténtalo de nuevo.');
+      }
+
       // Variables para rollback en caso de error
       let createdTenant: any = null;
       let createdAuthUser: any = null;

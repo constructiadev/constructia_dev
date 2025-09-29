@@ -203,8 +203,7 @@ export function useClientCompanies() {
         setCompanies(companiesData);
       } catch (isolatedError) {
         console.warn('⚠️ [useClientCompanies] Isolated service failed, using fallback');
-        const fallbackCompanies = await getClientCompanies('fallback-client-id');
-        setCompanies(fallbackCompanies);
+        setCompanies([]);
       }
 
     } catch (err) {

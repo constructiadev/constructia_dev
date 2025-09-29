@@ -106,14 +106,14 @@ export class ClientIsolatedDataService {
     try {
       const empresas = await getTenantEmpresasNoRLS(tenantId);
       
-      // Transform empresas to company format for client interface
+      // Transform empresas to company format for client interface (no companies table dependency)
       return empresas.map(empresa => ({
         id: empresa.id,
         client_id: tenantId,
         name: empresa.razon_social,
         cif: empresa.cif,
         address: empresa.direccion || '',
-        phone: '+34 600 000 000',
+        phone: '+34 600 000 000', // Default phone since empresas table doesn't have phone field
         email: empresa.contacto_email || '',
         created_at: empresa.created_at,
         updated_at: empresa.updated_at
