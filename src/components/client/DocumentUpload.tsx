@@ -680,16 +680,22 @@ export default function DocumentUpload() {
 
     setUploading(false);
     
-    // Signal to other tabs that documents were uploaded
-    localStorage.setItem('constructia_document_uploaded', Date.now().toString());
-    
     // Show success message and redirect
-    alert('✅ Documentos subidos correctamente a la cola de procesamiento. Ve al módulo "Documentos" y pulsa "Actualizar" para verlos.');
+    const successCount = Object.values(uploadResults).filter(r => r.success).length;
+    const errorCount = Object.values(uploadResults).filter(r => !r.success).length;
+    
+    if (successCount > 0) {
+      alert(`✅ ${successCount} documento(s) subido(s) correctamente a la cola de procesamiento.${errorCount > 0 ? ` ${errorCount} error(es).` : ''}\n\nVe al módulo "Documentos" y pulsa "Actualizar" para verlos.`);
+    } else {
+      alert(`❌ Error al subir documentos. Revisa los mensajes de error y vuelve a intentarlo.`);
+    }
     
     // Clear files after successful upload
-    setSelectedFiles([]);
-    setUploadProgress({});
-    setUploadResults({});
+    if (successCount > 0) {
+      setSelectedFiles([]);
+      setUploadProgress({});
+      setUploadResults({});
+    }
   };
 
   const canUpload = selectedEmpresa && selectedObra && selectedFiles.length > 0 && selectedCategory;

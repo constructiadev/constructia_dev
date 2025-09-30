@@ -33,14 +33,20 @@ const Documents: React.FC = () => {
 
       console.log('🔍 [ClientDocuments] Loading documents for tenant:', user.tenant_id);
       
-      // Load documents from documentos table
-      const tenantDocumentos = await getAllTenantDocumentsNoRLS(user.tenant_id);
-      setDocumentos(tenantDocumentos);
+      // Load documents from documentos table with proper error handling
+      try {
+        const tenantDocumentos = await getAllTenantDocumentsNoRLS(user.tenant_id);
+        console.log('📄 [ClientDocuments] Loaded documentos:', tenantDocumentos.length);
+        setDocumentos(tenantDocumentos || []);
+      } catch (docError) {
+        console.error('❌ [ClientDocuments] Error loading documentos:', docError);
+        setDocumentos([]);
+      }
       
       // Load queue documents for this tenant only
       await loadQueueDocuments();
       
-      console.log('✅ [ClientDocuments] Loaded', tenantDocumentos.length, 'documents for tenant');
+      console.log('✅ [ClientDocuments] Document loading completed');
     } catch (err) {
       console.error('❌ [ClientDocuments] Error loading documents:', err);
       setError(err instanceof Error ? err.message : 'Error loading documents');
@@ -57,6 +63,8 @@ const Documents: React.FC = () => {
         setQueueDocuments([]);
         return;
       }
+      
+      console.log('🔍 [ClientDocuments] Loading queue documents for tenant:', user.tenant_id);
       
       // SECURITY: Load ONLY queue documents for current user's tenant
       const { data, error } = await supabaseServiceClient
@@ -86,9 +94,12 @@ const Documents: React.FC = () => {
 
       if (error) {
         console.error('Error loading queue documents:', error);
+        setQueueDocuments([]);
         return;
       }
 
+      console.log('📋 [ClientDocuments] Found queue items:', data?.length || 0);
+      
       // Transformar a formato de documentos para mostrar en la lista
       const transformedDocs = (data || []).map(item => ({
         id: item.documentos.id,
@@ -125,8 +136,10 @@ const Documents: React.FC = () => {
       }));
 
       setQueueDocuments(transformedDocs);
+      console.log('✅ [ClientDocuments] Queue documents transformed:', transformedDocs.length);
     } catch (error) {
       console.error('Error loading queue documents:', error);
+      setQueueDocuments([]);
     }
   };
 
@@ -261,6 +274,14 @@ const Documents: React.FC = () => {
   // Combinar documentos de ambas fuentes
   const allDocuments = [...filteredTransformedDocuments, ...filteredQueueDocuments];
 
+  console.log('📊 [ClientDocuments] Document counts:', {
+    documentos: documentos.length,
+    queueDocuments: queueDocuments.length,
+    transformedDocuments: transformedDocuments.length,
+    allDocuments: allDocuments.length,
+    filteredDocuments: allDocuments.length
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -288,6 +309,7 @@ const Documents: React.FC = () => {
       </div>
     );
   }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -296,7 +318,7 @@ const Documents: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
           <p className="text-gray-600">Consulta el estado de tus documentos subidos</p>
           <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔒 DATOS AISLADOS - {allDocuments.length} documentos del tenant
+            🔒 DATOS AISLADOS - {allDocuments.length} documentos del tenant (DB: {documentos.length}, Cola: {queueDocuments.length})
           </div>
         </div>
         <button 
@@ -353,7 +375,9 @@ const Documents: React.FC = () => {
             <p className="text-gray-600 mb-4">
               {searchTerm || statusFilter !== 'all' 
                 ? 'No se encontraron documentos con los filtros aplicados'
-                : 'Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.'
+                : `Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.
+                   
+                   Debug: DB=${documentos.length}, Cola=${queueDocuments.length}, Total=${allDocuments.length}`
               }
             </p>
             <button
@@ -361,9 +385,17 @@ const Documents: React.FC = () => {
                 setRefreshing(true);
                 refreshData();
               }}
+              disabled={refreshing}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
-              Actualizar Lista
+              {refreshing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                  Actualizando...
+                </>
+              ) : (
+                'Actualizar Lista'
+              )}
             </button>
           </div>
         ) : (
