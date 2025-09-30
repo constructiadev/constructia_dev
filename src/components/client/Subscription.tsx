@@ -111,6 +111,11 @@ export default function Subscription() {
 
   const handleDownloadInvoices = async () => {
     try {
+      if (!client) {
+        alert('❌ Error: No se encontraron datos del cliente');
+        return;
+      }
+      
       if (realBillingHistory.length === 0) {
         alert('No hay facturas disponibles para descargar');
         return;
@@ -132,21 +137,32 @@ export default function Subscription() {
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `facturas_${client.company_name}_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
+      
+      alert('✅ Facturas descargadas correctamente');
       
     } catch (error) {
       console.error('Error downloading invoices:', error);
-      alert('Error al descargar facturas');
+      alert('❌ Error al descargar facturas: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 
   const handleCancelSubscription = async () => {
+    if (!client?.tenant_id) {
+      alert('❌ Error: No se encontró información del tenant');
+      return;
+    }
+    
     if (!confirm('¿Estás seguro de que quieres cancelar tu suscripción? Esta acción no se puede deshacer.')) {
       return;
     }
 
     try {
+      console.log('🔄 [Subscription] Cancelling subscription for tenant:', client.tenant_id);
+      
       // Update subscription status to cancelled
       const { error } = await supabaseServiceClient
         .from('suscripciones')
@@ -154,19 +170,23 @@ export default function Subscription() {
           estado: 'cancelada',
           updated_at: new Date().toISOString()
         })
-        .eq('tenant_id', client?.tenant_id);
+        .eq('tenant_id', client.tenant_id);
 
       if (error) {
+        console.error('❌ [Subscription] Error cancelling subscription:', error);
         throw new Error(`Error al cancelar suscripción: ${error.message}`);
       }
 
+      console.log('✅ [Subscription] Subscription cancelled successfully');
       alert('✅ Suscripción cancelada correctamente. Tu acceso continuará hasta el final del período actual.');
+      
+      // Force refresh of all data
       await refreshData();
       await loadRealSubscriptionData();
       
     } catch (error) {
       console.error('Error cancelling subscription:', error);
-      alert('❌ Error al cancelar suscripción. Por favor, contacta con soporte.');
+      alert('❌ Error al cancelar suscripción: ' + (error instanceof Error ? error.message : 'Error desconocido') + '. Por favor, contacta con soporte.');
     }
   };
 

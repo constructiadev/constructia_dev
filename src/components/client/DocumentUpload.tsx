@@ -531,9 +531,9 @@ export default function DocumentUpload() {
     }
   ];
   const documentCategories = [
-    'prl', 'aptitud_medica', 'dni', 'alta_ss', 'contrato', 
-    'seguro_rc', 'rea', 'formacion_prl', 'eval_riesgos', 
-    'cert_maquinaria', 'plan_seguridad', 'otros'
+    'PRL', 'APTITUD_MEDICA', 'DNI', 'ALTA_SS_TC2', 'CONTRATO_LABORAL', 
+    'CONTRATO PROFESIONAL', 'SEGURO_RC', 'REA', 'CERTIFICACION_FORMACION_PRL', 
+    'EVAL_RIESGOS', 'CERT_MAQUINARIA', 'PLAN_SEGURIDAD'
   ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -623,6 +623,11 @@ export default function DocumentUpload() {
           isBlob: selectedFile.file instanceof Blob
         });
         
+        // Validate category is in correct enum format
+        if (!documentCategories.includes(selectedCategory)) {
+          throw new Error(`Categoría inválida: ${selectedCategory}. Debe ser una de: ${documentCategories.join(', ')}`);
+        }
+        
         const document = await manualManagementService.addDocumentToQueue(
           selectedEmpresa, // clientId
           selectedObra,    // projectId
@@ -634,7 +639,7 @@ export default function DocumentUpload() {
         );
 
         if (!document) {
-          throw new Error('Error al subir archivo a la cola de procesamiento. Verifique la configuración de Supabase.');
+          throw new Error('Error al subir archivo a la cola de procesamiento. Verifique la configuración de Supabase Storage.');
         }
         setUploadResults(prev => ({
           ...prev,

@@ -342,6 +342,20 @@ export class ManualManagementService {
     }
   }
 
+  // Helper to calculate file hash
+  private async calculateFileHash(file: File): Promise<string> {
+    try {
+      const fileBuffer = await file.arrayBuffer();
+      const hashArray = await crypto.subtle.digest('SHA-256', fileBuffer);
+      return Array.from(new Uint8Array(hashArray))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch (error) {
+      console.error('Error calculating file hash:', error);
+      return `hash_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+
   // Get platform credentials for a client
   async getPlatformCredentials(clientId?: string): Promise<PlatformCredential[]> {
     try {
@@ -463,6 +477,7 @@ export class ManualManagementService {
           size_bytes: file.size,
           version: nextVersion,
           estado: 'pendiente',
+          hash_sha256: await this.calculateFileHash(file),
           metadatos: {
             original_filename: file.name,
             upload_timestamp: new Date().toISOString(),
@@ -475,7 +490,13 @@ export class ManualManagementService {
 
       if (docError) {
         console.error('❌ Error creating document:', docError);
-        throw new Error(`Error creating document: ${docError.message}`);
+        
+        // Handle specific enum errors
+        if (docError.message.includes('invalid input value for enum documento_categoria')) {
+          throw new Error(`❌ Categoría de documento inválida: "${category}". Debe ser una de las categorías válidas del sistema.`);
+        }
+        
+        throw new Error(`❌ Error creando documento: ${docError.message}`);
       }
 
       // Add to manual upload queue
