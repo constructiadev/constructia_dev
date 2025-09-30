@@ -120,7 +120,7 @@ const Documents: React.FC = () => {
         },
         queue_status: item.status,
         queue_priority: item.priority || 'normal',
-        queue_notes: item.nota || ''
+        queue_notes: item.nota || '',
         file: item.documentos.file // Add file path for download
       }));
 
