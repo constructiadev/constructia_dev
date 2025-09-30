@@ -146,7 +146,8 @@ export class ClientAuthService {
         if (authError || !authData.user) {
           if (authError?.message.includes('User already registered')) {
             console.warn('⚠️ [ClientAuth] Email already registered:', registrationData.email);
-            throw new Error('❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
+            // This is a validation error, not a system error - no rollback needed
+            throw new Error('VALIDATION_ERROR: ❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
           } else if (authError?.message.includes('Failed to fetch')) {
             console.error('❌ [ClientAuth] Network error during auth user creation:', authError);
             throw new Error('❌ Error de conexión: No se puede conectar al servicio de autenticación.');
@@ -340,6 +341,12 @@ export class ClientAuthService {
 
       } catch (stepError) {
         console.error('❌ [ClientAuth] Registration step failed:', stepError);
+        
+        // Check if this is a validation error (no rollback needed)
+        if (stepError instanceof Error && stepError.message.startsWith('VALIDATION_ERROR:')) {
+          const cleanMessage = stepError.message.replace('VALIDATION_ERROR: ', '');
+          throw new Error(cleanMessage);
+        }
         
         // ROLLBACK LOGIC: Intentar limpiar datos creados
         console.log('🔄 [ClientAuth] Iniciando proceso de rollback...');
