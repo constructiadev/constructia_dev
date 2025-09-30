@@ -19,6 +19,16 @@ const Documents: React.FC = () => {
     loadClientDocuments();
   }, [user?.tenant_id]);
 
+  useEffect(() => {
+    const handleDocumentsUploaded = () => {
+      console.log('📄 [Documents] Received documentsUploaded event, refreshing...');
+      refreshData();
+    };
+
+    window.addEventListener('documentsUploaded', handleDocumentsUploaded);
+    return () => window.removeEventListener('documentsUploaded', handleDocumentsUploaded);
+  }, []);
+
   const loadClientDocuments = async () => {
     try {
       if (!refreshing) setLoading(true);
@@ -48,7 +58,7 @@ const Documents: React.FC = () => {
       try {
         console.log('🔍 [ClientDocuments] Loading queue documents for tenant:', user.tenant_id);
         
-        // CRITICAL FIX: Use correct query structure for manual_upload_queue
+        // Fixed query structure for manual_upload_queue
         const { data: queueData, error: queueError } = await supabaseServiceClient
           .from('manual_upload_queue')
           .select(`
@@ -96,7 +106,7 @@ const Documents: React.FC = () => {
           return;
         }
 
-        // Transformar a formato de documentos para mostrar en la lista
+        // Transform to document format for display in list
         const transformedDocs = (queueData || []).map(item => {
           // Handle case where documentos might be null due to foreign key issues
           const documento = item.documentos;
@@ -315,7 +325,7 @@ const Documents: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Combinar documentos de ambas fuentes
+  // Combine documents from both sources
   const allDocuments = [...filteredTransformedDocuments, ...filteredQueueDocuments];
 
   if (loading) {
