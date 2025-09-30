@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
-import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building, ArrowUp, Download, Edit, X } from 'lucide-react';
+import { CreditCard, Calendar, AlertCircle, CheckCircle, Clock, Building, ArrowUp, Download, Edit, X, AlertTriangle } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
 import { supabaseServiceClient } from '../../lib/supabase-real';
 import { getAllReceipts, getSEPAMandates } from '../../lib/supabase';
