@@ -680,10 +680,19 @@ export default function DocumentUpload() {
 
     setUploading(false);
     
+    // Signal to other tabs that documents were uploaded
+    localStorage.setItem('constructia_document_uploaded', Date.now().toString());
+    
+    // Force refresh of documents in current tab
+    setTimeout(() => {
+      window.dispatchEvent(new Event('storage'));
+    }, 1000);
+    
     // Refresh documents list after upload
     setTimeout(() => {
+      console.log('🔄 [DocumentUpload] Redirecting to documents list...');
       window.location.href = '/client/documents';
-    }, 2000);
+    }, 3000);
   };
 
   const canUpload = selectedEmpresa && selectedObra && selectedFiles.length > 0 && selectedCategory;

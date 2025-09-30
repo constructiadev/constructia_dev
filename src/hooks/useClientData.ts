@@ -111,6 +111,16 @@ export function useClientData() {
     await loadClientData();
   };
 
+  // Listen for document upload events
+  useEffect(() => {
+    const handleDocumentUpload = () => {
+      console.log('🔄 [useClientData] Document upload detected, refreshing data...');
+      loadClientData();
+    };
+
+    window.addEventListener('storage', handleDocumentUpload);
+    return () => window.removeEventListener('storage', handleDocumentUpload);
+  }, []);
   return {
     client: dataContext?.client || null,
     empresas: dataContext?.empresas || [],

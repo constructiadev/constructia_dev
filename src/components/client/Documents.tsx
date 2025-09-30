@@ -48,6 +48,34 @@ const Documents: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Auto-refresh every 10 seconds to catch new uploads
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!loading) {
+        console.log('🔄 [ClientDocuments] Auto-refreshing documents...');
+        loadClientDocuments();
+      }
+    }, 10000); // Refresh every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [loading, user?.tenant_id]);
+
+  // Listen for storage events to detect uploads from other tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'constructia_document_uploaded') {
+        console.log('🔄 [ClientDocuments] Document upload detected, refreshing...');
+        loadClientDocuments();
+        // Clear the flag
+        localStorage.removeItem('constructia_document_uploaded');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const loadQueueDocuments = async () => {
     try {
       setLoadingQueue(true);
@@ -175,17 +203,6 @@ const Documents: React.FC = () => {
   const refreshData = async () => {
     await loadClientDocuments();
   };
-  
-  // Auto-refresh every 30 seconds to catch new uploads
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loading) {
-        loadClientDocuments();
-      }
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [loading]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
