@@ -582,6 +582,7 @@ export default function DocumentUpload() {
     }
 
     setUploading(true);
+    const localResults: { [fileId: string]: { success: boolean; message: string } } = {};
 
     for (const selectedFile of selectedFiles) {
       try {
@@ -595,13 +596,10 @@ export default function DocumentUpload() {
             isBlob: selectedFile.file instanceof Blob
           });
           
-          setUploadResults(prev => ({
-            ...prev,
-            [selectedFile.id]: {
-              success: false,
-              message: `Error: Objeto de archivo inválido (tipo: ${typeof selectedFile.file})`
-            }
-          }));
+          localResults[selectedFile.id] = {
+            success: false,
+            message: `Error: Objeto de archivo inválido (tipo: ${typeof selectedFile.file})`
+          };
           continue; // Saltar este archivo y continuar con el siguiente
         }
 
@@ -640,23 +638,17 @@ export default function DocumentUpload() {
 
         if (!document) {
           console.error('❌ [DocumentUpload] Failed to add document to queue');
-          setUploadResults(prev => ({
-            ...prev,
-            [selectedFile.id]: {
-              success: false,
-              message: 'Error al subir archivo a la cola de procesamiento. El documento no se pudo procesar.'
-            }
-          }));
+          localResults[selectedFile.id] = {
+            success: false,
+            message: 'Error al subir archivo a la cola de procesamiento. El documento no se pudo procesar.'
+          };
           continue; // Continue with next file instead of throwing
         }
         
-        setUploadResults(prev => ({
-          ...prev,
-          [selectedFile.id]: {
-            success: true,
-            message: 'Documento subido correctamente a la cola de procesamiento'
-          }
-        }));
+        localResults[selectedFile.id] = {
+          success: true,
+          message: 'Documento subido correctamente a la cola de procesamiento'
+        };
 
         // Log audit event
         const tenantId = user?.tenant_id || DEV_TENANT_ID;
@@ -682,22 +674,22 @@ export default function DocumentUpload() {
 
       } catch (error) {
         console.error('Error uploading file:', error);
-        setUploadResults(prev => ({
-          ...prev,
-          [selectedFile.id]: {
-            success: false,
-            message: error instanceof Error ? 
-              `Error: ${error.message}` : 
-              'Error desconocido al subir archivo. Inténtalo de nuevo.'
-          }
-        }));
+        localResults[selectedFile.id] = {
+          success: false,
+          message: error instanceof Error ? 
+            `Error: ${error.message}` : 
+            'Error desconocido al subir archivo. Inténtalo de nuevo.'
+        };
       }
     }
 
+    // Update state once with all results
+    setUploadResults(prev => ({ ...prev, ...localResults }));
+    
     setUploading(false);
     
     // Show success message and redirect
-    const allResults = Object.values(uploadResults);
+    const allResults = Object.values(localResults);
     const successCount = allResults.filter(r => r.success).length;
     const errorCount = allResults.filter(r => !r.success).length;
     
@@ -707,7 +699,7 @@ export default function DocumentUpload() {
       
       // Clear successful files only
       setSelectedFiles(prev => prev.filter(file => {
-        const result = uploadResults[file.id];
+        const result = localResults[file.id];
         return result && !result.success; // Keep only failed files
       }));
       
