@@ -106,6 +106,30 @@ export class ClientAuthService {
         throw new Error('Error verificando datos de empresa. Inténtalo de nuevo.');
       }
 
+      // STEP 0.7: Check if email already exists before creating tenant
+      console.log('🔍 [ClientAuth] Checking if email already exists...');
+      try {
+        const { data: existingUser, error: emailCheckError } = await supabaseServiceClient.auth.admin.getUserByEmail(registrationData.email);
+        
+        if (emailCheckError && !emailCheckError.message.includes('User not found')) {
+          console.error('❌ [ClientAuth] Error checking existing user:', emailCheckError);
+          throw new Error(`Error verificando usuario existente: ${emailCheckError.message}`);
+        }
+        
+        if (existingUser && existingUser.user) {
+          console.warn('⚠️ [ClientAuth] Email already registered:', registrationData.email);
+          throw new Error('❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.');
+        }
+        
+        console.log('✅ [ClientAuth] Email is available for registration');
+      } catch (emailCheckError) {
+        if (emailCheckError instanceof Error && emailCheckError.message.includes('Este email ya está registrado')) {
+          throw emailCheckError; // Re-throw the user-friendly message
+        }
+        console.error('❌ [ClientAuth] Unexpected error during email check:', emailCheckError);
+        throw new Error('Error verificando disponibilidad del email. Inténtalo de nuevo.');
+      }
+
       // Variables para rollback en caso de error
       let createdTenant: any = null;
       let createdAuthUser: any = null;
