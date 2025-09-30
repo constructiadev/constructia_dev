@@ -3,7 +3,7 @@ import { FileText, Download, Eye, AlertCircle, CheckCircle, Clock, Search, Filte
 import { fileStorageService } from '../../lib/file-storage-service';
 import { useAuth } from '../../lib/auth-context';
 import { supabaseServiceClient } from '../../lib/supabase-real';
-import { getTenantDocumentos } from '../../lib/supabase-new';
+import { getAllTenantDocumentsNoRLS } from '../../lib/supabase-real';
 
 const Documents: React.FC = () => {
   const { user } = useAuth();
@@ -13,7 +13,7 @@ const Documents: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [queueDocuments, setQueueDocuments] = useState<any[]>([]);
-  const [loadingQueue, setLoadingQueue] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadClientDocuments();
@@ -21,7 +21,7 @@ const Documents: React.FC = () => {
 
   const loadClientDocuments = async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       setError(null);
 
       if (!user?.tenant_id) {
@@ -33,8 +33,8 @@ const Documents: React.FC = () => {
 
       console.log('🔍 [ClientDocuments] Loading documents for tenant:', user.tenant_id);
       
-      // SECURITY: Load ONLY documents for current user's tenant
-      const tenantDocumentos = await getTenantDocumentos(user.tenant_id);
+      // Load documents from documentos table
+      const tenantDocumentos = await getAllTenantDocumentsNoRLS(user.tenant_id);
       setDocumentos(tenantDocumentos);
       
       // Load queue documents for this tenant only
@@ -46,40 +46,13 @@ const Documents: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Error loading documents');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Auto-refresh every 10 seconds to catch new uploads
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loading) {
-        console.log('🔄 [ClientDocuments] Auto-refreshing documents...');
-        loadClientDocuments();
-      }
-    }, 10000); // Refresh every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, [loading, user?.tenant_id]);
-
-  // Listen for storage events to detect uploads from other tabs
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'constructia_document_uploaded') {
-        console.log('🔄 [ClientDocuments] Document upload detected, refreshing...');
-        loadClientDocuments();
-        // Clear the flag
-        localStorage.removeItem('constructia_document_uploaded');
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   const loadQueueDocuments = async () => {
     try {
-      setLoadingQueue(true);
-      
       if (!user?.tenant_id) {
         setQueueDocuments([]);
         return;
@@ -148,13 +121,12 @@ const Documents: React.FC = () => {
         queue_status: item.status,
         queue_priority: item.priority || 'normal',
         queue_notes: item.nota || ''
+        file: item.documentos.file // Add file path for download
       }));
 
       setQueueDocuments(transformedDocs);
     } catch (error) {
       console.error('Error loading queue documents:', error);
-    } finally {
-      setLoadingQueue(false);
     }
   };
 
@@ -201,6 +173,8 @@ const Documents: React.FC = () => {
   };
 
   const refreshData = async () => {
+    console.log('🔄 [ClientDocuments] Manual refresh triggered by user');
+    setRefreshing(true);
     await loadClientDocuments();
   };
 
@@ -260,7 +234,8 @@ const Documents: React.FC = () => {
     },
     queue_status: null,
     queue_priority: null,
-    queue_notes: ''
+    queue_notes: '',
+    file: documento.file // Add file path for download
   }));
 
   const filteredDocuments = transformedDocuments.filter(doc => {
@@ -289,7 +264,10 @@ const Documents: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando documentos del tenant...</p>
+        </div>
       </div>
     );
   }
@@ -299,7 +277,7 @@ const Documents: React.FC = () => {
       <div className="flex items-center justify-center min-h-64">
         <div className="text-center">
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando documentos del tenant...</p>
+          <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={refreshData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -323,14 +301,14 @@ const Documents: React.FC = () => {
         </div>
         <button 
           onClick={() => {
+            setRefreshing(true);
             refreshData();
-            loadQueueDocuments();
           }}
-          disabled={loadingQueue}
+          disabled={refreshing}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${loadingQueue ? 'animate-spin' : ''}`} />
-          {loadingQueue ? 'Actualizando...' : 'Actualizar Estado'}
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Actualizando...' : 'Actualizar'}
         </button>
       </div>
 
@@ -378,6 +356,15 @@ const Documents: React.FC = () => {
                 : 'Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.'
               }
             </p>
+            <button
+              onClick={() => {
+                setRefreshing(true);
+                refreshData();
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Actualizar Lista
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -517,13 +504,17 @@ const Documents: React.FC = () => {
           <div>
             <h4 className="font-semibold text-blue-800 mb-2">📋 Flujo de Documentos</h4>
             <p className="text-blue-700 text-sm mb-2">
-              Este módulo muestra el estado en tiempo real de tus documentos subidos. El flujo es:
+              Este módulo muestra el estado de tus documentos subidos. Usa el botón "Actualizar" para ver cambios. El flujo es:
             </p>
             <div className="text-sm text-blue-600 space-y-1">
               <div>1. 📤 <strong>Subida:</strong> Subes documentos en "Subir Documentos" (Cliente → Empresa → Proyecto → Documento)</div>
               <div>2. ⏳ <strong>En Cola:</strong> El documento entra en la cola FIFO que gestiona el administrador</div>
               <div>3. 🔄 <strong>Procesando:</strong> El administrador procesa y sube a las plataformas CAE</div>
               <div>4. ✅ <strong>Completado:</strong> El documento está disponible en Obralia/Nalanda</div>
+              <div className="mt-2 pt-2 border-t border-blue-300">
+                <div className="font-medium text-blue-800">💡 Tip:</div>
+                <div>Usa el botón "Actualizar" después de subir documentos para ver los cambios inmediatamente</div>
+              </div>
             </div>
           </div>
         </div>
