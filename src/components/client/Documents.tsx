@@ -428,9 +428,6 @@ const Documents: React.FC = () => {
                 : 'Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.'
               }
             </p>
-            <div className="text-xs text-gray-500 mb-4 font-mono bg-gray-100 p-2 rounded">
-              Debug: Tenant={user?.tenant_id?.substring(0, 8)}... | DB={documentos.length} | Cola={queueDocuments.length} | Total={allDocuments.length}
-            </div>
             <button
               onClick={() => {
                 setRefreshing(true);

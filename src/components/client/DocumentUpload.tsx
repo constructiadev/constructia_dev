@@ -721,7 +721,7 @@ export default function DocumentUpload() {
           </svg>
           <div>
             <div class="font-semibold">✅ ${successCount} documento(s) subido(s)</div>
-            <div class="text-sm">Ve a "Documentos" → "Actualizar" para verlos</div>
+            <div class="text-sm">Actualizando lista automáticamente...</div>
           </div>
         </div>
       `;
@@ -733,6 +733,11 @@ export default function DocumentUpload() {
           notification.parentNode.removeChild(notification);
         }
       }, 5000);
+      
+      // Trigger automatic refresh of documents list
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('documentsUploaded'));
+      }, 1000);
       
     } else {
       console.error('❌ [DocumentUpload] All uploads failed');
