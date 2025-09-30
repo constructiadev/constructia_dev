@@ -60,6 +60,7 @@ const Documents: React.FC = () => {
   const loadQueueDocuments = async () => {
     try {
       if (!user?.tenant_id) {
+        console.log('⚠️ [ClientDocuments] No tenant_id available for queue loading');
         setQueueDocuments([]);
         return;
       }
@@ -89,17 +90,31 @@ const Documents: React.FC = () => {
             codigo_obra
           )
         `)
-        .eq('tenant_id', user?.tenant_id)
+        .eq('tenant_id', user.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading queue documents:', error);
+        console.error('❌ [ClientDocuments] Error loading queue documents:', error);
+        console.error('❌ [ClientDocuments] Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         setQueueDocuments([]);
         return;
       }
 
+      console.log('📋 [ClientDocuments] Raw queue data:', data);
       console.log('📋 [ClientDocuments] Found queue items:', data?.length || 0);
       
+      if (!data || data.length === 0) {
+        console.log('ℹ️ [ClientDocuments] No queue items found for tenant:', user.tenant_id);
+        console.log('ℹ️ [ClientDocuments] No items in queue - returning empty list');
+        setQueueDocuments([]);
+        return;
+      }
+
       // Transformar a formato de documentos para mostrar en la lista
       const transformedDocs = (data || []).map(item => ({
         id: item.documentos.id,
@@ -137,8 +152,9 @@ const Documents: React.FC = () => {
 
       setQueueDocuments(transformedDocs);
       console.log('✅ [ClientDocuments] Queue documents transformed:', transformedDocs.length);
+      console.log('📊 [ClientDocuments] Transformed queue documents:', transformedDocs);
     } catch (error) {
-      console.error('Error loading queue documents:', error);
+      console.error('❌ [ClientDocuments] Critical error loading queue documents:', error);
       setQueueDocuments([]);
     }
   };
@@ -274,13 +290,27 @@ const Documents: React.FC = () => {
   // Combinar documentos de ambas fuentes
   const allDocuments = [...filteredTransformedDocuments, ...filteredQueueDocuments];
 
-  console.log('📊 [ClientDocuments] Document counts:', {
-    documentos: documentos.length,
-    queueDocuments: queueDocuments.length,
-    transformedDocuments: transformedDocuments.length,
-    allDocuments: allDocuments.length,
-    filteredDocuments: allDocuments.length
-  });
+  // Debug logging - always show in console
+  useEffect(() => {
+    console.log('📊 [ClientDocuments] Document counts debug:', {
+      user_tenant_id: user?.tenant_id,
+      documentos_raw: documentos.length,
+      queueDocuments_raw: queueDocuments.length,
+      transformedDocuments: transformedDocuments.length,
+      filteredTransformedDocuments: filteredTransformedDocuments.length,
+      filteredQueueDocuments: filteredQueueDocuments.length,
+      allDocuments_final: allDocuments.length,
+      searchTerm,
+      statusFilter
+    });
+    
+    if (queueDocuments.length > 0) {
+      console.log('📋 [ClientDocuments] Queue documents sample:', queueDocuments[0]);
+    }
+    if (documentos.length > 0) {
+      console.log('📄 [ClientDocuments] Documentos sample:', documentos[0]);
+    }
+  }, [documentos, queueDocuments, allDocuments, user?.tenant_id, searchTerm, statusFilter]);
 
   if (loading) {
     return (
@@ -318,7 +348,7 @@ const Documents: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
           <p className="text-gray-600">Consulta el estado de tus documentos subidos</p>
           <div className="mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium inline-block">
-            🔒 DATOS AISLADOS - {allDocuments.length} documentos del tenant (DB: {documentos.length}, Cola: {queueDocuments.length})
+            🔒 DATOS AISLADOS - {allDocuments.length} documentos del tenant (Tenant: {user?.tenant_id?.substring(0, 8)}... | DB: {documentos.length}, Cola: {queueDocuments.length})
           </div>
         </div>
         <button 
@@ -375,11 +405,12 @@ const Documents: React.FC = () => {
             <p className="text-gray-600 mb-4">
               {searchTerm || statusFilter !== 'all' 
                 ? 'No se encontraron documentos con los filtros aplicados'
-                : `Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.
-                   
-                   Debug: DB=${documentos.length}, Cola=${queueDocuments.length}, Total=${allDocuments.length}`
+                : 'Aún no has subido ningún documento. Ve al módulo "Subir Documentos" para comenzar.'
               }
             </p>
+            <div className="text-xs text-gray-500 mb-4 font-mono bg-gray-100 p-2 rounded">
+              Debug: Tenant={user?.tenant_id?.substring(0, 8)}... | DB={documentos.length} | Cola={queueDocuments.length} | Total={allDocuments.length}
+            </div>
             <button
               onClick={() => {
                 setRefreshing(true);
@@ -536,16 +567,16 @@ const Documents: React.FC = () => {
           <div>
             <h4 className="font-semibold text-blue-800 mb-2">📋 Flujo de Documentos</h4>
             <p className="text-blue-700 text-sm mb-2">
-              Este módulo muestra el estado de tus documentos subidos. Usa el botón "Actualizar" para ver cambios. El flujo es:
+              Este módulo muestra documentos de 2 fuentes: tabla 'documentos' y cola 'manual_upload_queue'. Usa "Actualizar" para ver cambios:
             </p>
             <div className="text-sm text-blue-600 space-y-1">
               <div>1. 📤 <strong>Subida:</strong> Subes documentos en "Subir Documentos" (Cliente → Empresa → Proyecto → Documento)</div>
-              <div>2. ⏳ <strong>En Cola:</strong> El documento entra en la cola FIFO que gestiona la IA</div>
-              <div>3. 🔄 <strong>Procesando:</strong> La IA procesa y sube a las plataformas CAE</div>
+              <div>2. ⏳ <strong>En Cola:</strong> El documento entra en 'manual_upload_queue' con estado 'queued'</div>
+              <div>3. 🔄 <strong>Procesando:</strong> Admin procesa manualmente y cambia estado a 'in_progress' → 'uploaded'</div>
               <div>4. ✅ <strong>Completado:</strong> El documento está disponible en la plataforma que hayas seleccionado</div>
               <div className="mt-2 pt-2 border-t border-blue-300">
-                <div className="font-medium text-blue-800">💡 Tip:</div>
-                <div>Usa el botón "Actualizar" después de subir documentos para ver los cambios inmediatamente</div>
+                <div className="font-medium text-blue-800">🔍 Debug Info:</div>
+                <div>Tenant: {user?.tenant_id} | DB: {documentos.length} docs | Cola: {queueDocuments.length} items</div>
               </div>
             </div>
           </div>
