@@ -508,9 +508,9 @@ const Documents: React.FC = () => {
             </p>
             <div className="text-sm text-blue-600 space-y-1">
               <div>1. 📤 <strong>Subida:</strong> Subes documentos en "Subir Documentos" (Cliente → Empresa → Proyecto → Documento)</div>
-              <div>2. ⏳ <strong>En Cola:</strong> El documento entra en la cola FIFO que gestiona el administrador</div>
-              <div>3. 🔄 <strong>Procesando:</strong> El administrador procesa y sube a las plataformas CAE</div>
-              <div>4. ✅ <strong>Completado:</strong> El documento está disponible en Obralia/Nalanda</div>
+              <div>2. ⏳ <strong>En Cola:</strong> El documento entra en la cola FIFO que gestiona la IA</div>
+              <div>3. 🔄 <strong>Procesando:</strong> La IA procesa y sube a las plataformas CAE</div>
+              <div>4. ✅ <strong>Completado:</strong> El documento está disponible en la plataforma que hayas seleccionado</div>
               <div className="mt-2 pt-2 border-t border-blue-300">
                 <div className="font-medium text-blue-800">💡 Tip:</div>
                 <div>Usa el botón "Actualizar" después de subir documentos para ver los cambios inmediatamente</div>
