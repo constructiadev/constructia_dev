@@ -17,6 +17,15 @@ const Documents: React.FC = () => {
 
   useEffect(() => {
     loadClientDocuments();
+    
+    // Listen for upload events to auto-refresh
+    const handleUploadEvent = () => {
+      console.log('🔄 [ClientDocuments] Upload event detected, refreshing...');
+      loadClientDocuments();
+    };
+    
+    window.addEventListener('documentsUploaded', handleUploadEvent);
+    return () => window.removeEventListener('documentsUploaded', handleUploadEvent);
   }, [user?.tenant_id]);
 
   const loadClientDocuments = async () => {
