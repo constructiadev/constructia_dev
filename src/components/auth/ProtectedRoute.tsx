@@ -54,6 +54,16 @@ export default function ProtectedRoute({
       console.log('🔐 [ProtectedRoute] Invalid role - redirecting to landing');
       return <Navigate to={fallbackPath} replace />;
     }
+
+    // CRITICAL: Check if client has completed checkout (not in trial status)
+    if (user.subscription_status === 'trial') {
+      console.log('🔐 [ProtectedRoute] CLIENT IN TRIAL - redirecting to checkout');
+      // Allow access only to subscription page for checkout
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/client/subscription') {
+        return <Navigate to="/client/subscription?showCheckout=true" replace />;
+      }
+    }
   }
 
   console.log('✅ [ProtectedRoute] Access granted for:', user.email, 'Role:', user.role, 'Tenant:', user.tenant_id);

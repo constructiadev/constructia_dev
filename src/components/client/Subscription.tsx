@@ -38,8 +38,12 @@ export default function Subscription() {
   const handleUpgradeSuccess = () => {
     refreshData();
     setShowCheckoutModal(false);
-    // Navigate to client dashboard after successful payment
-    navigate('/client/dashboard', { replace: true });
+    
+    // CRITICAL: Update client status from trial to active after successful payment
+    console.log('✅ [Subscription] Payment successful - activating client account');
+    
+    // Force refresh of auth context to update subscription status
+    window.location.href = '/client/dashboard';
   };
 
   const getStatusColor = (status: string) => {

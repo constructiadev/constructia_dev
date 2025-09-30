@@ -266,9 +266,10 @@ export default function ClientRegister() {
         throw new Error('❌ Error en el registro: No se pudo completar el proceso. Por favor, inténtalo de nuevo.');
       }
 
-      console.log('✅ [ClientRegister] Registration successful, navigating to checkout...');
+      console.log('✅ [ClientRegister] Registration successful - TRIAL STATUS, navigating to mandatory checkout...');
       
-      // CRITICAL: Navigate to subscription with checkout modal - NO CLIENT ACCESS UNTIL PAYMENT
+      // CRITICAL: Navigate to subscription with checkout modal - CLIENT REGISTERED BUT TRIAL STATUS
+      // Client cannot access full features until checkout is completed
       navigate('/client/subscription?showCheckout=true', { replace: true });
 
     } catch (err: any) {

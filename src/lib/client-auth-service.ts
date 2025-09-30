@@ -267,7 +267,32 @@ export class ClientAuthService {
         createdClientRecord = clientRecord;
         console.log('✅ [ClientAuth] Client record created');
 
-        // STEP 7: Log audit event
+        // STEP 7: Create subscription record in trial status (requires checkout to activate)
+        console.log('📋 [ClientAuth] Step 7: Creating trial subscription...');
+        const { data: subscription, error: subscriptionError } = await supabaseServiceClient
+          .from('suscripciones')
+          .insert({
+            tenant_id: newTenant.id,
+            plan: 'Starter',
+            limites: {
+              max_obras: 1,
+              max_trabajadores: 10,
+              max_documentos: 50,
+              storage_gb: 0.5
+            },
+            estado: 'trial'
+          })
+          .select()
+          .single();
+
+        if (subscriptionError) {
+          console.error('❌ [ClientAuth] Error creating trial subscription:', subscriptionError);
+          throw new Error(`Error al crear la suscripción de prueba: ${subscriptionError.message}`);
+        }
+
+        console.log('✅ [ClientAuth] Trial subscription created');
+
+        // STEP 8: Log audit event
         console.log('📋 [ClientAuth] Step 7: Logging audit event...');
         try {
           await logAuditoria(
@@ -289,7 +314,7 @@ export class ClientAuthService {
           // No lanzar error, el audit log es no crítico
         }
 
-        // STEP 8: Build authenticated client object
+        // STEP 9: Build authenticated client object with trial status
         const authenticatedClient: AuthenticatedClient = {
           id: userProfile.id,
           client_record_id: clientRecord.id,
@@ -298,11 +323,11 @@ export class ClientAuthService {
           name: registrationData.contact_name,
           role: 'Cliente',
           company_name: registrationData.company_name,
-          subscription_plan: 'basic',
-          subscription_status: 'active',
+          subscription_plan: 'trial',
+          subscription_status: 'trial',
           storage_used: 0,
-          storage_limit: 524288000,
-          tokens_available: 500,
+          storage_limit: 524288000, // 500MB for trial
+          tokens_available: 50, // Limited tokens for trial
           obralia_credentials: {
             configured: registrationData.cae_credentials.some(c => c.platform === 'nalanda'),
             username: registrationData.cae_credentials.find(c => c.platform === 'nalanda')?.username,
@@ -310,7 +335,7 @@ export class ClientAuthService {
           }
         };
 
-        console.log('✅ [ClientAuth] Client registration completed successfully');
+        console.log('✅ [ClientAuth] Client registration completed - TRIAL STATUS (requires checkout)');
         return authenticatedClient;
 
       } catch (stepError) {
