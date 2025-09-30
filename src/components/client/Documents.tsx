@@ -40,16 +40,26 @@ const Documents: React.FC = () => {
         setDocumentos(tenantDocumentos || []);
       } catch (docError) {
         console.error('❌ [ClientDocuments] Error loading documentos:', docError);
+        // Don't set error state, just log and continue with empty array
         setDocumentos([]);
       }
       
       // Load queue documents for this tenant only
-      await loadQueueDocuments();
+      try {
+        await loadQueueDocuments();
+      } catch (queueError) {
+        console.error('❌ [ClientDocuments] Error loading queue documents:', queueError);
+        // Don't set error state, just log and continue with empty array
+        setQueueDocuments([]);
+      }
       
       console.log('✅ [ClientDocuments] Document loading completed');
     } catch (err) {
       console.error('❌ [ClientDocuments] Error loading documents:', err);
-      setError(err instanceof Error ? err.message : 'Error loading documents');
+      // Don't set error state that would break the UI
+      console.warn('⚠️ [ClientDocuments] Using fallback empty state due to error');
+      setDocumentos([]);
+      setQueueDocuments([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -101,6 +111,7 @@ const Documents: React.FC = () => {
           details: error.details,
           hint: error.hint
         });
+        // Don't throw error, just set empty array and continue
         setQueueDocuments([]);
         return;
       }
@@ -155,6 +166,7 @@ const Documents: React.FC = () => {
       console.log('📊 [ClientDocuments] Transformed queue documents:', transformedDocs);
     } catch (error) {
       console.error('❌ [ClientDocuments] Critical error loading queue documents:', error);
+      // Don't throw error, just set empty array
       setQueueDocuments([]);
     }
   };
@@ -179,11 +191,22 @@ const Documents: React.FC = () => {
         link.click();
         document.body.removeChild(link);
       } else {
-        alert('No se pudo generar el enlace de descarga.');
+        console.error('❌ [ClientDocuments] Could not generate download URL');
+        // Show non-blocking notification instead of alert
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50';
+        notification.textContent = 'No se pudo generar el enlace de descarga';
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
       }
     } catch (err) {
       console.error('Error downloading document:', err);
-      alert('Error al descargar el documento.');
+      // Show non-blocking notification instead of alert
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Error al descargar el documento';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
     }
   };
 
@@ -193,18 +216,32 @@ const Documents: React.FC = () => {
       if (viewUrl) {
         window.open(viewUrl, '_blank');
       } else {
-        alert('No se pudo abrir el documento.');
+        console.error('❌ [ClientDocuments] Could not generate view URL');
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50';
+        notification.textContent = 'No se pudo abrir el documento';
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
       }
     } catch (err) {
       console.error('Error viewing document:', err);
-      alert('Error al ver el documento.');
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Error al ver el documento';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
     }
   };
 
   const refreshData = async () => {
     console.log('🔄 [ClientDocuments] Manual refresh triggered by user');
     setRefreshing(true);
-    await loadClientDocuments();
+    try {
+      await loadClientDocuments();
+    } catch (error) {
+      console.error('❌ [ClientDocuments] Error during manual refresh:', error);
+      // Don't set error state, just log
+    }
   };
 
   const getStatusIcon = (status: string) => {

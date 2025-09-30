@@ -427,7 +427,8 @@ export class ManualManagementService {
       // Ensure DEV_TENANT_ID exists before proceeding
       const tenantExists = await ensureDevTenantExists();
       if (!tenantExists) {
-        throw new Error('Failed to ensure tenant exists in database');
+        console.error('❌ [ManualManagement] Failed to ensure tenant exists');
+        return null;
       }
 
       // First, determine the next version number for this document category and entity
@@ -443,25 +444,32 @@ export class ManualManagementService {
 
       if (versionError) {
         console.error('❌ Error checking existing document versions:', versionError);
-        throw new Error(`Error checking existing versions: ${versionError.message}`);
+        console.warn('⚠️ [ManualManagement] Using version 1 due to version check error');
+        // Continue with version 1 instead of failing
       }
 
-      const nextVersion = existingDocs && existingDocs.length > 0 ? existingDocs[0].version + 1 : 1;
+      const nextVersion = (existingDocs && existingDocs.length > 0) ? existingDocs[0].version + 1 : 1;
       console.log(`📄 Next version for category ${category}: ${nextVersion}`);
 
       // First, upload the file to storage
-      const uploadResult = await fileStorageService.uploadFile(
-        file,
-        DEV_TENANT_ID,
-        'obra',
-        projectId,
-        category,
-        nextVersion
-      );
+      let uploadResult;
+      try {
+        uploadResult = await fileStorageService.uploadFile(
+          file,
+          DEV_TENANT_ID,
+          'obra',
+          projectId,
+          category,
+          nextVersion
+        );
+      } catch (uploadError) {
+        console.error('❌ [ManualManagement] File upload failed:', uploadError);
+        return null;
+      }
 
       if (!uploadResult.success) {
         console.error('❌ File upload failed:', uploadResult.error);
-        throw new Error(uploadResult.error || 'File upload failed');
+        return null;
       }
 
       // Create document record
@@ -493,10 +501,12 @@ export class ManualManagementService {
         
         // Handle specific enum errors
         if (docError.message.includes('invalid input value for enum documento_categoria')) {
-          throw new Error(`❌ Categoría de documento inválida: "${category}". Debe ser una de las categorías válidas del sistema.`);
+          console.error(`❌ [ManualManagement] Invalid document category: ${category}`);
+          return null;
         }
         
-        throw new Error(`❌ Error creando documento: ${docError.message}`);
+        console.error(`❌ [ManualManagement] Error creating document: ${docError.message}`);
+        return null;
       }
 
       // Add to manual upload queue
@@ -516,7 +526,7 @@ export class ManualManagementService {
 
       if (queueError) {
         console.error('❌ Error adding to queue:', queueError);
-        throw new Error(`Error adding to queue: ${queueError.message}`);
+        return null;
       }
 
       console.log('✅ Document added to manual queue successfully');

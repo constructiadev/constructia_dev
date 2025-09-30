@@ -639,8 +639,17 @@ export default function DocumentUpload() {
         );
 
         if (!document) {
-          throw new Error('Error al subir archivo a la cola de procesamiento. Verifique la configuración de Supabase Storage.');
+          console.error('❌ [DocumentUpload] Failed to add document to queue');
+          setUploadResults(prev => ({
+            ...prev,
+            [selectedFile.id]: {
+              success: false,
+              message: 'Error al subir archivo a la cola de procesamiento. El documento no se pudo procesar.'
+            }
+          }));
+          continue; // Continue with next file instead of throwing
         }
+        
         setUploadResults(prev => ({
           ...prev,
           [selectedFile.id]: {
@@ -651,20 +660,25 @@ export default function DocumentUpload() {
 
         // Log audit event
         const tenantId = user?.tenant_id || DEV_TENANT_ID;
-        await logAuditoria(
-          tenantId,
-          user?.id || DEV_ADMIN_USER_ID,
-          'document.uploaded_to_queue',
-          'documento',
-          document.document_id,
-          {
-            categoria: selectedCategory,
-            obra_id: selectedObra,
-            filename: selectedFile.file.name,
-            real_file_uploaded: true,
-            queue_id: document.id
-          }
-        );
+        try {
+          await logAuditoria(
+            tenantId,
+            user?.id || DEV_ADMIN_USER_ID,
+            'document.uploaded_to_queue',
+            'documento',
+            document.document_id,
+            {
+              categoria: selectedCategory,
+              obra_id: selectedObra,
+              filename: selectedFile.file.name,
+              real_file_uploaded: true,
+              queue_id: document.id
+            }
+          );
+        } catch (auditError) {
+          console.warn('⚠️ [DocumentUpload] Audit logging failed (non-critical):', auditError);
+          // Don't fail the upload for audit errors
+        }
 
       } catch (error) {
         console.error('Error uploading file:', error);
@@ -672,7 +686,9 @@ export default function DocumentUpload() {
           ...prev,
           [selectedFile.id]: {
             success: false,
-            message: error instanceof Error ? error.message : 'Error al subir archivo a la cola'
+            message: error instanceof Error ? 
+              `Error: ${error.message}` : 
+              'Error desconocido al subir archivo. Inténtalo de nuevo.'
           }
         }));
       }
@@ -681,21 +697,74 @@ export default function DocumentUpload() {
     setUploading(false);
     
     // Show success message and redirect
-    const successCount = Object.values(uploadResults).filter(r => r.success).length;
-    const errorCount = Object.values(uploadResults).filter(r => !r.success).length;
+    const allResults = Object.values(uploadResults);
+    const successCount = allResults.filter(r => r.success).length;
+    const errorCount = allResults.filter(r => !r.success).length;
     
     if (successCount > 0) {
-      alert(`✅ ${successCount} documento(s) subido(s) correctamente a la cola de procesamiento.${errorCount > 0 ? ` ${errorCount} error(es).` : ''}\n\nVe al módulo "Documentos" y pulsa "Actualizar" para verlos.`);
+      // Show success message without alert to avoid disrupting UX
+      console.log(`✅ [DocumentUpload] Upload completed: ${successCount} success, ${errorCount} errors`);
+      
+      // Clear successful files only
+      setSelectedFiles(prev => prev.filter(file => {
+        const result = uploadResults[file.id];
+        return result && !result.success; // Keep only failed files
+      }));
+      
+      // Show success notification
+      const message = `✅ ${successCount} documento(s) subido(s) correctamente.${errorCount > 0 ? ` ${errorCount} error(es).` : ''}\n\nVe al módulo "Documentos" y pulsa "Actualizar" para verlos.`;
+      
+      // Use a non-blocking notification instead of alert
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-600 text-white p-4 rounded-lg shadow-lg z-50 max-w-md';
+      notification.innerHTML = `
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+          </svg>
+          <div>
+            <div class="font-semibold">${successCount} documento(s) subido(s)</div>
+            <div class="text-sm">Ve a "Documentos" → "Actualizar" para verlos</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(notification);
+      
+      // Remove notification after 5 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 5000);
+      
     } else {
-      alert(`❌ Error al subir documentos. Revisa los mensajes de error y vuelve a intentarlo.`);
+      console.error('❌ [DocumentUpload] All uploads failed');
+      // Show error notification instead of alert
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50 max-w-md';
+      notification.innerHTML = `
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+          </svg>
+          <div>
+            <div class="font-semibold">Error al subir documentos</div>
+            <div class="text-sm">Revisa los mensajes de error</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 5000);
     }
     
-    // Clear files after successful upload
-    if (successCount > 0) {
-      setSelectedFiles([]);
-      setUploadProgress({});
-      setUploadResults({});
-    }
+    // Reset progress for all files
+    setUploadProgress({});
+    // Keep upload results visible so user can see what failed
   };
 
   const canUpload = selectedEmpresa && selectedObra && selectedFiles.length > 0 && selectedCategory;
