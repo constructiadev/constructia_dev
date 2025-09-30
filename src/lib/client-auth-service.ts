@@ -409,14 +409,25 @@ export class ClientAuthService {
         }
       }
 
-    } catch (error) {
-      // Only log as error if it's not a user-friendly duplicate email message
-      if (error instanceof Error && error.message.includes('Este email ya está registrado')) {
-        console.warn('⚠️ [ClientAuth] Registration blocked - email already exists:', error.message);
-      } else {
-        console.error('❌ [ClientAuth] Registration error:', error);
+    } catch (error: any) {
+      console.error('❌ [ClientAuth] Registration step failed:', error);
+      
+      // Enhanced error handling
+      let userFriendlyError = '❌ Error durante el registro. Por favor, inténtalo de nuevo.';
+      
+      if (error?.message) {
+        if (error.message.includes('❌')) {
+          userFriendlyError = error.message;
+        } else if (error.message.includes('Failed to fetch')) {
+          userFriendlyError = '❌ Error de conexión: No se puede conectar al servidor.';
+        } else if (error.message.includes('already registered') || error.message.includes('duplicate')) {
+          userFriendlyError = '❌ Este email ya está registrado. ¿Ya tienes una cuenta? Intenta iniciar sesión.';
+        } else {
+          userFriendlyError = `❌ ${error.message}`;
+        }
       }
-      throw error;
+      
+      throw new Error(userFriendlyError);
     }
   }
 
@@ -858,5 +869,23 @@ export class ClientAuthService {
       console.error('❌ [ClientAuth] Error getting tenant clients:', error);
       return [];
     }
+  }
+
+  private static getPlanTokens(planId: string): number {
+    const tokenMap: { [key: string]: number } = {
+      'basic': 500,
+      'professional': 2000,
+      'enterprise': 10000
+    };
+    return tokenMap[planId] || 500;
+  }
+
+  private static getPlanStorage(planId: string): number {
+    const storageMap: { [key: string]: number } = {
+      'basic': 0.5,
+      'professional': 5,
+      'enterprise': 50
+    };
+    return storageMap[planId] || 0.5;
   }
 }
