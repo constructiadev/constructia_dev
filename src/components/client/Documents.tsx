@@ -46,7 +46,93 @@ const Documents: React.FC = () => {
       
       // Load queue documents for this tenant only
       try {
-        await loadQueueDocuments();
+        console.log('🔍 [ClientDocuments] Loading queue documents for tenant:', user.tenant_id);
+        
+        // SECURITY: Load ONLY queue documents for current user's tenant
+        const { data, error } = await supabaseServiceClient
+          .from('manual_upload_queue')
+          .select(`
+            *,
+            documentos!inner(
+              id,
+              categoria,
+              file,
+              mime,
+              size_bytes,
+              metadatos,
+              created_at,
+              updated_at
+            ),
+            empresas!inner(
+              razon_social
+            ),
+            obras!inner(
+              nombre_obra,
+              codigo_obra
+            )
+          `)
+          .eq('tenant_id', user.tenant_id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ [ClientDocuments] Error loading queue documents:', error);
+          console.error('❌ [ClientDocuments] Error details:', {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+          });
+          // Don't throw error, just set empty array and continue
+          setQueueDocuments([]);
+          return;
+        }
+
+        console.log('📋 [ClientDocuments] Raw queue data:', data);
+        console.log('📋 [ClientDocuments] Found queue items:', data?.length || 0);
+        
+        if (!data || data.length === 0) {
+          console.log('ℹ️ [ClientDocuments] No queue items found for tenant:', user.tenant_id);
+          setQueueDocuments([]);
+          return;
+        }
+
+        // Transformar a formato de documentos para mostrar en la lista
+        const transformedDocs = (data || []).map(item => ({
+          id: item.documentos.id,
+          queue_id: item.id,
+          project_id: item.obra_id,
+          client_id: user?.tenant_id,
+          filename: item.documentos.file?.split('/').pop() || 'documento.pdf',
+          original_name: item.documentos.metadatos?.original_filename || 'Documento',
+          file_size: item.documentos.size_bytes || 0,
+          file_type: item.documentos.mime || 'application/pdf',
+          document_type: item.documentos.categoria,
+          classification_confidence: Math.floor(Math.random() * 30) + 70,
+          upload_status: item.status === 'queued' ? 'pending' : 
+                        item.status === 'in_progress' ? 'processing' :
+                        item.status === 'uploaded' ? 'completed' : 'error',
+          obralia_status: item.status === 'uploaded' ? 'validated' : 'pending',
+          security_scan_status: 'safe',
+          deletion_scheduled_at: null,
+          obralia_document_id: null,
+          processing_attempts: 1,
+          last_processing_error: null,
+          created_at: item.documentos.created_at,
+          updated_at: item.documentos.updated_at,
+          projects: {
+            name: item.obras?.nombre_obra || 'Proyecto'
+          },
+          companies: {
+            name: item.empresas?.razon_social || 'Empresa'
+          },
+          queue_status: item.status,
+          queue_priority: item.priority || 'normal',
+          queue_notes: item.nota || '',
+          file: item.documentos.file // Add file path for download
+        }));
+
+        setQueueDocuments(transformedDocs);
+        console.log('✅ [ClientDocuments] Queue documents transformed:', transformedDocs.length);
       } catch (queueError) {
         console.error('❌ [ClientDocuments] Error loading queue documents:', queueError);
         // Don't set error state, just log and continue with empty array
@@ -67,109 +153,6 @@ const Documents: React.FC = () => {
   };
 
 
-  const loadQueueDocuments = async () => {
-    try {
-      if (!user?.tenant_id) {
-        console.log('⚠️ [ClientDocuments] No tenant_id available for queue loading');
-        setQueueDocuments([]);
-        return;
-      }
-      
-      console.log('🔍 [ClientDocuments] Loading queue documents for tenant:', user.tenant_id);
-      
-      // SECURITY: Load ONLY queue documents for current user's tenant
-      const { data, error } = await supabaseServiceClient
-        .from('manual_upload_queue')
-        .select(`
-          *,
-          documentos!inner(
-            id,
-            categoria,
-            file,
-            mime,
-            size_bytes,
-            metadatos,
-            created_at,
-            updated_at
-          ),
-          empresas!inner(
-            razon_social
-          ),
-          obras!inner(
-            nombre_obra,
-            codigo_obra
-          )
-        `)
-        .eq('tenant_id', user.tenant_id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ [ClientDocuments] Error loading queue documents:', error);
-        console.error('❌ [ClientDocuments] Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        // Don't throw error, just set empty array and continue
-        setQueueDocuments([]);
-        return;
-      }
-
-      console.log('📋 [ClientDocuments] Raw queue data:', data);
-      console.log('📋 [ClientDocuments] Found queue items:', data?.length || 0);
-      
-      if (!data || data.length === 0) {
-        console.log('ℹ️ [ClientDocuments] No queue items found for tenant:', user.tenant_id);
-        console.log('ℹ️ [ClientDocuments] No items in queue - returning empty list');
-        setQueueDocuments([]);
-        return;
-      }
-
-      // Transformar a formato de documentos para mostrar en la lista
-      const transformedDocs = (data || []).map(item => ({
-        id: item.documentos.id,
-        queue_id: item.id,
-        project_id: item.obra_id,
-        client_id: user?.tenant_id,
-        filename: item.documentos.file?.split('/').pop() || 'documento.pdf',
-        original_name: item.documentos.metadatos?.original_filename || 'Documento',
-        file_size: item.documentos.size_bytes || 0,
-        file_type: item.documentos.mime || 'application/pdf',
-        document_type: item.documentos.categoria,
-        classification_confidence: Math.floor(Math.random() * 30) + 70,
-        upload_status: item.status === 'queued' ? 'pending' : 
-                      item.status === 'in_progress' ? 'processing' :
-                      item.status === 'uploaded' ? 'completed' : 'error',
-        obralia_status: item.status === 'uploaded' ? 'validated' : 'pending',
-        security_scan_status: 'safe',
-        deletion_scheduled_at: null,
-        obralia_document_id: null,
-        processing_attempts: 1,
-        last_processing_error: null,
-        created_at: item.documentos.created_at,
-        updated_at: item.documentos.updated_at,
-        projects: {
-          name: item.obras?.nombre_obra || 'Proyecto'
-        },
-        companies: {
-          name: item.empresas?.razon_social || 'Empresa'
-        },
-        queue_status: item.status,
-        queue_priority: item.priority || 'normal',
-        queue_notes: item.nota || '',
-        file: item.documentos.file // Add file path for download
-      }));
-
-      setQueueDocuments(transformedDocs);
-      console.log('✅ [ClientDocuments] Queue documents transformed:', transformedDocs.length);
-      console.log('📊 [ClientDocuments] Transformed queue documents:', transformedDocs);
-    } catch (error) {
-      console.error('❌ [ClientDocuments] Critical error loading queue documents:', error);
-      // Don't throw error, just set empty array
-      setQueueDocuments([]);
-    }
-  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';

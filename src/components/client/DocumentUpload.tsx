@@ -623,7 +623,12 @@ export default function DocumentUpload() {
         
         // Validate category is in correct enum format
         if (!documentCategories.includes(selectedCategory)) {
-          throw new Error(`Categoría inválida: ${selectedCategory}. Debe ser una de: ${documentCategories.join(', ')}`);
+          console.error(`❌ [DocumentUpload] Invalid category: ${selectedCategory}`);
+          localResults[selectedFile.id] = {
+            success: false,
+            message: `Categoría inválida: ${selectedCategory}`
+          };
+          continue;
         }
         
         const document = await manualManagementService.addDocumentToQueue(
@@ -640,14 +645,14 @@ export default function DocumentUpload() {
           console.error('❌ [DocumentUpload] Failed to add document to queue');
           localResults[selectedFile.id] = {
             success: false,
-            message: 'Error al subir archivo a la cola de procesamiento. El documento no se pudo procesar.'
+            message: 'Error al subir archivo. Puede ser un documento duplicado o error de conexión.'
           };
           continue; // Continue with next file instead of throwing
         }
         
         localResults[selectedFile.id] = {
           success: true,
-          message: 'Documento subido correctamente a la cola de procesamiento'
+          message: 'Documento subido correctamente'
         };
 
         // Log audit event
@@ -678,7 +683,7 @@ export default function DocumentUpload() {
           success: false,
           message: error instanceof Error ? 
             `Error: ${error.message}` : 
-            'Error desconocido al subir archivo. Inténtalo de nuevo.'
+            'Error desconocido al subir archivo'
         };
       }
     }
@@ -704,7 +709,7 @@ export default function DocumentUpload() {
       }));
       
       // Show success notification
-      const message = `✅ ${successCount} documento(s) subido(s) correctamente.${errorCount > 0 ? ` ${errorCount} error(es).` : ''}\n\nVe al módulo "Documentos" y pulsa "Actualizar" para verlos.`;
+      const message = `${successCount} documento(s) subido(s) correctamente${errorCount > 0 ? ` • ${errorCount} error(es)` : ''}`;
       
       // Use a non-blocking notification instead of alert
       const notification = document.createElement('div');
@@ -715,7 +720,7 @@ export default function DocumentUpload() {
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
           </svg>
           <div>
-            <div class="font-semibold">${successCount} documento(s) subido(s)</div>
+            <div class="font-semibold">✅ ${successCount} documento(s) subido(s)</div>
             <div class="text-sm">Ve a "Documentos" → "Actualizar" para verlos</div>
           </div>
         </div>

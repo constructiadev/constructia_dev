@@ -431,6 +431,52 @@ export class ManualManagementService {
         return null;
       }
 
+      // Calculate file hash first
+      const fileHash = await this.calculateFileHash(file);
+      console.log('🔐 [ManualManagement] File hash calculated:', fileHash);
+
+      // Check if document with this hash already exists
+      const { data: existingDoc, error: hashCheckError } = await supabaseServiceClient
+        .from('documentos')
+        .select('id, file, categoria')
+        .eq('tenant_id', DEV_TENANT_ID)
+        .eq('hash_sha256', fileHash)
+        .maybeSingle();
+
+      if (hashCheckError && hashCheckError.code !== 'PGRST116') {
+        console.error('❌ [ManualManagement] Error checking for duplicate hash:', hashCheckError);
+        return null;
+      }
+
+      if (existingDoc) {
+        console.warn('⚠️ [ManualManagement] Document with same hash already exists:', existingDoc.id);
+        // Instead of failing, add to queue with reference to existing document
+        const { data: queueItem, error: queueError } = await supabaseServiceClient
+          .from('manual_upload_queue')
+          .insert({
+            tenant_id: DEV_TENANT_ID,
+            empresa_id: clientId,
+            obra_id: projectId,
+            documento_id: existingDoc.id,
+            status: 'queued',
+            priority: priority,
+            nota: `Documento duplicado (hash existente) - Usuario ${userId || 'unknown'} - Plataforma destino: ${platformTarget}`
+          })
+          .select()
+          .single();
+
+        if (queueError) {
+          console.error('❌ Error adding duplicate to queue:', queueError);
+          return null;
+        }
+
+        console.log('✅ Duplicate document added to queue with existing document reference');
+        return {
+          id: queueItem.id,
+          document_id: existingDoc.id
+        };
+      }
+
       // First, determine the next version number for this document category and entity
       const { data: existingDocs, error: versionError } = await supabaseServiceClient
         .from('documentos')
@@ -485,7 +531,7 @@ export class ManualManagementService {
           size_bytes: file.size,
           version: nextVersion,
           estado: 'pendiente',
-          hash_sha256: await this.calculateFileHash(file),
+          hash_sha256: fileHash,
           metadatos: {
             original_filename: file.name,
             upload_timestamp: new Date().toISOString(),
