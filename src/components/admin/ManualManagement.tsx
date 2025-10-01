@@ -303,6 +303,21 @@ export default function ManualManagement() {
     }
   };
 
+  const handleViewDocument = async (documentId: string, fileName: string) => {
+    try {
+      const viewUrl = await manualManagementService.downloadDocument(documentId);
+      
+      if (viewUrl) {
+        // Open document in new tab
+        window.open(viewUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('❌ Error al generar enlace para visualizar');
+      }
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      alert('❌ Error al visualizar documento');
+    }
+  };
   const handleUpdateDocumentStatus = async (
     documentId: string, 
     newStatus: ManualDocument['status'],
@@ -795,6 +810,13 @@ export default function ManualManagement() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleViewDocument(doc.id, doc.original_name)}
+                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Ver documento en nueva pestaña"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleDownloadDocument(doc.id, doc.original_name)}
                               className="p-1 text-gray-400 hover:text-blue-600 transition-colors"

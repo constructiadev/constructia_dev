@@ -252,7 +252,7 @@ const Documents: React.FC = () => {
     try {
       const viewUrl = await fileStorageService.getDownloadUrl(documentPath);
       if (viewUrl) {
-        window.open(viewUrl, '_blank');
+        window.open(viewUrl, '_blank', 'noopener,noreferrer');
       } else {
         console.error('❌ [ClientDocuments] Could not generate view URL');
         const notification = document.createElement('div');
