@@ -36,15 +36,15 @@ const Documents: React.FC = () => {
       if (!user?.tenant_id) {
         console.log('⚠️ [ClientDocuments] No tenant_id available');
         setDocumentos([]);
-        setQueueDocuments([]);
         return;
       }
 
       console.log('🔍 [ClientDocuments] Loading documents for tenant:', user.tenant_id);
       
       // Step 1: Load documents from documentos table
+      let tenantDocumentos: any[] = [];
       try {
-        const tenantDocumentos = await getAllTenantDocumentsNoRLS(user.tenant_id);
+        tenantDocumentos = await getAllTenantDocumentsNoRLS(user.tenant_id);
         console.log('📄 [ClientDocuments] Loaded documentos:', tenantDocumentos.length);
       } catch (docError) {
         console.error('❌ [ClientDocuments] Error loading documentos:', docError);
