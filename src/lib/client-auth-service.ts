@@ -1,26 +1,7 @@
 // ConstructIA - Client Authentication and Data Isolation Service
 import { supabase, supabaseServiceClient } from './supabase-real';
 import { getCurrentUserTenant, DEV_TENANT_ID, logAuditoria } from './supabase-real';
-
-export interface AuthenticatedClient {
-  id: string;
-  user_id: string;
-  tenant_id: string;
-  email: string;
-  name: string;
-  role: string;
-  company_name: string;
-  subscription_plan: string;
-  subscription_status: string;
-  storage_used: number;
-  storage_limit: number;
-  tokens_available: number;
-  obralia_credentials?: {
-    configured: boolean;
-    username?: string;
-    password?: string;
-  };
-}
+import type { AuthenticatedClient } from '../types';
 
 interface ClientRegistrationData {
   // User data
@@ -522,8 +503,39 @@ export class ClientAuthService {
       }
 
       if (!clientRecord) {
-        console.error('❌ [ClientAuth] No client record found for user:', userId);
-        throw new Error('Client record not found');
+        console.warn('⚠️ [ClientAuth] No client record found for user:', userId, '- creating one...');
+        
+        // Create client record automatically
+        const { data: newClientRecord, error: createClientError } = await supabaseServiceClient
+          .from('clients')
+          .insert({
+            user_id: userId,
+            client_id: `CLI-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+            company_name: empresa?.razon_social || finalUserProfile.name || 'Empresa',
+            contact_name: finalUserProfile.name || 'Usuario',
+            email: finalUserProfile.email,
+            phone: '',
+            address: empresa?.direccion || '',
+            subscription_plan: 'professional',
+            subscription_status: 'active',
+            storage_used: 0,
+            storage_limit: 1073741824,
+            documents_processed: 0,
+            tokens_available: 1000,
+            obralia_credentials: {
+              configured: false
+            }
+          })
+          .select('id')
+          .single();
+
+        if (createClientError) {
+          console.error('❌ [ClientAuth] Error creating client record:', createClientError);
+          throw new Error('Error creating client record');
+        }
+
+        console.log('✅ [ClientAuth] Client record created successfully');
+        clientRecord = newClientRecord;
       }
 
       // Step 3: Get client's empresa data (using tenant_id for isolation)
@@ -668,8 +680,39 @@ export class ClientAuthService {
       }
 
       if (!clientRecord) {
-        console.warn('⚠️ [ClientAuth] No client record found for user:', user.id);
-        return null;
+        console.warn('⚠️ [ClientAuth] No client record found for user:', user.id, '- creating one...');
+        
+        // Create client record automatically
+        const { data: newClientRecord, error: createClientError } = await supabaseServiceClient
+          .from('clients')
+          .insert({
+            user_id: user.id,
+            client_id: `CLI-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+            company_name: empresa?.razon_social || userProfile.name || 'Empresa',
+            contact_name: userProfile.name || 'Usuario',
+            email: userProfile.email,
+            phone: '',
+            address: empresa?.direccion || '',
+            subscription_plan: 'professional',
+            subscription_status: 'active',
+            storage_used: 0,
+            storage_limit: 1073741824,
+            documents_processed: 0,
+            tokens_available: 1000,
+            obralia_credentials: {
+              configured: false
+            }
+          })
+          .select('id')
+          .single();
+
+        if (createClientError) {
+          console.error('❌ [ClientAuth] Error creating client record:', createClientError);
+          return null;
+        }
+
+        console.log('✅ [ClientAuth] Client record created automatically');
+        clientRecord = newClientRecord;
       }
 
       return {
