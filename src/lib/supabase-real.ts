@@ -743,7 +743,8 @@ export const getAllTenantDocuments = async (tenantId: string = DEV_TENANT_ID) =>
 // Fallback function without RLS
 export const getAllTenantDocumentsNoRLS = async (tenantId: string = DEV_TENANT_ID) => {
   try {
-    const { data, error } = await supabaseServiceClient
+    // Use regular client for RLS-enabled queries when called from client context
+    const { data, error } = await supabaseClient
       .from('documentos')
       .select('*')
       .eq('tenant_id', tenantId)
