@@ -31,7 +31,7 @@ export default function ClientLogin() {
   };
 
   const fillDemoCredentials = () => {
-    setEmail('carlos@construcciones.com');
+    setEmail('demo@construcciones.com');
     setPassword('password123');
   };
 
@@ -127,7 +127,7 @@ export default function ClientLogin() {
             Usar credenciales de cliente demo
           </button>
           <div className="mt-3 text-xs text-gray-500 text-center">
-            <p><strong>Cliente Demo:</strong> carlos@construcciones.com / password123</p>
+            <p><strong>Cliente Demo:</strong> demo@construcciones.com / password123</p>
             <p className="mt-1 text-blue-600">🔒 Acceso aislado por tenant - Solo verás tus datos</p>
           </div>
         </div>
