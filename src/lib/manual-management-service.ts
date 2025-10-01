@@ -702,6 +702,19 @@ export class ManualManagementService {
         updateData.nota = notes;
       }
 
+      // CRITICAL FIX: Get the queue item first to find the documento_id
+      const { data: queueItem, error: queueError } = await supabaseServiceClient
+        .from('manual_upload_queue')
+        .select('documento_id')
+        .eq('id', queueItemId)
+        .single();
+
+      if (queueError || !queueItem) {
+        console.error('Error getting queue item:', queueError);
+        return false;
+      }
+
+      // Update the queue status
       const { error } = await supabaseServiceClient
         .from('manual_upload_queue')
         .update(updateData)
@@ -712,6 +725,41 @@ export class ManualManagementService {
         return false;
       }
 
+      // CRITICAL FIX: Update the corresponding document in the documentos table
+      // Map queue status to document estado
+      let documentoEstado: 'borrador' | 'pendiente' | 'aprobado' | 'rechazado';
+      switch (updateData.status) {
+        case 'queued':
+        case 'in_progress':
+          documentoEstado = 'pendiente';
+          break;
+        case 'uploaded':
+          documentoEstado = 'aprobado';
+          break;
+        case 'error':
+          documentoEstado = 'rechazado';
+          break;
+        default:
+          documentoEstado = 'pendiente';
+      }
+
+      // Update the document status in documentos table
+      const { error: docError } = await supabaseServiceClient
+        .from('documentos')
+        .update({
+          estado: documentoEstado,
+          observaciones: notes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', queueItem.documento_id);
+
+      if (docError) {
+        console.error('Error updating documento status:', docError);
+        // Don't return false here - queue update was successful
+        console.warn('Queue updated but documento status update failed');
+      } else {
+        console.log(`✅ Document status synced: queue=${updateData.status} → documento=${documentoEstado}`);
+      }
       return true;
     } catch (error) {
       console.error('Error updating document status:', error);
