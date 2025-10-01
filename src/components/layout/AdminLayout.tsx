@@ -37,8 +37,17 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    // Logout simple para desarrollo
-    navigate('/landing', { replace: true });
+    try {
+      // Import signOut from auth context
+      const { useAuth } = await import('../../lib/auth-context');
+      const { signOut } = useAuth();
+      await signOut();
+      navigate('/landing', { replace: true });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Always navigate to landing even if logout fails
+      navigate('/landing', { replace: true });
+    }
   };
 
   return (
