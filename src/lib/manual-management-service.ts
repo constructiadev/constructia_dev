@@ -413,6 +413,7 @@ export class ManualManagementService {
 
   // Add document to manual queue
   async addDocumentToQueue(
+    tenantId: string,
     clientId: string,
     projectId: string,
     file: File,
@@ -424,12 +425,7 @@ export class ManualManagementService {
     try {
       console.log('📁 Adding document to manual queue...');
 
-      // Ensure DEV_TENANT_ID exists before proceeding
-      const tenantExists = await ensureDevTenantExists();
-      if (!tenantExists) {
-        console.error('❌ [ManualManagement] Failed to ensure tenant exists');
-        return null;
-      }
+      console.log('🔍 [ManualManagement] Using tenant ID:', tenantId);
 
       // Calculate file hash first
       const fileHash = await this.calculateFileHash(file);
@@ -439,7 +435,7 @@ export class ManualManagementService {
       const { data: existingDoc, error: hashCheckError } = await supabaseServiceClient
         .from('documentos')
         .select('id, file, categoria')
-        .eq('tenant_id', DEV_TENANT_ID)
+        .eq('tenant_id', tenantId)
         .eq('hash_sha256', fileHash)
         .maybeSingle();
 
@@ -454,7 +450,7 @@ export class ManualManagementService {
         const { data: queueItem, error: queueError } = await supabaseServiceClient
           .from('manual_upload_queue')
           .insert({
-            tenant_id: DEV_TENANT_ID,
+            tenant_id: tenantId,
             empresa_id: clientId,
             obra_id: projectId,
             documento_id: existingDoc.id,
@@ -481,7 +477,7 @@ export class ManualManagementService {
       const { data: existingDocs, error: versionError } = await supabaseServiceClient
         .from('documentos')
         .select('version')
-        .eq('tenant_id', DEV_TENANT_ID)
+        .eq('tenant_id', tenantId)
         .eq('entidad_tipo', 'obra')
         .eq('entidad_id', projectId)
         .eq('categoria', category)
@@ -502,7 +498,7 @@ export class ManualManagementService {
       try {
         uploadResult = await fileStorageService.uploadFile(
           file,
-          DEV_TENANT_ID,
+          tenantId,
           'obra',
           projectId,
           category,
@@ -522,7 +518,7 @@ export class ManualManagementService {
       const { data: documento, error: docError } = await supabaseServiceClient
         .from('documentos')
         .insert({
-          tenant_id: DEV_TENANT_ID,
+          tenant_id: tenantId,
           entidad_tipo: 'obra',
           entidad_id: projectId,
           categoria: category,
@@ -559,7 +555,7 @@ export class ManualManagementService {
       const { data: queueItem, error: queueError } = await supabaseServiceClient
         .from('manual_upload_queue')
         .insert({
-          tenant_id: DEV_TENANT_ID,
+          tenant_id: tenantId,
           empresa_id: clientId, // Using clientId as empresa_id for now
           obra_id: projectId,
           documento_id: documento.id,

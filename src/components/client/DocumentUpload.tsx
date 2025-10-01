@@ -632,6 +632,7 @@ export default function DocumentUpload() {
         }
         
         const document = await manualManagementService.addDocumentToQueue(
+          user?.tenant_id || DEV_TENANT_ID, // Pass tenant_id as first parameter
           selectedEmpresa, // clientId
           selectedObra,    // projectId
           selectedFile.file,
