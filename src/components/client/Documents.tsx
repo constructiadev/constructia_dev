@@ -12,7 +12,6 @@ const Documents: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [queueDocuments, setQueueDocuments] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -43,23 +42,21 @@ const Documents: React.FC = () => {
 
       console.log('🔍 [ClientDocuments] Loading documents for tenant:', user.tenant_id);
       
-      // Load documents from documentos table with proper error handling
+      // Step 1: Load documents from documentos table
       try {
         const tenantDocumentos = await getAllTenantDocumentsNoRLS(user.tenant_id);
         console.log('📄 [ClientDocuments] Loaded documentos:', tenantDocumentos.length);
-        setDocumentos(tenantDocumentos || []);
       } catch (docError) {
         console.error('❌ [ClientDocuments] Error loading documentos:', docError);
-        // Don't set error state, just log and continue with empty array
-        setDocumentos([]);
+        tenantDocumentos = [];
       }
       
-      // Load queue documents for this tenant only
+      // Step 2: Load queue documents for this tenant
+      let queueData: any[] = [];
       try {
         console.log('🔍 [ClientDocuments] Loading queue documents for tenant:', user.tenant_id);
         
-        // Fixed query structure for manual_upload_queue
-        const { data: queueData, error: queueError } = await supabaseServiceClient
+        const { data: rawQueueData, error: queueError } = await supabaseServiceClient
           .from('manual_upload_queue')
           .select(`
             *,
@@ -86,50 +83,85 @@ const Documents: React.FC = () => {
 
         if (queueError) {
           console.error('❌ [ClientDocuments] Error loading queue documents:', queueError);
-          console.error('❌ [ClientDocuments] Error details:', {
-            message: queueError.message,
-            code: queueError.code,
-            details: queueError.details,
-            hint: queueError.hint
-          });
-          // Don't throw error, just set empty array and continue
-          setQueueDocuments([]);
+          queueData = [];
+        } else {
+          queueData = rawQueueData || [];
+        }
+
+        console.log('📋 [ClientDocuments] Found queue items:', queueData.length);
+      } catch (queueError) {
+        console.error('❌ [ClientDocuments] Error loading queue documents:', queueError);
+        queueData = [];
+      }
+      
+      // Step 3: Deduplicate and prioritize documents
+      const documentMap = new Map<string, any>();
+      
+      // First, process queue documents (these have priority)
+      queueData.forEach(item => {
+        const documento = item.documentos;
+        if (!documento) {
+          console.warn('⚠️ [ClientDocuments] Queue item without documento:', item.id);
           return;
         }
 
-        console.log('📋 [ClientDocuments] Raw queue data:', queueData);
-        console.log('📋 [ClientDocuments] Found queue items:', queueData?.length || 0);
-        
-        if (!queueData || queueData.length === 0) {
-          console.log('ℹ️ [ClientDocuments] No queue items found for tenant:', user.tenant_id);
-          setQueueDocuments([]);
-          return;
-        }
+        const transformedDoc = {
+          id: documento.id,
+          queue_id: item.id,
+          project_id: item.obra_id,
+          client_id: user?.tenant_id,
+          filename: documento.file?.split('/').pop() || 'documento.pdf',
+          original_name: documento.metadatos?.original_filename || 'Documento',
+          file_size: documento.size_bytes || 0,
+          file_type: documento.mime || 'application/pdf',
+          document_type: documento.categoria,
+          classification_confidence: Math.floor(Math.random() * 30) + 70,
+          upload_status: item.status === 'queued' ? 'pending' : 
+                        item.status === 'in_progress' ? 'processing' :
+                        item.status === 'uploaded' ? 'completed' : 'error',
+          obralia_status: item.status === 'uploaded' ? 'validated' : 'pending',
+          security_scan_status: 'safe',
+          deletion_scheduled_at: null,
+          obralia_document_id: null,
+          processing_attempts: 1,
+          last_processing_error: null,
+          created_at: documento.created_at,
+          updated_at: documento.updated_at,
+          projects: {
+            name: item.obras?.nombre_obra || 'Proyecto'
+          },
+          companies: {
+            name: item.empresas?.razon_social || 'Empresa'
+          },
+          queue_status: item.status,
+          queue_priority: item.priority || 'normal',
+          queue_notes: item.nota || '',
+          file: documento.file,
+          source: 'queue' // Mark as coming from queue
+        };
 
-        // Transform to document format for display in list
-        const transformedDocs = (queueData || []).map(item => {
-          // Handle case where documentos might be null due to foreign key issues
-          const documento = item.documentos;
-          if (!documento) {
-            console.warn('⚠️ [ClientDocuments] Queue item without documento:', item.id);
-            return null;
-          }
-
-          return {
+        // Add to map with documento.id as key (queue documents have priority)
+        documentMap.set(documento.id, transformedDoc);
+      });
+      
+      // Then, process documents from documentos table (only if not already in queue)
+      (tenantDocumentos || []).forEach(documento => {
+        // Only add if not already in map (queue has priority)
+        if (!documentMap.has(documento.id)) {
+          const transformedDoc = {
             id: documento.id,
-            queue_id: item.id,
-            project_id: item.obra_id,
+            project_id: documento.entidad_tipo === 'obra' ? documento.entidad_id : 'unknown',
             client_id: user?.tenant_id,
             filename: documento.file?.split('/').pop() || 'documento.pdf',
-            original_name: documento.metadatos?.original_filename || 'Documento',
-            file_size: documento.size_bytes || 0,
+            original_name: documento.metadatos?.original_filename || documento.file?.split('/').pop() || 'documento.pdf',
+            file_size: documento.size_bytes || 1024000,
             file_type: documento.mime || 'application/pdf',
             document_type: documento.categoria,
             classification_confidence: Math.floor(Math.random() * 30) + 70,
-            upload_status: item.status === 'queued' ? 'pending' : 
-                          item.status === 'in_progress' ? 'processing' :
-                          item.status === 'uploaded' ? 'completed' : 'error',
-            obralia_status: item.status === 'uploaded' ? 'validated' : 'pending',
+            upload_status: documento.estado === 'aprobado' ? 'completed' : 
+                          documento.estado === 'pendiente' ? 'processing' : 
+                          documento.estado === 'rechazado' ? 'error' : 'pending',
+            obralia_status: documento.estado === 'aprobado' ? 'validated' : 'pending',
             security_scan_status: 'safe',
             deletion_scheduled_at: null,
             obralia_document_id: null,
@@ -138,33 +170,39 @@ const Documents: React.FC = () => {
             created_at: documento.created_at,
             updated_at: documento.updated_at,
             projects: {
-              name: item.obras?.nombre_obra || 'Proyecto'
+              name: 'Proyecto'
             },
             companies: {
-              name: item.empresas?.razon_social || 'Empresa'
+              name: 'Empresa'
             },
-            queue_status: item.status,
-            queue_priority: item.priority || 'normal',
-            queue_notes: item.nota || '',
-            file: documento.file // Add file path for download
+            queue_status: null,
+            queue_priority: null,
+            queue_notes: '',
+            file: documento.file,
+            source: 'direct' // Mark as coming directly from documentos table
           };
-        }).filter(doc => doc !== null); // Remove null entries
 
-        setQueueDocuments(transformedDocs);
-        console.log('✅ [ClientDocuments] Queue documents transformed:', transformedDocs.length);
-      } catch (queueError) {
-        console.error('❌ [ClientDocuments] Error loading queue documents:', queueError);
-        // Don't set error state, just log and continue with empty array
-        setQueueDocuments([]);
-      }
+          documentMap.set(documento.id, transformedDoc);
+        }
+      });
       
+      // Convert map to array and set final documents list
+      const finalDocuments = Array.from(documentMap.values());
+      setDocumentos(finalDocuments);
+      
+      console.log('✅ [ClientDocuments] Documents deduplicated and loaded:', {
+        queue_documents: queueData.length,
+        direct_documents: (tenantDocumentos || []).length,
+        final_unique_documents: finalDocuments.length,
+        duplicates_removed: (queueData.length + (tenantDocumentos || []).length) - finalDocuments.length
+      });
+        
       console.log('✅ [ClientDocuments] Document loading completed');
     } catch (err) {
       console.error('❌ [ClientDocuments] Error loading documents:', err);
       // Don't set error state that would break the UI
       console.warn('⚠️ [ClientDocuments] Using fallback empty state due to error');
       setDocumentos([]);
-      setQueueDocuments([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -270,63 +308,13 @@ const Documents: React.FC = () => {
     }
   };
 
-  // Transform documentos to match expected format for filtering
-  const transformedDocuments = documentos.map(documento => ({
-    id: documento.id,
-    project_id: documento.entidad_tipo === 'obra' ? documento.entidad_id : 'unknown',
-    client_id: user?.tenant_id,
-    filename: documento.file?.split('/').pop() || 'documento.pdf',
-    original_name: documento.metadatos?.original_filename || documento.file?.split('/').pop() || 'documento.pdf',
-    file_size: documento.size_bytes || 1024000,
-    file_type: documento.mime || 'application/pdf',
-    document_type: documento.categoria,
-    classification_confidence: Math.floor(Math.random() * 30) + 70,
-    upload_status: documento.estado === 'aprobado' ? 'completed' : 
-                  documento.estado === 'pendiente' ? 'processing' : 
-                  documento.estado === 'rechazado' ? 'error' : 'pending',
-    obralia_status: documento.estado === 'aprobado' ? 'validated' : 'pending',
-    security_scan_status: 'safe',
-    deletion_scheduled_at: null,
-    obralia_document_id: null,
-    processing_attempts: 1,
-    last_processing_error: null,
-    created_at: documento.created_at,
-    updated_at: documento.updated_at,
-    projects: {
-      name: 'Proyecto'
-    },
-    companies: {
-      name: 'Empresa'
-    },
-    queue_status: null,
-    queue_priority: null,
-    queue_notes: '',
-    file: documento.file // Add file path for download
-  }));
-
-  const filteredDocuments = transformedDocuments.filter(doc => {
+  // Filter documents (now using deduplicated list)
+  const filteredDocuments = documentos.filter(doc => {
     const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  const filteredTransformedDocuments = transformedDocuments.filter(doc => {
-    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const filteredQueueDocuments = queueDocuments.filter(doc => {
-    const matchesSearch = doc.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.document_type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || doc.upload_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  // Combine documents from both sources
-  const allDocuments = [...filteredTransformedDocuments, ...filteredQueueDocuments];
 
   if (loading) {
     return (
@@ -411,7 +399,7 @@ const Documents: React.FC = () => {
 
       {/* Documents List */}
       <div className="bg-white rounded-lg border border-gray-200">
-        {allDocuments.length === 0 ? (
+        {filteredDocuments.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay documentos</h3>
@@ -456,7 +444,7 @@ const Documents: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allDocuments.map((doc) => (
+                {filteredDocuments.map((doc) => (
                   <tr key={doc.id} className="hover:bg-gray-50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
@@ -541,28 +529,28 @@ const Documents: React.FC = () => {
       </div>
 
       {/* Summary Stats */}
-      {allDocuments.length > 0 && (
+      {filteredDocuments.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{allDocuments.length}</div>
+              <div className="text-2xl font-bold text-gray-900">{filteredDocuments.length}</div>
               <div className="text-sm text-gray-600">Total documentos</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {allDocuments.filter(d => d.upload_status === 'completed').length}
+                {filteredDocuments.filter(d => d.upload_status === 'completed').length}
               </div>
               <div className="text-sm text-gray-600">Completados</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">
-                {allDocuments.filter(d => d.upload_status === 'processing').length}
+                {filteredDocuments.filter(d => d.upload_status === 'processing').length}
               </div>
               <div className="text-sm text-gray-600">Procesando</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-600">
-                {formatFileSize(allDocuments.reduce((sum, d) => sum + d.file_size, 0))}
+                {formatFileSize(filteredDocuments.reduce((sum, d) => sum + d.file_size, 0))}
               </div>
               <div className="text-sm text-gray-600">Tamaño total</div>
             </div>
