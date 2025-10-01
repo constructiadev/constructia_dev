@@ -28,9 +28,8 @@ export default function ProtectedRoute({
 
   if (!user) {
     console.log('🔐 [ProtectedRoute] No user found, redirecting to login');
-    // Redirect to appropriate login based on required role
-    const loginPath = requireRole === 'admin' ? '/admin-login' : '/client-login';
-    return <Navigate to={loginPath} replace />;
+    // Always redirect to fallbackPath (default: /landing) when no user is found
+    return <Navigate to={fallbackPath} replace />;
   }
 
   // CRITICAL: Strict role-based access control
