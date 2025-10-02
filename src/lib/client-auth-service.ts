@@ -491,7 +491,7 @@ export class ClientAuthService {
       console.log('✅ [ClientAuth] User profile loaded:', finalUserProfile.email, 'Role:', finalUserProfile.role);
 
       // Step 3: Get client record from clients table using user_id
-      const { data: clientRecord, error: clientError } = await supabaseServiceClient
+      let { data: clientRecord, error: clientError } = await supabaseServiceClient
         .from('clients')
         .select('id')
         .eq('user_id', userId)
@@ -693,7 +693,7 @@ export class ClientAuthService {
       }
 
       // Get client record from clients table using user_id
-      const { data: clientRecord, error: clientError } = await supabaseServiceClient
+      let { data: clientRecord, error: clientError } = await supabaseServiceClient
         .from('clients')
         .select('id')
         .eq('user_id', user.id)
