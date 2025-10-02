@@ -221,8 +221,7 @@ export const getAuditLogs = async (
       .from('auditoria')
       .select(`
         *,
-        users(email, role),
-        empresas(razon_social)
+        users(email, role)
       `)
       .eq('tenant_id', DEV_TENANT_ID)
       .order('created_at', { ascending: false })
@@ -249,7 +248,7 @@ export const getAuditLogs = async (
         role: log.users?.role || 'admin'
       },
       clients: {
-        company_name: log.empresas?.razon_social || 'Empresa'
+        company_name: 'Empresa'
       }
     }));
     
