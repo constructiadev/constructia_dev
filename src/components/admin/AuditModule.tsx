@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw, Calendar, User, FileText, Settings, Database, CreditCard, Shield, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Search, Filter, RefreshCw, Calendar, User, FileText, Settings, Database, CreditCard, Shield, AlertTriangle, CheckCircle, XCircle, Clock, Building2 } from 'lucide-react';
 import { getAuditLogs } from '../../lib/supabase';
 
 interface AuditLog {
