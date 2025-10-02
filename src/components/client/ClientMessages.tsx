@@ -52,12 +52,13 @@ export default function ClientMessages({ isOpen, onClose, tenantId, userEmail }:
       setLoading(true);
       setError(null);
 
-      // Cargar mensajes dirigidos a este cliente
+      console.log('📧 [ClientMessages] Loading messages for tenant:', tenantId, 'email:', userEmail);
+
+      // CRITICAL FIX: Load messages using both tenant_id and email in destinatarios
       const { data: mensajesData, error: mensajesError } = await supabaseServiceClient
         .from('mensajes')
         .select('*')
         .eq('tenant_id', tenantId)
-        .contains('destinatarios', JSON.stringify([userEmail]))
         .order('created_at', { ascending: false });
 
       if (mensajesError) {
@@ -66,7 +67,26 @@ export default function ClientMessages({ isOpen, onClose, tenantId, userEmail }:
         return;
       }
 
-      setMessages(mensajesData || []);
+      // CRITICAL FIX: Filter messages that contain the user's email in destinatarios array
+      const filteredMessages = (mensajesData || []).filter(mensaje => {
+        if (!mensaje.destinatarios || !Array.isArray(mensaje.destinatarios)) {
+          return false;
+        }
+        
+        // Check if user email is in the destinatarios array
+        const isForThisUser = mensaje.destinatarios.includes(userEmail);
+        
+        if (isForThisUser) {
+          console.log('📧 [ClientMessages] Found message for user:', mensaje.titulo);
+        }
+        
+        return isForThisUser;
+      });
+
+      console.log('📧 [ClientMessages] Total messages found:', mensajesData?.length || 0);
+      console.log('📧 [ClientMessages] Messages for this user:', filteredMessages.length);
+      
+      setMessages(filteredMessages);
     } catch (error) {
       console.error('Error in loadMessages:', error);
       setError('Error al cargar mensajes');
@@ -76,6 +96,7 @@ export default function ClientMessages({ isOpen, onClose, tenantId, userEmail }:
   };
 
   const refreshMessages = async () => {
+    console.log('🔄 [ClientMessages] Refreshing messages...');
     setRefreshing(true);
     await loadMessages();
     setRefreshing(false);
@@ -83,6 +104,8 @@ export default function ClientMessages({ isOpen, onClose, tenantId, userEmail }:
 
   const markAsRead = async (messageId: string) => {
     try {
+      console.log('📧 [ClientMessages] Marking message as read:', messageId);
+      
       // Marcar mensaje como leído actualizando el estado
       const { error } = await supabaseServiceClient
         .from('mensajes')
@@ -96,6 +119,8 @@ export default function ClientMessages({ isOpen, onClose, tenantId, userEmail }:
         console.error('Error marking message as read:', error);
         return;
       }
+
+      console.log('✅ [ClientMessages] Message marked as read successfully');
 
       // Actualizar estado local
       setMessages(prev => prev.map(msg => 

@@ -39,25 +39,47 @@ export default function ClientLayout() {
   useEffect(() => {
     if (user?.tenant_id && user?.email) {
       loadUnreadCount();
+      
+      // Set up periodic refresh every 30 seconds to check for new messages
+      const interval = setInterval(() => {
+        loadUnreadCount();
+      }, 30000);
+      
+      return () => clearInterval(interval);
     }
   }, [user]);
 
   const loadUnreadCount = async () => {
     try {
+      console.log('🔔 [ClientLayout] Loading unread count for:', user?.email, 'tenant:', user?.tenant_id);
+      
       const { supabaseServiceClient } = await import('../../lib/supabase-real');
       
-      const { count, error } = await supabaseServiceClient
+      // CRITICAL FIX: Get all messages for this tenant and filter by email
+      const { data: allMessages, error } = await supabaseServiceClient
         .from('mensajes')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
         .eq('tenant_id', user?.tenant_id)
-        .contains('destinatarios', JSON.stringify([user?.email]))
         .eq('estado', 'programado');
 
-      if (!error) {
-        setUnreadCount(count || 0);
+      if (!error && allMessages) {
+        // Filter messages that contain the user's email in destinatarios array
+        const userMessages = allMessages.filter(mensaje => {
+          if (!mensaje.destinatarios || !Array.isArray(mensaje.destinatarios)) {
+            return false;
+          }
+          return mensaje.destinatarios.includes(user?.email);
+        });
+        
+        console.log('🔔 [ClientLayout] Found', userMessages.length, 'unread messages for user');
+        setUnreadCount(userMessages.length);
+      } else {
+        console.error('Error loading unread count:', error);
+        setUnreadCount(0);
       }
     } catch (error) {
       console.error('Error loading unread count:', error);
+      setUnreadCount(0);
     }
   };
 

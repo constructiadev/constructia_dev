@@ -184,10 +184,32 @@ export default function MessagingModule() {
     try {
       setSendingMessage(true);
 
-      // Crear mensajes reales en la base de datos para cada cliente seleccionado
-      const messagesToInsert = messageForm.client_ids.map(clientId => {
+      // CRITICAL FIX: Get real client data with tenant_id and email
+      const messagesToInsert = [];
+      
+      for (const clientId of messageForm.client_ids) {
         const client = clients.find(c => c.id === clientId);
-        
+        if (!client) {
+          console.warn('Client not found:', clientId);
+          continue;
+        }
+
+        // Get the actual tenant_id for this client from the users table
+        const { data: userData, error: userError } = await supabaseServiceClient
+          .from('users')
+          .select('tenant_id, email')
+          .eq('email', client.email)
+          .single();
+
+        if (userError || !userData) {
+          console.error('Error getting user tenant for client:', client.email, userError);
+          // Use fallback tenant_id
+          console.log('Using fallback tenant_id for client:', client.email);
+        }
+
+        const targetTenantId = userData?.tenant_id || DEV_TENANT_ID;
+        const targetEmail = userData?.email || client.email;
+
         // Mapear prioridad de inglés a español para la base de datos
         const priorityMap: Record<string, 'baja' | 'media' | 'alta'> = {
           'low': 'baja',
@@ -205,17 +227,21 @@ export default function MessagingModule() {
           'urgent': 'urgencia'
         };
         
-        return {
-          tenant_id: DEV_TENANT_ID,
+        messagesToInsert.push({
+          tenant_id: targetTenantId,
           tipo: messageTypeMap[messageForm.message_type] || 'notificacion',
           titulo: messageForm.subject,
           contenido: messageForm.message,
           prioridad: priorityMap[messageForm.priority] || 'media',
           vence: messageForm.expires_at ? new Date(messageForm.expires_at).toISOString() : null,
-          destinatarios: [client?.email || 'ClienteAdmin'],
-          estado: 'enviado'
-        };
-      });
+          destinatarios: [targetEmail],
+          estado: 'programado' // CRITICAL: Set as 'programado' so client sees it as unread
+        });
+      }
+
+      if (messagesToInsert.length === 0) {
+        throw new Error('No se pudieron preparar mensajes para enviar');
+      }
 
       // Insertar mensajes en la base de datos
       const { data: insertedMessages, error: insertError } = await supabaseServiceClient
@@ -228,11 +254,14 @@ export default function MessagingModule() {
         throw new Error(`Error al enviar mensajes: ${insertError.message}`);
       }
 
+      console.log('✅ Messages inserted successfully:', insertedMessages?.length);
+      console.log('📧 Messages sent to tenants:', messagesToInsert.map(m => ({ tenant_id: m.tenant_id, email: m.destinatarios[0] })));
+
       // Recargar datos para reflejar los nuevos mensajes
       await loadClientsAndMessages();
 
       clearForm();
-      alert(`✅ Mensaje enviado exitosamente a ${messageForm.client_ids.length} cliente(s) y guardado en la base de datos`);
+      alert(`✅ Mensaje enviado exitosamente a ${messagesToInsert.length} cliente(s). Los clientes verán el mensaje en su bandeja de entrada.`);
 
     } catch (error) {
       console.error('Error sending message:', error);
