@@ -288,7 +288,10 @@ export class ClientAuthService {
               cif_nif: registrationData.cif_nif,
               platforms_configured: registrationData.cae_credentials.length,
               marketing_consent: registrationData.accept_marketing
-            }
+            },
+            '127.0.0.1', // IP address - in production get from request
+            navigator.userAgent,
+            'success'
           );
           console.log('✅ [ClientAuth] Audit event logged');
         } catch (auditError) {

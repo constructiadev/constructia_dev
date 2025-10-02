@@ -249,7 +249,10 @@ export class WorkflowActions {
           file_size: file.size,
           ai_confidence: extraction.confianza,
           validation_result: extractionValidation
-        }
+        },
+        context.ip,
+        navigator.userAgent,
+        extractionValidation.isValid ? 'success' : 'warning'
       );
 
       return {
@@ -562,7 +565,10 @@ export class WorkflowActions {
         'integration.sent',
         'job_integracion',
         jobId,
-        { estado, response }
+        { estado, response },
+        context.ip,
+        navigator.userAgent,
+        response.ok ? 'success' : 'error'
       );
 
       return {

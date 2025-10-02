@@ -1004,7 +1004,10 @@ export const logAuditoria = async (
   accion: string,
   entidad?: string,
   entidadId?: string,
-  detalles?: any
+  detalles?: any,
+  ipAddress?: string,
+  userAgent?: string,
+  status?: 'success' | 'warning' | 'error'
 ) => {
   try {
     // Validate userId and fallback to DEV_ADMIN_USER_ID if invalid
@@ -1015,6 +1018,16 @@ export const logAuditoria = async (
       validUserId = DEV_ADMIN_USER_ID; // Use system admin user ID
     }
 
+    // Enhanced details object with GDPR compliance data
+    const enhancedDetalles = {
+      ...detalles,
+      user_agent: userAgent || 'Unknown',
+      status: status || 'success',
+      timestamp: new Date().toISOString(),
+      session_id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      compliance_level: 'GDPR_LOPD',
+      data_classification: entidad ? 'personal_data' : 'system_data'
+    };
     await supabaseServiceClient
       .from('auditoria')
       .insert({
@@ -1023,8 +1036,8 @@ export const logAuditoria = async (
         accion,
         entidad,
         entidad_id: entidadId,
-        ip: '127.0.0.1', // In development
-        detalles: detalles || {}
+        ip: ipAddress || '127.0.0.1',
+        detalles: enhancedDetalles
       });
   } catch (error) {
     console.error('Error logging audit event:', error);

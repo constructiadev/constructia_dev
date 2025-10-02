@@ -671,7 +671,10 @@ export default function DocumentUpload() {
               filename: selectedFile.file.name,
               real_file_uploaded: true,
               queue_id: document.id
-            }
+            },
+            '127.0.0.1', // IP address - in production get from request
+            navigator.userAgent,
+            'success'
           );
         } catch (auditError) {
           console.warn('⚠️ [DocumentUpload] Audit logging failed (non-critical):', auditError);

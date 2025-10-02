@@ -217,15 +217,29 @@ export const getAuditLogs = async (
       return;
     }
 
+    // Get all tenants to map tenant_id to company names
+    const { data: tenants, error: tenantsError } = await supabaseServiceClient
+      .from('tenants')
+      .select('id, name');
+
+    if (tenantsError) {
+      console.warn('Error fetching tenants for audit logs:', tenantsError);
+    }
+
+    // Create tenant name mapping
+    const tenantNameMap = new Map<string, string>();
+    (tenants || []).forEach(tenant => {
+      tenantNameMap.set(tenant.id, tenant.name);
+    });
+
     const { data, error } = await supabaseClient
       .from('auditoria')
       .select(`
         *,
         users(email, role)
       `)
-      .eq('tenant_id', DEV_TENANT_ID)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(500);
 
     if (error) {
       console.warn('Error fetching audit logs:', error);
@@ -241,14 +255,19 @@ export const getAuditLogs = async (
       resource: log.entidad || 'unknown',
       details: log.detalles,
       ip_address: log.ip || '127.0.0.1',
-      user_agent: 'ConstructIA Admin',
+      user_agent: log.detalles?.user_agent || 'Unknown',
+      status: log.detalles?.status || 'success',
+      session_id: log.detalles?.session_id || 'unknown',
+      compliance_level: log.detalles?.compliance_level || 'GDPR_LOPD',
+      data_classification: log.detalles?.data_classification || 'system_data',
+      tenant_id: log.tenant_id,
       created_at: log.created_at,
       users: {
         email: log.users?.email || 'admin@constructia.com',
         role: log.users?.role || 'admin'
       },
       clients: {
-        company_name: 'Empresa'
+        company_name: tenantNameMap.get(log.tenant_id) || `Tenant ${log.tenant_id?.substring(0, 8) || 'Unknown'}`
       }
     }));
     
