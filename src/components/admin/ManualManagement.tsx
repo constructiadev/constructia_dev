@@ -319,7 +319,7 @@ export default function ManualManagement() {
     }
   };
   const handleUpdateDocumentStatus = async (
-    documentId: string, 
+    documentId: string,
     newStatus: ManualDocument['status'],
     targetPlatform?: string
   ) => {
@@ -333,7 +333,20 @@ export default function ManualManagement() {
 
       if (success) {
         await refreshData();
-        alert(`✅ Estado actualizado a: ${newStatus}`);
+
+        if (newStatus === 'validated') {
+          alert(
+            '✅ DOCUMENTO VALIDADO Y ELIMINADO\n\n' +
+            'El documento ha sido:\n' +
+            '• ✅ Marcado como validado\n' +
+            '• 🗑️ Eliminado físicamente del servidor\n' +
+            '• 🗑️ Eliminado de la base de datos\n' +
+            '• 📝 Registrado en auditoría (visible para admin y cliente)\n\n' +
+            'El archivo es ahora inaccesible para todos los usuarios.'
+          );
+        } else {
+          alert(`✅ Estado actualizado a: ${newStatus}`);
+        }
       } else {
         alert('❌ Error al actualizar estado');
       }
@@ -847,9 +860,13 @@ export default function ManualManagement() {
                             
                             {doc.status === 'uploaded' && (
                               <button
-                                onClick={() => handleUpdateDocumentStatus(doc.id, 'validated', doc.platform_target)}
+                                onClick={() => {
+                                  if (confirm('⚠️ ATENCIÓN: Al marcar como validado, el archivo será ELIMINADO permanentemente de la base de datos.\n\n¿Confirmas que el documento ha sido subido correctamente a la plataforma externa y deseas eliminarlo?')) {
+                                    handleUpdateDocumentStatus(doc.id, 'validated', doc.platform_target);
+                                  }
+                                }}
                                 className="p-1 text-gray-400 hover:text-emerald-600 transition-colors"
-                                title="Marcar como validado"
+                                title="Marcar como validado (ELIMINARÁ el archivo)"
                               >
                                 <Target className="w-4 h-4" />
                               </button>
@@ -1112,6 +1129,18 @@ export default function ManualManagement() {
               <div className="mt-2 pt-2 border-t border-purple-300">
                 <div className="font-medium text-purple-800">Estados disponibles:</div>
                 <div>• ⏳ Pendiente • 🔄 Subiendo • ✅ Subido • 🎯 Validado • ❌ Error • ⚠️ Corrupto</div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-purple-300">
+                <div className="font-semibold text-red-700 mb-1">⚠️ IMPORTANTE - Política de Eliminación:</div>
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-800">
+                  Al marcar un documento como <strong>"Validado"</strong>, se ELIMINARÁ automáticamente:
+                  <ul className="list-disc ml-5 mt-1">
+                    <li>El archivo físico del servidor</li>
+                    <li>El registro de la base de datos</li>
+                    <li>Se creará un log de auditoría permanente</li>
+                    <li>El archivo quedará inaccesible para todos</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>

@@ -689,7 +689,8 @@ export class ManualManagementService {
       const updateData: any = {
         status: newStatus === 'pending' ? 'queued' :
                newStatus === 'uploading' ? 'in_progress' :
-               newStatus === 'uploaded' ? 'uploaded' : 'error',
+               newStatus === 'uploaded' ? 'uploaded' :
+               newStatus === 'validated' ? 'validated' : 'error',
         updated_at: new Date().toISOString()
       };
 
@@ -698,10 +699,21 @@ export class ManualManagementService {
         updateData.nota = notes;
       }
 
-      // CRITICAL FIX: Get the queue item first to find the documento_id
+      // CRITICAL FIX: Get the queue item first with full document information
       const { data: queueItem, error: queueError } = await supabaseServiceClient
         .from('manual_upload_queue')
-        .select('documento_id')
+        .select(`
+          *,
+          documentos!inner(
+            id,
+            file,
+            categoria,
+            entidad_tipo,
+            entidad_id,
+            tenant_id,
+            metadatos
+          )
+        `)
         .eq('id', queueItemId)
         .single();
 
@@ -710,6 +722,107 @@ export class ManualManagementService {
         return false;
       }
 
+      const documento = queueItem.documentos;
+
+      // CRITICAL: If status is 'validated', delete the document physically and from database
+      if (newStatus === 'validated') {
+        console.log('🗑️ [VALIDATED] Documento marcado como validado - iniciando eliminación...');
+
+        // 1. Create audit log BEFORE deletion
+        const deletionTimestamp = new Date().toISOString();
+        const auditLogDetails = {
+          document_id: documento.id,
+          original_filename: documento.metadatos?.original_filename || 'unknown',
+          file_path: documento.file,
+          categoria: documento.categoria,
+          entidad_tipo: documento.entidad_tipo,
+          entidad_id: documento.entidad_id,
+          validation_timestamp: deletionTimestamp,
+          deletion_reason: 'Documento validado y subido exitosamente a plataforma externa',
+          platform_target: targetPlatform || 'unknown',
+          admin_notes: notes || 'Validado por administrador',
+          action: 'DOCUMENT_VALIDATED_AND_DELETED',
+          status: 'success'
+        };
+
+        // Log audit entry for admin
+        await logAuditoria(
+          documento.tenant_id,
+          DEV_ADMIN_USER_ID,
+          'DOCUMENT_VALIDATED_AND_DELETED',
+          'documento',
+          documento.id,
+          auditLogDetails,
+          '127.0.0.1',
+          'ManualManagementService',
+          'success'
+        );
+
+        console.log('✅ [AUDIT] Log de eliminación creado para administrador');
+
+        // Log audit entry for client (visible in their audit log)
+        await logAuditoria(
+          documento.tenant_id,
+          documento.tenant_id, // Use tenant as user for client visibility
+          'DOCUMENT_VALIDATED_AND_REMOVED',
+          'documento',
+          documento.id,
+          {
+            ...auditLogDetails,
+            client_message: 'Su documento ha sido validado exitosamente y eliminado de nuestros servidores por seguridad',
+            data_retention_policy: 'Documento eliminado según política de retención de datos después de validación exitosa'
+          },
+          '127.0.0.1',
+          'System',
+          'success'
+        );
+
+        console.log('✅ [AUDIT] Log de eliminación creado para cliente');
+
+        // 2. Delete physical file using file storage service
+        try {
+          const fileDeleted = await fileStorageService.deleteFile(documento.file);
+          if (fileDeleted) {
+            console.log('✅ [FILE] Archivo físico eliminado:', documento.file);
+          } else {
+            console.warn('⚠️ [FILE] No se pudo eliminar el archivo físico:', documento.file);
+          }
+        } catch (fileError) {
+          console.error('❌ [FILE] Error eliminando archivo físico:', fileError);
+          // Continue with database deletion even if file deletion fails
+        }
+
+        // 3. Delete document from documentos table
+        const { error: deleteDocError } = await supabaseServiceClient
+          .from('documentos')
+          .delete()
+          .eq('id', documento.id);
+
+        if (deleteDocError) {
+          console.error('❌ [DB] Error eliminando documento de la base de datos:', deleteDocError);
+          return false;
+        }
+
+        console.log('✅ [DB] Documento eliminado de la tabla documentos');
+
+        // 4. Delete from manual_upload_queue
+        const { error: deleteQueueError } = await supabaseServiceClient
+          .from('manual_upload_queue')
+          .delete()
+          .eq('id', queueItemId);
+
+        if (deleteQueueError) {
+          console.error('❌ [QUEUE] Error eliminando de la cola:', deleteQueueError);
+          return false;
+        }
+
+        console.log('✅ [QUEUE] Documento eliminado de la cola de procesamiento manual');
+        console.log('🎯 [COMPLETED] Documento validado y completamente eliminado del sistema');
+
+        return true;
+      }
+
+      // For non-validated statuses, proceed with normal update
       // Update the queue status
       const { error } = await supabaseServiceClient
         .from('manual_upload_queue')
