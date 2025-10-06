@@ -92,8 +92,7 @@ interface BackupInfo {
   type: 'full' | 'incremental' | 'differential';
   status: 'completed' | 'running' | 'failed';
   restore_point: boolean;
-    { id: 'backup', name: 'Respaldos', icon: Shield },
-    { id: 'diagnostics', name: 'Diagnóstico', icon: Zap }
+}
 
 interface MaintenanceTask {
   id: string;
@@ -174,7 +173,6 @@ const DatabaseModule: React.FC = () => {
     'payments',
     'receipts',
     'payment_gateways',
-    { id: 'diagnostics', name: 'Diagnóstico', icon: AlertTriangle },
     'system_settings',
     'kpis',
     'audit_logs',
@@ -541,9 +539,6 @@ const DatabaseModule: React.FC = () => {
 
       console.log(`✅ [DatabaseModule] Backup restored successfully: ${backup.name}`);
 
-      {activeTab === 'diagnostics' && (
-        <SupabaseDiagnostics />
-      )}
       alert(
         `✅ Base de datos restaurada exitosamente desde backup:\n${backup.name}\n\n` +
         `La aplicación se recargará para reflejar los cambios.`
@@ -1043,6 +1038,7 @@ const DatabaseModule: React.FC = () => {
           { id: 'performance', label: 'Rendimiento', icon: TrendingUp },
           { id: 'backups', label: 'Backups', icon: Archive },
           { id: 'maintenance', label: 'Mantenimiento', icon: Settings },
+          { id: 'diagnostics', name: 'Diagnóstico', icon: Zap }
         ].map((tab) => (
           <button
             key={tab.id}
