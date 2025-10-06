@@ -19,8 +19,61 @@ export default function ClientLogin() {
     setSubmitting(true);
 
     try {
+      // Check if this is demo credentials and auto-create if needed
+      if (email === 'demo@construcciones.com' && password === 'password123') {
+        console.log('🔧 [ClientLogin] Demo credentials detected, ensuring demo user exists...');
+        
+        try {
+          // Try to create demo user if it doesn't exist
+          await signIn(email, password);
+          navigate('/client/dashboard', { replace: true });
+          return;
+        } catch (demoError: any) {
+          if (demoError?.message?.includes('Invalid login credentials')) {
+            console.log('🔧 [ClientLogin] Demo user not found, creating demo user...');
+            
+            // Import the registration service
+            const { ClientAuthService } = await import('../../lib/client-auth-service');
+            
+            // Create demo user with registration data
+            const demoRegistrationData = {
+              email: 'demo@construcciones.com',
+              password: 'password123',
+              contact_name: 'Juan García',
+              company_name: 'Construcciones García S.L.',
+              cif_nif: 'B12345678',
+              address: 'Calle Construcción 123',
+              phone: '+34 600 123 456',
+              postal_code: '28001',
+              city: 'Madrid',
+              cae_credentials: [{
+                platform: 'nalanda' as const,
+                username: 'garcia_construcciones',
+                password: 'obralia2024'
+              }],
+              accept_marketing: false
+            };
+            
+            try {
+              await ClientAuthService.registerNewClient(demoRegistrationData);
+              console.log('✅ [ClientLogin] Demo user created successfully');
+              
+              // Now try to sign in again
+              await signIn(email, password);
+              navigate('/client/dashboard', { replace: true });
+              return;
+            } catch (createError: any) {
+              console.error('❌ [ClientLogin] Failed to create demo user:', createError);
+              setError('Error creando usuario demo. Por favor, intenta registrarte manualmente.');
+              return;
+            }
+          } else {
+            throw demoError;
+          }
+        }
+      }
+      
       await signIn(email, password);
-      // Navigate to client dashboard
       navigate('/client/dashboard', { replace: true });
     } catch (err: any) {
       console.error('Client login error:', err);
