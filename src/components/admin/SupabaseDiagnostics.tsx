@@ -16,7 +16,12 @@ import {
   FileText,
   Zap,
   Eye,
-  EyeOff
+  EyeOff,
+  ExternalLink,
+  Code,
+  Server,
+  Wifi,
+  Lock
 } from 'lucide-react';
 
 interface DiagnosticResult {
@@ -31,6 +36,8 @@ interface EnvironmentCheck {
   anonKey: DiagnosticResult;
   serviceKey: DiagnosticResult;
   connectionTest: DiagnosticResult;
+  tableCheck: DiagnosticResult;
+  authTest: DiagnosticResult;
 }
 
 export default function SupabaseDiagnostics() {
@@ -38,6 +45,7 @@ export default function SupabaseDiagnostics() {
   const [loading, setLoading] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     runDiagnostics();
@@ -52,17 +60,44 @@ export default function SupabaseDiagnostics() {
         url: checkSupabaseUrl(),
         anonKey: checkAnonKey(),
         serviceKey: checkServiceKey(),
-        connectionTest: { status: 'warning', message: 'Pendiente de prueba' }
+        connectionTest: { status: 'warning', message: 'Pendiente de prueba' },
+        tableCheck: { status: 'warning', message: 'Pendiente de verificación' },
+        authTest: { status: 'warning', message: 'Pendiente de prueba' }
       };
 
       // Test connection if basic config is valid
       if (results.url.status === 'success' && results.anonKey.status === 'success') {
+        setTestingConnection(true);
+        
+        // Test 1: Basic connection
         results.connectionTest = await testSupabaseConnection();
+        
+        // Test 2: Table existence
+        if (results.connectionTest.status === 'success') {
+          results.tableCheck = await testTableExistence();
+        }
+        
+        // Test 3: Auth functionality
+        if (results.connectionTest.status === 'success') {
+          results.authTest = await testAuthFunctionality();
+        }
+        
+        setTestingConnection(false);
       } else {
         results.connectionTest = { 
           status: 'error', 
           message: 'No se puede probar - configuración básica inválida',
           recommendation: 'Corrige la URL y las claves antes de probar la conexión'
+        };
+        results.tableCheck = { 
+          status: 'error', 
+          message: 'No se puede verificar - sin conexión',
+          recommendation: 'Establece conexión primero'
+        };
+        results.authTest = { 
+          status: 'error', 
+          message: 'No se puede probar - sin conexión',
+          recommendation: 'Establece conexión primero'
         };
       }
 
@@ -84,6 +119,7 @@ export default function SupabaseDiagnostics() {
       console.error('Error running diagnostics:', error);
     } finally {
       setLoading(false);
+      setTestingConnection(false);
     }
   };
 
@@ -206,8 +242,7 @@ export default function SupabaseDiagnostics() {
 
   const testSupabaseConnection = async (): DiagnosticResult => {
     try {
-      setTestingConnection(true);
-      console.log('🔌 [Diagnostics] Probando conexión a Supabase...');
+      console.log('🔌 [Diagnostics] Probando conexión básica a Supabase...');
 
       const { createClient } = await import('@supabase/supabase-js');
       const testClient = createClient(
@@ -215,7 +250,6 @@ export default function SupabaseDiagnostics() {
         import.meta.env.VITE_SUPABASE_ANON_KEY
       );
 
-      // Test 1: Basic connection
       const startTime = Date.now();
       const { data, error } = await testClient
         .from('tenants')
@@ -231,7 +265,7 @@ export default function SupabaseDiagnostics() {
           return {
             status: 'error',
             message: 'Error de red - No se puede conectar a Supabase',
-            details: error.message,
+            details: `Error: ${error.message}`,
             recommendation: 'Verifica tu conexión a internet y que la URL sea correcta'
           };
         }
@@ -247,8 +281,8 @@ export default function SupabaseDiagnostics() {
         
         if (error.message.includes('relation') && error.message.includes('does not exist')) {
           return {
-            status: 'error',
-            message: 'Tabla "tenants" no existe',
+            status: 'warning',
+            message: 'Conexión OK pero tabla "tenants" no existe',
             details: error.message,
             recommendation: 'Ejecuta las migraciones de Supabase para crear las tablas'
           };
@@ -277,8 +311,102 @@ export default function SupabaseDiagnostics() {
         details: error instanceof Error ? error.message : 'Error desconocido',
         recommendation: 'Verifica la configuración de red y las credenciales'
       };
-    } finally {
-      setTestingConnection(false);
+    }
+  };
+
+  const testTableExistence = async (): DiagnosticResult => {
+    try {
+      console.log('🔍 [Diagnostics] Verificando existencia de tablas...');
+
+      const { createClient } = await import('@supabase/supabase-js');
+      const testClient = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+      );
+
+      const requiredTables = ['tenants', 'users', 'empresas', 'obras', 'documentos'];
+      const tableResults = [];
+
+      for (const table of requiredTables) {
+        try {
+          const { data, error } = await testClient
+            .from(table)
+            .select('count')
+            .limit(1);
+
+          if (error) {
+            tableResults.push(`❌ ${table}: ${error.message}`);
+          } else {
+            tableResults.push(`✅ ${table}: OK`);
+          }
+        } catch (error) {
+          tableResults.push(`❌ ${table}: Error de conexión`);
+        }
+      }
+
+      const missingTables = tableResults.filter(result => result.includes('❌'));
+      
+      if (missingTables.length === 0) {
+        return {
+          status: 'success',
+          message: 'Todas las tablas existen',
+          details: tableResults.join('\n')
+        };
+      } else {
+        return {
+          status: 'warning',
+          message: `${missingTables.length} tabla(s) faltante(s)`,
+          details: tableResults.join('\n'),
+          recommendation: 'Ejecuta las migraciones de Supabase para crear las tablas faltantes'
+        };
+      }
+
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Error verificando tablas',
+        details: error instanceof Error ? error.message : 'Error desconocido',
+        recommendation: 'Verifica que el service role key sea correcto'
+      };
+    }
+  };
+
+  const testAuthFunctionality = async (): DiagnosticResult => {
+    try {
+      console.log('🔐 [Diagnostics] Probando funcionalidad de autenticación...');
+
+      const { createClient } = await import('@supabase/supabase-js');
+      const testClient = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+
+      // Test getting current user (should work even if no user is logged in)
+      const { data: { user }, error } = await testClient.auth.getUser();
+      
+      // This should not error even if no user is logged in
+      if (error && error.message !== 'Auth session missing!') {
+        return {
+          status: 'error',
+          message: 'Error en sistema de autenticación',
+          details: error.message,
+          recommendation: 'Verifica la configuración de auth en Supabase'
+        };
+      }
+
+      return {
+        status: 'success',
+        message: 'Sistema de autenticación funcional',
+        details: user ? `Usuario actual: ${user.email}` : 'Sin usuario autenticado (normal)'
+      };
+
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Error probando autenticación',
+        details: error instanceof Error ? error.message : 'Error desconocido',
+        recommendation: 'Verifica la configuración de autenticación'
+      };
     }
   };
 
@@ -305,6 +433,16 @@ export default function SupabaseDiagnostics() {
         return 'bg-red-50 border-red-200 text-red-800';
       default:
         return 'bg-gray-50 border-gray-200 text-gray-800';
+    }
+  };
+
+  const copyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
     }
   };
 
@@ -346,30 +484,17 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
 
   const envValues = getCurrentEnvValues();
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Ejecutando diagnóstico de Supabase...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
+      <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center space-x-3 mb-2">
               <Database className="w-8 h-8" />
-              <h2 className="text-2xl font-bold">Diagnóstico de Supabase</h2>
+              <h2 className="text-2xl font-bold">🔍 Diagnóstico de Supabase</h2>
             </div>
-            <p className="text-blue-100">
+            <p className="text-red-100">
               Herramienta de diagnóstico para verificar y solucionar problemas de conexión
             </p>
           </div>
@@ -387,9 +512,9 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
       {/* Estado General */}
       {diagnostics && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado General de Configuración</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">🔍 Resultados del Diagnóstico</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className={`border rounded-lg p-4 ${getStatusColor(diagnostics.url.status)}`}>
               <div className="flex items-center mb-2">
                 <Globe className="w-5 h-5 mr-2" />
@@ -400,7 +525,10 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
                 <span className="text-sm ml-2">{diagnostics.url.message}</span>
               </div>
               {diagnostics.url.details && (
-                <p className="text-xs opacity-75">{diagnostics.url.details}</p>
+                <p className="text-xs opacity-75 mb-2">{diagnostics.url.details}</p>
+              )}
+              {diagnostics.url.recommendation && (
+                <p className="text-xs font-medium">{diagnostics.url.recommendation}</p>
               )}
             </div>
 
@@ -414,7 +542,10 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
                 <span className="text-sm ml-2">{diagnostics.anonKey.message}</span>
               </div>
               {diagnostics.anonKey.details && (
-                <p className="text-xs opacity-75">{diagnostics.anonKey.details}</p>
+                <p className="text-xs opacity-75 mb-2">{diagnostics.anonKey.details}</p>
+              )}
+              {diagnostics.anonKey.recommendation && (
+                <p className="text-xs font-medium">{diagnostics.anonKey.recommendation}</p>
               )}
             </div>
 
@@ -428,7 +559,10 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
                 <span className="text-sm ml-2">{diagnostics.serviceKey.message}</span>
               </div>
               {diagnostics.serviceKey.details && (
-                <p className="text-xs opacity-75">{diagnostics.serviceKey.details}</p>
+                <p className="text-xs opacity-75 mb-2">{diagnostics.serviceKey.details}</p>
+              )}
+              {diagnostics.serviceKey.recommendation && (
+                <p className="text-xs font-medium">{diagnostics.serviceKey.recommendation}</p>
               )}
             </div>
 
@@ -448,7 +582,44 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
                 </span>
               </div>
               {diagnostics.connectionTest.details && (
-                <p className="text-xs opacity-75">{diagnostics.connectionTest.details}</p>
+                <p className="text-xs opacity-75 mb-2">{diagnostics.connectionTest.details}</p>
+              )}
+              {diagnostics.connectionTest.recommendation && (
+                <p className="text-xs font-medium">{diagnostics.connectionTest.recommendation}</p>
+              )}
+            </div>
+
+            <div className={`border rounded-lg p-4 ${getStatusColor(diagnostics.tableCheck.status)}`}>
+              <div className="flex items-center mb-2">
+                <Database className="w-5 h-5 mr-2" />
+                <h4 className="font-semibold">Verificación Tablas</h4>
+              </div>
+              <div className="flex items-center mb-2">
+                {getStatusIcon(diagnostics.tableCheck.status)}
+                <span className="text-sm ml-2">{diagnostics.tableCheck.message}</span>
+              </div>
+              {diagnostics.tableCheck.details && (
+                <p className="text-xs opacity-75 mb-2 whitespace-pre-line">{diagnostics.tableCheck.details}</p>
+              )}
+              {diagnostics.tableCheck.recommendation && (
+                <p className="text-xs font-medium">{diagnostics.tableCheck.recommendation}</p>
+              )}
+            </div>
+
+            <div className={`border rounded-lg p-4 ${getStatusColor(diagnostics.authTest.status)}`}>
+              <div className="flex items-center mb-2">
+                <Lock className="w-5 h-5 mr-2" />
+                <h4 className="font-semibold">Test Autenticación</h4>
+              </div>
+              <div className="flex items-center mb-2">
+                {getStatusIcon(diagnostics.authTest.status)}
+                <span className="text-sm ml-2">{diagnostics.authTest.message}</span>
+              </div>
+              {diagnostics.authTest.details && (
+                <p className="text-xs opacity-75 mb-2">{diagnostics.authTest.details}</p>
+              )}
+              {diagnostics.authTest.recommendation && (
+                <p className="text-xs font-medium">{diagnostics.authTest.recommendation}</p>
               )}
             </div>
           </div>
@@ -458,7 +629,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
       {/* Variables de Entorno Actuales */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Variables de Entorno Actuales</h3>
+          <h3 className="text-lg font-semibold text-gray-900">🔧 Variables de Entorno Actuales</h3>
           <button
             onClick={() => setShowKeys(!showKeys)}
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center"
@@ -471,17 +642,23 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <span className="font-mono text-sm font-semibold">VITE_SUPABASE_URL</span>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               {envValues.url !== 'NO CONFIGURADA' ? (
                 <>
-                  <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                  <CheckCircle className="w-4 h-4 text-green-600" />
                   <span className="text-sm text-gray-600 font-mono">
                     {showKeys ? envValues.url : `${envValues.url.substring(0, 30)}...`}
                   </span>
+                  <button
+                    onClick={() => copyToClipboard(envValues.url, 'url')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                  >
+                    {copiedField === 'url' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-4 h-4 text-red-600 mr-2" />
+                  <XCircle className="w-4 h-4 text-red-600" />
                   <span className="text-sm text-red-600">NO CONFIGURADA</span>
                 </>
               )}
@@ -490,17 +667,23 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <span className="font-mono text-sm font-semibold">VITE_SUPABASE_ANON_KEY</span>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               {envValues.anonKey !== 'NO CONFIGURADA' ? (
                 <>
-                  <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                  <CheckCircle className="w-4 h-4 text-green-600" />
                   <span className="text-sm text-gray-600 font-mono">
                     {showKeys ? envValues.anonKey : `${envValues.anonKey.substring(0, 20)}...`}
                   </span>
+                  <button
+                    onClick={() => copyToClipboard(envValues.anonKey, 'anon')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                  >
+                    {copiedField === 'anon' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-4 h-4 text-red-600 mr-2" />
+                  <XCircle className="w-4 h-4 text-red-600" />
                   <span className="text-sm text-red-600">NO CONFIGURADA</span>
                 </>
               )}
@@ -509,17 +692,23 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <span className="font-mono text-sm font-semibold">VITE_SUPABASE_SERVICE_ROLE_KEY</span>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               {envValues.serviceKey !== 'NO CONFIGURADA' ? (
                 <>
-                  <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                  <CheckCircle className="w-4 h-4 text-green-600" />
                   <span className="text-sm text-gray-600 font-mono">
                     {showKeys ? envValues.serviceKey : `${envValues.serviceKey.substring(0, 20)}...`}
                   </span>
+                  <button
+                    onClick={() => copyToClipboard(envValues.serviceKey, 'service')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                  >
+                    {copiedField === 'service' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-4 h-4 text-red-600 mr-2" />
+                  <XCircle className="w-4 h-4 text-red-600" />
                   <span className="text-sm text-red-600">NO CONFIGURADA</span>
                 </>
               )}
@@ -528,17 +717,23 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <span className="font-mono text-sm font-semibold">VITE_GEMINI_API_KEY</span>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               {envValues.geminiKey !== 'NO CONFIGURADA' ? (
                 <>
-                  <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                  <CheckCircle className="w-4 h-4 text-green-600" />
                   <span className="text-sm text-gray-600 font-mono">
                     {showKeys ? envValues.geminiKey : `${envValues.geminiKey.substring(0, 20)}...`}
                   </span>
+                  <button
+                    onClick={() => copyToClipboard(envValues.geminiKey, 'gemini')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                  >
+                    {copiedField === 'gemini' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-4 h-4 text-yellow-600 mr-2" />
+                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
                   <span className="text-sm text-yellow-600">OPCIONAL - NO CONFIGURADA</span>
                 </>
               )}
@@ -547,32 +742,9 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
         </div>
       </div>
 
-      {/* Recomendaciones */}
-      {diagnostics && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recomendaciones de Solución</h3>
-          
-          <div className="space-y-4">
-            {Object.entries(diagnostics).map(([key, result]) => (
-              result.recommendation && (
-                <div key={key} className={`border rounded-lg p-4 ${getStatusColor(result.status)}`}>
-                  <div className="flex items-start">
-                    {getStatusIcon(result.status)}
-                    <div className="ml-3">
-                      <h4 className="font-semibold mb-1">{key.toUpperCase()}</h4>
-                      <p className="text-sm">{result.recommendation}</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Acciones Rápidas */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">🚀 Acciones Rápidas</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
@@ -592,7 +764,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
             rel="noopener noreferrer"
             className="flex items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
           >
-            <Globe className="w-5 h-5 text-green-600 mr-2" />
+            <ExternalLink className="w-5 h-5 text-green-600 mr-2" />
             <div className="text-left">
               <p className="font-medium text-green-800">Abrir Supabase Dashboard</p>
               <p className="text-xs text-green-600">Obtener credenciales</p>
@@ -608,7 +780,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
               <p className="font-medium text-purple-800">Recargar Aplicación</p>
               <p className="text-xs text-purple-600">Después de cambiar .env</p>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -664,64 +836,12 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
         </div>
       </div>
 
-      {/* Errores Comunes */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-        <div className="flex items-start">
-          <AlertTriangle className="w-6 h-6 text-yellow-600 mr-3 mt-1" />
-          <div>
-            <h3 className="font-bold text-yellow-800 mb-3">⚠️ Errores Comunes y Soluciones</h3>
-            
-            <div className="space-y-3 text-sm text-yellow-700">
-              <div>
-                <h4 className="font-semibold text-yellow-800">Error "Failed to fetch"</h4>
-                <ul className="ml-4 space-y-1">
-                  <li>• Verifica tu conexión a internet</li>
-                  <li>• Comprueba que la URL de Supabase sea correcta</li>
-                  <li>• Asegúrate de que el proyecto de Supabase esté activo</li>
-                  <li>• Verifica que no haya firewall bloqueando la conexión</li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-yellow-800">Error "Invalid API key"</h4>
-                <ul className="ml-4 space-y-1">
-                  <li>• Verifica que las claves API sean correctas</li>
-                  <li>• Comprueba que no haya espacios extra al copiar</li>
-                  <li>• Asegúrate de usar la service role key para operaciones admin</li>
-                  <li>• Regenera las claves en Supabase si es necesario</li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-yellow-800">Error "relation does not exist"</h4>
-                <ul className="ml-4 space-y-1">
-                  <li>• Las tablas no están creadas en tu proyecto de Supabase</li>
-                  <li>• Ve a Supabase Dashboard → SQL Editor</li>
-                  <li>• Ejecuta las migraciones para crear las tablas</li>
-                  <li>• Verifica que estés conectado al proyecto correcto</li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-yellow-800">Variables no se cargan después de cambiar .env</h4>
-                <ul className="ml-4 space-y-1">
-                  <li>• <strong>Reinicia completamente el servidor de desarrollo</strong></li>
-                  <li>• Presiona Ctrl+C para detener el servidor</li>
-                  <li>• Ejecuta <code className="bg-white px-1 rounded">npm run dev</code> nuevamente</li>
-                  <li>• Verifica que el archivo se llame exactamente <code className="bg-white px-1 rounded">.env</code></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Template .env */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <FileText className="w-6 h-6 text-gray-600 mr-3" />
-            <h3 className="text-lg font-semibold text-gray-800">Template .env</h3>
+            <h3 className="text-lg font-semibold text-gray-800">📄 Template .env</h3>
           </div>
           <button
             onClick={copyEnvTemplate}
@@ -758,21 +878,68 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
         </div>
       </div>
 
+      {/* Errores Comunes */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+        <div className="flex items-start">
+          <AlertTriangle className="w-6 h-6 text-yellow-600 mr-3 mt-1" />
+          <div>
+            <h3 className="font-bold text-yellow-800 mb-3">⚠️ Errores Comunes y Soluciones</h3>
+            
+            <div className="space-y-3 text-sm text-yellow-700">
+              <div>
+                <h4 className="font-semibold text-yellow-800">❌ Error "Failed to fetch"</h4>
+                <ul className="ml-4 space-y-1">
+                  <li>• Verifica tu conexión a internet</li>
+                  <li>• Comprueba que la URL de Supabase sea correcta</li>
+                  <li>• Asegúrate de que el proyecto de Supabase esté activo</li>
+                  <li>• Verifica que no haya firewall bloqueando la conexión</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-yellow-800">❌ Error "Invalid API key"</h4>
+                <ul className="ml-4 space-y-1">
+                  <li>• Verifica que las claves API sean correctas</li>
+                  <li>• Comprueba que no haya espacios extra al copiar</li>
+                  <li>• Asegúrate de usar la service role key para operaciones admin</li>
+                  <li>• Regenera las claves en Supabase si es necesario</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-yellow-800">❌ Error "relation does not exist"</h4>
+                <ul className="ml-4 space-y-1">
+                  <li>• Las tablas no están creadas en tu proyecto de Supabase</li>
+                  <li>• Ve a Supabase Dashboard → SQL Editor</li>
+                  <li>• Ejecuta las migraciones para crear las tablas</li>
+                  <li>• Verifica que estés conectado al proyecto correcto</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-yellow-800">❌ Variables no se cargan después de cambiar .env</h4>
+                <ul className="ml-4 space-y-1">
+                  <li>• <strong>Reinicia completamente el servidor de desarrollo</strong></li>
+                  <li>• Presiona Ctrl+C para detener el servidor</li>
+                  <li>• Ejecuta <code className="bg-white px-1 rounded">npm run dev</code> nuevamente</li>
+                  <li>• Verifica que el archivo se llame exactamente <code className="bg-white px-1 rounded">.env</code></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Test de Conexión Manual */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Test de Conexión Manual</h3>
+          <h3 className="text-lg font-semibold text-gray-900">🔌 Test de Conexión Manual</h3>
           <button
-            onClick={async () => {
-              if (diagnostics) {
-                diagnostics.connectionTest = await testSupabaseConnection();
-                setDiagnostics({ ...diagnostics });
-              }
-            }}
-            disabled={testingConnection}
+            onClick={runDiagnostics}
+            disabled={loading || testingConnection}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center disabled:opacity-50"
           >
-            {testingConnection ? (
+            {loading || testingConnection ? (
               <>
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 Probando...
@@ -780,26 +947,38 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
             ) : (
               <>
                 <Zap className="w-4 h-4 mr-2" />
-                Probar Conexión
+                Ejecutar Test Completo
               </>
             )}
           </button>
         </div>
 
-        {diagnostics?.connectionTest && (
-          <div className={`border rounded-lg p-4 ${getStatusColor(diagnostics.connectionTest.status)}`}>
-            <div className="flex items-center">
-              {getStatusIcon(diagnostics.connectionTest.status)}
-              <div className="ml-3">
-                <h4 className="font-semibold">{diagnostics.connectionTest.message}</h4>
-                {diagnostics.connectionTest.details && (
-                  <p className="text-sm opacity-75">{diagnostics.connectionTest.details}</p>
-                )}
-                {diagnostics.connectionTest.recommendation && (
-                  <p className="text-sm mt-2">{diagnostics.connectionTest.recommendation}</p>
-                )}
+        {diagnostics && (
+          <div className="space-y-3">
+            {Object.entries(diagnostics).map(([key, result]) => (
+              <div key={key} className={`border rounded-lg p-4 ${getStatusColor(result.status)}`}>
+                <div className="flex items-start">
+                  {getStatusIcon(result.status)}
+                  <div className="ml-3 flex-1">
+                    <h4 className="font-semibold mb-1">
+                      {key === 'url' ? '🌐 URL de Supabase' :
+                       key === 'anonKey' ? '🔑 Anon Key' :
+                       key === 'serviceKey' ? '🛡️ Service Key' :
+                       key === 'connectionTest' ? '🔌 Test de Conexión' :
+                       key === 'tableCheck' ? '📊 Verificación de Tablas' :
+                       key === 'authTest' ? '🔐 Test de Autenticación' : key}
+                    </h4>
+                    <p className="text-sm mb-2">{result.message}</p>
+                    {result.details && (
+                      <p className="text-xs opacity-75 mb-2 whitespace-pre-line">{result.details}</p>
+                    )}
+                    {result.recommendation && (
+                      <p className="text-xs font-medium bg-white/50 p-2 rounded">{result.recommendation}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
       </div>
@@ -818,6 +997,12 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
               <div>• 📞 Llama al: <strong>+34 91 000 00 00</strong></div>
               <div>• 💬 Chat en vivo disponible en horario laboral</div>
               <div>• 📚 Documentación: <a href="https://docs.constructia.com" className="underline">docs.constructia.com</a></div>
+              <div className="mt-2 pt-2 border-t border-blue-300">
+                <div className="font-medium text-blue-800">Información para soporte:</div>
+                <div>• 🆔 ID del proyecto: {envValues.url !== 'NO CONFIGURADA' ? envValues.url.split('.')[0].split('//')[1] : 'No disponible'}</div>
+                <div>• 🌐 URL configurada: {envValues.url !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}</div>
+                <div>• 🔑 Claves configuradas: {envValues.anonKey !== 'NO CONFIGURADA' && envValues.serviceKey !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}</div>
+              </div>
             </div>
           </div>
         </div>
