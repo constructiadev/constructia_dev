@@ -30,6 +30,7 @@ import {
   Wifi,
   Monitor
 } from 'lucide-react';
+import SupabaseDiagnostics from './SupabaseDiagnostics';
 import { 
   supabase,
   supabaseServiceClient,
@@ -105,7 +106,7 @@ interface MaintenanceTask {
 const DatabaseModule: React.FC = () => {
   // States
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('diagnostics');
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [databaseStats, setDatabaseStats] = useState<DatabaseStats | null>(null);
   const [selectedTable, setSelectedTable] = useState<string>('');
@@ -170,6 +171,7 @@ const DatabaseModule: React.FC = () => {
     'payments',
     'receipts',
     'payment_gateways',
+    { id: 'diagnostics', name: 'Diagnóstico', icon: AlertTriangle },
     'system_settings',
     'kpis',
     'audit_logs',
@@ -1051,6 +1053,11 @@ const DatabaseModule: React.FC = () => {
       </div>
 
       {/* Tab content */}
+      {activeTab === 'diagnostics' && (
+        <SupabaseDiagnostics />
+      )}
+
+      {/* Tab: Resumen */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border p-6">

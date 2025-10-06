@@ -8,14 +8,18 @@ const supabaseServiceKey = getEnvVar('VITE_SUPABASE_SERVICE_ROLE_KEY');
 
 // Debug logging for environment variables
 console.log('🔧 [Supabase] Environment variables check:');
-console.log('   VITE_SUPABASE_URL:', supabaseUrl || 'MISSING');
-console.log('   VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'MISSING');
-console.log('   VITE_SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET' : 'MISSING');
+console.log('   VITE_SUPABASE_URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING');
+console.log('   VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING');
+console.log('   VITE_SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? `${supabaseServiceKey.substring(0, 20)}...` : 'MISSING');
 
 // Validate URL format if provided
 if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
   console.error('❌ [Supabase] Invalid URL format. Expected: https://your-project.supabase.co');
   console.error('   Current value:', supabaseUrl);
+} else if (supabaseUrl && !supabaseUrl.includes('.supabase.co')) {
+  console.error('❌ [Supabase] URL should contain .supabase.co domain');
+  console.error('   Current value:', supabaseUrl);
+  console.error('   Expected format: https://your-project-id.supabase.co');
 }
 
 // Log configuration status for debugging
@@ -45,6 +49,7 @@ if (!supabaseServiceKey) {
 // Check if all required environment variables are present
 const isSupabaseConfigured = supabaseUrl && 
   supabaseUrl.startsWith('https://') && 
+  supabaseUrl.includes('.supabase.co') &&
   supabaseAnonKey && 
   supabaseServiceKey;
 
@@ -56,6 +61,9 @@ if (!isSupabaseConfigured) {
   console.error('   1. Copy .env.example to .env');
   console.error('   2. Update the Supabase values with your project credentials');
   console.error('   3. Restart the development server');
+  console.error('   4. Use the Database Module > Diagnóstico tab for detailed help');
+} else {
+  console.log('✅ [Supabase] Configuration appears valid, testing connection...');
 }
 
 // Create a safe dummy client that prevents network requests
