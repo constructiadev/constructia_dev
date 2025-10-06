@@ -243,6 +243,12 @@ export default function SupabaseDiagnostics() {
   const testSupabaseConnection = async (): DiagnosticResult => {
     try {
       console.log('🔌 [Diagnostics] Probando conexión básica a Supabase...');
+      
+      // Log current environment variables for debugging
+      console.log('🔧 [Diagnostics] Variables de entorno detectadas:');
+      console.log('   VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'MISSING');
+      console.log('   VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING');
+      console.log('   VITE_SUPABASE_SERVICE_ROLE_KEY:', import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
 
       const { createClient } = await import('@supabase/supabase-js');
       const testClient = createClient(
@@ -251,9 +257,11 @@ export default function SupabaseDiagnostics() {
       );
 
       const startTime = Date.now();
+      
+      // Test with a simple query that should always work
       const { data, error } = await testClient
-        .from('tenants')
-        .select('count')
+        .from('information_schema.tables')
+        .select('table_name')
         .limit(1);
 
       const responseTime = Date.now() - startTime;
@@ -264,9 +272,9 @@ export default function SupabaseDiagnostics() {
         if (error.message.includes('Failed to fetch')) {
           return {
             status: 'error',
-            message: 'Error de red - No se puede conectar a Supabase',
+            message: 'Error de red - Supabase no accesible',
             details: `Error: ${error.message}`,
-            recommendation: 'Verifica tu conexión a internet y que la URL sea correcta'
+            recommendation: 'Verifica: 1) Conexión a internet, 2) URL correcta, 3) Proyecto activo en Supabase'
           };
         }
         
@@ -275,16 +283,16 @@ export default function SupabaseDiagnostics() {
             status: 'error',
             message: 'Clave de API inválida',
             details: error.message,
-            recommendation: 'Verifica que las claves sean correctas y estén activas'
+            recommendation: 'Ve a Supabase Dashboard > Settings > API y copia las claves nuevamente'
           };
         }
         
-        if (error.message.includes('relation') && error.message.includes('does not exist')) {
+        if (error.message.includes('permission denied') || error.message.includes('insufficient_privilege')) {
           return {
-            status: 'warning',
-            message: 'Conexión OK pero tabla "tenants" no existe',
+            status: 'error',
+            message: 'Permisos insuficientes',
             details: error.message,
-            recommendation: 'Ejecuta las migraciones de Supabase para crear las tablas'
+            recommendation: 'Verifica que uses la service role key para operaciones admin'
           };
         }
 
@@ -299,7 +307,7 @@ export default function SupabaseDiagnostics() {
       console.log('✅ [Diagnostics] Conexión exitosa a Supabase');
       return {
         status: 'success',
-        message: 'Conexión exitosa',
+        message: 'Conexión exitosa a Supabase',
         details: `Tiempo de respuesta: ${responseTime}ms`
       };
 
@@ -317,35 +325,46 @@ export default function SupabaseDiagnostics() {
   const testTableExistence = async (): DiagnosticResult => {
     try {
       console.log('🔍 [Diagnostics] Verificando existencia de tablas...');
-
+      
+      // First check if we can access information_schema
       const { createClient } = await import('@supabase/supabase-js');
       const testClient = createClient(
         import.meta.env.VITE_SUPABASE_URL,
         import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
       );
+      
+      // Check what tables actually exist
+      const { data: existingTables, error: schemaError } = await testClient
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', 'public')
+        .in('table_name', ['tenants', 'users', 'empresas', 'obras', 'documentos']);
+      
+      if (schemaError) {
+        return {
+          status: 'error',
+          message: 'No se puede acceder al esquema de la base de datos',
+          details: schemaError.message,
+          recommendation: 'Verifica que el service role key sea correcto'
+        };
+      }
+      
+      const existingTableNames = existingTables?.map(t => t.table_name) || [];
+      console.log('📊 [Diagnostics] Tablas encontradas:', existingTableNames);
 
       const requiredTables = ['tenants', 'users', 'empresas', 'obras', 'documentos'];
       const tableResults = [];
+      const missingTables = [];
 
       for (const table of requiredTables) {
-        try {
-          const { data, error } = await testClient
-            .from(table)
-            .select('count')
-            .limit(1);
-
-          if (error) {
-            tableResults.push(`❌ ${table}: ${error.message}`);
-          } else {
-            tableResults.push(`✅ ${table}: OK`);
-          }
-        } catch (error) {
-          tableResults.push(`❌ ${table}: Error de conexión`);
+        if (existingTableNames.includes(table)) {
+          tableResults.push(`✅ ${table}: Existe`);
+        } else {
+          tableResults.push(`❌ ${table}: No existe`);
+          missingTables.push(table);
         }
       }
 
-      const missingTables = tableResults.filter(result => result.includes('❌'));
-      
       if (missingTables.length === 0) {
         return {
           status: 'success',
@@ -354,10 +373,10 @@ export default function SupabaseDiagnostics() {
         };
       } else {
         return {
-          status: 'warning',
+          status: 'error',
           message: `${missingTables.length} tabla(s) faltante(s)`,
           details: tableResults.join('\n'),
-          recommendation: 'Ejecuta las migraciones de Supabase para crear las tablas faltantes'
+          recommendation: `Faltan tablas: ${missingTables.join(', ')}. Ve a Supabase Dashboard > SQL Editor y ejecuta las migraciones.`
         };
       }
 
@@ -374,30 +393,53 @@ export default function SupabaseDiagnostics() {
   const testAuthFunctionality = async (): DiagnosticResult => {
     try {
       console.log('🔐 [Diagnostics] Probando funcionalidad de autenticación...');
-
+      
+      // Test both anon and service role clients
       const { createClient } = await import('@supabase/supabase-js');
-      const testClient = createClient(
+      
+      // Test anon client
+      const anonClient = createClient(
         import.meta.env.VITE_SUPABASE_URL,
         import.meta.env.VITE_SUPABASE_ANON_KEY
       );
-
-      // Test getting current user (should work even if no user is logged in)
-      const { data: { user }, error } = await testClient.auth.getUser();
       
-      // This should not error even if no user is logged in
-      if (error && error.message !== 'Auth session missing!') {
+      // Test service client
+      const serviceClient = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+      );
+
+      // Test anon client auth
+      const { data: { user }, error: anonError } = await anonClient.auth.getUser();
+      
+      // Test service client access
+      const { data: serviceData, error: serviceError } = await serviceClient
+        .from('auth.users')
+        .select('count')
+        .limit(1);
+
+      if (anonError && anonError.message !== 'Auth session missing!') {
         return {
           status: 'error',
-          message: 'Error en sistema de autenticación',
-          details: error.message,
-          recommendation: 'Verifica la configuración de auth en Supabase'
+          message: 'Error en cliente anon',
+          details: anonError.message,
+          recommendation: 'Verifica VITE_SUPABASE_ANON_KEY'
+        };
+      }
+      
+      if (serviceError) {
+        return {
+          status: 'warning',
+          message: 'Service client con limitaciones',
+          details: serviceError.message,
+          recommendation: 'Verifica VITE_SUPABASE_SERVICE_ROLE_KEY y permisos RLS'
         };
       }
 
       return {
         status: 'success',
-        message: 'Sistema de autenticación funcional',
-        details: user ? `Usuario actual: ${user.email}` : 'Sin usuario autenticado (normal)'
+        message: 'Autenticación completamente funcional',
+        details: `Anon client: OK, Service client: OK${user ? `, Usuario actual: ${user.email}` : ''}`
       };
 
     } catch (error) {
@@ -626,6 +668,65 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
         </div>
       )}
 
+      {/* Verificación Rápida de Estado */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">⚡ Verificación Rápida</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-800">🔧 Estado de Configuración</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span>Archivo .env existe:</span>
+                <span className="text-green-600 font-semibold">✅ Sí</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>URL configurada:</span>
+                <span className={envValues.url !== 'NO CONFIGURADA' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {envValues.url !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Anon Key configurada:</span>
+                <span className={envValues.anonKey !== 'NO CONFIGURADA' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {envValues.anonKey !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Service Key configurada:</span>
+                <span className={envValues.serviceKey !== 'NO CONFIGURADA' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {envValues.serviceKey !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-800">🔗 Estado de Conexión</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span>Conexión a Supabase:</span>
+                <span className={diagnostics?.connectionTest.status === 'success' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {diagnostics?.connectionTest.status === 'success' ? '✅ OK' : '❌ Error'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Tablas de BD:</span>
+                <span className={diagnostics?.tableCheck.status === 'success' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {diagnostics?.tableCheck.status === 'success' ? '✅ OK' : '❌ Error'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Autenticación:</span>
+                <span className={diagnostics?.authTest.status === 'success' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {diagnostics?.authTest.status === 'success' ? '✅ OK' : '❌ Error'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Variables de Entorno Actuales */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -746,7 +847,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">🚀 Acciones Rápidas</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={copyEnvTemplate}
             className="flex items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
@@ -781,6 +882,23 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
               <p className="text-xs text-purple-600">Después de cambiar .env</p>
             </div>
           </button>
+          
+          <button
+            onClick={() => {
+              console.log('🔍 [Manual Debug] Variables de entorno:');
+              console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+              console.log('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING');
+              console.log('VITE_SUPABASE_SERVICE_ROLE_KEY:', import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+              alert('Revisa la consola del navegador (F12) para ver los valores de las variables');
+            }}
+            className="flex items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200"
+          >
+            <Terminal className="w-5 h-5 text-orange-600 mr-2" />
+            <div className="text-left">
+              <p className="font-medium text-orange-800">Debug Variables</p>
+              <p className="text-xs text-orange-600">Ver en consola</p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -795,9 +913,11 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
               <div>
                 <h4 className="font-semibold text-green-800 mb-2">1. Verificar archivo .env</h4>
                 <ul className="space-y-1 ml-4">
-                  <li>• Asegúrate de que existe un archivo llamado <code className="bg-white px-1 rounded">.env</code> en la raíz del proyecto</li>
-                  <li>• El archivo debe estar al mismo nivel que <code className="bg-white px-1 rounded">package.json</code></li>
-                  <li>• Si no existe, copia <code className="bg-white px-1 rounded">.env.example</code> a <code className="bg-white px-1 rounded">.env</code></li>
+                  <li>• ✅ Archivo .env existe en la raíz del proyecto</li>
+                  <li>• ⚠️ <strong>CRÍTICO:</strong> Después de modificar .env, DEBES reiniciar el servidor</li>
+                  <li>• 🔄 Presiona Ctrl+C para detener el servidor</li>
+                  <li>• 🚀 Ejecuta <code className="bg-white px-1 rounded">npm run dev</code> nuevamente</li>
+                  <li>• 🔍 Usa el botón "Debug Variables" para verificar que se cargaron</li>
                 </ul>
               </div>
 
@@ -816,10 +936,11 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
               <div>
                 <h4 className="font-semibold text-green-800 mb-2">3. Configurar variables en .env</h4>
                 <ul className="space-y-1 ml-4">
-                  <li>• Abre el archivo <code className="bg-white px-1 rounded">.env</code> en tu editor</li>
-                  <li>• Reemplaza los valores con tus credenciales reales</li>
-                  <li>• Guarda el archivo</li>
-                  <li>• <strong>Reinicia el servidor de desarrollo</strong> (Ctrl+C y luego npm run dev)</li>
+                  <li>• ✅ Archivo .env ya existe</li>
+                  <li>• 🔧 Verifica que las credenciales sean correctas</li>
+                  <li>• 💾 Guarda el archivo después de cualquier cambio</li>
+                  <li>• 🔄 <strong>REINICIA EL SERVIDOR</strong> (Ctrl+C → npm run dev)</li>
+                  <li>• ⚡ Las variables solo se cargan al iniciar el servidor</li>
                 </ul>
               </div>
 
@@ -827,8 +948,9 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui
                 <h4 className="font-semibold text-green-800 mb-2">4. Verificar conexión</h4>
                 <ul className="space-y-1 ml-4">
                   <li>• Ejecuta el diagnóstico nuevamente</li>
-                  <li>• Todas las verificaciones deben mostrar ✅</li>
-                  <li>• Si hay errores, revisa los mensajes específicos</li>
+                  <li>• Usa "Debug Variables" para confirmar que se cargaron</li>
+                  <li>• Verifica que tu proyecto de Supabase esté activo</li>
+                  <li>• Comprueba que no haya errores de red o firewall</li>
                 </ul>
               </div>
             </div>
@@ -919,10 +1041,31 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
               <div>
                 <h4 className="font-semibold text-yellow-800">❌ Variables no se cargan después de cambiar .env</h4>
                 <ul className="ml-4 space-y-1">
-                  <li>• <strong>Reinicia completamente el servidor de desarrollo</strong></li>
-                  <li>• Presiona Ctrl+C para detener el servidor</li>
-                  <li>• Ejecuta <code className="bg-white px-1 rounded">npm run dev</code> nuevamente</li>
-                  <li>• Verifica que el archivo se llame exactamente <code className="bg-white px-1 rounded">.env</code></li>
+                  <li>• 🛑 <strong>DETÉN el servidor:</strong> Presiona Ctrl+C en la terminal</li>
+                  <li>• ⏳ Espera a que se detenga completamente</li>
+                  <li>• 🚀 <strong>REINICIA:</strong> <code className="bg-white px-1 rounded">npm run dev</code></li>
+                  <li>• 📁 Verifica que el archivo se llame exactamente <code className="bg-white px-1 rounded">.env</code> (sin extensión)</li>
+                  <li>• 🔍 Usa "Debug Variables" para confirmar que se cargaron</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-yellow-800">❌ Error "Project paused" o "Project not found"</h4>
+                <ul className="ml-4 space-y-1">
+                  <li>• Tu proyecto de Supabase puede estar pausado por inactividad</li>
+                  <li>• Ve a <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline">Supabase Dashboard</a></li>
+                  <li>• Selecciona tu proyecto y verifica que esté activo</li>
+                  <li>• Si está pausado, haz clic en "Resume" o "Unpause"</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-yellow-800">❌ Error de CORS o "Access denied"</h4>
+                <ul className="ml-4 space-y-1">
+                  <li>• Ve a Supabase Dashboard → Authentication → Settings</li>
+                  <li>• Añade <code className="bg-white px-1 rounded">http://localhost:5173</code> a Site URL</li>
+                  <li>• Añade <code className="bg-white px-1 rounded">http://localhost:5173/**</code> a Redirect URLs</li>
+                  <li>• Guarda la configuración y prueba nuevamente</li>
                 </ul>
               </div>
             </div>
@@ -933,7 +1076,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
       {/* Test de Conexión Manual */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">🔌 Test de Conexión Manual</h3>
+          <h3 className="text-lg font-semibold text-gray-900">🔌 Test de Conexión Detallado</h3>
           <button
             onClick={runDiagnostics}
             disabled={loading || testingConnection}
@@ -954,7 +1097,32 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
         </div>
 
         {diagnostics && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Overall Status */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-800 mb-2">📊 Estado General</h4>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {Object.values(diagnostics).filter(r => r.status === 'success').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Exitosos</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {Object.values(diagnostics).filter(r => r.status === 'warning').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Advertencias</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-red-600">
+                    {Object.values(diagnostics).filter(r => r.status === 'error').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Errores</div>
+                </div>
+              </div>
+            </div>
+            
             {Object.entries(diagnostics).map(([key, result]) => (
               <div key={key} className={`border rounded-lg p-4 ${getStatusColor(result.status)}`}>
                 <div className="flex items-start">
@@ -973,7 +1141,9 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
                       <p className="text-xs opacity-75 mb-2 whitespace-pre-line">{result.details}</p>
                     )}
                     {result.recommendation && (
-                      <p className="text-xs font-medium bg-white/50 p-2 rounded">{result.recommendation}</p>
+                      <div className="bg-white/70 border border-white/50 rounded p-2 mt-2">
+                        <p className="text-xs font-medium">💡 {result.recommendation}</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -990,7 +1160,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
           <div>
             <h3 className="font-bold text-blue-800 mb-2">🆘 ¿Necesitas Ayuda?</h3>
             <p className="text-blue-700 mb-3">
-              Si sigues teniendo problemas después de seguir estas instrucciones:
+              Si sigues teniendo problemas después de reiniciar el servidor:
             </p>
             <div className="text-sm text-blue-600 space-y-1">
               <div>• 📧 Contacta con soporte: <strong>soporte@constructia.com</strong></div>
@@ -1002,6 +1172,7 @@ VITE_GEMINI_API_KEY=tu-gemini-api-key-aqui`}</pre>
                 <div>• 🆔 ID del proyecto: {envValues.url !== 'NO CONFIGURADA' ? envValues.url.split('.')[0].split('//')[1] : 'No disponible'}</div>
                 <div>• 🌐 URL configurada: {envValues.url !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}</div>
                 <div>• 🔑 Claves configuradas: {envValues.anonKey !== 'NO CONFIGURADA' && envValues.serviceKey !== 'NO CONFIGURADA' ? '✅ Sí' : '❌ No'}</div>
+                <div>• 🔄 Servidor reiniciado: {diagnostics ? '✅ Sí' : '❌ Pendiente'}</div>
               </div>
             </div>
           </div>
