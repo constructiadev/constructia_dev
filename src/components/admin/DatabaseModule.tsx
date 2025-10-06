@@ -28,7 +28,8 @@ import {
   X,
   Cpu,
   Wifi,
-  Monitor
+  Monitor,
+  Globe
 } from 'lucide-react';
 import SupabaseDiagnostics from './SupabaseDiagnostics';
 import { 
@@ -38,6 +39,7 @@ import {
   DEV_TENANT_ID,
   DEV_ADMIN_USER_ID
 } from '../../lib/supabase-real';
+import SupabaseDiagnostics from './SupabaseDiagnostics';
 
 interface TableInfo {
   table_name: string;
@@ -90,7 +92,8 @@ interface BackupInfo {
   type: 'full' | 'incremental' | 'differential';
   status: 'completed' | 'running' | 'failed';
   restore_point: boolean;
-}
+    { id: 'backup', name: 'Respaldos', icon: Shield },
+    { id: 'diagnostics', name: 'Diagnóstico', icon: Zap }
 
 interface MaintenanceTask {
   id: string;
@@ -537,6 +540,10 @@ const DatabaseModule: React.FC = () => {
       );
 
       console.log(`✅ [DatabaseModule] Backup restored successfully: ${backup.name}`);
+
+      {activeTab === 'diagnostics' && (
+        <SupabaseDiagnostics />
+      )}
       alert(
         `✅ Base de datos restaurada exitosamente desde backup:\n${backup.name}\n\n` +
         `La aplicación se recargará para reflejar los cambios.`
@@ -1668,6 +1675,94 @@ const DatabaseModule: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Configuración */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          {/* Configuración de Conexión */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Configuración de Conexión</h3>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800">⚠️ Problemas de Conexión Detectados</h4>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Si no puedes acceder a la base de datos, usa la pestaña "Diagnóstico" para identificar y solucionar problemas.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setActiveTab('diagnostics')}
+                className="flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+              >
+                <AlertTriangle className="w-5 h-5 text-blue-600 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium text-blue-800">Ejecutar Diagnóstico</p>
+                  <p className="text-xs text-blue-600">Verificar configuración de Supabase</p>
+                </div>
+              </button>
+
+              <a
+                href="https://supabase.com/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
+              >
+                <Globe className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium text-green-800">Abrir Supabase</p>
+                  <p className="text-xs text-green-600">Dashboard de Supabase</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          {/* Configuraciones del Sistema */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Configuraciones del Sistema</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="font-medium text-gray-800">Backup Automático</h4>
+                  <p className="text-sm text-gray-600">Crear backups automáticos diariamente</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="font-medium text-gray-800">Mantenimiento Automático</h4>
+                  <p className="text-sm text-gray-600">Ejecutar VACUUM y ANALYZE automáticamente</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="font-medium text-gray-800">Alertas de Rendimiento</h4>
+                  <p className="text-sm text-gray-600">Notificar cuando el rendimiento sea bajo</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+              </div>
             </div>
           </div>
         </div>
