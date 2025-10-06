@@ -12,6 +12,16 @@ console.log('   VITE_SUPABASE_URL:', supabaseUrl ? `${supabaseUrl.substring(0, 3
 console.log('   VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING');
 console.log('   VITE_SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? `${supabaseServiceKey.substring(0, 20)}...` : 'MISSING');
 
+// Additional debugging for connection issues
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  console.error('❌ [Supabase] CONFIGURACIÓN INCOMPLETA DETECTADA');
+  console.error('📋 [Supabase] Pasos para solucionar:');
+  console.error('   1. Verifica que el archivo .env existe en la raíz del proyecto');
+  console.error('   2. Verifica que las variables estén correctamente escritas (sin espacios extra)');
+  console.error('   3. REINICIA el servidor de desarrollo (Ctrl+C → npm run dev)');
+  console.error('   4. Ve al módulo Database > Diagnóstico para más ayuda');
+}
+
 // Validate URL format if provided
 if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
   console.error('❌ [Supabase] Invalid URL format. Expected: https://your-project.supabase.co');
@@ -55,13 +65,18 @@ const isSupabaseConfigured = supabaseUrl &&
 
 // Log configuration status
 if (!isSupabaseConfigured) {
-  console.error('❌ Supabase configuration incomplete. Please check your .env file.');
-  console.error('Required variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_SUPABASE_SERVICE_ROLE_KEY');
-  console.error('📋 To fix this:');
-  console.error('   1. Copy .env.example to .env');
-  console.error('   2. Update the Supabase values with your project credentials');
-  console.error('   3. Restart the development server');
-  console.error('   4. Use the Database Module > Diagnóstico tab for detailed help');
+  console.error('❌ [Supabase] CONFIGURACIÓN INCOMPLETA');
+  console.error('🔧 [Supabase] SOLUCIÓN PASO A PASO:');
+  console.error('   1. ✅ Archivo .env ya existe');
+  console.error('   2. 🔧 Ve a https://supabase.com/dashboard');
+  console.error('   3. 📋 Selecciona tu proyecto → Settings → API');
+  console.error('   4. 📝 Copia URL, anon key y service role key');
+  console.error('   5. 💾 Actualiza el archivo .env con las credenciales reales');
+  console.error('   6. 🔄 REINICIA el servidor (Ctrl+C → npm run dev)');
+  console.error('   7. 🔍 Ve a Admin → Database → Diagnóstico para verificar');
+  console.error('');
+  console.error('⚠️ [Supabase] IMPORTANTE: Las variables solo se cargan al INICIAR el servidor');
+  console.error('   Si modificaste .env, DEBES reiniciar el servidor para que surta efecto');
 } else {
   console.log('✅ [Supabase] Configuration appears valid, testing connection...');
 }
@@ -76,39 +91,53 @@ const createDummyClient = () => {
   return {
     auth: {
       getUser: () => {
-        console.warn('⚠️ Supabase not configured - returning empty user data');
+        console.warn('⚠️ [Supabase] No configurado - revisa .env y reinicia servidor');
         return Promise.resolve({ 
           data: { user: null }, 
-          error: null
+          error: { 
+            message: 'Supabase not configured - check .env file and restart server',
+            details: 'Variables de entorno faltantes o servidor no reiniciado'
+          }
         });
       },
       getSession: () => {
-        console.warn('⚠️ Supabase not configured - returning empty session data');
+        console.warn('⚠️ [Supabase] No configurado - revisa .env y reinicia servidor');
         return Promise.resolve({ 
           data: { session: null }, 
-          error: null
+          error: {
+            message: 'Supabase not configured - check .env file and restart server',
+            details: 'Variables de entorno faltantes o servidor no reiniciado'
+          }
         });
       },
       signInWithPassword: () => {
-        console.error('❌ Cannot sign in - Supabase not configured');
+        console.error('❌ [Supabase] No se puede iniciar sesión - configuración incompleta');
+        console.error('🔧 [Supabase] Solución: Configura .env y reinicia servidor');
         return Promise.resolve({
           data: { user: null, session: null },
-          error: dummyError
+          error: {
+            ...dummyError,
+            message: 'Cannot sign in - Supabase not configured. Check .env file and restart server.'
+          }
         });
       },
       signUp: () => {
-        console.error('❌ Cannot sign up - Supabase not configured');
+        console.error('❌ [Supabase] No se puede registrar - configuración incompleta');
+        console.error('🔧 [Supabase] Solución: Configura .env y reinicia servidor');
         return Promise.resolve({
           data: { user: null, session: null },
-          error: dummyError
+          error: {
+            ...dummyError,
+            message: 'Cannot sign up - Supabase not configured. Check .env file and restart server.'
+          }
         });
       },
       signOut: () => {
-        console.warn('⚠️ Supabase not configured - mock sign out');
+        console.warn('⚠️ [Supabase] Mock sign out - configuración incompleta');
         return Promise.resolve({ error: null });
       },
       onAuthStateChange: (callback) => {
-        console.warn('⚠️ Supabase not configured - mock auth state change');
+        console.warn('⚠️ [Supabase] Mock auth state change - configuración incompleta');
         // Call callback immediately with null session to prevent waiting
         setTimeout(() => callback('SIGNED_OUT', null), 0);
         return { 
@@ -122,10 +151,14 @@ const createDummyClient = () => {
     },
     from: (table) => ({
       select: (columns) => {
-        console.error(`❌ Cannot select from ${table} - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede consultar ${table} - configuración incompleta`);
+        console.error('🔧 [Supabase] Ve a Admin → Database → Diagnóstico para solucionar');
         return {
           data: [],
-          error: dummyError,
+          error: {
+            ...dummyError,
+            message: `Cannot query ${table} - Supabase not configured. Check .env file and restart server.`
+          },
           eq: function(column, value) { return this; },
           neq: function(column, value) { return this; },
           gt: function(column, value) { return this; },
@@ -153,156 +186,216 @@ const createDummyClient = () => {
           limit: function(count) { return this; },
           range: function(from, to) { return this; },
           single: function() { 
-            console.error(`❌ Cannot execute single query on ${table} - Supabase not configured`);
+            console.error(`❌ [Supabase] No se puede ejecutar consulta en ${table} - configuración incompleta`);
             return Promise.resolve({
               data: null,
-              error: dummyError
+              error: {
+                ...dummyError,
+                message: `Cannot query ${table} - Supabase not configured. Check .env file and restart server.`
+              }
             });
           },
           maybeSingle: function() { 
-            console.error(`❌ Cannot execute maybeSingle query on ${table} - Supabase not configured`);
+            console.error(`❌ [Supabase] No se puede ejecutar consulta en ${table} - configuración incompleta`);
             return Promise.resolve({
               data: null,
-              error: dummyError
+              error: {
+                ...dummyError,
+                message: `Cannot query ${table} - Supabase not configured. Check .env file and restart server.`
+              }
             });
           }
         };
       },
       insert: (data) => {
-        console.error(`❌ Cannot insert into ${table} - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede insertar en ${table} - configuración incompleta`);
         return {
           data: null,
-          error: dummyError,
+          error: {
+            ...dummyError,
+            message: `Cannot insert into ${table} - Supabase not configured. Check .env file and restart server.`
+          },
           select: function() { return this; },
           single: function() { 
             return Promise.resolve({
               data: null,
-              error: dummyError
+              error: {
+                ...dummyError,
+                message: `Cannot insert into ${table} - Supabase not configured.`
+              }
             });
           },
           maybeSingle: function() { 
             return Promise.resolve({
               data: null,
-              error: dummyError
+              error: {
+                ...dummyError,
+                message: `Cannot insert into ${table} - Supabase not configured.`
+              }
             });
           }
         };
       },
       update: (data) => {
-        console.error(`❌ Cannot update ${table} - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede actualizar ${table} - configuración incompleta`);
         return {
           data: null,
-          error: dummyError,
+          error: {
+            ...dummyError,
+            message: `Cannot update ${table} - Supabase not configured. Check .env file and restart server.`
+          },
           eq: function(column, value) { return this; },
           select: function() { return this; },
           single: function() { 
             return Promise.resolve({
               data: null,
-              error: dummyError
+              error: {
+                ...dummyError,
+                message: `Cannot update ${table} - Supabase not configured.`
+              }
             });
           }
         };
       },
       delete: () => {
-        console.error(`❌ Cannot delete from ${table} - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede eliminar de ${table} - configuración incompleta`);
         return {
           data: null,
-          error: dummyError,
+          error: {
+            ...dummyError,
+            message: `Cannot delete from ${table} - Supabase not configured. Check .env file and restart server.`
+          },
           eq: function(column, value) { return this; }
         };
       },
       upsert: (data) => {
-        console.error(`❌ Cannot upsert into ${table} - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede hacer upsert en ${table} - configuración incompleta`);
         return {
           data: null,
-          error: dummyError,
+          error: {
+            ...dummyError,
+            message: `Cannot upsert into ${table} - Supabase not configured. Check .env file and restart server.`
+          },
           select: function() { return this; },
           single: function() { 
             return Promise.resolve({
               data: null,
-              error: dummyError
+              error: {
+                ...dummyError,
+                message: `Cannot upsert into ${table} - Supabase not configured.`
+              }
             });
           }
         };
       },
       count: function() { 
-        return Promise.resolve({ count: 0, error: dummyError });
+        return Promise.resolve({ 
+          count: 0, 
+          error: {
+            ...dummyError,
+            message: 'Cannot count - Supabase not configured. Check .env file and restart server.'
+          }
+        });
       }
     }),
     storage: {
       from: (bucket) => ({
         upload: (path, file, options) => {
-          console.error(`❌ Cannot upload to storage bucket ${bucket} - Supabase not configured`);
+          console.error(`❌ [Supabase] No se puede subir a ${bucket} - configuración incompleta`);
           return Promise.resolve({
             data: null,
-            error: dummyError
+            error: {
+              ...dummyError,
+              message: `Cannot upload to ${bucket} - Supabase not configured. Check .env file and restart server.`
+            }
           });
         },
         download: (path) => {
-          console.error(`❌ Cannot download from storage bucket ${bucket} - Supabase not configured`);
+          console.error(`❌ [Supabase] No se puede descargar de ${bucket} - configuración incompleta`);
           return Promise.resolve({
             data: null,
-            error: dummyError
+            error: {
+              ...dummyError,
+              message: `Cannot download from ${bucket} - Supabase not configured.`
+            }
           });
         },
         createSignedUrl: (path, expiresIn) => {
-          console.error(`❌ Cannot create signed URL for storage bucket ${bucket} - Supabase not configured`);
+          console.error(`❌ [Supabase] No se puede crear URL firmada para ${bucket} - configuración incompleta`);
           return Promise.resolve({
             data: null,
-            error: dummyError
+            error: {
+              ...dummyError,
+              message: `Cannot create signed URL for ${bucket} - Supabase not configured.`
+            }
           });
         },
         getPublicUrl: (path) => {
-          console.error(`❌ Cannot get public URL for storage bucket ${bucket} - Supabase not configured`);
+          console.error(`❌ [Supabase] No se puede obtener URL pública para ${bucket} - configuración incompleta`);
           return {
             data: { publicUrl: '' },
-            error: dummyError
+            error: {
+              ...dummyError,
+              message: `Cannot get public URL for ${bucket} - Supabase not configured.`
+            }
           };
         },
         list: (path, options) => {
-          console.error(`❌ Cannot list storage bucket ${bucket} - Supabase not configured`);
+          console.error(`❌ [Supabase] No se puede listar ${bucket} - configuración incompleta`);
           return Promise.resolve({
             data: [],
-            error: dummyError
+            error: {
+              ...dummyError,
+              message: `Cannot list ${bucket} - Supabase not configured.`
+            }
           });
         },
         remove: (paths) => {
-          console.error(`❌ Cannot remove from storage bucket ${bucket} - Supabase not configured`);
+          console.error(`❌ [Supabase] No se puede eliminar de ${bucket} - configuración incompleta`);
           return Promise.resolve({
             data: null,
-            error: dummyError
+            error: {
+              ...dummyError,
+              message: `Cannot remove from ${bucket} - Supabase not configured.`
+            }
           });
         }
       }),
       listBuckets: () => {
-        console.error(`❌ Cannot list storage buckets - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede listar buckets - configuración incompleta`);
         return Promise.resolve({
           data: [],
-          error: dummyError
+          error: {
+            ...dummyError,
+            message: 'Cannot list buckets - Supabase not configured. Check .env file and restart server.'
+          }
         });
       },
       createBucket: (id, options) => {
-        console.error(`❌ Cannot create storage bucket - Supabase not configured`);
+        console.error(`❌ [Supabase] No se puede crear bucket - configuración incompleta`);
         return Promise.resolve({
           data: null,
-          error: dummyError
+          error: {
+            ...dummyError,
+            message: 'Cannot create bucket - Supabase not configured. Check .env file and restart server.'
+          }
         });
       }
     },
     channel: (name) => ({
       on: (event, filter, callback) => ({
         subscribe: () => {
-          console.warn(`⚠️ Supabase not configured - mock subscription to ${name}`);
+          console.warn(`⚠️ [Supabase] Mock subscription a ${name} - configuración incompleta`);
           return { unsubscribe: () => {} };
         }
       })
     }),
     removeChannel: (channel) => {
-      console.warn('⚠️ Supabase not configured - mock remove channel');
+      console.warn('⚠️ [Supabase] Mock remove channel - configuración incompleta');
       return Promise.resolve('ok');
     },
     removeAllChannels: () => {
-      console.warn('⚠️ Supabase not configured - mock remove all channels');
+      console.warn('⚠️ [Supabase] Mock remove all channels - configuración incompleta');
       return Promise.resolve('ok');
     }
   };

@@ -247,8 +247,14 @@ export default function DatabaseModule() {
               <h2 className="text-2xl font-bold">Gestión de Base de Datos</h2>
             </div>
             <p className="text-blue-100">
-              Diagnóstico, monitoreo y gestión de Supabase
+              🔧 Diagnóstico y solución de problemas de conexión
             </p>
+            <div className="mt-2 bg-white/20 rounded-lg p-3">
+              <p className="text-sm font-semibold text-white">⚠️ PROBLEMA DE CONEXIÓN DETECTADO</p>
+              <p className="text-xs text-blue-100">
+                Si no puedes acceder a la base de datos, usa la pestaña "Diagnóstico" para identificar y solucionar el problema.
+              </p>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
@@ -258,35 +264,41 @@ export default function DatabaseModule() {
             <button
               onClick={testDatabaseConnection}
               disabled={connectionTest.status === 'testing'}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors flex items-center disabled:opacity-50"
+              className="bg-red-500/80 hover:bg-red-500 px-4 py-2 rounded-lg transition-colors flex items-center disabled:opacity-50 font-semibold"
             >
               <Zap className={`w-4 h-4 mr-2 ${connectionTest.status === 'testing' ? 'animate-spin' : ''}`} />
-              {connectionTest.status === 'testing' ? 'Probando...' : 'Test Conexión'}
+              {connectionTest.status === 'testing' ? 'Probando...' : '🔍 Diagnosticar'}
             </button>
           </div>
         </div>
 
         {/* Connection Status */}
-        <div className="mt-4 bg-white/10 rounded-lg p-4">
+        <div className="mt-4 bg-red-500/20 rounded-lg p-4 border border-red-300/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               {connectionTest.status === 'success' && <CheckCircle className="w-5 h-5 text-green-300 mr-2" />}
-              {connectionTest.status === 'error' && <XCircle className="w-5 h-5 text-red-300 mr-2" />}
+              {connectionTest.status === 'error' && <XCircle className="w-5 h-5 text-red-200 mr-2" />}
               {connectionTest.status === 'testing' && <RefreshCw className="w-5 h-5 text-blue-300 mr-2 animate-spin" />}
               {connectionTest.status === 'idle' && <Clock className="w-5 h-5 text-gray-300 mr-2" />}
-              <span className="font-semibold">Estado de Conexión: {connectionTest.message}</span>
+              <span className="font-semibold">
+                🔌 Estado: {connectionTest.message}
+                {connectionTest.status === 'error' && ' - REQUIERE ATENCIÓN'}
+              </span>
             </div>
             {connectionTest.status === 'error' && (
               <button
                 onClick={() => setActiveTab('diagnostico')}
-                className="bg-red-500/20 hover:bg-red-500/30 px-3 py-1 rounded text-sm"
+                className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-lg text-sm font-semibold"
               >
-                Ver Diagnóstico
+                🔍 Solucionar Ahora
               </button>
             )}
           </div>
           {connectionTest.details && (
-            <p className="text-sm text-white/80 mt-2">{connectionTest.details}</p>
+            <div className="mt-3 bg-white/10 rounded p-3">
+              <p className="text-sm text-white font-medium">📋 Detalles del error:</p>
+              <p className="text-sm text-red-100 mt-1">{connectionTest.details}</p>
+            </div>
           )}
         </div>
       </div>
@@ -295,16 +307,21 @@ export default function DatabaseModule() {
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          const isDiagnostico = tab.id === 'diagnostico';
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
-                activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'
+              className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors relative ${
+                isActive ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               <Icon className="w-5 h-5 inline mr-2" />
               {tab.name}
+              {isDiagnostico && connectionTest.status === 'error' && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+              )}
             </button>
           );
         })}
