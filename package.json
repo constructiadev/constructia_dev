@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "setup:verify": "node scripts/verifySetup.js",
+    "setup:check-db": "node scripts/checkDatabase.js",
     "populate-new-architecture": "node scripts/populateNewArchitecture.js",
     "populate-manual-queue": "tsx scripts/populateManualQueue.ts",
     "disable-rls": "node scripts/disableAllRLS.js",
