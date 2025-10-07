@@ -139,55 +139,41 @@ const AuditModule: React.FC = () => {
   const getActionColor = (action: string) => {
     switch (action.toLowerCase()) {
       case 'login':
+      case 'client.login':
+      case 'admin.login':
         return 'text-green-600 bg-green-50';
       case 'logout':
+      case 'client.logout':
+      case 'admin.logout':
         return 'text-blue-600 bg-blue-50';
       case 'create':
-      case 'client.registered':
-      case 'empresa.created':
-      case 'obra.created':
       case 'upload':
       case 'document.uploaded':
       case 'document.uploaded_to_queue':
         return 'text-emerald-600 bg-emerald-50';
-      case 'update':
-      case 'edit':
-      case 'document.approved':
-      case 'document.rejected':
-        return 'text-amber-600 bg-amber-50';
-      case 'delete':
-      case 'document.purged':
-      case 'client.login':
-      case 'admin.login':
-        return 'text-red-600 bg-red-50';
-      case 'payment':
-      case 'client.logout':
-      case 'admin.logout':
-      case 'payment.completed':
-      case 'payment.failed':
       case 'client.registered':
       case 'empresa.created':
       case 'obra.created':
+        return 'text-teal-600 bg-teal-50';
+      case 'update':
+      case 'edit':
+        return 'text-amber-600 bg-amber-50';
+      case 'document.approved':
+        return 'text-green-600 bg-green-50';
+      case 'document.rejected':
+        return 'text-red-600 bg-red-50';
+      case 'delete':
+      case 'document.purged':
+        return 'text-red-600 bg-red-50';
+      case 'payment':
+      case 'payment.completed':
         return 'text-purple-600 bg-purple-50';
-      case 'document.uploaded':
-      case 'document.uploaded_to_queue':
+      case 'payment.failed':
+        return 'text-red-600 bg-red-50';
       case 'security':
       case 'security.breach':
       case 'security.alert':
-      case 'document.approved':
-      case 'document.rejected':
         return 'text-orange-600 bg-orange-50';
-      case 'integration.sent':
-      case 'document.purged':
-      case 'integration.received':
-        return <Globe className="w-4 h-4" />;
-      case 'payment.completed':
-      case 'payment.failed':
-      case 'data.access':
-      case 'data.export':
-      case 'security.breach':
-      case 'security.alert':
-        return <Download className="w-4 h-4" />;
       case 'integration.sent':
       case 'integration.received':
         return 'text-indigo-600 bg-indigo-50';
