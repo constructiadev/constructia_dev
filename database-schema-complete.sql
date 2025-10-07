@@ -24,7 +24,7 @@ END $$;
 -- Document categories
 DO $$ BEGIN
   CREATE TYPE documento_categoria AS ENUM (
-    'PRL', 'APTITUD_MEDICA', 'DNI', 'ALTA_SS', 'CONTRATO',
+    'PRL', 'APTITUD_MEDICA', 'DNI-CIF', 'ALTA_SS', 'CONTRATO',
     'SEGURO_RC', 'REA', 'FORMACION_PRL', 'EVAL_RIESGOS',
     'CERT_MAQUINARIA', 'PLAN_SEGURIDAD', 'OTROS'
   );
