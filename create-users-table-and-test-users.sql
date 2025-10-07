@@ -262,6 +262,7 @@ BEGIN
     INSERT INTO auth.identities (
       id,
       user_id,
+      provider_id,
       identity_data,
       provider,
       last_sign_in_at,
@@ -271,6 +272,7 @@ BEGIN
     SELECT
       gen_random_uuid(),
       cliente_user_id,
+      cliente_user_id::text,
       jsonb_build_object(
         'sub', cliente_user_id::text,
         'email', 'cliente@constructia.com'
@@ -290,6 +292,7 @@ BEGIN
     INSERT INTO auth.identities (
       id,
       user_id,
+      provider_id,
       identity_data,
       provider,
       last_sign_in_at,
@@ -299,6 +302,7 @@ BEGIN
     SELECT
       gen_random_uuid(),
       admin_user_id,
+      admin_user_id::text,
       jsonb_build_object(
         'sub', admin_user_id::text,
         'email', 'admin@constructia.com'
