@@ -1,134 +1,119 @@
-# Instrucciones para Configurar la Base de Datos ConstructIA
+# 🔧 INSTRUCCIONES: Crear Base de Datos en Supabase
 
-## Resumen
+## 🎯 Tu situación actual
 
-La base de datos completa de ConstructIA ya ha sido generada en el archivo `complete-database-schema.sql`. Este archivo contiene toda la estructura multi-tenant necesaria para la plataforma.
+Veo que tu Table Editor de Supabase está vacío. Necesitas ejecutar el script SQL para crear todas las tablas.
 
-## Problema Actual
+## 📋 Pasos a seguir
 
-Las herramientas de integración con Supabase están experimentando problemas de conexión. Por lo tanto, deberás ejecutar el SQL manualmente en el panel de Supabase.
+### **PASO 1: Abrir SQL Editor en Supabase**
 
-## Pasos para Ejecutar el Schema
+1. En la pantalla que estás viendo (Table Editor vacío)
+2. En el menú lateral izquierdo, busca y haz clic en **"SQL Editor"**
+3. Verás una interfaz para escribir consultas SQL
 
-### Opción 1: Ejecución Directa en Supabase (RECOMENDADO)
+### **PASO 2: Crear una Nueva Query**
 
-1. **Accede al Panel de Supabase**
-   - Ve a: https://0ec90b57d6e95fcbda19832f.supabase.co
-   - Inicia sesión con tus credenciales
+1. En SQL Editor, haz clic en el botón **"New query"** (arriba a la derecha)
+2. Se abrirá un editor de texto vacío
 
-2. **Abre el SQL Editor**
-   - En el menú lateral, busca "SQL Editor"
-   - Haz clic en "New Query"
+### **PASO 3: Copiar el Script SQL**
 
-3. **Copia y Pega el SQL**
-   - Abre el archivo `complete-database-schema.sql` ubicado en la raíz del proyecto
-   - Copia todo su contenido
-   - Pégalo en el editor SQL de Supabase
+1. Ve a tu proyecto en el editor de código
+2. Abre el archivo: **`create_all_tables.sql`**
+3. **Selecciona TODO el contenido** (Ctrl+A o Cmd+A)
+4. **Copia** el contenido (Ctrl+C o Cmd+C)
 
-4. **Ejecuta el Script**
-   - Haz clic en el botón "Run" o presiona `Ctrl+Enter` (Windows/Linux) o `Cmd+Enter` (Mac)
-   - Espera a que se complete la ejecución (puede tardar 1-2 minutos)
+### **PASO 4: Pegar y Ejecutar**
 
-5. **Verifica la Creación**
-   - Ve a "Table Editor" en el menú lateral
-   - Deberías ver todas las tablas nuevas creadas
+1. Vuelve a Supabase SQL Editor
+2. **Pega** el contenido en el editor (Ctrl+V o Cmd+V)
+3. Verás un script largo con muchas líneas SQL
+4. Haz clic en el botón **"Run"** (esquina inferior derecha, botón verde)
+5. ⏳ **Espera** 10-30 segundos mientras se ejecuta
 
-### Opción 2: Ejecutar en Partes (Si hay problemas)
+### **PASO 5: Verificar Resultados**
 
-Si el script completo da errores por ser demasiado largo, ejecuta las secciones por separado:
+Deberías ver uno de estos mensajes:
 
-1. **STEP 1**: Ejecuta la sección de ENUMs (líneas 1-30)
-2. **STEP 2**: Ejecuta la sección de tablas principales (líneas 31-250)
-3. **STEP 3**: Ejecuta la sección de triggers (líneas 251-280)
-4. **STEP 4**: Ejecuta la sección de políticas RLS (líneas 281-360)
-5. **STEP 5**: Ejecuta la sección de datos por defecto (líneas 361-fin)
-
-## Estructura Creada
-
-El script creará:
-
-### 🎯 Tipos ENUM (30+)
-- `user_role`, `tenant_status`, `documento_categoria`, `documento_estado`
-- `entidad_tipo`, `plataforma_tipo`, `perfil_riesgo`, `estado_compliance`
-- Y muchos más para garantizar la consistencia de datos
-
-### 📊 Tablas Principales (30+)
-- **Core**: `tenants`, `empresas`, `obras`, `proveedores`, `trabajadores`, `maquinaria`
-- **Documentos**: `documentos`, `tareas`, `requisitos_plataforma`
-- **Integración**: `mapping_templates`, `adaptadores`, `jobs_integracion`
-- **Subscripciones**: `suscripciones`, `token_transactions`, `checkout_providers`
-- **Auditoría**: `auditoria`, `mensajes`, `reportes`
-- **GDPR/Compliance**: `compliance_checks`, `data_subject_requests`, `privacy_impact_assessments`, `data_breaches`, `consent_records`
-- **Sistema**: `system_configurations`, `mandatos_sepa`
-
-### 🔐 Seguridad
-- **RLS habilitado** en todas las tablas
-- **Políticas multi-tenant** para aislamiento de datos
-- **Funciones auxiliares** para verificación de permisos
-- **Triggers automáticos** para actualización de timestamps
-
-### 📈 Índices
-- Índices optimizados para consultas por tenant
-- Índices compuestos para búsquedas comunes
-- Índices únicos para garantizar integridad
-
-## Verificación Post-Instalación
-
-Después de ejecutar el script, verifica que:
-
-1. **Tablas Creadas**: Deberías tener ~30 tablas nuevas
-2. **ENUMs Creados**: Verifica en el Schema Visualizer
-3. **RLS Activo**: Todas las tablas deben tener RLS habilitado
-4. **Tenant por Defecto**: Debe existir un tenant "ConstructIA Demo"
-
-## Datos de Prueba
-
-El tenant por defecto creado tiene este ID:
+✅ **ÉXITO**:
 ```
-10000000-0000-0000-0000-000000000001
+Base de datos creada exitosamente
+total_tables: 12 (o más)
 ```
 
-Puedes usarlo para crear datos de prueba.
+❌ **ERROR**: Si ves un error, léelo y:
+- Si dice "already exists", está bien, continúa
+- Si dice otro error, copia el mensaje de error completo
 
-## Solución de Problemas
+### **PASO 6: Verificar Tablas Creadas**
 
-### Error: "Type already exists"
-- **Solución**: El script usa `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object` para evitar este error. Si aún ocurre, puedes ignorarlo.
+1. Vuelve al **Table Editor** (menú lateral izquierdo)
+2. Haz clic en el ícono de actualizar o recarga la página
+3. Deberías ver ahora una lista de tablas en el panel izquierdo:
+   - ✅ tenants
+   - ✅ users
+   - ✅ empresas
+   - ✅ obras
+   - ✅ proveedores
+   - ✅ trabajadores
+   - ✅ maquinaria
+   - ✅ documentos
+   - ✅ tareas
+   - ✅ suscripciones
+   - ✅ auditoria
+   - ✅ system_settings
+   - ✅ clients
 
-### Error: "Table already exists"
-- **Solución**: El script usa `CREATE TABLE IF NOT EXISTS`. Si una tabla ya existe, no la sobrescribirá.
+### **PASO 7: Verificar Datos de Prueba**
 
-### Error: "Permission denied"
-- **Solución**: Asegúrate de estar usando una cuenta con permisos de administrador en Supabase.
+1. En Table Editor, haz clic en la tabla **"users"**
+2. Deberías ver 2 usuarios:
+   - System Admin (admin@constructia.com)
+   - Demo User (demo@constructia.com)
 
-### Error de timeout
-- **Solución**: Ejecuta el script en partes más pequeñas (ver Opción 2 arriba).
+3. Haz clic en la tabla **"empresas"**
+4. Deberías ver 1 empresa:
+   - Constructora Demo S.L.
 
-## Próximos Pasos
+5. Haz clic en la tabla **"obras"**
+6. Deberías ver 1 obra:
+   - Proyecto Demo
 
-Una vez que la base de datos esté configurada:
+## 🎉 Una vez completado
 
-1. La aplicación debería poder conectarse automáticamente
-2. Podrás crear empresas, obras, documentos, etc.
-3. El sistema multi-tenant estará completamente funcional
-4. Las políticas RLS protegerán los datos de cada tenant
+Cuando veas todas las tablas creadas:
 
-## Notas Importantes
+1. Vuelve a tu proyecto
+2. Asegúrate de que el archivo .env tiene las 3 variables
+3. Obtén tu Service Role Key de Supabase Dashboard → Settings → API
+4. Agrégala al archivo .env
+5. Reinicia el servidor (Ctrl+C → npm run dev)
 
-- ⚠️ **BACKUP**: Si ya tienes datos en la base de datos, haz un backup antes de ejecutar este script
-- 🔒 **SEGURIDAD**: No compartas las credenciales de Supabase públicamente
-- 📝 **LOGS**: Revisa los logs de Supabase después de la ejecución para detectar posibles advertencias
-- 🎯 **TESTING**: Después de la instalación, prueba crear un tenant, empresa y documento para verificar que todo funciona
+## 🔍 Verificar que funciona
 
-## Contacto y Soporte
+1. Abre tu aplicación en el navegador
+2. El dashboard de Bolt ahora debería mostrar:
+   - ✅ Tablas en el Table Editor de Supabase
+   - ✅ Datos en tu aplicación
+   - ✅ Sin errores de "Supabase not configured"
 
-Si encuentras problemas durante la instalación, revisa:
-- Los logs del SQL Editor de Supabase
-- La consola del navegador para errores de permisos
-- La documentación oficial de Supabase sobre migraciones
+## ❗ Problemas comunes
+
+### "syntax error near..."
+- Asegúrate de copiar TODO el script completo
+
+### "permission denied"
+- Verifica que tienes permisos de admin
+
+### "type already exists"
+- Esto está bien, el script es idempotente
+
+### Dashboard de Bolt sigue vacío
+- Verifica el .env tiene SERVICE_ROLE_KEY
+- REINICIA el servidor
 
 ---
 
-**Última actualización**: Octubre 2025
-**Versión del Schema**: 1.0.0
-**Compatible con**: Supabase v2.x
+**Archivo script**: create_all_tables.sql
+**Estado**: ✅ Listo para ejecutar
