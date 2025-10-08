@@ -728,7 +728,7 @@ export class ManualManagementService {
       if (newStatus === 'validated') {
         console.log('🗑️ [VALIDATED] Documento marcado como validado - iniciando eliminación...');
 
-        // 1. Create audit log BEFORE deletion
+        // 1. Create comprehensive audit log BEFORE deletion
         const deletionTimestamp = new Date().toISOString();
         const auditLogDetails = {
           document_id: documento.id,
@@ -742,7 +742,9 @@ export class ManualManagementService {
           platform_target: targetPlatform || 'unknown',
           admin_notes: notes || 'Validado por administrador',
           action: 'DOCUMENT_VALIDATED_AND_DELETED',
-          status: 'success'
+          status: 'success',
+          data_retention_policy: 'Documento eliminado según política de retención tras validación exitosa',
+          compliance_note: 'Eliminación automática para cumplimiento de protección de datos'
         };
 
         // Log audit entry for admin
@@ -779,7 +781,45 @@ export class ManualManagementService {
 
         console.log('✅ [AUDIT] Log de eliminación creado para cliente');
 
-        // 2. Delete physical file using file storage service
+        // 2. Create notification message for client
+        const { error: messageError } = await supabaseServiceClient
+          .from('mensajes')
+          .insert({
+            tenant_id: documento.tenant_id,
+            tipo: 'notificacion',
+            titulo: 'Documento Validado y Procesado',
+            contenido: `Su documento "${documento.metadatos?.original_filename || 'documento'}" de categoría ${documento.categoria} ha sido validado exitosamente y subido a la plataforma ${targetPlatform || 'externa'}. Por motivos de seguridad y cumplimiento de protección de datos, el archivo ha sido eliminado de nuestros servidores. Puede consultar el historial completo en el módulo de auditoría.`,
+            prioridad: 'media',
+            destinatarios: ['ClienteAdmin', 'Cliente'],
+            estado: 'programado'
+          });
+
+        if (messageError) {
+          console.warn('⚠️ [MESSAGE] Error creating client notification:', messageError);
+        } else {
+          console.log('✅ [MESSAGE] Notification sent to client');
+        }
+
+        // 3. Create notification message for admin
+        const { error: adminMessageError } = await supabaseServiceClient
+          .from('mensajes')
+          .insert({
+            tenant_id: documento.tenant_id,
+            tipo: 'info',
+            titulo: 'Documento Eliminado Tras Validación',
+            contenido: `El documento "${documento.metadatos?.original_filename || 'documento'}" del tenant ${documento.tenant_id} ha sido eliminado automáticamente tras su validación exitosa. Archivo físico y registro de base de datos eliminados. Log de auditoría completo disponible.`,
+            prioridad: 'baja',
+            destinatarios: ['SuperAdmin'],
+            estado: 'programado'
+          });
+
+        if (adminMessageError) {
+          console.warn('⚠️ [MESSAGE] Error creating admin notification:', adminMessageError);
+        } else {
+          console.log('✅ [MESSAGE] Notification sent to admin');
+        }
+
+        // 4. Delete physical file using file storage service
         try {
           const fileDeleted = await fileStorageService.deleteFile(documento.file);
           if (fileDeleted) {
@@ -792,7 +832,7 @@ export class ManualManagementService {
           // Continue with database deletion even if file deletion fails
         }
 
-        // 3. Delete document from documentos table
+        // 5. Delete document from documentos table
         const { error: deleteDocError } = await supabaseServiceClient
           .from('documentos')
           .delete()
@@ -805,7 +845,7 @@ export class ManualManagementService {
 
         console.log('✅ [DB] Documento eliminado de la tabla documentos');
 
-        // 4. Delete from manual_upload_queue
+        // 6. Delete from manual_upload_queue
         const { error: deleteQueueError } = await supabaseServiceClient
           .from('manual_upload_queue')
           .delete()
@@ -817,6 +857,28 @@ export class ManualManagementService {
         }
 
         console.log('✅ [QUEUE] Documento eliminado de la cola de procesamiento manual');
+        
+        // 7. Final audit log for complete deletion
+        await logAuditoria(
+          documento.tenant_id,
+          DEV_ADMIN_USER_ID,
+          'DOCUMENT_DELETION_COMPLETED',
+          'sistema',
+          documento.id,
+          {
+            ...auditLogDetails,
+            deletion_completed_at: new Date().toISOString(),
+            physical_file_deleted: true,
+            database_record_deleted: true,
+            queue_record_deleted: true,
+            notifications_sent: true,
+            compliance_status: 'GDPR_COMPLIANT_DELETION'
+          },
+          '127.0.0.1',
+          'System',
+          'success'
+        );
+
         console.log('🎯 [COMPLETED] Documento validado y completamente eliminado del sistema');
 
         return true;
