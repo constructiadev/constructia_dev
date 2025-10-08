@@ -1132,7 +1132,10 @@ export const logAuditoria = async (
     
     console.log(`📝 [AuditLog] Logging action for tenant ${tenantId}: ${accion} by user ${validUserId}`);
     
-    await supabaseServiceClient
+    // CRITICAL FIX: Log to BOTH tenant-specific audit AND global admin audit
+    
+    // 1. Log to tenant-specific audit (original behavior)
+    const tenantAuditResult = await supabaseServiceClient
       .from('auditoria')
       .insert({
         tenant_id: tenantId,
@@ -1143,8 +1146,43 @@ export const logAuditoria = async (
         ip: ipAddress || '127.0.0.1',
         detalles: enhancedDetalles
       });
+
+    if (tenantAuditResult.error) {
+      console.error(`❌ [AuditLog] Error logging tenant audit for ${tenantId}:`, tenantAuditResult.error);
+    } else {
+      console.log(`✅ [AuditLog] Tenant audit logged for ${tenantId}`);
+    }
+
+    // 2. CRITICAL: ALWAYS log to global admin audit (DEV_TENANT_ID) for admin visibility
+    if (tenantId !== DEV_TENANT_ID) {
+      const globalAuditDetails = {
+        ...enhancedDetalles,
+        original_tenant_id: tenantId,
+        global_admin_view: true,
+        cross_tenant_action: true,
+        audit_scope: 'global_admin_dashboard'
+      };
+
+      const globalAuditResult = await supabaseServiceClient
+        .from('auditoria')
+        .insert({
+          tenant_id: DEV_TENANT_ID, // ALWAYS log to admin tenant for global visibility
+          actor_user: validUserId,
+          accion: `GLOBAL_${accion}`, // Prefix to identify global audit entries
+          entidad,
+          entidad_id: entidadId,
+          ip: ipAddress || '127.0.0.1',
+          detalles: globalAuditDetails
+        });
+
+      if (globalAuditResult.error) {
+        console.error(`❌ [AuditLog] Error logging global audit:`, globalAuditResult.error);
+      } else {
+        console.log(`✅ [AuditLog] Global audit logged for admin dashboard`);
+      }
+    }
       
-    console.log(`✅ [AuditLog] Successfully logged action: ${accion} for tenant ${tenantId}`);
+    console.log(`✅ [AuditLog] Successfully logged action: ${accion} for tenant ${tenantId} (+ global admin view)`);
   } catch (error) {
     console.error(`❌ [AuditLog] Error logging audit event for tenant ${tenantId}:`, error);
   }

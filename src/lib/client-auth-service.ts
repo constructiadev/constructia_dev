@@ -291,7 +291,10 @@ export class ClientAuthService {
               tenant_created: true,
               user_profile_created: true,
               client_record_created: true,
-              subscription_created: true
+              subscription_created: true,
+              global_admin_view: true,
+              cross_tenant_action: false,
+              new_client_registration: true
             },
             '127.0.0.1', // IP address - in production get from request
             navigator.userAgent,

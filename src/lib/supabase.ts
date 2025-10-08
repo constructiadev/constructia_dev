@@ -220,7 +220,7 @@ export const getAuditLogs = async (
     // CRITICAL FIX: Get ALL audit logs from ALL tenants for admin view
     console.log('📋 [AuditLogs] Loading GLOBAL audit logs for admin dashboard...');
     
-    // Use service client to bypass RLS and get ALL audit logs
+    // Use service client to bypass RLS and get ALL audit logs from ALL tenants
     const { data, error } = await supabaseServiceClient
       .from('auditoria')
       .select(`
@@ -235,7 +235,7 @@ export const getAuditLogs = async (
       return [];
     }
     
-    // Get all tenants to map tenant_id to company names
+    // Get all tenants to map tenant_id to company names for better display
     const { data: tenants, error: tenantsError } = await supabaseServiceClient
       .from('tenants')
       .select('id, name');
@@ -244,14 +244,29 @@ export const getAuditLogs = async (
       console.warn('Error fetching tenants for audit logs:', tenantsError);
     }
 
+    // Get all empresas to map tenant_id to real company names
+    const { data: empresas, error: empresasError } = await supabaseServiceClient
+      .from('empresas')
+      .select('tenant_id, razon_social');
+
+    if (empresasError) {
+      console.warn('Error fetching empresas for audit logs:', empresasError);
+    }
+
     // Create tenant name mapping
     const tenantNameMap = new Map<string, string>();
     (tenants || []).forEach(tenant => {
       tenantNameMap.set(tenant.id, tenant.name);
     });
 
+    // Create empresa name mapping for better client identification
+    const empresaNameMap = new Map<string, string>();
+    (empresas || []).forEach(empresa => {
+      empresaNameMap.set(empresa.tenant_id, empresa.razon_social);
+    });
     console.log(`✅ [AuditLogs] Loaded ${data?.length || 0} audit logs from ALL tenants`);
     console.log(`📊 [AuditLogs] Tenant mapping: ${tenantNameMap.size} tenants available`);
+    console.log(`🏢 [AuditLogs] Empresa mapping: ${empresaNameMap.size} empresas available`);
     
     // Transform audit logs to expected format
     const auditLogs = (data || []).map(log => ({
@@ -268,28 +283,39 @@ export const getAuditLogs = async (
       compliance_level: log.detalles?.compliance_level || 'GDPR_LOPD',
       data_classification: log.detalles?.data_classification || 'system_data',
       tenant_id: log.tenant_id,
+      original_tenant_id: log.detalles?.original_tenant_id || log.tenant_id,
+      is_global_audit: log.detalles?.global_admin_view || false,
+      cross_tenant_action: log.detalles?.cross_tenant_action || false,
       created_at: log.created_at,
       users: {
         email: log.users?.email || 'admin@constructia.com',
         role: log.users?.role || 'admin'
       },
       clients: {
-        company_name: tenantNameMap.get(log.tenant_id) || `Tenant ${log.tenant_id?.substring(0, 8) || 'Unknown'}`
+        company_name: empresaNameMap.get(log.detalles?.original_tenant_id || log.tenant_id) || 
+                     tenantNameMap.get(log.detalles?.original_tenant_id || log.tenant_id) || 
+                     `Tenant ${(log.detalles?.original_tenant_id || log.tenant_id)?.substring(0, 8) || 'Unknown'}`
       }
     }));
     
     // Log summary for debugging
     const tenantCounts = new Map<string, number>();
+    const globalAuditCount = auditLogs.filter(log => log.is_global_audit).length;
+    const crossTenantCount = auditLogs.filter(log => log.cross_tenant_action).length;
+    
     auditLogs.forEach(log => {
-      const tenantId = log.tenant_id;
+      const tenantId = log.original_tenant_id || log.tenant_id;
       tenantCounts.set(tenantId, (tenantCounts.get(tenantId) || 0) + 1);
     });
     
     console.log('📊 [AuditLogs] Audit logs by tenant:');
     tenantCounts.forEach((count, tenantId) => {
-      const tenantName = tenantNameMap.get(tenantId) || 'Unknown';
+      const tenantName = empresaNameMap.get(tenantId) || tenantNameMap.get(tenantId) || 'Unknown';
       console.log(`   🏢 ${tenantName}: ${count} logs`);
     });
+    
+    console.log(`📊 [AuditLogs] Global audit entries: ${globalAuditCount}`);
+    console.log(`📊 [AuditLogs] Cross-tenant actions: ${crossTenantCount}`);
     
     return auditLogs;
   } catch (error) {
