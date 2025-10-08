@@ -21,6 +21,7 @@ import {
   Zap
 } from 'lucide-react';
 import { ClientAuthService } from '../../lib/client-auth-service';
+import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
 
 interface RegistrationForm {
@@ -58,6 +59,7 @@ interface FormErrors {
 
 export default function ClientRegister() {
   const navigate = useNavigate();
+  const { registerClient } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
