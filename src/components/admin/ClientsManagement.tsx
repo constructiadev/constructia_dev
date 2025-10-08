@@ -55,7 +55,8 @@ import {
   calculateDynamicKPIs,
   supabase 
 } from '../../lib/supabase';
-import { supabaseServiceClient } from '../../lib/supabase-real';
+import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID } from '../../lib/supabase-real';
+import { useAuth } from '../../lib/auth-context';
 import PlatformCredentialsManager from '../client/PlatformCredentialsManager';
 
 interface Client {
@@ -323,7 +324,109 @@ function ClientModal({ isOpen, onClose, onSave, client, mode }: ClientModalProps
   );
 }
 
+// Component to display platform credentials status for each client
+function PlatformCredentialsStatus({ client }: { client: Client }) {
+  const [credentials, setCredentials] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadCredentials();
+  }, [client.id]);
+
+  const loadCredentials = () => {
+    try {
+      // Try multiple possible storage keys to find credentials
+      const possibleKeys = [
+        `constructia_credentials_${client.id}`,
+        `constructia_credentials_${client.user_id}`,
+        `constructia_credentials_${client.client_id}`,
+        `constructia_credentials_default`
+      ];
+      
+      let foundCredentials = [];
+      
+      for (const key of possibleKeys) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            const parsedCreds = JSON.parse(stored);
+            if (Array.isArray(parsedCreds) && parsedCreds.length > 0) {
+              foundCredentials = parsedCreds;
+              break;
+            }
+          } catch (parseError) {
+            continue;
+          }
+        }
+      }
+      
+      setCredentials(foundCredentials);
+    } catch (error) {
+      console.error('Error loading credentials for client:', client.id, error);
+      setCredentials([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center">
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+        <span className="text-xs text-gray-500">Cargando...</span>
+      </div>
+    );
+  }
+
+  const platforms = [
+    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-100 text-blue-800' },
+    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-100 text-green-800' },
+    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-100 text-purple-800' }
+  ];
+  
+  const configuredPlatforms = platforms.filter(platform => {
+    const cred = credentials.find(c => c.platform_type === platform.type);
+    return cred && 
+           cred.username && 
+           cred.username.trim().length > 0 && 
+           cred.password && 
+           cred.password.trim().length > 0 && 
+           cred.is_active !== false;
+  });
+  
+  if (configuredPlatforms.length === 0) {
+    return (
+      <div className="flex items-center">
+        <AlertCircle className="w-4 h-4 text-yellow-500 mr-1" />
+        <span className="text-xs text-yellow-600">
+          Sin configurar
+        </span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex flex-wrap gap-1">
+      {configuredPlatforms.map(platform => (
+        <span 
+          key={platform.type}
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${platform.color}`}
+        >
+          <CheckCircle className="w-3 h-3 mr-1" />
+          {platform.name}
+        </span>
+      ))}
+      {configuredPlatforms.length < 3 && (
+        <span className="text-xs text-gray-500">
+          +{3 - configuredPlatforms.length} pendiente(s)
+        </span>
+      )}
+    </div>
+  );
+}
+
 const ClientsManagement: React.FC = () => {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -947,105 +1050,7 @@ const ClientsManagement: React.FC = () => {
                       {client.documents_processed || 0}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="space-y-1">
-                        {(() => {
-                          // CRITICAL FIX: Get platform credentials using user_id to find tenant_id
-                          // First, we need to get the tenant_id for this client
-                          let credentials = [];
-                          let tenantId = null;
-                          
-                          try {
-                            // Try to get tenant_id from client's user_id (this would need to be fetched from database)
-                            // For now, we'll check multiple possible storage keys
-                            const possibleKeys = [
-                              `constructia_credentials_${client.id}`,
-                              `constructia_credentials_${client.user_id}`,
-                              `constructia_credentials_${client.client_id}`,
-                              `constructia_credentials_default`
-                            ];
-                            
-                            for (const key of possibleKeys) {
-                              const stored = localStorage.getItem(key);
-                              if (stored) {
-                                try {
-                                  const parsedCreds = JSON.parse(stored);
-                                  if (Array.isArray(parsedCreds) && parsedCreds.length > 0) {
-                                    credentials = parsedCreds;
-                                    break;
-                                  }
-                                } catch (parseError) {
-                                  continue;
-                                }
-                              }
-                            }
-                          } catch (e) {
-                            credentials = [];
-                          }
-                          
-                          const platforms = [
-                            { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-100 text-blue-800' },
-                            { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-100 text-green-800' },
-                            { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-100 text-purple-800' }
-                          ];
-                          
-                          const configuredPlatforms = platforms.filter(platform => {
-                            const cred = credentials.find(c => c.platform_type === platform.type);
-                            return cred && 
-                                   cred.username && 
-                                   cred.username.trim().length > 0 && 
-                                   cred.password && 
-                                   cred.password.trim().length > 0 && 
-                                   cred.is_active !== false; // Allow undefined as true
-                          });
-                          
-                          // Debug logging for troubleshooting
-                          if (client.email === 'demo@construcciones.com') {
-                            console.log('🔍 [Debug] Checking credentials for demo client:', {
-                              client_id: client.id,
-                              user_id: client.user_id,
-                              client_id_field: client.client_id,
-                              credentials_found: credentials.length,
-                              configured_platforms: configuredPlatforms.length,
-                              credentials_sample: credentials.map(c => ({ 
-                                platform: c.platform_type, 
-                                has_username: !!c.username,
-                                has_password: !!c.password,
-                                is_active: c.is_active 
-                              }))
-                            });
-                          }
-                          
-                          if (configuredPlatforms.length === 0) {
-                            return (
-                              <div className="flex items-center">
-                                <AlertCircle className="w-4 h-4 text-yellow-500 mr-1" />
-                                <span className="text-xs text-yellow-600">
-                                  Sin configurar ({credentials.length > 0 ? 'credenciales inactivas' : 'no encontradas'})
-                                </span>
-                              </div>
-                            );
-                          }
-                          
-                          return (
-                            <div className="flex flex-wrap gap-1">
-                              {configuredPlatforms.map(platform => (
-                                <span 
-                                  key={platform.type}
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${platform.color}`}
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  {platform.name}
-                                </span>
-                              ))}
-                              {configuredPlatforms.length < 3 && (
-                                <span className="text-xs text-gray-500">
-                                  +{3 - configuredPlatforms.length} pendiente(s)
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      <PlatformCredentialsStatus client={client} />
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
