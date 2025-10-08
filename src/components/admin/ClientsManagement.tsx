@@ -868,7 +868,7 @@ const ClientsManagement: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Almacenamiento</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Documentos</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Obralia</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Plataformas</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
                 </tr>
               </thead>
