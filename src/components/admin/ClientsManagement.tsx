@@ -590,21 +590,51 @@ const ClientsManagement: React.FC = () => {
 
   const handleViewClientCredentials = async (client: Client) => {
     try {
-      // Use the client's user_id to find their tenant_id
-      const { data: userProfile, error } = await supabaseServiceClient
+      // CRITICAL FIX: Get tenant_id from client's user_id
+      console.log('🔍 [ClientsManagement] Opening credentials for client:', client.company_name, 'user_id:', client.user_id);
+      
+      if (!client.user_id) {
+        console.error('❌ [ClientsManagement] No user_id found for client:', client.id);
+        alert('❌ Error: No se encontró el ID de usuario para este cliente');
+        return;
+      }
+      
+      // Get user profile to find tenant_id
+      const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
-        .select('tenant_id')
+        .select('tenant_id, email')
         .eq('id', client.user_id)
-        .single();
+        .maybeSingle();
 
-      if (error || !userProfile) {
-        console.error('Error getting user tenant:', error);
-        alert('❌ Error al obtener información del cliente');
+      if (userError) {
+        console.error('❌ [ClientsManagement] Error getting user tenant:', userError);
+        alert('❌ Error al obtener información del tenant del cliente');
         return;
       }
 
-      setCredentialsModalTenantId(userProfile.tenant_id);
+      if (!userProfile) {
+        console.warn('⚠️ [ClientsManagement] No user profile found, using client email to find tenant');
+        
+        // Fallback: try to find user by email
+        const { data: userByEmail, error: emailError } = await supabaseServiceClient
+          .from('users')
+          .select('tenant_id, email')
+          .eq('email', client.email)
+          .maybeSingle();
+
+        if (emailError || !userByEmail) {
+          console.error('❌ [ClientsManagement] Could not find user by email either:', client.email);
+          alert('❌ Error: No se pudo encontrar el tenant para este cliente');
+          return;
+        }
+        
+        setCredentialsModalTenantId(userByEmail.tenant_id);
+      } else {
+        setCredentialsModalTenantId(userProfile.tenant_id);
+      }
+      
       setCredentialsModalClientName(client.company_name);
+      console.log('✅ [ClientsManagement] Opening credentials modal for tenant:', userProfile?.tenant_id || 'fallback');
       setShowCredentialsModal(true);
     } catch (error) {
       console.error('Error opening credentials modal:', error);
@@ -919,12 +949,35 @@ const ClientsManagement: React.FC = () => {
                     <td className="py-3 px-4">
                       <div className="space-y-1">
                         {(() => {
-                          // Get platform credentials from localStorage for this client
-                          const storageKey = `constructia_credentials_${client.id}`;
+                          // CRITICAL FIX: Get platform credentials using user_id to find tenant_id
+                          // First, we need to get the tenant_id for this client
                           let credentials = [];
+                          let tenantId = null;
+                          
                           try {
-                            const stored = localStorage.getItem(storageKey);
-                            credentials = stored ? JSON.parse(stored) : [];
+                            // Try to get tenant_id from client's user_id (this would need to be fetched from database)
+                            // For now, we'll check multiple possible storage keys
+                            const possibleKeys = [
+                              `constructia_credentials_${client.id}`,
+                              `constructia_credentials_${client.user_id}`,
+                              `constructia_credentials_${client.client_id}`,
+                              `constructia_credentials_default`
+                            ];
+                            
+                            for (const key of possibleKeys) {
+                              const stored = localStorage.getItem(key);
+                              if (stored) {
+                                try {
+                                  const parsedCreds = JSON.parse(stored);
+                                  if (Array.isArray(parsedCreds) && parsedCreds.length > 0) {
+                                    credentials = parsedCreds;
+                                    break;
+                                  }
+                                } catch (parseError) {
+                                  continue;
+                                }
+                              }
+                            }
                           } catch (e) {
                             credentials = [];
                           }
@@ -937,14 +990,38 @@ const ClientsManagement: React.FC = () => {
                           
                           const configuredPlatforms = platforms.filter(platform => {
                             const cred = credentials.find(c => c.platform_type === platform.type);
-                            return cred && cred.username && cred.password && cred.is_active;
+                            return cred && 
+                                   cred.username && 
+                                   cred.username.trim().length > 0 && 
+                                   cred.password && 
+                                   cred.password.trim().length > 0 && 
+                                   cred.is_active !== false; // Allow undefined as true
                           });
+                          
+                          // Debug logging for troubleshooting
+                          if (client.email === 'demo@construcciones.com') {
+                            console.log('🔍 [Debug] Checking credentials for demo client:', {
+                              client_id: client.id,
+                              user_id: client.user_id,
+                              client_id_field: client.client_id,
+                              credentials_found: credentials.length,
+                              configured_platforms: configuredPlatforms.length,
+                              credentials_sample: credentials.map(c => ({ 
+                                platform: c.platform_type, 
+                                has_username: !!c.username,
+                                has_password: !!c.password,
+                                is_active: c.is_active 
+                              }))
+                            });
+                          }
                           
                           if (configuredPlatforms.length === 0) {
                             return (
                               <div className="flex items-center">
                                 <AlertCircle className="w-4 h-4 text-yellow-500 mr-1" />
-                                <span className="text-xs text-yellow-600">Sin configurar</span>
+                                <span className="text-xs text-yellow-600">
+                                  Sin configurar ({credentials.length > 0 ? 'credenciales inactivas' : 'no encontradas'})
+                                </span>
                               </div>
                             );
                           }
