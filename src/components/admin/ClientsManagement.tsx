@@ -338,7 +338,7 @@ function PlatformCredentialsStatus({ client }: { client: Client }) {
       // Try multiple possible storage keys to find credentials
       const possibleKeys = [
         `constructia_credentials_${client.id}`,
-        `constructia_credentials_${client.user_id}`,
+        `constructia_credentials_${(client as any).user_id || client.id}`,
         `constructia_credentials_${client.client_id}`,
         `constructia_credentials_default`
       ];
@@ -646,11 +646,15 @@ const ClientsManagement: React.FC = () => {
       if (client) {
         try {
           // Get tenant_id for this client
-          const { data: userData } = await supabaseServiceClient
+          const { data: userData, error: userError } = await supabaseServiceClient
             .from('users')
             .select('tenant_id')
             .eq('email', client.email)
-            .single();
+            .maybeSingle();
+          
+          if (userError) {
+            console.warn('⚠️ [ClientsManagement] Could not find user for audit logging:', userError);
+          }
           
           const tenantId = userData?.tenant_id || DEV_TENANT_ID;
           
@@ -696,7 +700,8 @@ const ClientsManagement: React.FC = () => {
       // CRITICAL FIX: Get tenant_id from client's user_id
       console.log('🔍 [ClientsManagement] Opening credentials for client:', client.company_name, 'user_id:', client.user_id);
       
-      if (!client.user_id) {
+      const clientUserId = (client as any).user_id;
+      if (!clientUserId) {
         console.error('❌ [ClientsManagement] No user_id found for client:', client.id);
         alert('❌ Error: No se encontró el ID de usuario para este cliente');
         return;
@@ -706,7 +711,7 @@ const ClientsManagement: React.FC = () => {
       const { data: userProfile, error: userError } = await supabaseServiceClient
         .from('users')
         .select('tenant_id, email')
-        .eq('id', client.user_id)
+        .eq('id', clientUserId)
         .maybeSingle();
 
       if (userError) {
