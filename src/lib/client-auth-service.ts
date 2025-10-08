@@ -287,7 +287,11 @@ export class ClientAuthService {
               company_name: registrationData.company_name,
               cif_nif: registrationData.cif_nif,
               platforms_configured: registrationData.cae_credentials.length,
-              marketing_consent: registrationData.accept_marketing
+              marketing_consent: registrationData.accept_marketing,
+              tenant_created: true,
+              user_profile_created: true,
+              client_record_created: true,
+              subscription_created: true
             },
             '127.0.0.1', // IP address - in production get from request
             navigator.userAgent,

@@ -248,7 +248,9 @@ export class WorkflowActions {
           entidad_id: entidadId,
           file_size: file.size,
           ai_confidence: extraction.confianza,
-          validation_result: extractionValidation
+          validation_result: extractionValidation,
+          workflow_step: 'upload_document',
+          tarea_created: !!tarea?.id
         },
         context.ip,
         navigator.userAgent,

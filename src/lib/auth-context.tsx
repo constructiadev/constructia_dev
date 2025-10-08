@@ -183,6 +183,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(adminUser);
         console.log('✅ [AuthContext] Admin signed in successfully:', adminUser.email);
         
+        // CRITICAL: Log admin login for global audit view
+        try {
+          await logAuditoria(
+            userProfile.tenant_id,
+            userProfile.id,
+            'admin.login',
+            'usuario',
+            userProfile.id,
+            {
+              email: userProfile.email,
+              role: userProfile.role,
+              login_method: 'password',
+              admin_access: true,
+              global_admin_view: true
+            },
+            '127.0.0.1',
+            navigator.userAgent,
+            'success'
+          );
+        } catch (auditError) {
+          console.warn('⚠️ [AuthContext] Admin login audit failed (non-critical):', auditError);
+        }
+        
       } else if (userProfile?.role && ['Cliente', 'ClienteDemo'].includes(userProfile.role)) {
         // Client authentication - ISOLATED ACCESS
         console.log('🔐 [AuthContext] Processing client authentication for tenant:', userProfile.tenant_id);
@@ -234,6 +257,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Set authenticated client
         setUser(authenticatedClient);
         console.log('✅ [AuthContext] Client signed in successfully:', authenticatedClient.email, 'Tenant:', authenticatedClient.tenant_id);
+        
+        // CRITICAL: Log client login for global audit view
+        try {
+          await logAuditoria(
+            userProfile.tenant_id,
+            userProfile.id,
+            'client.login',
+            'usuario',
+            userProfile.id,
+            {
+              email: userProfile.email,
+              role: userProfile.role,
+              company_name: authenticatedClient.company_name,
+              login_method: 'password',
+              client_access: true,
+              tenant_isolated: true
+            },
+            '127.0.0.1',
+            navigator.userAgent,
+            'success'
+          );
+        } catch (auditError) {
+          console.warn('⚠️ [AuthContext] Client login audit failed (non-critical):', auditError);
+        }
         
       } else {
         // No user profile found or invalid role - use ClientAuthService to handle authentication

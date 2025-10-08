@@ -762,24 +762,26 @@ export class ManualManagementService {
 
         console.log('✅ [AUDIT] Log de eliminación creado para administrador');
 
-        // Log audit entry for client (visible in their audit log)
+        // CRITICAL: Log audit entry for GLOBAL admin view (all tenants visible)
         await logAuditoria(
           documento.tenant_id,
-          documento.tenant_id, // Use tenant as user for client visibility
-          'DOCUMENT_VALIDATED_AND_REMOVED',
+          DEV_ADMIN_USER_ID, // Use admin user for global visibility
+          'DOCUMENT_VALIDATED_AND_REMOVED_CLIENT_NOTIFICATION',
           'documento',
           documento.id,
           {
             ...auditLogDetails,
             client_message: 'Su documento ha sido validado exitosamente y eliminado de nuestros servidores por seguridad',
-            data_retention_policy: 'Documento eliminado según política de retención de datos después de validación exitosa'
+            data_retention_policy: 'Documento eliminado según política de retención de datos después de validación exitosa',
+            global_admin_view: true,
+            client_tenant_id: documento.tenant_id
           },
           '127.0.0.1',
           'System',
           'success'
         );
 
-        console.log('✅ [AUDIT] Log de eliminación creado para cliente');
+        console.log('✅ [AUDIT] Log de eliminación creado para vista global de administrador');
 
         // 2. Create notification message for client
         const { error: messageError } = await supabaseServiceClient

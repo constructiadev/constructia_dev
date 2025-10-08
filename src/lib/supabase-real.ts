@@ -1129,6 +1129,9 @@ export const logAuditoria = async (
       compliance_level: 'GDPR_LOPD',
       data_classification: entidad ? 'personal_data' : 'system_data'
     };
+    
+    console.log(`📝 [AuditLog] Logging action for tenant ${tenantId}: ${accion} by user ${validUserId}`);
+    
     await supabaseServiceClient
       .from('auditoria')
       .insert({
@@ -1140,8 +1143,10 @@ export const logAuditoria = async (
         ip: ipAddress || '127.0.0.1',
         detalles: enhancedDetalles
       });
+      
+    console.log(`✅ [AuditLog] Successfully logged action: ${accion} for tenant ${tenantId}`);
   } catch (error) {
-    console.error('Error logging audit event:', error);
+    console.error(`❌ [AuditLog] Error logging audit event for tenant ${tenantId}:`, error);
   }
 };
 

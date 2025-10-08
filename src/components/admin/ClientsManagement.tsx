@@ -521,6 +521,9 @@ const ClientsManagement: React.FC = () => {
     }
 
     try {
+      // Get client info for audit logging
+      const client = clients.find(c => c.id === clientId);
+      
       // Update client status in database
       const { error } = await supabaseServiceClient
         .from('clients')
@@ -536,6 +539,41 @@ const ClientsManagement: React.FC = () => {
         return;
       }
 
+      // CRITICAL: Log audit event for global admin view
+      if (client) {
+        try {
+          // Get tenant_id for this client
+          const { data: userData } = await supabaseServiceClient
+            .from('users')
+            .select('tenant_id')
+            .eq('email', client.email)
+            .single();
+          
+          const tenantId = userData?.tenant_id || DEV_TENANT_ID;
+          
+          await logAuditoria(
+            tenantId,
+            user?.id || 'admin-user',
+            'admin.client_activated',
+            'cliente',
+            clientId,
+            {
+              company_name: client.company_name,
+              contact_name: client.contact_name,
+              email: client.email,
+              previous_status: client.subscription_status,
+              new_status: 'active',
+              admin_action: true,
+              global_admin_view: true
+            },
+            '127.0.0.1',
+            navigator.userAgent,
+            'success'
+          );
+        } catch (auditError) {
+          console.warn('⚠️ [Audit] Failed to log client activation:', auditError);
+        }
+      }
       // Update local state
       setClients(prev => prev.map(c => 
         c.id === clientId 

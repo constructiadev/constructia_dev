@@ -35,7 +35,27 @@ const AuditModule: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('📋 [AuditModule] Loading GLOBAL audit logs for admin view...');
       const data = await getAuditLogs();
+      
+      console.log(`✅ [AuditModule] Loaded ${data?.length || 0} audit logs from ALL tenants`);
+      
+      // Log tenant distribution for debugging
+      if (data && data.length > 0) {
+        const tenantCounts = new Map<string, number>();
+        data.forEach(log => {
+          const tenantId = log.tenant_id;
+          tenantCounts.set(tenantId, (tenantCounts.get(tenantId) || 0) + 1);
+        });
+        
+        console.log('📊 [AuditModule] Audit logs distribution:');
+        tenantCounts.forEach((count, tenantId) => {
+          const clientName = data.find(l => l.tenant_id === tenantId)?.clients?.company_name || 'Unknown';
+          console.log(`   🏢 ${clientName} (${tenantId.substring(0, 8)}): ${count} logs`);
+        });
+      }
+      
       setLogs(data || []);
       setFilteredLogs(data || []);
     } catch (err) {

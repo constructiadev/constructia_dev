@@ -217,6 +217,24 @@ export const getAuditLogs = async (
       return;
     }
 
+    // CRITICAL FIX: Get ALL audit logs from ALL tenants for admin view
+    console.log('📋 [AuditLogs] Loading GLOBAL audit logs for admin dashboard...');
+    
+    // Use service client to bypass RLS and get ALL audit logs
+    const { data, error } = await supabaseServiceClient
+      .from('auditoria')
+      .select(`
+        *,
+        users(email, role, tenant_id)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      console.warn('Error fetching audit logs:', error);
+      return [];
+    }
+    
     // Get all tenants to map tenant_id to company names
     const { data: tenants, error: tenantsError } = await supabaseServiceClient
       .from('tenants')
@@ -232,19 +250,8 @@ export const getAuditLogs = async (
       tenantNameMap.set(tenant.id, tenant.name);
     });
 
-    const { data, error } = await supabaseClient
-      .from('auditoria')
-      .select(`
-        *,
-        users(email, role)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    if (error) {
-      console.warn('Error fetching audit logs:', error);
-      return [];
-    }
+    console.log(`✅ [AuditLogs] Loaded ${data?.length || 0} audit logs from ALL tenants`);
+    console.log(`📊 [AuditLogs] Tenant mapping: ${tenantNameMap.size} tenants available`);
     
     // Transform audit logs to expected format
     const auditLogs = (data || []).map(log => ({
@@ -270,6 +277,19 @@ export const getAuditLogs = async (
         company_name: tenantNameMap.get(log.tenant_id) || `Tenant ${log.tenant_id?.substring(0, 8) || 'Unknown'}`
       }
     }));
+    
+    // Log summary for debugging
+    const tenantCounts = new Map<string, number>();
+    auditLogs.forEach(log => {
+      const tenantId = log.tenant_id;
+      tenantCounts.set(tenantId, (tenantCounts.get(tenantId) || 0) + 1);
+    });
+    
+    console.log('📊 [AuditLogs] Audit logs by tenant:');
+    tenantCounts.forEach((count, tenantId) => {
+      const tenantName = tenantNameMap.get(tenantId) || 'Unknown';
+      console.log(`   🏢 ${tenantName}: ${count} logs`);
+    });
     
     return auditLogs;
   } catch (error) {

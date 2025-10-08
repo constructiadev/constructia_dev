@@ -257,6 +257,34 @@ export default function MessagingModule() {
       console.log('✅ Messages inserted successfully:', insertedMessages?.length);
       console.log('📧 Messages sent to tenants:', messagesToInsert.map(m => ({ tenant_id: m.tenant_id, email: m.destinatarios[0] })));
 
+      // CRITICAL: Log audit event for EACH tenant that received a message (for global admin view)
+      for (const message of messagesToInsert) {
+        try {
+          await logAuditoria(
+            message.tenant_id,
+            user?.id || 'admin-user',
+            'admin.message_sent',
+            'mensaje',
+            'bulk-message',
+            {
+              message_type: messageForm.message_type,
+              priority: messageForm.priority,
+              subject: messageForm.subject,
+              recipient_email: message.destinatarios[0],
+              tenant_id: message.tenant_id,
+              global_admin_action: true
+            },
+            '127.0.0.1',
+            navigator.userAgent,
+            'success'
+          );
+        } catch (auditError) {
+          console.warn('⚠️ [Audit] Failed to log message send for tenant:', message.tenant_id, auditError);
+        }
+      }
+      
+      console.log('✅ [Audit] Message send events logged for all target tenants');
+
       // Recargar datos para reflejar los nuevos mensajes
       await loadClientsAndMessages();
 
