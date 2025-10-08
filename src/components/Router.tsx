@@ -10,6 +10,7 @@ import ClientLayout from './layout/ClientLayout';
 import AdminLogin from './auth/AdminLogin';
 import ClientLogin from './auth/ClientLogin';
 import ClientRegister from './auth/ClientRegister';
+import ClientCheckout from './auth/ClientCheckout';
 
 // Admin pages
 import AdminDashboard from './admin/Dashboard';
