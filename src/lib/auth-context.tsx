@@ -316,20 +316,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('❌ Error en el registro: No se pudo completar el proceso de registro');
       }
       
-      // IMPORTANT: Only set user after successful registration
-      console.log('✅ [AuthContext] Registration successful, setting authenticated client');
-      setUser(authenticatedClient);
-      console.log('✅ [AuthContext] Client registered and authenticated:', authenticatedClient.email);
+      // CRITICAL: DO NOT set user after registration - user must complete checkout first
+      console.log('✅ [AuthContext] Registration successful - CLIENT IN TRIAL STATUS');
+      console.log('🔒 [AuthContext] User NOT authenticated yet - must complete checkout first');
       
-      // CRITICAL: Force session revalidation to ensure auth state is consistent
-      console.log('🔄 [AuthContext] Revalidating session after registration...');
-      try {
-        await checkSession();
-      } catch (sessionError) {
-        console.warn('⚠️ [AuthContext] Session revalidation failed (non-critical):', sessionError);
-        // No lanzar error, la sesión ya está establecida
-      }
-      console.log('✅ [AuthContext] Session revalidated successfully');
+      // Return the client data for checkout process but don't set as authenticated
+      return authenticatedClient;
       
     } catch (error) {
       console.error('Error registering client:', error);

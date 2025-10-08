@@ -361,7 +361,8 @@ export class ClientAuthService {
           
           if (createdAuthUser) {
             console.log('🔄 [ClientAuth] Rollback: Eliminando auth user...');
-            await supabase.auth.admin.deleteUser(createdAuthUser.id);
+            // Note: Cannot delete auth user without admin API access
+            console.log('⚠️ [ClientAuth] Auth user cleanup skipped - requires admin API');
           }
           
           if (createdTenant) {

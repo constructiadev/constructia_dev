@@ -26,7 +26,15 @@ export default function ClientLogin() {
         try {
           // Try to create demo user if it doesn't exist
           await signIn(email, password);
-          navigate('/client/dashboard', { replace: true });
+          
+          // CRITICAL: Check if user needs to complete checkout
+          const { user: currentUser } = useAuth();
+          if (currentUser?.subscription_status === 'trial') {
+            console.log('🔒 [ClientLogin] Demo user in trial - redirecting to checkout');
+            navigate('/client-checkout', { replace: true });
+          } else {
+            navigate('/client/dashboard', { replace: true });
+          }
           return;
         } catch (demoError: any) {
           if (demoError?.message?.includes('Invalid login credentials')) {
@@ -60,7 +68,24 @@ export default function ClientLogin() {
               
               // Now try to sign in again
               await signIn(email, password);
-              navigate('/client/dashboard', { replace: true });
+              
+              // CRITICAL: Demo user starts in trial - must complete checkout
+              console.log('🔒 [ClientLogin] Demo user created in trial - redirecting to checkout');
+              navigate('/client-checkout', { 
+                replace: true,
+                state: {
+                  fromRegistration: true,
+                  clientData: {
+                    name: 'Juan García',
+                    email: 'demo@construcciones.com',
+                    company_name: 'Construcciones García S.L.',
+                    cif_nif: 'B12345678',
+                    address: 'Calle Construcción 123',
+                    postal_code: '28001',
+                    city: 'Madrid'
+                  }
+                }
+              });
               return;
             } catch (createError: any) {
               console.error('❌ [ClientLogin] Failed to create demo user:', createError);
@@ -74,6 +99,9 @@ export default function ClientLogin() {
       }
       
       await signIn(email, password);
+      
+      // CRITICAL: Check subscription status after login
+      // ProtectedRoute will handle redirection to checkout if needed
       navigate('/client/dashboard', { replace: true });
     } catch (err: any) {
       console.error('Client login error:', err);

@@ -56,9 +56,9 @@ export default function ProtectedRoute({
 
     // CRITICAL: Check if client has completed checkout (not in trial status)
     if (user.subscription_status === 'trial') {
-      console.log('🔐 [ProtectedRoute] CLIENT IN TRIAL - redirecting to subscription with checkout');
-      // Redirect to subscription page with checkout modal
-      return <Navigate to="/client/subscription?showCheckout=true" replace />;
+      console.log('🔐 [ProtectedRoute] CLIENT IN TRIAL - redirecting to checkout');
+      // Redirect to dedicated checkout page
+      return <Navigate to="/client-checkout" replace />;
     }
   }
 

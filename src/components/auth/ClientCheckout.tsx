@@ -134,7 +134,7 @@ export default function ClientCheckout() {
 
     if (!fromRegistration || !clientData) {
       console.log('❌ [ClientCheckout] Access denied - not from registration');
-      navigate('/client-register', { replace: true });
+      navigate('/landing', { replace: true });
       return;
     }
 
@@ -149,10 +149,10 @@ export default function ClientCheckout() {
       setSEPAFormData(prev => ({
         ...prev,
         deudor_nombre: clientData.name || '',
-        deudor_direccion: '', // Se llenará desde el registro
-        deudor_codigo_postal: '',
-        deudor_ciudad: '',
-        deudor_identificacion: '' // CIF del registro
+        deudor_direccion: clientData.address || '',
+        deudor_codigo_postal: clientData.postal_code || '',
+        deudor_ciudad: clientData.city || '',
+        deudor_identificacion: clientData.cif_nif || ''
       }));
     }
 
@@ -249,12 +249,10 @@ export default function ClientCheckout() {
   };
 
   const handleSkipCheckout = () => {
-    // CRITICAL: No permitir saltar checkout si viene del registro
-    if (confirm('⚠️ El checkout es obligatorio para activar tu cuenta. ¿Estás seguro de que quieres volver al registro?')) {
-      navigate('/client-register', { replace: true });
-    } else {
-      // Si no confirma, mantenerlo en checkout
-      console.log('🔒 [ClientCheckout] User chose to stay in checkout');
+    // CRITICAL: Checkout is mandatory - redirect to landing if cancelled
+    if (confirm('⚠️ El checkout es obligatorio para activar tu cuenta. Si cancelas, perderás el registro. ¿Estás seguro?')) {
+      console.log('🔒 [ClientCheckout] User cancelled checkout - redirecting to landing');
+      navigate('/landing', { replace: true });
     }
   };
 

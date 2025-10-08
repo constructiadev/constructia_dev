@@ -260,18 +260,21 @@ export default function ClientRegister() {
       };
 
       console.log('📋 [ClientRegister] Registration data prepared, calling service...');
-      const authenticatedClient = await ClientAuthService.registerNewClient(registrationData);
+      const registeredClient = await registerClient(registrationData);
       
-      if (!authenticatedClient) {
+      if (!registeredClient) {
         throw new Error('❌ Error en el registro: No se pudo completar el proceso. Por favor, inténtalo de nuevo.');
       }
 
-      console.log('✅ [ClientRegister] Registration successful - TRIAL STATUS, navigating to mandatory checkout...');
+      console.log('✅ [ClientRegister] Registration successful - navigating to mandatory checkout...');
       
-      // CRITICAL: Navigate to subscription page with checkout modal
-      // Client MUST complete checkout before accessing any client features
-      navigate('/client/subscription?showCheckout=true', { 
-        replace: true
+      // CRITICAL: Navigate to dedicated checkout page with client data
+      navigate('/client-checkout', { 
+        replace: true,
+        state: {
+          fromRegistration: true,
+          clientData: registeredClient
+        }
       });
 
     } catch (err: any) {
