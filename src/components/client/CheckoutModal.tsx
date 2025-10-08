@@ -260,11 +260,69 @@ export default function CheckoutModal({
     }
   };
 
+  const handlePayPalPayment = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      setProcessing(true);
+      
+      // Simulate PayPal payment process
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      // Simulate success (95% success rate)
+      if (Math.random() > 0.05) {
+        alert('✅ Pago con PayPal procesado correctamente. Tu suscripción se ha actualizado.');
+        onUpgradeSuccess();
+      } else {
+        throw new Error('Error en el procesamiento del pago con PayPal');
+      }
+    } catch (error) {
+      console.error('Error processing PayPal payment:', error);
+      alert('❌ Error al procesar el pago con PayPal. Por favor, inténtalo de nuevo.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBizumPayment = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      setProcessing(true);
+      
+      // Simulate Bizum payment process
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Simulate success (98% success rate for instant payments)
+      if (Math.random() > 0.02) {
+        alert('✅ Pago con Bizum procesado instantáneamente. Tu suscripción se ha actualizado.');
+        onUpgradeSuccess();
+      } else {
+        throw new Error('Error en el procesamiento del pago con Bizum');
+      }
+    } catch (error) {
+      console.error('Error processing Bizum payment:', error);
+      alert('❌ Error al procesar el pago con Bizum. Por favor, inténtalo de nuevo.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handlePayment = async () => {
-    if (selectedPaymentMethod === 'sepa') {
-      await handleSEPAMandateUpdate();
-    } else {
-      await handleStripePayment();
+    switch (selectedPaymentMethod) {
+      case 'sepa':
+        await handleSEPAMandateUpdate();
+        break;
+      case 'paypal':
+        await handlePayPalPayment();
+        break;
+      case 'bizum':
+        await handleBizumPayment();
+        break;
+      case 'stripe':
+      default:
+        await handleStripePayment();
+        break;
     }
   };
 
@@ -466,6 +524,62 @@ export default function CheckoutModal({
                           ? `Mandato existente: ${existingSEPAMandate.iban.replace(/(.{4})/g, '$1 ').trim().slice(-8)}` 
                           : 'Nuevo mandato SEPA requerido'
                         }
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PayPal Payment */}
+                  {paymentGateways.some(g => g.type === 'paypal') && (
+                    <div
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedPaymentMethod === 'paypal' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('paypal')}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                          <CreditCard className="w-6 h-6 text-blue-600 mr-3" />
+                          <div>
+                            <h4 className="font-semibold text-gray-900">PayPal</h4>
+                            <p className="text-sm text-gray-600">Pago seguro con tu cuenta PayPal</p>
+                          </div>
+                        </div>
+                        {selectedPaymentMethod === 'paypal' && (
+                          <CheckCircle className="w-5 h-5 text-blue-500" />
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        PayPal • Pago inmediato • Protección del comprador
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bizum Payment */}
+                  {paymentGateways.some(g => g.type === 'bizum') && (
+                    <div
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedPaymentMethod === 'bizum' 
+                          ? 'border-orange-500 bg-orange-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('bizum')}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                          <Phone className="w-6 h-6 text-orange-600 mr-3" />
+                          <div>
+                            <h4 className="font-semibold text-gray-900">Bizum</h4>
+                            <p className="text-sm text-gray-600">Pago instantáneo con tu móvil</p>
+                          </div>
+                        </div>
+                        {selectedPaymentMethod === 'bizum' && (
+                          <CheckCircle className="w-5 h-5 text-orange-500" />
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Bizum • Pago instantáneo • Solo bancos españoles
                       </div>
                     </div>
                   )}

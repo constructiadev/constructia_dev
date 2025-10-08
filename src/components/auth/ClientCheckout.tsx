@@ -232,7 +232,12 @@ export default function ClientCheckout() {
         await checkSession();
         
         // Show success message
-        alert(`✅ ¡Pago completado! Tu plan ${selectedPlan.name} está activo. Bienvenido a ConstructIA.`);
+        const paymentMethodText = selectedPaymentMethod === 'stripe' ? 'tarjeta de crédito' :
+                                 selectedPaymentMethod === 'paypal' ? 'PayPal' :
+                                 selectedPaymentMethod === 'bizum' ? 'Bizum' :
+                                 selectedPaymentMethod === 'sepa' ? 'SEPA' : 'método seleccionado';
+        
+        alert(`✅ ¡Pago con ${paymentMethodText} completado! Tu plan ${selectedPlan.name} está activo. Bienvenido a ConstructIA.`);
         
         // CRITICAL: Navigate to client dashboard after successful payment
         navigate('/client/dashboard', { replace: true });
@@ -664,6 +669,31 @@ export default function ClientCheckout() {
                 </>
               ) : (
                 <>
+                  {/* PayPal Payment */}
+                  <div
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      selectedPaymentMethod === 'paypal' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedPaymentMethod('paypal')}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <Globe className="w-6 h-6 text-blue-600 mr-3" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900">PayPal</h4>
+                          <p className="text-sm text-gray-600">Pago seguro con tu cuenta PayPal</p>
+                        </div>
+                      </div>
+                      {selectedPaymentMethod === 'paypal' && (
+                        <CheckCircle className="w-5 h-5 text-blue-500" />
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      PayPal • Pago inmediato • Protección del comprador
+                    </div>
+                  </div>
                   <Lock className="w-5 h-5 mr-2" />
                   {selectedPaymentMethod === 'sepa' 
                     ? 'Crear Mandato SEPA'
@@ -674,6 +704,31 @@ export default function ClientCheckout() {
             </button>
           </div>
 
+                  {/* Bizum Payment */}
+                  <div
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      selectedPaymentMethod === 'bizum' 
+                        ? 'border-orange-500 bg-orange-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedPaymentMethod('bizum')}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <Smartphone className="w-6 h-6 text-orange-600 mr-3" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Bizum</h4>
+                          <p className="text-sm text-gray-600">Pago instantáneo con tu móvil</p>
+                        </div>
+                      </div>
+                      {selectedPaymentMethod === 'bizum' && (
+                        <CheckCircle className="w-5 h-5 text-orange-500" />
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Bizum • Pago instantáneo • Solo bancos españoles
+                    </div>
+                  </div>
           {/* Security Notice */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center">
