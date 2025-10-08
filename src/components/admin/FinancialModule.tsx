@@ -47,6 +47,7 @@ import {
 import { supabaseServiceClient } from '../../lib/supabase-real';
 import { geminiAI } from '../../lib/gemini';
 import type { PaymentGateway } from '../../types';
+import PaymentGatewayManager from './PaymentGatewayManager';
 
 interface FinancialKPI {
   id: string;
@@ -480,6 +481,7 @@ const FinancialModule: React.FC = () => {
   const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [realTimeStats, setRealTimeStats] = useState<any>({});
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     loadFinancialData();
@@ -885,383 +887,435 @@ const FinancialModule: React.FC = () => {
         </div>
       </div>
 
-      {/* KPIs Financieros - 10 tarjetas en 2 filas */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div key={kpi.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-lg ${kpi.color}`}>
-                  <Icon className="w-6 h-6 text-white" />
+      {/* Navigation Tabs */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'overview' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 inline mr-2" />
+          Resumen
+        </button>
+        <button
+          onClick={() => setActiveTab('receipts')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'receipts' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <FileText className="w-5 h-5 inline mr-2" />
+          Recibos
+        </button>
+        <button
+          onClick={() => setActiveTab('gateways')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'gateways' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <CreditCard className="w-5 h-5 inline mr-2" />
+          Comisiones
+        </button>
+        <button
+          onClick={() => setActiveTab('payment-config')}
+          className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'payment-config' ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Settings className="w-5 h-5 inline mr-2" />
+          Configuración
+        </button>
+      </div>
+
+      {/* Tab: Overview */}
+      {activeTab === 'overview' && (
+        <>
+          {/* KPIs Financieros - 10 tarjetas en 2 filas */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+            {kpis.map((kpi) => {
+              const Icon = kpi.icon;
+              return (
+                <div key={kpi.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 rounded-lg ${kpi.color}`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {getTrendIcon(kpi.trend)}
+                      <span className={`text-sm font-medium ${
+                        kpi.change > 0 ? 'text-green-600' : kpi.change < 0 ? 'text-red-600' : 'text-gray-600'
+                      }`}>
+                        {kpi.change > 0 ? '+' : ''}{kpi.change}%
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-600 mb-1">{kpi.title}</h3>
+                    <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-1">
-                  {getTrendIcon(kpi.trend)}
-                  <span className={`text-sm font-medium ${
-                    kpi.change > 0 ? 'text-green-600' : kpi.change < 0 ? 'text-red-600' : 'text-gray-600'
-                  }`}>
-                    {kpi.change > 0 ? '+' : ''}{kpi.change}%
-                  </span>
-                </div>
+              );
+            })}
+          </div>
+
+          {/* Insights de IA */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+              <div className="flex items-center mb-3">
+                <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                <h3 className="font-semibold text-green-800">Crecimiento Acelerado de Clientes</h3>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-600 mb-1">{kpi.title}</h3>
-                <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+              <p className="text-sm text-green-700">
+                Se observa un crecimiento del 23% en nuevos clientes este mes.
+              </p>
+              <div className="mt-3 text-xs text-green-600">
+                Confianza: 87%
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Comisiones por Pasarela de Pago */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Comisiones por Pasarela de Pago</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {commissionStats.map((stat) => {
-            const Icon = getGatewayIcon(stat.gateway_type);
-            const color = getGatewayColor(stat.gateway_type);
-            
-            return (
-              <div key={stat.gateway_id} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className={`w-12 h-12 ${color} rounded-lg flex items-center justify-center mr-3 relative overflow-hidden`}>
-                      {gateways.find(g => g.id === stat.gateway_id)?.logo_base64 ? (
-                        <img 
-                          src={gateways.find(g => g.id === stat.gateway_id)?.logo_base64} 
-                          alt={stat.gateway_name}
-                          className="w-full h-full object-contain p-1"
-                        />
-                      ) : (
-                        <Icon className="h-6 w-6 text-white" />
-                      )}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+              <div className="flex items-center mb-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
+                <h3 className="font-semibold text-yellow-800">Optimizar Procesamiento de Documentos</h3>
+              </div>
+              <p className="text-sm text-yellow-700">
+                La precisión de IA está en 94.2%. Recomiendo ajustar los parámetros del modelo para alcanzar el 97% objetivo.
+              </p>
+              <div className="mt-3 text-xs text-yellow-600">
+                Confianza: 92%
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+              <div className="flex items-center mb-3">
+                <TrendingUp className="w-5 h-5 text-blue-600 mr-2" />
+                <h3 className="font-semibold text-blue-800">Uso Elevado de Almacenamiento</h3>
+              </div>
+              <p className="text-sm text-blue-700">
+                Varios clientes están cerca del límite de almacenamiento. Considerar ofertas de upgrade automático.
+              </p>
+              <div className="mt-3 text-xs text-blue-600">
+                Confianza: 95%
+              </div>
+            </div>
+          </div>
+
+          {/* Gráficos Financieros */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Evolución de Ingresos */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Evolución de Ingresos</h3>
+              <div className="h-64 relative">
+                <svg className="w-full h-full" viewBox="0 0 400 200">
+                  <defs>
+                    <linearGradient id="revenueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
+                    </linearGradient>
+                  </defs>
+                  
+                  <g stroke="#f3f4f6" strokeWidth="1">
+                    {[0, 1, 2, 3, 4].map(i => (
+                      <line key={i} x1="0" y1={i * 40} x2="400" y2={i * 40} />
+                    ))}
+                  </g>
+                  
+                  <path
+                    d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60 L 380 200 L 20 200 Z"
+                    fill="url(#revenueGradient)"
+                  />
+                  <path
+                    d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60"
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="3"
+                  />
+                  
+                  {[
+                    { x: 20, y: 180 }, { x: 80, y: 160 }, { x: 140, y: 140 },
+                    { x: 200, y: 120 }, { x: 260, y: 100 }, { x: 320, y: 80 }, { x: 380, y: 60 }
+                  ].map((point, index) => (
+                    <circle
+                      key={index}
+                      cx={point.x}
+                      cy={point.y}
+                      r="4"
+                      fill="#10b981"
+                      className="hover:r-6 transition-all cursor-pointer"
+                    />
+                  ))}
+                </svg>
+              </div>
+            </div>
+
+            {/* Ingresos por Mes - Barras */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Ingresos Mensuales</h3>
+              <div className="h-64 flex items-end justify-between space-x-2">
+                {[
+                  { value: 45000, color: 'bg-blue-400' },
+                  { value: 52000, color: 'bg-blue-500' },
+                  { value: 68000, color: 'bg-blue-600' },
+                  { value: 55000, color: 'bg-blue-500' },
+                  { value: 78000, color: 'bg-blue-700' },
+                  { value: 82000, color: 'bg-blue-800' },
+                  { value: 95000, color: 'bg-blue-900' }
+                ].map((bar, index) => {
+                  const maxValue = 95000;
+                  const height = (bar.value / maxValue) * 100;
+                  
+                  return (
+                    <div key={index} className="flex-1 flex flex-col items-center">
+                      <div 
+                        className={`w-full ${bar.color} rounded-t transition-all duration-500`}
+                        style={{ height: `${height}%` }}
+                      ></div>
+                      <span className="text-xs text-gray-500 mt-2">€{(bar.value / 1000).toFixed(0)}K</span>
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{stat.gateway_name}</h4>
-                      <p className="text-xs text-gray-500">{stat.gateway_type.toUpperCase()}</p>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Distribución de Métodos de Pago */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Métodos de Pago</h3>
+              <div className="flex items-center justify-center mb-6">
+                <div className="relative w-40 h-40">
+                  <div className="absolute inset-0 rounded-full" style={{
+                    background: `conic-gradient(
+                      #10b981 0deg 180deg,
+                      #3b82f6 180deg 270deg,
+                      #8b5cf6 270deg 315deg,
+                      #f59e0b 315deg 360deg
+                    )`
+                  }}></div>
+                  <div className="absolute inset-6 bg-white rounded-full flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-gray-900">100%</div>
+                      <div className="text-xs text-gray-500">Pagos</div>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const gateway = gateways.find(g => g.id === stat.gateway_id);
-                      if (gateway) handleConfigureCommissions(gateway);
-                    }}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 mb-1">
-                      €{stat.total_commissions.toFixed(0)}
-                    </div>
-                    <div className="text-xs text-gray-600">Total Acumulado</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600 mb-1">
-                      €{(stat.total_commissions * 0.3).toFixed(0)}
-                    </div>
-                    <div className="text-xs text-gray-600">Este Mes</div>
-                  </div>
-                </div>
-                
-                <div className="text-center mb-4 p-3 bg-green-50 rounded-lg">
-                  <div className="text-3xl font-bold text-green-600 mb-1">
-                    {stat.avg_commission_rate.toFixed(2)}%
-                  </div>
-                  <div className="text-sm text-gray-600">Tasa Promedio</div>
-                </div>
-                
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Período actual:</span>
-                    <span className="font-medium text-purple-600">
-                      {(() => {
-                        const today = new Date().toISOString().split('T')[0];
-                        const gateway = gateways.find(g => g.id === stat.gateway_id);
-                        const activePeriod = gateway?.commission_periods?.find((p: any) => 
-                          p.start_date <= today && p.end_date >= today
-                        );
-                        return activePeriod 
-                          ? `${activePeriod.percentage}% + €${activePeriod.fixed}`
-                          : `${stat.current_percentage}% + €${stat.current_fixed}`;
-                      })()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Volumen:</span>
-                    <span className="font-medium text-gray-900">€{stat.total_volume.toFixed(0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Transacciones:</span>
-                    <span className="font-medium text-gray-900">{stat.transaction_count}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Períodos config.:</span>
-                    <span className="font-medium text-gray-900">
-                      {gateways.find(g => g.id === stat.gateway_id)?.commission_periods?.length || 1}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="mt-4 pt-3 border-t border-gray-200">
-                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    stat.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {stat.status === 'active' ? 'Activa' : 'Inactiva'}
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                    <span className="text-sm text-gray-700">Stripe</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">50%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                    <span className="text-sm text-gray-700">SEPA</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">25%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
+                    <span className="text-sm text-gray-700">PayPal</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">15%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
+                    <span className="text-sm text-gray-700">Bizum</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">10%</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      {/* Insights de IA */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-          <div className="flex items-center mb-3">
-            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-            <h3 className="font-semibold text-green-800">Crecimiento Acelerado de Clientes</h3>
+          {/* Tabla de Transacciones Recientes */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Transacciones Recientes</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {[
+                    { cliente: 'Construcciones García S.L.', plan: 'Professional', metodo: 'Stripe', importe: 149, comision: 2.39, estado: 'Completado', fecha: '2025-01-29' },
+                    { cliente: 'Reformas López', plan: 'Basic', metodo: 'SEPA', importe: 59, comision: 0.55, estado: 'Completado', fecha: '2025-01-28' },
+                    { cliente: 'Edificaciones Martín', plan: 'Enterprise', metodo: 'Stripe', importe: 299, comision: 4.78, estado: 'Pendiente', fecha: '2025-01-27' },
+                    { cliente: 'Constructora ABC', plan: 'Professional', metodo: 'PayPal', importe: 149, comision: 4.32, estado: 'Completado', fecha: '2025-01-26' },
+                    { cliente: 'Obras Públicas SL', plan: 'Custom', metodo: 'SEPA', importe: 450, comision: 2.25, estado: 'Completado', fecha: '2025-01-25' }
+                  ].map((transaction, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {transaction.cliente}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          transaction.plan === 'Enterprise' ? 'bg-purple-100 text-purple-800' :
+                          transaction.plan === 'Professional' ? 'bg-blue-100 text-blue-800' :
+                          transaction.plan === 'Custom' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {transaction.plan}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.metodo}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        €{transaction.importe}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                        €{transaction.comision}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          transaction.estado === 'Completado' ? 'bg-green-100 text-green-800' :
+                          transaction.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {transaction.estado}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(transaction.fecha).toLocaleDateString('es-ES')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <p className="text-sm text-green-700">
-            Se observa un crecimiento del 23% en nuevos clientes este mes.
-          </p>
-          <div className="mt-3 text-xs text-green-600">
-            Confianza: 87%
-          </div>
-        </div>
+        </>
+      )}
 
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-          <div className="flex items-center mb-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
-            <h3 className="font-semibold text-yellow-800">Optimizar Procesamiento de Documentos</h3>
-          </div>
-          <p className="text-sm text-yellow-700">
-            La precisión de IA está en 94.2%. Recomiendo ajustar los parámetros del modelo para alcanzar el 97% objetivo.
-          </p>
-          <div className="mt-3 text-xs text-yellow-600">
-            Confianza: 92%
-          </div>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <div className="flex items-center mb-3">
-            <TrendingUp className="w-5 h-5 text-blue-600 mr-2" />
-            <h3 className="font-semibold text-blue-800">Uso Elevado de Almacenamiento</h3>
-          </div>
-          <p className="text-sm text-blue-700">
-            Varios clientes están cerca del límite de almacenamiento. Considerar ofertas de upgrade automático.
-          </p>
-          <div className="mt-3 text-xs text-blue-600">
-            Confianza: 95%
-          </div>
-        </div>
-      </div>
-
-      {/* Gráficos Financieros */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Evolución de Ingresos */}
+      {/* Tab: Comisiones por Pasarela de Pago */}
+      {activeTab === 'gateways' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Evolución de Ingresos</h3>
-          <div className="h-64 relative">
-            <svg className="w-full h-full" viewBox="0 0 400 200">
-              <defs>
-                <linearGradient id="revenueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
-                </linearGradient>
-              </defs>
-              
-              <g stroke="#f3f4f6" strokeWidth="1">
-                {[0, 1, 2, 3, 4].map(i => (
-                  <line key={i} x1="0" y1={i * 40} x2="400" y2={i * 40} />
-                ))}
-              </g>
-              
-              <path
-                d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60 L 380 200 L 20 200 Z"
-                fill="url(#revenueGradient)"
-              />
-              <path
-                d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60"
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="3"
-              />
-              
-              {[
-                { x: 20, y: 180 }, { x: 80, y: 160 }, { x: 140, y: 140 },
-                { x: 200, y: 120 }, { x: 260, y: 100 }, { x: 320, y: 80 }, { x: 380, y: 60 }
-              ].map((point, index) => (
-                <circle
-                  key={index}
-                  cx={point.x}
-                  cy={point.y}
-                  r="4"
-                  fill="#10b981"
-                  className="hover:r-6 transition-all cursor-pointer"
-                />
-              ))}
-            </svg>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Comisiones por Pasarela de Pago</h3>
           </div>
-        </div>
-
-        {/* Ingresos por Mes - Barras */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Ingresos Mensuales</h3>
-          <div className="h-64 flex items-end justify-between space-x-2">
-            {[
-              { value: 45000, color: 'bg-blue-400' },
-              { value: 52000, color: 'bg-blue-500' },
-              { value: 68000, color: 'bg-blue-600' },
-              { value: 55000, color: 'bg-blue-500' },
-              { value: 78000, color: 'bg-blue-700' },
-              { value: 82000, color: 'bg-blue-800' },
-              { value: 95000, color: 'bg-blue-900' }
-            ].map((bar, index) => {
-              const maxValue = 95000;
-              const height = (bar.value / maxValue) * 100;
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {commissionStats.map((stat) => {
+              const Icon = getGatewayIcon(stat.gateway_type);
+              const color = getGatewayColor(stat.gateway_type);
               
               return (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <div 
-                    className={`w-full ${bar.color} rounded-t transition-all duration-500`}
-                    style={{ height: `${height}%` }}
-                  ></div>
-                  <span className="text-xs text-gray-500 mt-2">€{(bar.value / 1000).toFixed(0)}K</span>
+                <div key={stat.gateway_id} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className={`w-12 h-12 ${color} rounded-lg flex items-center justify-center mr-3 relative overflow-hidden`}>
+                        {gateways.find(g => g.id === stat.gateway_id)?.logo_base64 ? (
+                          <img 
+                            src={gateways.find(g => g.id === stat.gateway_id)?.logo_base64} 
+                            alt={stat.gateway_name}
+                            className="w-full h-full object-contain p-1"
+                          />
+                        ) : (
+                          <Icon className="h-6 w-6 text-white" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{stat.gateway_name}</h4>
+                        <p className="text-xs text-gray-500">{stat.gateway_type.toUpperCase()}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const gateway = gateways.find(g => g.id === stat.gateway_id);
+                        if (gateway) handleConfigureCommissions(gateway);
+                      }}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600 mb-1">
+                        €{stat.total_commissions.toFixed(0)}
+                      </div>
+                      <div className="text-xs text-gray-600">Total Acumulado</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600 mb-1">
+                        €{(stat.total_commissions * 0.3).toFixed(0)}
+                      </div>
+                      <div className="text-xs text-gray-600">Este Mes</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center mb-4 p-3 bg-green-50 rounded-lg">
+                    <div className="text-3xl font-bold text-green-600 mb-1">
+                      {stat.avg_commission_rate.toFixed(2)}%
+                    </div>
+                    <div className="text-sm text-gray-600">Tasa Promedio</div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Período actual:</span>
+                      <span className="font-medium text-purple-600">
+                        {(() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          const gateway = gateways.find(g => g.id === stat.gateway_id);
+                          const activePeriod = gateway?.commission_periods?.find((p: any) => 
+                            p.start_date <= today && p.end_date >= today
+                          );
+                          return activePeriod 
+                            ? `${activePeriod.percentage}% + €${activePeriod.fixed}`
+                            : `${stat.current_percentage}% + €${stat.current_fixed}`;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Volumen:</span>
+                      <span className="font-medium text-gray-900">€{stat.total_volume.toFixed(0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Transacciones:</span>
+                      <span className="font-medium text-gray-900">{stat.transaction_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Períodos config.:</span>
+                      <span className="font-medium text-gray-900">
+                        {gateways.find(g => g.id === stat.gateway_id)?.commission_periods?.length || 1}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-3 border-t border-gray-200">
+                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      stat.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {stat.status === 'active' ? 'Activa' : 'Inactiva'}
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
+      )}
 
-        {/* Distribución de Métodos de Pago */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Métodos de Pago</h3>
-          <div className="flex items-center justify-center mb-6">
-            <div className="relative w-40 h-40">
-              <div className="absolute inset-0 rounded-full" style={{
-                background: `conic-gradient(
-                  #10b981 0deg 180deg,
-                  #3b82f6 180deg 270deg,
-                  #8b5cf6 270deg 315deg,
-                  #f59e0b 315deg 360deg
-                )`
-              }}></div>
-              <div className="absolute inset-6 bg-white rounded-full flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-gray-900">100%</div>
-                  <div className="text-xs text-gray-500">Pagos</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-700">Stripe</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">50%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-700">SEPA</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">25%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-700">PayPal</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">15%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-700">Bizum</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">10%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla de Transacciones Recientes */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Transacciones Recientes</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {[
-                { cliente: 'Construcciones García S.L.', plan: 'Professional', metodo: 'Stripe', importe: 149, comision: 2.39, estado: 'Completado', fecha: '2025-01-29' },
-                { cliente: 'Reformas López', plan: 'Basic', metodo: 'SEPA', importe: 59, comision: 0.55, estado: 'Completado', fecha: '2025-01-28' },
-                { cliente: 'Edificaciones Martín', plan: 'Enterprise', metodo: 'Stripe', importe: 299, comision: 4.78, estado: 'Pendiente', fecha: '2025-01-27' },
-                { cliente: 'Constructora ABC', plan: 'Professional', metodo: 'PayPal', importe: 149, comision: 4.32, estado: 'Completado', fecha: '2025-01-26' },
-                { cliente: 'Obras Públicas SL', plan: 'Custom', metodo: 'SEPA', importe: 450, comision: 2.25, estado: 'Completado', fecha: '2025-01-25' }
-              ].map((transaction, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {transaction.cliente}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      transaction.plan === 'Enterprise' ? 'bg-purple-100 text-purple-800' :
-                      transaction.plan === 'Professional' ? 'bg-blue-100 text-blue-800' :
-                      transaction.plan === 'Custom' ? 'bg-orange-100 text-orange-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {transaction.plan}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {transaction.metodo}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    €{transaction.importe}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                    €{transaction.comision}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      transaction.estado === 'Completado' ? 'bg-green-100 text-green-800' :
-                      transaction.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {transaction.estado}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(transaction.fecha).toLocaleDateString('es-ES')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Tab: Configuración de Pagos */}
+      {activeTab === 'payment-config' && (
+        <PaymentGatewayManager />
+      )}
 
       {/* Acciones Rápidas */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -1327,6 +1381,35 @@ const FinancialModule: React.FC = () => {
         gateway={selectedGateway}
         onSave={handleSaveCommission}
       />
+
+      {/* Información adicional */}
+      <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+        <div className="flex items-start space-x-3">
+          <DollarSign className="w-6 h-6 text-green-600 mt-1" />
+          <div>
+            <h3 className="font-bold text-green-800 mb-2">💰 Módulo Financiero Integral</h3>
+            <p className="text-green-700 mb-3">
+              Sistema completo de gestión financiera con análisis de ingresos, comisiones y métodos de pago.
+            </p>
+            <div className="text-sm text-green-600 space-y-1">
+              <div><strong>Características principales:</strong></div>
+              <div>• 📊 Dashboard ejecutivo con KPIs financieros en tiempo real</div>
+              <div>• 🧾 Gestión completa de recibos y facturación</div>
+              <div>• 💳 Análisis detallado de comisiones por pasarela</div>
+              <div>• ⚙️ Configuración avanzada de pasarelas de pago</div>
+              <div>• 🔧 Gestión de Stripe, PayPal, SEPA y Bizum</div>
+              <div>• 📈 Métricas de rendimiento y rentabilidad</div>
+              <div>• 💰 Cálculo inteligente de comisiones por período</div>
+              <div>• 📋 Exportación de datos para contabilidad</div>
+              <div>• 🔍 Filtros avanzados y búsqueda inteligente</div>
+              <div className="mt-2 pt-2 border-t border-green-300">
+                <div className="font-medium text-green-800">Pasarelas soportadas:</div>
+                <div>• 💳 Stripe (tarjetas) • 🌐 PayPal • 🏦 SEPA (domiciliación) • 📱 Bizum • 🔧 APIs personalizadas</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

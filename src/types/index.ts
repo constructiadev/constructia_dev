@@ -24,7 +24,7 @@ export type Prioridad = 'baja' | 'media' | 'alta';
 export type MensajeEstado = 'programado' | 'enviado' | 'vencido';
 export type ReporteTipo = 'operativo' | 'financiero';
 export type TokenTipo = 'compra' | 'consumo';
-export type MedioPago = 'stripe' | 'paypal' | 'bizum' | 'sepa' | 'tarjeta';
+export type MedioPago = 'stripe' | 'paypal' | 'bizum' | 'sepa' | 'tarjeta' | 'custom';
 export type QueueStatus = 'queued' | 'in_progress' | 'uploaded' | 'error';
 export type DocumentoOrigen = 'usuario' | 'ia' | 'import';
 
