@@ -58,6 +58,9 @@ export default function Router() {
       {/* Client registration - Registro detallado de nuevos clientes */}
       <Route path="/client-register" element={<ClientRegister />} />
 
+      {/* Client checkout - Mandatory after registration */}
+      <Route path="/client-checkout" element={<ClientCheckout />} />
+
       {/* Legal pages */}
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/terms-of-service" element={<TermsOfService />} />

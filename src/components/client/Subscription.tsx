@@ -105,6 +105,9 @@ export default function Subscription() {
     // CRITICAL: Update client status from trial to active after successful payment
     console.log('✅ [Subscription] Payment successful - activating client account');
     
+    // Show success message and navigate to dashboard
+    alert('✅ ¡Pago completado! Tu cuenta está ahora activa. Bienvenido a ConstructIA.');
+    
     // Force refresh of auth context to update subscription status
     window.location.href = '/client/dashboard';
   };

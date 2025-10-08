@@ -268,14 +268,10 @@ export default function ClientRegister() {
 
       console.log('✅ [ClientRegister] Registration successful - TRIAL STATUS, navigating to mandatory checkout...');
       
-      // CRITICAL: Navigate to checkout page - CLIENT REGISTERED BUT TRIAL STATUS
+      // CRITICAL: Navigate to subscription page with checkout modal
       // Client MUST complete checkout before accessing any client features
-      navigate('/client-checkout', { 
-        replace: true,
-        state: { 
-          clientData: authenticatedClient,
-          fromRegistration: true 
-        }
+      navigate('/client/subscription?showCheckout=true', { 
+        replace: true
       });
 
     } catch (err: any) {
