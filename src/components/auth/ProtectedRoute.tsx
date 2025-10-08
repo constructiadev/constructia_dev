@@ -57,11 +57,8 @@ export default function ProtectedRoute({
     // CRITICAL: Check if client has completed checkout (not in trial status)
     if (user.subscription_status === 'trial') {
       console.log('🔐 [ProtectedRoute] CLIENT IN TRIAL - redirecting to checkout');
-      // Allow access only to subscription page for checkout
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/client/subscription') {
-        return <Navigate to="/client/subscription?showCheckout=true" replace />;
-      }
+      // Redirect to mandatory checkout page
+      return <Navigate to="/client-checkout" replace />;
     }
   }
 
