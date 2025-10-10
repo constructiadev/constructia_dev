@@ -1178,7 +1178,7 @@ const ClientsManagement: React.FC = () => {
                 isReadOnly={false}
                 onCredentialsUpdated={() => {
                   // Force refresh of the credentials display in the table
-                  setClients(prev => [...prev]);
+                  loadClients(); // Recargar todos los clientes para reflejar los cambios
                 }}
               />
             </div>
