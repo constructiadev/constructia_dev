@@ -87,34 +87,54 @@ export const getCurrentClientData = async (userId: string) => {
 // Helper para obtener todos los clientes (admin)
 export const getAllClients = async () => {
   try {
-    // Fetch clients with LEFT join to include clients without matching users
-    const { data: clientsData, error: clientsError } = await supabaseServiceClient
+    console.log('🔍 [getAllClients] Starting to fetch clients from database...');
+
+    // First, try to fetch clients directly without any joins to test basic connectivity
+    const { data: directClientsData, error: directError } = await supabaseServiceClient
       .from('clients')
-      .select(`
-        *,
-        users(tenant_id)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (clientsError) {
-      console.error('Error fetching clients with tenant_id:', clientsError);
+    if (directError) {
+      console.error('❌ [getAllClients] Error fetching clients directly:', directError);
       return [];
     }
 
-    if (!clientsData || clientsData.length === 0) {
-      console.log('⚠️ No clients found in database');
+    console.log(`✅ [getAllClients] Found ${directClientsData?.length || 0} clients in database (direct query)`);
+
+    if (!directClientsData || directClientsData.length === 0) {
+      console.log('⚠️ [getAllClients] No clients found in database');
       return [];
     }
 
-    console.log(`✅ Found ${clientsData.length} clients in database`);
+    // Now fetch user data separately to get tenant_ids
+    const userIds = directClientsData.map(c => c.user_id).filter(Boolean);
+    console.log(`🔍 [getAllClients] Fetching tenant data for ${userIds.length} user IDs`);
+
+    const { data: usersData, error: usersError } = await supabaseServiceClient
+      .from('users')
+      .select('id, tenant_id')
+      .in('id', userIds);
+
+    if (usersError) {
+      console.warn('⚠️ [getAllClients] Error fetching users data:', usersError);
+    }
+
+    // Create a map of user_id to tenant_id
+    const userTenantMap = new Map();
+    (usersData || []).forEach(user => {
+      userTenantMap.set(user.id, user.tenant_id);
+    });
+
+    console.log(`📊 [getAllClients] Mapped ${userTenantMap.size} users to tenants`);
 
     // Extract unique tenant_ids, using DEV_TENANT_ID as fallback for clients without users
-    const tenantIds = clientsData.map(client => {
-      if (client.users && client.users.tenant_id) {
-        return client.users.tenant_id;
-      }
-      return DEV_TENANT_ID; // Fallback for clients without matching users
-    }).filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+    const tenantIds = [...new Set(directClientsData.map(client => {
+      const tenantId = userTenantMap.get(client.user_id);
+      return tenantId || DEV_TENANT_ID;
+    }))];
+
+    console.log(`📊 [getAllClients] Found ${tenantIds.length} unique tenant(s)`);
 
     // Fetch document stats for all relevant tenants using proper aggregate query
     const documentStatsPromises = tenantIds.map(async (tenantId) => {
@@ -129,7 +149,7 @@ export const getAllClients = async () => {
         .eq('tenant_id', tenantId);
 
       if (countError || sizeError) {
-        console.warn(`Error fetching stats for tenant ${tenantId}:`, countError || sizeError);
+        console.warn(`⚠️ [getAllClients] Error fetching stats for tenant ${tenantId}:`, countError || sizeError);
         return { tenantId, count: 0, totalSize: 0 };
       }
 
@@ -151,9 +171,11 @@ export const getAllClients = async () => {
       });
     });
 
+    console.log(`📊 [getAllClients] Fetched document stats for ${documentStatsMap.size} tenant(s)`);
+
     // Combine all data
-    const combinedClients = clientsData.map(client => {
-      const tenantId = (client.users && client.users.tenant_id) ? client.users.tenant_id : DEV_TENANT_ID;
+    const combinedClients = directClientsData.map(client => {
+      const tenantId = userTenantMap.get(client.user_id) || DEV_TENANT_ID;
       const stats = documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 };
       return {
         ...client,
@@ -166,10 +188,12 @@ export const getAllClients = async () => {
       };
     });
 
-    console.log(`✅ Processed ${combinedClients.length} clients with stats`);
+    console.log(`✅ [getAllClients] Successfully processed ${combinedClients.length} clients with stats`);
+    console.log('📋 [getAllClients] Sample client:', combinedClients[0]?.company_name || 'N/A');
+
     return combinedClients;
   } catch (error) {
-    console.error('Error fetching all clients:', error);
+    console.error('❌ [getAllClients] Unexpected error fetching clients:', error);
     return [];
   }
 };
