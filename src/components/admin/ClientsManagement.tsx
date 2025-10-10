@@ -326,42 +326,35 @@ function ClientModal({ isOpen, onClose, onSave, client, mode }: ClientModalProps
 }
 
 // Component to display platform credentials status for each client in the table
-function PlatformCredentialsStatus({ client }: { client: Client }) {
+function PlatformCredentialsStatus({ 
+  client, 
+  onCredentialsUpdated 
+}: { 
+  client: Client;
+  onCredentialsUpdated?: () => void;
+}) {
   const [credentials, setCredentials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadCredentials();
-  }, [client.id]);
+  }, [client.tenant_id]);
 
   const loadCredentials = () => {
     try {
-      // Try multiple possible storage keys to find credentials
-      const possibleKeys = [
-        `constructia_credentials_${client.id}`,
-        `constructia_credentials_${(client as any).user_id || client.id}`,
-        `constructia_credentials_${client.client_id}`,
-        `constructia_credentials_default`
-      ];
+      // Use tenant_id as the primary key for credentials storage
+      const storageKey = `constructia_credentials_${client.tenant_id}`;
+      console.log('🔍 [PlatformCredentials] Loading credentials for tenant:', client.tenant_id);
       
-      let foundCredentials = [];
-      
-      for (const key of possibleKeys) {
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          try {
-            const parsedCreds = JSON.parse(stored);
-            if (Array.isArray(parsedCreds) && parsedCreds.length > 0) {
-              foundCredentials = parsedCreds;
-              break;
-            }
-          } catch (parseError) {
-            continue;
-          }
-        }
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsedCreds = JSON.parse(stored);
+        setCredentials(Array.isArray(parsedCreds) ? parsedCreds : []);
+        console.log('✅ [PlatformCredentials] Found credentials for tenant:', client.tenant_id, parsedCreds.length);
+      } else {
+        console.log('⚠️ [PlatformCredentials] No credentials found for tenant:', client.tenant_id);
+        setCredentials([]);
       }
-      
-      setCredentials(foundCredentials);
     } catch (error) {
       console.error('Error loading credentials for client:', client.id, error);
       setCredentials([]);
@@ -380,13 +373,13 @@ function PlatformCredentialsStatus({ client }: { client: Client }) {
   }
 
   const platforms = [
-    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-500 text-white', textColor: 'text-blue-600' },
-    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-500 text-white', textColor: 'text-green-600' },
-    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-500 text-white', textColor: 'text-purple-600' }
+    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-500 text-white' },
+    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-500 text-white' },
+    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-500 text-white' }
   ];
   
-  // Check which platforms are configured for this client
-  const configuredPlatforms = platforms.map(platform => {
+  // Filter only configured platforms
+  const configuredPlatforms = platforms.filter(platform => {
     const cred = credentials.find(c => c.platform_type === platform.type);
     const isConfigured = cred && 
                         cred.username && 
@@ -395,27 +388,23 @@ function PlatformCredentialsStatus({ client }: { client: Client }) {
                         cred.password.trim().length > 0 && 
                         cred.is_active !== false;
     
-    return {
-      ...platform,
-      isConfigured,
-      credential: cred
-    };
-  }).filter(platform => platform.isConfigured);
+    return isConfigured;
+  });
   
   if (configuredPlatforms.length === 0) {
     return (
-      <div className="text-center">
-        <span className="text-xs text-gray-500">Sin configurar</span>
+      <div className="flex items-center">
+        <span className="text-xs text-gray-400">Sin configurar</span>
       </div>
     );
   }
   
   return (
-    <div className="flex flex-wrap gap-1 items-center">
+    <div className="flex flex-wrap gap-1">
       {configuredPlatforms.map(platform => (
         <span
           key={platform.type}
-          className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${platform.color} shadow-sm`}
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${platform.color}`}
           title={`${platform.name} configurado`}
         >
           {platform.name}
@@ -439,8 +428,7 @@ const ClientsManagement: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
-  const [credentialsModalTenantId, setCredentialsModalTenantId] = useState<string | null>(null);
-  const [credentialsModalClientName, setCredentialsModalClientName] = useState<string>('');
+  const [credentialsModalClient, setCredentialsModalClient] = useState<Client | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
@@ -706,52 +694,17 @@ const ClientsManagement: React.FC = () => {
 
   const handleViewClientCredentials = async (client: Client) => {
     try {
-      // CRITICAL FIX: Get tenant_id from client's user_id
-      console.log('🔍 [ClientsManagement] Opening credentials for client:', client.company_name, 'user_id:', client.user_id);
+      console.log('🔍 [ClientsManagement] Opening credentials for client:', client.company_name);
       
-      const clientUserId = (client as any).user_id;
-      if (!clientUserId) {
-        console.error('❌ [ClientsManagement] No user_id found for client:', client.id);
-        alert('❌ Error: No se encontró el ID de usuario para este cliente');
+      // Use tenant_id from client object (now included from getAllClients)
+      if (!client.tenant_id) {
+        console.error('❌ [ClientsManagement] No tenant_id found for client:', client.id);
+        alert('❌ Error: No se encontró el tenant para este cliente');
         return;
       }
       
-      // Get user profile to find tenant_id
-      const { data: userProfile, error: userError } = await supabaseServiceClient
-        .from('users')
-        .select('tenant_id, email')
-        .eq('id', clientUserId)
-        .maybeSingle();
-
-      if (userError) {
-        console.error('❌ [ClientsManagement] Error getting user tenant:', userError);
-        alert('❌ Error al obtener información del tenant del cliente');
-        return;
-      }
-
-      if (!userProfile) {
-        console.warn('⚠️ [ClientsManagement] No user profile found, using client email to find tenant');
-        
-        // Fallback: try to find user by email
-        const { data: userByEmail, error: emailError } = await supabaseServiceClient
-          .from('users')
-          .select('tenant_id, email')
-          .eq('email', client.email)
-          .maybeSingle();
-
-        if (emailError || !userByEmail) {
-          console.error('❌ [ClientsManagement] Could not find user by email either:', client.email);
-          alert('❌ Error: No se pudo encontrar el tenant para este cliente');
-          return;
-        }
-        
-        setCredentialsModalTenantId(userByEmail.tenant_id);
-      } else {
-        setCredentialsModalTenantId(userProfile.tenant_id);
-      }
-      
-      setCredentialsModalClientName(client.company_name);
-      console.log('✅ [ClientsManagement] Opening credentials modal for tenant:', userProfile?.tenant_id || 'fallback');
+      setCredentialsModalClient(client);
+      console.log('✅ [ClientsManagement] Opening credentials modal for tenant:', client.tenant_id);
       setShowCredentialsModal(true);
     } catch (error) {
       console.error('Error opening credentials modal:', error);
@@ -1077,10 +1030,16 @@ const ClientsManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-900">
-                      {client.documents_processed || 0}
+                      {client.total_documents || 0}
                     </td>
                     <td className="py-3 px-4">
-                      <PlatformCredentialsStatus client={client} />
+                      <PlatformCredentialsStatus 
+                        client={client} 
+                        onCredentialsUpdated={() => {
+                          // Force re-render of this component to show updated credentials
+                          setClients(prev => [...prev]);
+                        }}
+                      />
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
@@ -1194,13 +1153,14 @@ const ClientsManagement: React.FC = () => {
       />
 
       {/* Credentials Modal */}
-      {showCredentialsModal && credentialsModalTenantId && (
+      {showCredentialsModal && credentialsModalClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
               <div>
                 <h2 className="text-xl font-bold">Credenciales de Plataforma</h2>
-                <p className="text-purple-100">{credentialsModalClientName}</p>
+                <p className="text-purple-100">{credentialsModalClient.company_name}</p>
+                <p className="text-sm text-purple-200">Tenant: {credentialsModalClient.tenant_id}</p>
               </div>
               <button 
                 onClick={() => setShowCredentialsModal(false)} 
@@ -1211,9 +1171,12 @@ const ClientsManagement: React.FC = () => {
             </div>
             <div className="p-6">
               <PlatformCredentialsManager
-                clientId={credentialsModalTenantId}
-                isReadOnly={true}
-                onCredentialsUpdated={() => {}}
+                clientId={credentialsModalClient.tenant_id}
+                isReadOnly={false}
+                onCredentialsUpdated={() => {
+                  // Force refresh of the credentials display in the table
+                  setClients(prev => [...prev]);
+                }}
               />
             </div>
           </div>
