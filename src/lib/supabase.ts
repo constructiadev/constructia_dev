@@ -87,12 +87,12 @@ export const getCurrentClientData = async (userId: string) => {
 // Helper para obtener todos los clientes (admin)
 export const getAllClients = async () => {
   try {
-    // Fetch clients and join with users to get tenant_id
+    // Fetch clients with LEFT join to include clients without matching users
     const { data: clientsData, error: clientsError } = await supabaseServiceClient
       .from('clients')
       .select(`
         *,
-        users!inner(tenant_id)
+        users(tenant_id)
       `)
       .order('created_at', { ascending: false });
 
@@ -102,36 +102,58 @@ export const getAllClients = async () => {
     }
 
     if (!clientsData || clientsData.length === 0) {
+      console.log('⚠️ No clients found in database');
       return [];
     }
 
-    // Extract unique tenant_ids
-    const tenantIds = clientsData.map(client => client.users.tenant_id);
+    console.log(`✅ Found ${clientsData.length} clients in database`);
 
-    // Fetch document stats for all relevant tenants
-    // Use rpc for aggregate functions if direct select is not working as expected with sum/count
-    const { data: documentStatsData, error: documentStatsError } = await supabaseServiceClient
-      .from('documentos')
-      .select('tenant_id, count, sum(size_bytes)')
-      .in('tenant_id', tenantIds)
-      .group('tenant_id');
+    // Extract unique tenant_ids, using DEV_TENANT_ID as fallback for clients without users
+    const tenantIds = clientsData.map(client => {
+      if (client.users && client.users.tenant_id) {
+        return client.users.tenant_id;
+      }
+      return DEV_TENANT_ID; // Fallback for clients without matching users
+    }).filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
 
-    if (documentStatsError) {
-      console.error('Error fetching document stats:', documentStatsError);
-      // Proceed without document stats if there's an error
-    }
+    // Fetch document stats for all relevant tenants using proper aggregate query
+    const documentStatsPromises = tenantIds.map(async (tenantId) => {
+      const { count, error: countError } = await supabaseServiceClient
+        .from('documentos')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId);
 
+      const { data: sizeData, error: sizeError } = await supabaseServiceClient
+        .from('documentos')
+        .select('size_bytes')
+        .eq('tenant_id', tenantId);
+
+      if (countError || sizeError) {
+        console.warn(`Error fetching stats for tenant ${tenantId}:`, countError || sizeError);
+        return { tenantId, count: 0, totalSize: 0 };
+      }
+
+      const totalSize = (sizeData || []).reduce((sum, doc) => sum + (doc.size_bytes || 0), 0);
+
+      return {
+        tenantId,
+        count: count || 0,
+        totalSize
+      };
+    });
+
+    const documentStats = await Promise.all(documentStatsPromises);
     const documentStatsMap = new Map();
-    (documentStatsData || []).forEach(stat => {
-      documentStatsMap.set(stat.tenant_id, {
+    documentStats.forEach(stat => {
+      documentStatsMap.set(stat.tenantId, {
         total_documents: stat.count,
-        total_storage_used: stat.sum.size_bytes
+        total_storage_used: stat.totalSize
       });
     });
 
     // Combine all data
     const combinedClients = clientsData.map(client => {
-      const tenantId = client.users.tenant_id;
+      const tenantId = (client.users && client.users.tenant_id) ? client.users.tenant_id : DEV_TENANT_ID;
       const stats = documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 };
       return {
         ...client,
@@ -144,6 +166,7 @@ export const getAllClients = async () => {
       };
     });
 
+    console.log(`✅ Processed ${combinedClients.length} clients with stats`);
     return combinedClients;
   } catch (error) {
     console.error('Error fetching all clients:', error);
