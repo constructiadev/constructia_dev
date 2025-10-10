@@ -532,7 +532,10 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         <div class="header">
             <div class="logo-section">
                 <div class="logo">C</div>
-                <div class="header-info">
+                <div class="header-info" style="display: flex; align-items: center;">
+                    <img src="/Logo ConstructIA.png" alt="ConstructIA Logo" style="height: 40px; margin-right: 10px;"/>
+                </div>
+                <div class="header-info" style="margin-left: 10px;">
                     <h1>Reporte de Análisis de Clientes</h1>
                     <p>Análisis integral con inteligencia artificial</p>
                 </div>
