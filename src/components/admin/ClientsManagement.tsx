@@ -1034,7 +1034,7 @@ const ClientsManagement: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-900">
                       {client.total_documents || 0} {/* Use total_documents */}
-                    </div>
+                    </td>
                     <td className="py-3 px-4">
                       <PlatformCredentialsStatus 
                         client={client} 
