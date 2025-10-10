@@ -70,12 +70,16 @@ export default function PlatformCredentialsManager({
     }
   ];
 
-  // Usar localStorage para persistir credenciales localmente
-  const STORAGE_KEY = `constructia_credentials_${clientId || user?.tenant_id || 'default'}`;
+  // CRITICAL: Always use clientId if provided, otherwise fall back to user's tenant_id
+  // When called from admin panel, clientId will be the target client's tenant_id
+  // When called from client panel, it will use the logged-in user's tenant_id
+  const effectiveTenantId = clientId || user?.tenant_id || 'default';
+  const STORAGE_KEY = `constructia_credentials_${effectiveTenantId}`;
 
   useEffect(() => {
+    console.log(`🔐 [PlatformCredentialsManager] Initializing for tenant: ${effectiveTenantId}`);
     loadCredentialsFromStorage();
-  }, [clientId]);
+  }, [clientId, effectiveTenantId]);
 
   useEffect(() => {
     const currentCredential = credentials.find(cred => cred.platform_type === selectedPlatformType);
@@ -142,8 +146,11 @@ export default function PlatformCredentialsManager({
 
   const saveCredentialsToStorage = (newCredentials: PlatformCredential[]) => {
     try {
+      console.log(`💾 [PlatformCredentialsManager] Saving credentials to key: ${STORAGE_KEY}`);
+      console.log(`   Tenant ID: ${effectiveTenantId}`);
+      console.log(`   Credentials count: ${newCredentials.length}`);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newCredentials));
-      console.log('✅ [PlatformCredentials] Saved to localStorage');
+      console.log('✅ [PlatformCredentials] Saved to localStorage successfully');
       return true;
     } catch (error) {
       console.error('Error saving credentials to storage:', error);

@@ -329,18 +329,33 @@ function ClientModal({ isOpen, onClose, onSave, client, mode }: ClientModalProps
 }
 
 // Component to display platform credentials status for each client in the table
-function PlatformCredentialsStatus({ 
-  client, 
-  onCredentialsUpdated 
-}: { 
+function PlatformCredentialsStatus({
+  client,
+  onCredentialsUpdated
+}: {
   client: Client;
   onCredentialsUpdated?: () => void;
 }) {
   const [credentials, setCredentials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     loadCredentials();
+  }, [client.tenant_id, refreshTrigger]);
+
+  // Listen for storage events to update when credentials change for THIS specific tenant
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      const storageKey = `constructia_credentials_${client.tenant_id}`;
+      if (e.key === storageKey) {
+        console.log(`🔄 [PlatformCredentials] Storage changed for tenant ${client.tenant_id}, reloading...`);
+        setRefreshTrigger(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [client.tenant_id]);
 
   const loadCredentials = () => {
@@ -348,7 +363,7 @@ function PlatformCredentialsStatus({
       // Use tenant_id as the primary key for credentials storage
       const storageKey = `constructia_credentials_${client.tenant_id}`;
       console.log('🔍 [PlatformCredentials] Loading credentials for tenant:', client.tenant_id);
-      
+
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsedCreds = JSON.parse(stored);
@@ -1045,10 +1060,12 @@ const ClientsManagement: React.FC = () => {
                       {client.total_documents || 0} {/* Use total_documents */}
                     </td>
                     <td className="py-3 px-4">
-                      <PlatformCredentialsStatus 
-                        client={client} 
+                      <PlatformCredentialsStatus
+                        key={`credentials-${client.tenant_id}-${client.id}`}
+                        client={client}
                         onCredentialsUpdated={() => {
-                          // Force re-render of this component to show updated credentials
+                          // Force re-render of this specific component only
+                          // No need to reload all clients, just trigger a state update
                           setClients(prev => [...prev]);
                         }}
                       />
@@ -1186,8 +1203,11 @@ const ClientsManagement: React.FC = () => {
                 clientId={credentialsModalClient.tenant_id}
                 isReadOnly={false}
                 onCredentialsUpdated={() => {
-                  // Force refresh of the credentials display in the table
-                  loadClients(); // Recargar todos los clientes para reflejar los cambios
+                  // Trigger a lightweight state update instead of reloading all clients
+                  // This will cause the PlatformCredentialsStatus component for THIS client to re-render
+                  console.log(`✅ [ClientsManagement] Credentials updated for tenant: ${credentialsModalClient.tenant_id}`);
+                  // Force a minimal re-render by updating the clients array reference
+                  setClients(prev => [...prev]);
                 }}
               />
             </div>
