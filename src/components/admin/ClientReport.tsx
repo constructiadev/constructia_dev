@@ -208,13 +208,43 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
   };
 
   const printReport = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    try {
+      const reportHTML = generateReportHTML();
+      
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        alert('Por favor permite ventanas emergentes para imprimir el reporte');
+        return;
+      }
 
-    const reportHTML = generateReportHTML();
-    printWindow.document.write(reportHTML);
-    printWindow.document.close();
-    printWindow.print();
+      // Write the HTML content
+      printWindow.document.open();
+      printWindow.document.write(reportHTML);
+      printWindow.document.close();
+      
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Close window after printing (optional)
+          printWindow.onafterprint = () => {
+            printWindow.close();
+          };
+        }, 500);
+      };
+      
+      // Fallback if onload doesn't fire
+      setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+          printWindow.print();
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error printing report:', error);
+      alert('Error al imprimir el reporte. Intenta descargar el HTML en su lugar.');
+    }
   };
 
   const downloadReport = () => {
