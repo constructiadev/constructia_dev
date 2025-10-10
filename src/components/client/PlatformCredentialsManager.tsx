@@ -1,12 +1,44 @@
+/**
+ * PlatformCredentialsManager Component
+ *
+ * Manages platform credentials (Nalanda, CTAIMA, Ecoordina) for clients.
+ *
+ * CRITICAL IMPLEMENTATION NOTES:
+ * ================================
+ *
+ * 1. PER-TENANT ISOLATION:
+ *    - Each client has a unique tenant_id
+ *    - Credentials are stored in localStorage with key: `constructia_credentials_${tenantId}`
+ *    - This ensures credentials are isolated per client
+ *
+ * 2. SAME-TAB SYNCHRONIZATION:
+ *    - When credentials are saved, a custom event 'constructia-credentials-updated' is dispatched
+ *    - This allows other components in the same tab to update immediately
+ *    - Browser storage events only fire in OTHER tabs, not the current tab
+ *
+ * 3. CUSTOM EVENT PAYLOAD:
+ *    - tenantId: The tenant whose credentials were updated
+ *    - credentials: Array of platform credentials
+ *    - timestamp: When the update occurred
+ *
+ * 4. ADMIN ACCESS:
+ *    - When called from admin panel, clientId parameter contains the target client's tenant_id
+ *    - Admin can view/edit any client's credentials by passing their tenant_id
+ *    - Read-only mode is available for viewing without editing
+ *
+ * @param clientId - The tenant_id of the client whose credentials to manage
+ * @param onCredentialsUpdated - Callback fired when credentials are successfully updated
+ * @param isReadOnly - If true, credentials can only be viewed, not edited
+ */
 import React, { useState, useEffect } from 'react';
-import { 
-  Globe, 
-  Key, 
-  Eye, 
-  EyeOff, 
-  Save, 
-  CheckCircle, 
-  AlertTriangle, 
+import {
+  Globe,
+  Key,
+  Eye,
+  EyeOff,
+  Save,
+  CheckCircle,
+  AlertTriangle,
   Shield,
   RefreshCw,
   Info,
@@ -151,6 +183,18 @@ export default function PlatformCredentialsManager({
       console.log(`   Credentials count: ${newCredentials.length}`);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newCredentials));
       console.log('✅ [PlatformCredentials] Saved to localStorage successfully');
+
+      // Dispatch custom event for same-tab synchronization
+      const event = new CustomEvent('constructia-credentials-updated', {
+        detail: {
+          tenantId: effectiveTenantId,
+          credentials: newCredentials,
+          timestamp: Date.now()
+        }
+      });
+      window.dispatchEvent(event);
+      console.log(`📢 [PlatformCredentials] Dispatched credentials update event for tenant: ${effectiveTenantId}`);
+
       return true;
     } catch (error) {
       console.error('Error saving credentials to storage:', error);

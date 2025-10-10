@@ -344,18 +344,39 @@ function PlatformCredentialsStatus({
     loadCredentials();
   }, [client.tenant_id, refreshTrigger]);
 
-  // Listen for storage events to update when credentials change for THIS specific tenant
+  // Listen for BOTH storage events (cross-tab) AND custom events (same-tab)
   useEffect(() => {
+    // Handle cross-tab storage changes
     const handleStorageChange = (e: StorageEvent) => {
       const storageKey = `constructia_credentials_${client.tenant_id}`;
       if (e.key === storageKey) {
-        console.log(`🔄 [PlatformCredentials] Storage changed for tenant ${client.tenant_id}, reloading...`);
+        console.log(`🔄 [PlatformCredentials] Cross-tab storage changed for tenant ${client.tenant_id}, reloading...`);
+        setRefreshTrigger(prev => prev + 1);
+      }
+    };
+
+    // Handle same-tab credential updates via custom events
+    const handleCustomCredentialUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        tenantId: string;
+        credentials: any[];
+        timestamp: number;
+      }>;
+
+      // Only update if this event is for THIS specific tenant
+      if (customEvent.detail && customEvent.detail.tenantId === client.tenant_id) {
+        console.log(`🔄 [PlatformCredentials] Same-tab credential update for tenant ${client.tenant_id}, reloading...`);
         setRefreshTrigger(prev => prev + 1);
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('constructia-credentials-updated', handleCustomCredentialUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('constructia-credentials-updated', handleCustomCredentialUpdate);
+    };
   }, [client.tenant_id]);
 
   const loadCredentials = () => {
@@ -363,12 +384,16 @@ function PlatformCredentialsStatus({
       // Use tenant_id as the primary key for credentials storage
       const storageKey = `constructia_credentials_${client.tenant_id}`;
       console.log('🔍 [PlatformCredentials] Loading credentials for tenant:', client.tenant_id);
+      console.log('   Storage key:', storageKey);
+      console.log('   Client ID:', client.id);
+      console.log('   Company:', client.company_name);
 
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsedCreds = JSON.parse(stored);
         setCredentials(Array.isArray(parsedCreds) ? parsedCreds : []);
-        console.log('✅ [PlatformCredentials] Found credentials for tenant:', client.tenant_id, parsedCreds.length);
+        console.log('✅ [PlatformCredentials] Found', parsedCreds.length, 'credentials for tenant:', client.tenant_id);
+        console.log('   Platforms configured:', parsedCreds.filter((c: any) => c.is_active).map((c: any) => c.platform_type).join(', '));
       } else {
         console.log('⚠️ [PlatformCredentials] No credentials found for tenant:', client.tenant_id);
         setCredentials([]);
@@ -449,6 +474,35 @@ const ClientsManagement: React.FC = () => {
   const [credentialsModalClient, setCredentialsModalClient] = useState<Client | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  // Debug utility to view all credential keys in localStorage
+  const debugCredentialStorage = () => {
+    console.log('🔍 [DEBUG] All credential storage keys in localStorage:');
+    const credentialKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('constructia_credentials_')) {
+        credentialKeys.push(key);
+        const tenantId = key.replace('constructia_credentials_', '');
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            const creds = JSON.parse(stored);
+            console.log(`   ${key}:`, {
+              tenantId,
+              count: creds.length,
+              platforms: creds.map((c: any) => c.platform_type).join(', '),
+              active: creds.filter((c: any) => c.is_active).length
+            });
+          } catch (e) {
+            console.log(`   ${key}: ERROR parsing`);
+          }
+        }
+      }
+    }
+    console.log(`   Total credential keys: ${credentialKeys.length}`);
+    return credentialKeys;
+  };
+
   useEffect(() => {
     loadClients();
   }, []);
@@ -479,8 +533,12 @@ const ClientsManagement: React.FC = () => {
       console.log('📋 Sample client data:', clientsWithRealisticStorage.slice(0, 3).map(c => ({
         name: c.company_name,
         docs: c.documents_processed,
-        storage: c.storage_used
+        storage: c.storage_used,
+        tenant_id: c.tenant_id
       })));
+
+      // Debug: Show all credential storage keys
+      debugCredentialStorage();
 
       setClients(clientsWithRealisticStorage);
     } catch (err) {
@@ -722,14 +780,32 @@ const ClientsManagement: React.FC = () => {
   const handleViewClientCredentials = async (client: Client) => {
     try {
       console.log('🔍 [ClientsManagement] Opening credentials for client:', client.company_name);
-      
+      console.log('   Client ID:', client.id);
+      console.log('   Tenant ID:', client.tenant_id);
+      console.log('   Email:', client.email);
+
       // Use tenant_id from client object (now included from getAllClients)
       if (!client.tenant_id) {
         console.error('❌ [ClientsManagement] No tenant_id found for client:', client.id);
-        alert('❌ Error: No se encontró el tenant para este cliente');
+        alert('❌ Error: No se encontró el tenant para este cliente. Por favor, contacte al administrador.');
         return;
       }
-      
+
+      // Debug: Show all localStorage keys for this tenant
+      const storageKey = `constructia_credentials_${client.tenant_id}`;
+      const stored = localStorage.getItem(storageKey);
+      console.log('   Storage key:', storageKey);
+      console.log('   Has credentials:', stored ? 'YES' : 'NO');
+      if (stored) {
+        try {
+          const creds = JSON.parse(stored);
+          console.log('   Credentials count:', creds.length);
+          console.log('   Platforms:', creds.map((c: any) => c.platform_type).join(', '));
+        } catch (e) {
+          console.error('   Error parsing credentials:', e);
+        }
+      }
+
       setCredentialsModalClient(client);
       console.log('✅ [ClientsManagement] Opening credentials modal for tenant:', client.tenant_id);
       setShowCredentialsModal(true);
@@ -1131,14 +1207,27 @@ const ClientsManagement: React.FC = () => {
 
       {/* Auto-refresh functionality */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <RefreshCw className="w-5 h-5 text-blue-600 mr-3" />
-          <div>
-            <h4 className="font-semibold text-blue-800">Actualización Automática</h4>
-            <p className="text-sm text-blue-700">
-              Los datos se actualizan automáticamente cada 30 segundos para mostrar nuevos documentos y cambios de estado.
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <RefreshCw className="w-5 h-5 text-blue-600 mr-3" />
+            <div>
+              <h4 className="font-semibold text-blue-800">Actualización Automática</h4>
+              <p className="text-sm text-blue-700">
+                Los datos se actualizan automáticamente cada 30 segundos para mostrar nuevos documentos y cambios de estado.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => {
+              const keys = debugCredentialStorage();
+              alert(`🔍 Debug: Se encontraron ${keys.length} claves de credenciales en localStorage. Revisa la consola para más detalles.`);
+            }}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+            title="Debug: Mostrar todas las credenciales almacenadas"
+          >
+            <Database className="w-4 h-4 mr-2" />
+            Debug Storage
+          </button>
         </div>
       </div>
 
