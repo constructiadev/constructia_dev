@@ -708,3 +708,26 @@ export interface AIInsight {
   created_at: string;
   updated_at: string;
 }
+
+interface ClientReportData {
+  totalClients: number;
+  activeClients: number;
+  newClientsThisMonth: number;
+  churnRate: number;
+  avgRevenuePerClient: number;
+  totalRevenue: number;
+  clientsByPlan: { [key: string]: number };
+  clientsByStatus: { [key: string]: number };
+  topClients: any[];
+  topStorageClients?: any[];
+  totalStorageUsed?: number;
+  totalStorageLimit?: number;
+  avgStorageUsage?: number;
+  highStorageClients?: number;
+  totalDocuments?: number;
+  growthTrend: number[];
+  aiInsights: string[];
+  recommendations: string[];
+  riskFactors: string[];
+  opportunities: string[];
+}

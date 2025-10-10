@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import { getAllClients, calculateDynamicKPIs, getAllReceipts } from '../../lib/supabase';
+import { getAllTenantDocumentsNoRLS } from '../../lib/supabase';
 import { geminiAI } from '../../lib/gemini';
 import { logAuditoria, DEV_ADMIN_USER_ID, DEV_TENANT_ID } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
