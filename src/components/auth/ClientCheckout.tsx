@@ -192,6 +192,12 @@ export default function ClientCheckout() {
   const handlePaymentComplete = async () => {
     if (!selectedPlan) return;
 
+    // If Stripe is selected, open the Stripe modal
+    if (selectedPaymentMethod === 'stripe') {
+      setShowStripeModal(true);
+      return;
+    }
+
     try {
       setProcessing(true);
       
@@ -253,41 +259,6 @@ export default function ClientCheckout() {
       }
     } catch (error) {
       console.error('❌ [ClientCheckout] Payment error:', error);
-      alert('❌ Error al procesar el pago. Por favor, inténtalo de nuevo o contacta con soporte.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleStripePaymentSuccess = async () => {
-    setShowStripeModal(false);
-    
-    try {
-      setProcessing(true);
-      
-      console.log('💳 [ClientCheckout] Processing Stripe payment for plan:', selectedPlan?.name);
-      
-      // Simular procesamiento de pago
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simular éxito del pago (95% éxito)
-      if (Math.random() > 0.05) {
-        console.log('✅ [ClientCheckout] Stripe payment successful - activating client account');
-        
-        // CRITICAL: Update client subscription status from trial to active
-        // (Same logic as handlePaymentComplete)
-        
-        // Show success message
-        alert(`✅ ¡Pago con tarjeta completado! Tu plan ${selectedPlan?.name} está activo. Bienvenido a ConstructIA.`);
-        
-        // CRITICAL: Navigate to client dashboard after successful payment
-        navigate('/client/dashboard', { replace: true });
-        
-      } else {
-        throw new Error('Error en el procesamiento del pago');
-      }
-    } catch (error) {
-      console.error('❌ [ClientCheckout] Stripe payment error:', error);
       alert('❌ Error al procesar el pago. Por favor, inténtalo de nuevo o contacta con soporte.');
     } finally {
       setProcessing(false);
@@ -735,6 +706,16 @@ export default function ClientCheckout() {
           </div>
         </div>
       </div>
+
+      {/* Stripe Payment Modal */}
+      <StripePaymentModal
+        isOpen={showStripeModal}
+        onClose={() => setShowStripeModal(false)}
+        onPaymentSuccess={handleStripePaymentSuccess}
+        amount={selectedPlan ? getPrice(selectedPlan) : 0}
+        planName={selectedPlan?.name || ''}
+        billingCycle={billingCycle}
+      />
     </div>
   );
 }
