@@ -58,6 +58,7 @@ import {
 import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
 import PlatformCredentialsManager from '../client/PlatformCredentialsManager';
+import ClientReport from './ClientReport';
 
 interface Client {
   id: string;
@@ -441,6 +442,7 @@ const ClientsManagement: React.FC = () => {
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [credentialsModalTenantId, setCredentialsModalTenantId] = useState<string | null>(null);
   const [credentialsModalClientName, setCredentialsModalClientName] = useState<string>('');
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     loadClients();
@@ -852,6 +854,13 @@ const ClientsManagement: React.FC = () => {
         </div>
         <div className="flex items-center space-x-3">
           <button
+            onClick={() => setShowReportModal(true)}
+            className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Generar Reporte IA
+          </button>
+          <button
             onClick={refreshData}
             disabled={refreshing}
             className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
@@ -1194,6 +1203,12 @@ const ClientsManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Client Report Modal */}
+      <ClientReport
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
     </div>
   );
 };
