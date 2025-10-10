@@ -369,6 +369,7 @@ export interface Client {
   id: string;
   client_id: string; // Formato: AAAA-REC-0001
   user_id: string;
+  tenant_id: string; // Add this
   company_name: string;
   contact_name: string;
   email: string;
@@ -389,6 +390,8 @@ export interface Client {
   updated_at: string;
   last_activity?: string;
   monthly_revenue?: number;
+  total_documents?: number; // Add this
+  total_storage_used?: number; // Add this
 }
 
 export interface Company {

@@ -64,6 +64,7 @@ interface Client {
   id: string;
   client_id: string;
   company_name: string;
+  tenant_id: string; // Add tenant_id to the Client interface
   contact_name: string;
   email: string;
   phone: string;
@@ -81,6 +82,8 @@ interface Client {
   };
   created_at: string;
   updated_at: string;
+  total_documents?: number; // Add total_documents
+  total_storage_used?: number; // Add total_storage_used
 }
 
 interface ClientModalProps {
@@ -451,8 +454,8 @@ const ClientsManagement: React.FC = () => {
       // Simulate realistic storage usage for development
       const clientsWithRealisticStorage = (data || []).map(client => ({
         ...client,
-        storage_used: Math.floor(Math.random() * client.storage_limit * 0.8), // 0-80% usage
-        documents_processed: Math.floor(Math.random() * 50) + 5 // 5-55 documents
+        storage_used: client.total_storage_used || 0, // Use real data
+        documents_processed: client.total_documents || 0 // Use real data
       }));
       
       setClients(clientsWithRealisticStorage);
@@ -1030,8 +1033,8 @@ const ClientsManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-900">
-                      {client.total_documents || 0}
-                    </td>
+                      {client.total_documents || 0} {/* Use total_documents */}
+                    </div>
                     <td className="py-3 px-4">
                       <PlatformCredentialsStatus 
                         client={client} 

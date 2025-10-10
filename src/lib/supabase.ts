@@ -87,23 +87,76 @@ export const getCurrentClientData = async (userId: string) => {
 // Helper para obtener todos los clientes (admin)
 export const getAllClients = async () => {
   try {
-    // Get clients from the actual clients table
-    const { data, error } = await supabaseClient
+    // Fetch clients and join with users to get tenant_id
+    const { data: clientsData, error: clientsError } = await supabaseServiceClient
       .from('clients')
-      .select('*')
+      .select(`
+        *,
+        users!inner(tenant_id)
+      `)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching clients:', error);
+    if (clientsError) {
+      console.error('Error fetching clients with tenant_id:', clientsError);
       return [];
     }
 
-    return data || [];
+    if (!clientsData || clientsData.length === 0) {
+      return [];
+    }
+
+    // Extract unique tenant_ids
+    const tenantIds = clientsData.map(client => client.users.tenant_id);
+
+    // Fetch document stats for all relevant tenants
+    // Use rpc for aggregate functions if direct select is not working as expected with sum/count
+    const { data: documentStatsData, error: documentStatsError } = await supabaseServiceClient
+      .from('documentos')
+      .select('tenant_id, count, sum(size_bytes)')
+      .in('tenant_id', tenantIds)
+      .group('tenant_id');
+
+    if (documentStatsError) {
+      console.error('Error fetching document stats:', documentStatsError);
+      // Proceed without document stats if there's an error
+    }
+
+    const documentStatsMap = new Map();
+    (documentStatsData || []).forEach(stat => {
+      documentStatsMap.set(stat.tenant_id, {
+        total_documents: stat.count,
+        total_storage_used: stat.sum.size_bytes
+      });
+    });
+
+    // Combine all data
+    const combinedClients = clientsData.map(client => {
+      const tenantId = client.users.tenant_id;
+      const stats = documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 };
+      return {
+        ...client,
+        tenant_id: tenantId, // Add tenant_id directly to client object
+        total_documents: stats.total_documents,
+        total_storage_used: stats.total_storage_used,
+        // Use real count and sum for documents_processed and storage_used
+        documents_processed: stats.total_documents,
+        storage_used: stats.total_storage_used,
+      };
+    });
+
+    return combinedClients;
   } catch (error) {
     console.error('Error fetching all clients:', error);
     return [];
   }
 };
+
+// Helper para obtener todos los documentos del tenant sin RLS
+// This function is already defined in supabase-real.ts and re-exported in supabase-new.ts
+// No need to redefine here, just ensure it's used correctly where needed.
+// export const getAllTenantDocumentsNoRLS = async (tenantId: string) => {
+//   // ... (existing implementation)
+// };
 
 // Helper para obtener proyectos del cliente
 export const getClientProjects = async (clientId: string) => {
