@@ -380,48 +380,47 @@ function PlatformCredentialsStatus({ client }: { client: Client }) {
   }
 
   const platforms = [
-    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-100 text-blue-800' },
-    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-100 text-green-800' },
-    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-100 text-purple-800' }
+    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-500 text-white', textColor: 'text-blue-600' },
+    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-500 text-white', textColor: 'text-green-600' },
+    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-500 text-white', textColor: 'text-purple-600' }
   ];
   
-  const configuredPlatforms = platforms.filter(platform => {
+  // Check which platforms are configured for this client
+  const configuredPlatforms = platforms.map(platform => {
     const cred = credentials.find(c => c.platform_type === platform.type);
-    return cred && 
-           cred.username && 
-           cred.username.trim().length > 0 && 
-           cred.password && 
-           cred.password.trim().length > 0 && 
-           cred.is_active !== false;
-  });
+    const isConfigured = cred && 
+                        cred.username && 
+                        cred.username.trim().length > 0 && 
+                        cred.password && 
+                        cred.password.trim().length > 0 && 
+                        cred.is_active !== false;
+    
+    return {
+      ...platform,
+      isConfigured,
+      credential: cred
+    };
+  }).filter(platform => platform.isConfigured);
   
   if (configuredPlatforms.length === 0) {
     return (
-      <div className="flex items-center">
-        <AlertCircle className="w-4 h-4 text-yellow-500 mr-1" />
-        <span className="text-xs text-yellow-600">
-          Sin configurar
-        </span>
+      <div className="text-center">
+        <span className="text-xs text-gray-500">Sin configurar</span>
       </div>
     );
   }
   
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1 items-center">
       {configuredPlatforms.map(platform => (
-        <span 
+        <span
           key={platform.type}
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${platform.color}`}
+          className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${platform.color} shadow-sm`}
+          title={`${platform.name} configurado`}
         >
-          <CheckCircle className="w-3 h-3 mr-1" />
           {platform.name}
         </span>
       ))}
-      {configuredPlatforms.length < 3 && (
-        <span className="text-xs text-gray-500">
-          +{3 - configuredPlatforms.length} pendiente(s)
-        </span>
-      )}
     </div>
   );
 }
