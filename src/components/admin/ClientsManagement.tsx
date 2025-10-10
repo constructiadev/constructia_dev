@@ -457,7 +457,16 @@ const ClientsManagement: React.FC = () => {
         storage_used: client.total_storage_used || 0, // Use real data
         documents_processed: client.total_documents || 0 // Use real data
       }));
-      
+
+      // Calculate total documents for debugging
+      const totalDocs = clientsWithRealisticStorage.reduce((sum, c) => sum + (c.documents_processed || 0), 0);
+      console.log('📊 Total documents across all clients:', totalDocs);
+      console.log('📋 Sample client data:', clientsWithRealisticStorage.slice(0, 3).map(c => ({
+        name: c.company_name,
+        docs: c.documents_processed,
+        storage: c.storage_used
+      })));
+
       setClients(clientsWithRealisticStorage);
     } catch (err) {
       console.error('Error loading clients:', err);
