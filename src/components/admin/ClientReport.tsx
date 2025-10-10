@@ -67,40 +67,75 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
       console.log('📊 [ClientReport] Generating comprehensive client report...');
 
       // Load real data from database
-      const [clients, receipts, dynamicKPIs] = await Promise.all([
+      const [clients, receipts, dynamicKPIs, allDocuments] = await Promise.all([
         getAllClients(),
         getAllReceipts(),
-        calculateDynamicKPIs()
+        calculateDynamicKPIs(),
+        getAllTenantDocumentsNoRLS(DEV_TENANT_ID)
       ]);
 
       console.log('✅ [ClientReport] Data loaded:', {
         clients: clients.length,
         receipts: receipts.length,
-        kpis: Object.keys(dynamicKPIs).length
+        kpis: Object.keys(dynamicKPIs).length,
+        documents: allDocuments.length
       });
 
+      // Calculate real storage usage per client
+      const clientsWithRealStorage = clients.map(client => {
+        // Get documents for this client's tenant
+        const clientDocuments = allDocuments.filter(doc => {
+          // Match by email or tenant relationship
+          return doc.metadatos?.user_email === client.email ||
+                 doc.metadatos?.client_id === client.id;
+        });
+        
+        const realStorageUsed = clientDocuments.reduce((sum, doc) => {
+          return sum + (doc.size_bytes || 0);
+        }, 0);
+        
+        return {
+          ...client,
+          storage_used: realStorageUsed,
+          documents_count: clientDocuments.length,
+          documents_this_month: clientDocuments.filter(doc => {
+            const docDate = new Date(doc.created_at);
+            return docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear;
+          }).length
+        };
+      });
       // Calculate metrics
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      const newClientsThisMonth = clients.filter(client => {
+      const newClientsThisMonth = clientsWithRealStorage.filter(client => {
         const clientDate = new Date(client.created_at);
         return clientDate.getMonth() === currentMonth && clientDate.getFullYear() === currentYear;
       }).length;
 
-      const cancelledClients = clients.filter(c => c.subscription_status === 'cancelled').length;
-      const churnRate = clients.length > 0 ? (cancelledClients / clients.length) * 100 : 0;
+      const cancelledClients = clientsWithRealStorage.filter(c => c.subscription_status === 'cancelled').length;
+      const churnRate = clientsWithRealStorage.length > 0 ? (cancelledClients / clientsWithRealStorage.length) * 100 : 0;
 
       const totalRevenue = receipts.reduce((sum, receipt) => sum + parseFloat(receipt.amount || '0'), 0);
-      const avgRevenuePerClient = clients.length > 0 ? totalRevenue / clients.length : 0;
+      const avgRevenuePerClient = clientsWithRealStorage.length > 0 ? totalRevenue / clientsWithRealStorage.length : 0;
 
+      // Calculate storage metrics
+      const totalStorageUsed = clientsWithRealStorage.reduce((sum, client) => sum + client.storage_used, 0);
+      const totalStorageLimit = clientsWithRealStorage.reduce((sum, client) => sum + client.storage_limit, 0);
+      const avgStorageUsage = clientsWithRealStorage.length > 0 ? 
+        (totalStorageUsed / totalStorageLimit) * 100 : 0;
+      
+      // Find clients with high storage usage
+      const highStorageClients = clientsWithRealStorage.filter(client => 
+        (client.storage_used / client.storage_limit) > 0.8
+      );
       // Group clients by plan and status
-      const clientsByPlan = clients.reduce((acc, client) => {
+      const clientsByPlan = clientsWithRealStorage.reduce((acc, client) => {
         acc[client.subscription_plan] = (acc[client.subscription_plan] || 0) + 1;
         return acc;
       }, {} as { [key: string]: number });
 
-      const clientsByStatus = clients.reduce((acc, client) => {
+      const clientsByStatus = clientsWithRealStorage.reduce((acc, client) => {
         acc[client.subscription_status] = (acc[client.subscription_status] || 0) + 1;
         return acc;
       }, {} as { [key: string]: number });
@@ -111,7 +146,7 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         const targetDate = new Date();
         targetDate.setMonth(targetDate.getMonth() - i);
         
-        const clientsInMonth = clients.filter(client => {
+        const clientsInMonth = clientsWithRealStorage.filter(client => {
           const clientDate = new Date(client.created_at);
           return clientDate.getMonth() === targetDate.getMonth() && 
                  clientDate.getFullYear() === targetDate.getFullYear();
@@ -121,7 +156,7 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
       }
 
       // Top clients by revenue
-      const topClients = clients
+      const topClients = clientsWithRealStorage
         .map(client => ({
           ...client,
           revenue: receipts
@@ -131,37 +166,51 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5);
 
+      // Top clients by storage usage
+      const topStorageClients = clientsWithRealStorage
+        .map(client => ({
+          ...client,
+          storage_percentage: (client.storage_used / client.storage_limit) * 100
+        }))
+        .sort((a, b) => b.storage_used - a.storage_used)
+        .slice(0, 5);
       // Generate AI insights (simulated)
       const aiInsights = [
         `El crecimiento de clientes muestra una tendencia positiva del ${((newClientsThisMonth / Math.max(clients.length - newClientsThisMonth, 1)) * 100).toFixed(1)}% este mes.`,
         `La tasa de abandono del ${churnRate.toFixed(1)}% está ${churnRate < 5 ? 'por debajo' : 'por encima'} del promedio de la industria.`,
         `Los clientes del plan ${Object.keys(clientsByPlan).reduce((a, b) => clientsByPlan[a] > clientsByPlan[b] ? a : b)} representan el segmento más grande.`,
-        `El ingreso promedio por cliente de €${avgRevenuePerClient.toFixed(0)} indica ${avgRevenuePerClient > 100 ? 'una buena' : 'una oportunidad de mejora en la'} monetización.`
+        `El ingreso promedio por cliente de €${avgRevenuePerClient.toFixed(0)} indica ${avgRevenuePerClient > 100 ? 'una buena' : 'una oportunidad de mejora en la'} monetización.`,
+        `El uso promedio de almacenamiento es del ${avgStorageUsage.toFixed(1)}% con ${allDocuments.length} documentos totales procesados.`,
+        `${highStorageClients.length} cliente(s) están cerca del límite de almacenamiento y podrían necesitar upgrade.`
       ];
 
       const recommendations = [
         'Implementar programa de retención para reducir la tasa de abandono',
         'Desarrollar estrategia de upselling para clientes del plan básico',
         'Crear campaña de referidos para aprovechar la satisfacción actual',
-        'Optimizar onboarding para mejorar la activación de nuevos clientes'
+        'Optimizar onboarding para mejorar la activación de nuevos clientes',
+        highStorageClients.length > 0 ? `Contactar a ${highStorageClients.length} cliente(s) para upgrade de almacenamiento` : 'Monitorear uso de almacenamiento para identificar oportunidades de upgrade'
       ];
 
       const riskFactors = [
         churnRate > 10 ? 'Tasa de abandono elevada requiere atención inmediata' : null,
         newClientsThisMonth === 0 ? 'Sin nuevos clientes este mes - revisar estrategia de adquisición' : null,
-        clients.filter(c => c.subscription_status === 'active').length < clients.length * 0.8 ? 'Bajo porcentaje de clientes activos' : null
+        clientsWithRealStorage.filter(c => c.subscription_status === 'active').length < clientsWithRealStorage.length * 0.8 ? 'Bajo porcentaje de clientes activos' : null,
+        avgStorageUsage > 85 ? 'Uso de almacenamiento global alto - considerar expansión de infraestructura' : null,
+        highStorageClients.length > 3 ? `${highStorageClients.length} clientes cerca del límite de almacenamiento` : null
       ].filter(Boolean);
 
       const opportunities = [
         'Expansión a mercados internacionales',
         'Desarrollo de funcionalidades premium',
         'Alianzas estratégicas con empresas del sector construcción',
-        'Automatización avanzada con IA para reducir costos operativos'
+        'Automatización avanzada con IA para reducir costos operativos',
+        totalStorageUsed > 0 ? 'Optimización de almacenamiento y compresión de documentos' : 'Implementar sistema de gestión de almacenamiento'
       ];
 
       const reportData: ClientReportData = {
-        totalClients: clients.length,
-        activeClients: clients.filter(c => c.subscription_status === 'active').length,
+        totalClients: clientsWithRealStorage.length,
+        activeClients: clientsWithRealStorage.filter(c => c.subscription_status === 'active').length,
         newClientsThisMonth,
         churnRate,
         avgRevenuePerClient,
@@ -169,6 +218,12 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         clientsByPlan,
         clientsByStatus,
         topClients,
+        topStorageClients,
+        totalStorageUsed,
+        totalStorageLimit,
+        avgStorageUsage,
+        highStorageClients: highStorageClients.length,
+        totalDocuments: allDocuments.length,
         growthTrend,
         aiInsights,
         recommendations,
@@ -187,8 +242,10 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         'client-analysis',
         {
           report_type: 'client_analysis',
-          total_clients: clients.length,
+          total_clients: clientsWithRealStorage.length,
           active_clients: reportData.activeClients,
+          total_documents: allDocuments.length,
+          total_storage_used: totalStorageUsed,
           ai_insights_generated: aiInsights.length,
           recommendations_provided: recommendations.length
         },
@@ -209,6 +266,8 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
 
   const printReport = () => {
     try {
+      // Get absolute URL for logo
+      const logoUrl = `${window.location.origin}/Logo ConstructIA.png`;
       const reportHTML = generateReportHTML();
       
       // Create a new window for printing
@@ -248,6 +307,7 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
   };
 
   const downloadReport = () => {
+    const logoUrl = `${window.location.origin}/Logo ConstructIA.png`;
     const reportHTML = generateReportHTML();
     const blob = new Blob([reportHTML], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -258,7 +318,7 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
     URL.revokeObjectURL(url);
   };
 
-  const generateReportHTML = (): string => {
+  const generateReportHTML = (logoUrl?: string): string => {
     if (!reportData) return '';
 
     const currentDate = new Date().toLocaleDateString('es-ES', {
@@ -267,6 +327,13 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
       day: 'numeric'
     });
 
+    const formatBytes = (bytes: number): string => {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
     return `
 <!DOCTYPE html>
 <html lang="es">
@@ -291,14 +358,24 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
             line-height: 1.4;
             color: #1f2937;
             background: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         
         .report-container {
             max-width: 210mm;
             margin: 0 auto;
             background: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             min-height: 297mm;
             position: relative;
+        }
+        
+        .main-content {
+            flex: 1;
         }
         
         .header {
@@ -317,18 +394,13 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
             align-items: center;
         }
         
-        .logo {
-            width: 50px;
+        .logo img {
             height: 50px;
-            background: white;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: auto;
             margin-right: 15px;
-            font-weight: bold;
-            color: #10b981;
-            font-size: 24px;
+            background: white;
+            padding: 5px;
+            border-radius: 8px;
         }
         
         .header-info h1 {
@@ -350,7 +422,7 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -422,15 +494,26 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
             min-height: 10px;
             flex: 1;
             position: relative;
+            display: flex;
+            align-items: end;
+            justify-content: center;
         }
         
         .chart-label {
             position: absolute;
-            bottom: -20px;
+            bottom: -25px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 10px;
             color: #6b7280;
+            white-space: nowrap;
+        }
+        
+        .chart-value {
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
         
         .ai-section {
@@ -491,6 +574,12 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
             gap: 15px;
         }
         
+        .three-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
         .table {
             width: 100%;
             border-collapse: collapse;
@@ -532,16 +621,32 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
             color: #dc2626;
         }
         
+        .storage-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .storage-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .storage-low { background: #10b981; }
+        .storage-medium { background: #f59e0b; }
+        .storage-high { background: #ef4444; }
+        
         .footer {
-            position: absolute;
-            bottom: 15mm;
-            left: 0;
-            right: 0;
+            margin-top: auto;
+            padding-top: 20px;
             text-align: center;
             font-size: 10px;
             color: #6b7280;
             border-top: 1px solid #e5e7eb;
-            padding-top: 10px;
+            padding: 10px 0;
         }
         
         @media print {
@@ -553,17 +658,21 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            
+            .report-container {
+                min-height: 100vh;
+            }
         }
     </style>
 </head>
 <body>
     <div class="report-container">
+        <div class="main-content">
         <!-- Header -->
         <div class="header">
             <div class="logo-section">
-                <div class="logo">C</div>
-                <div class="header-info" style="display: flex; align-items: center;">
-                    <img src="/Logo ConstructIA.png" alt="ConstructIA Logo" style="height: 40px; margin-right: 10px;"/>
+                <div class="logo">
+                    ${logoUrl ? `<img src="${logoUrl}" alt="ConstructIA Logo" style="height: 40px; width: auto;"/>` : '<div style="width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: bold; font-size: 20px;">C</div>'}
                 </div>
                 <div class="header-info" style="margin-left: 10px;">
                     <h1>Reporte de Análisis de Clientes</h1>
@@ -595,6 +704,14 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
                 <div class="kpi-value">${reportData.churnRate.toFixed(1)}%</div>
                 <div class="kpi-label">Tasa Abandono</div>
             </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${formatBytes(reportData.totalStorageUsed || 0)}</div>
+                <div class="kpi-label">Almacenamiento Usado</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">${reportData.totalDocuments || 0}</div>
+                <div class="kpi-label">Documentos Totales</div>
+            </div>
         </div>
 
         <!-- Análisis IA -->
@@ -609,19 +726,27 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
         </div>
 
         <!-- Distribución y Tendencias -->
-        <div class="two-column">
+        <div class="three-column">
             <div class="section">
                 <div class="section-header">
                     <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                     Distribución por Plan
                 </div>
                 <div class="section-content">
-                    ${Object.entries(reportData.clientsByPlan).map(([plan, count]) => `
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span style="text-transform: capitalize;">${plan}:</span>
-                            <strong>${count} (${((count / reportData.totalClients) * 100).toFixed(1)}%)</strong>
-                        </div>
-                    `).join('')}
+                    <div class="chart-container">
+                        ${Object.entries(reportData.clientsByPlan).map(([plan, count]) => {
+                            const maxValue = Math.max(...Object.values(reportData.clientsByPlan), 1);
+                            const height = (count / maxValue) * 100;
+                            const colors = { basic: '#3b82f6', professional: '#10b981', enterprise: '#8b5cf6', custom: '#f59e0b' };
+                            const color = colors[plan as keyof typeof colors] || '#6b7280';
+                            return `
+                                <div class="chart-bar" style="height: ${height}%; background: ${color};">
+                                    <div class="chart-value">${count}</div>
+                                    <div class="chart-label">${plan}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
             </div>
 
@@ -636,45 +761,111 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
                             const maxValue = Math.max(...reportData.growthTrend, 1);
                             const height = (value / maxValue) * 100;
                             const months = ['Hace 5', 'Hace 4', 'Hace 3', 'Hace 2', 'Mes pasado', 'Este mes'];
-                            return `<div class="chart-bar" style="height: ${height}%"><div class="chart-label">${months[index]}</div></div>`;
+                            return `
+                                <div class="chart-bar" style="height: ${height}%;">
+                                    <div class="chart-value">${value}</div>
+                                    <div class="chart-label">${months[index]}</div>
+                                </div>
+                            `;
                         }).join('')}
                     </div>
                 </div>
             </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <svg fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path></svg>
+                    Uso de Almacenamiento
+                </div>
+                <div class="section-content">
+                    <div style="margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+                            <span>Uso Global:</span>
+                            <span><strong>${formatBytes(reportData.totalStorageUsed || 0)} / ${formatBytes(reportData.totalStorageLimit || 0)}</strong></span>
+                        </div>
+                        <div class="storage-bar">
+                            <div class="storage-fill ${(reportData.avgStorageUsage || 0) > 80 ? 'storage-high' : (reportData.avgStorageUsage || 0) > 60 ? 'storage-medium' : 'storage-low'}" 
+                                 style="width: ${Math.min(reportData.avgStorageUsage || 0, 100)}%"></div>
+                        </div>
+                        <div style="text-align: center; font-size: 11px; color: #6b7280; margin-top: 5px;">
+                            ${(reportData.avgStorageUsage || 0).toFixed(1)}% utilizado
+                        </div>
+                    </div>
+                    ${reportData.highStorageClients > 0 ? `
+                        <div style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px; font-size: 11px; color: #dc2626;">
+                            ⚠️ ${reportData.highStorageClients} cliente(s) cerca del límite (>80%)
+                        </div>
+                    ` : `
+                        <div style="background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 8px; font-size: 11px; color: #065f46;">
+                            ✅ Todos los clientes con uso de almacenamiento saludable
+                        </div>
+                    `}
+                </div>
+            </div>
         </div>
 
-        <!-- Top Clientes -->
-        <div class="section">
-            <div class="section-header">
-                <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
-                Top 5 Clientes por Ingresos
-            </div>
-            <div class="section-content">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Empresa</th>
-                            <th>Plan</th>
-                            <th>Estado</th>
-                            <th>Ingresos</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${reportData.topClients.map(client => `
+        <!-- Top Clientes por Ingresos y Almacenamiento -->
+        <div class="two-column">
+            <div class="section">
+                <div class="section-header">
+                    <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
+                    Top 5 Clientes por Ingresos
+                </div>
+                <div class="section-content">
+                    <table class="table">
+                        <thead>
                             <tr>
-                                <td>${client.company_name}</td>
-                                <td style="text-transform: capitalize;">${client.subscription_plan}</td>
-                                <td>
-                                    <span class="status-badge status-${client.subscription_status}">
-                                        ${client.subscription_status === 'active' ? 'Activo' : 
-                                          client.subscription_status === 'suspended' ? 'Suspendido' : 'Cancelado'}
-                                    </span>
-                                </td>
-                                <td><strong>€${client.revenue.toFixed(0)}</strong></td>
+                                <th>Empresa</th>
+                                <th>Plan</th>
+                                <th>Ingresos</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${reportData.topClients.map(client => `
+                                <tr>
+                                    <td>${client.company_name}</td>
+                                    <td style="text-transform: capitalize;">${client.subscription_plan}</td>
+                                    <td><strong>€${client.revenue.toFixed(0)}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <svg fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path></svg>
+                    Top 5 Clientes por Almacenamiento
+                </div>
+                <div class="section-content">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Empresa</th>
+                                <th>Usado</th>
+                                <th>% Uso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(reportData.topStorageClients || []).map(client => `
+                                <tr>
+                                    <td>${client.company_name}</td>
+                                    <td>${formatBytes(client.storage_used)}</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center;">
+                                            <div class="storage-bar" style="width: 40px; height: 6px; margin-right: 8px;">
+                                                <div class="storage-fill ${client.storage_percentage > 80 ? 'storage-high' : client.storage_percentage > 60 ? 'storage-medium' : 'storage-low'}" 
+                                                     style="width: ${Math.min(client.storage_percentage, 100)}%"></div>
+                                            </div>
+                                            <span style="font-size: 10px;">${client.storage_percentage.toFixed(1)}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -702,6 +893,7 @@ export default function ClientReport({ isOpen, onClose }: ClientReportProps) {
                     }
                 </div>
             </div>
+        </div>
         </div>
 
         <!-- Footer -->
