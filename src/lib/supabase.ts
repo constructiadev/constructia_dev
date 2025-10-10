@@ -623,29 +623,60 @@ export const getDocumentStats = async () => {
 // Helper para calcular KPIs dinámicamente
 export const calculateDynamicKPIs = async () => {
   try {
-    const tenantId = DEV_TENANT_ID;
-    const [stats, documentos, receipts, clients] = await Promise.all([
-      getTenantStats(tenantId),
-      getAllTenantDocumentsNoRLS(tenantId),
+    console.log('📊 [calculateDynamicKPIs] Starting to calculate system-wide KPIs...');
+
+    // Fetch clients and receipts in parallel
+    const [receipts, clients] = await Promise.all([
       getAllReceipts(),
       getAllClients()
     ]);
 
-    const activeClients = stats.totalEmpresas; // Use empresas as active clients
+    console.log(`✅ [calculateDynamicKPIs] Loaded ${clients.length} clients and ${receipts.length} receipts`);
+
+    // Extract unique tenant IDs from all clients
+    const uniqueTenantIds = [...new Set(clients.map(c => c.tenant_id).filter(Boolean))];
+    console.log(`📋 [calculateDynamicKPIs] Found ${uniqueTenantIds.length} unique tenant(s)`);
+
+    // Fetch documents for all tenants in parallel
+    const allDocumentsPromises = uniqueTenantIds.map(async (tenantId) => {
+      try {
+        const docs = await getAllTenantDocumentsNoRLS(tenantId);
+        console.log(`  ✓ Tenant ${tenantId}: ${docs.length} documents`);
+        return docs;
+      } catch (error) {
+        console.warn(`  ⚠️ Error fetching documents for tenant ${tenantId}:`, error);
+        return [];
+      }
+    });
+
+    const allDocumentsArrays = await Promise.all(allDocumentsPromises);
+
+    // Flatten all documents into a single array
+    const allDocuments = allDocumentsArrays.flat();
+    console.log(`📄 [calculateDynamicKPIs] Total documents across all tenants: ${allDocuments.length}`);
+
+    // Calculate active clients (clients with active subscription)
+    const activeClients = clients.filter(c => c.subscription_status === 'active').length;
+
+    // Calculate total revenue
     const totalRevenue = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
-    const documentsThisMonth = documentos.filter(d => {
+
+    // Calculate documents uploaded this month across all tenants
+    const documentsThisMonth = allDocuments.filter(d => {
       const docDate = new Date(d.created_at);
       const now = new Date();
       return docDate.getMonth() === now.getMonth() && docDate.getFullYear() === now.getFullYear();
     }).length;
-    
-    // Calculate real AI confidence from document metadata
-    const avgConfidence = documentos.length > 0 
-      ? documentos.reduce((sum, d) => {
+
+    console.log(`📅 [calculateDynamicKPIs] Documents this month: ${documentsThisMonth}`);
+
+    // Calculate real AI confidence from document metadata across all tenants
+    const avgConfidence = allDocuments.length > 0
+      ? allDocuments.reduce((sum, d) => {
           const aiExtraction = d.metadatos?.ai_extraction;
           const confidence = aiExtraction?.confianza?.categoria_probable || 0.85;
           return sum + (confidence * 100);
-        }, 0) / documentos.length
+        }, 0) / allDocuments.length
       : 0;
 
     // Calculate monthly revenue data for chart
@@ -653,21 +684,23 @@ export const calculateDynamicKPIs = async () => {
     for (let i = 5; i >= 0; i--) {
       const targetDate = new Date();
       targetDate.setMonth(targetDate.getMonth() - i);
-      
+
       const monthlyTotal = receipts.filter(receipt => {
         const receiptDate = new Date(receipt.created_at);
-        return receiptDate.getMonth() === targetDate.getMonth() && 
+        return receiptDate.getMonth() === targetDate.getMonth() &&
                receiptDate.getFullYear() === targetDate.getFullYear();
       }).reduce((sum, receipt) => sum + (receipt.amount || 0), 0);
-      
+
       monthlyRevenueData.push(monthlyTotal);
     }
 
-    // Calculate document status distribution
-    const completedDocumentsCount = documentos.filter(d => d.estado === 'aprobado').length;
-    const processingDocumentsCount = documentos.filter(d => d.estado === 'pendiente').length;
-    const rejectedDocumentsCount = documentos.filter(d => d.estado === 'rechazado').length;
-    const draftDocumentsCount = documentos.filter(d => d.estado === 'borrador').length;
+    // Calculate document status distribution across all tenants
+    const completedDocumentsCount = allDocuments.filter(d => d.estado === 'aprobado').length;
+    const processingDocumentsCount = allDocuments.filter(d => d.estado === 'pendiente').length;
+    const rejectedDocumentsCount = allDocuments.filter(d => d.estado === 'rechazado').length;
+    const draftDocumentsCount = allDocuments.filter(d => d.estado === 'borrador').length;
+
+    console.log(`📊 [calculateDynamicKPIs] Document status: Completed=${completedDocumentsCount}, Processing=${processingDocumentsCount}, Rejected=${rejectedDocumentsCount}, Draft=${draftDocumentsCount}`);
 
     // Calculate clients by plan
     const clientsByPlan = {
@@ -677,13 +710,13 @@ export const calculateDynamicKPIs = async () => {
       custom: clients.filter(c => c.subscription_plan === 'custom').length
     };
 
-    return {
+    const result = {
       activeClients,
       totalRevenue,
       documentsThisMonth,
       avgConfidence: Math.round(avgConfidence * 10) / 10,
-      totalDocuments: documentos.length,
-      totalClients: stats.totalEmpresas,
+      totalDocuments: allDocuments.length,
+      totalClients: clients.length,
       monthlyRevenueData,
       completedDocumentsCount,
       processingDocumentsCount,
@@ -691,8 +724,17 @@ export const calculateDynamicKPIs = async () => {
       draftDocumentsCount,
       clientsByPlan
     };
+
+    console.log('✅ [calculateDynamicKPIs] KPIs calculated successfully:', {
+      totalDocuments: result.totalDocuments,
+      totalClients: result.totalClients,
+      activeClients: result.activeClients,
+      documentsThisMonth: result.documentsThisMonth
+    });
+
+    return result;
   } catch (error) {
-    console.error('Error calculating dynamic KPIs:', error);
+    console.error('❌ [calculateDynamicKPIs] Error calculating dynamic KPIs:', error);
     return {
       activeClients: 0,
       totalRevenue: 0,
@@ -704,7 +746,8 @@ export const calculateDynamicKPIs = async () => {
       completedDocumentsCount: 0,
       processingDocumentsCount: 0,
       rejectedDocumentsCount: 0,
-      draftDocumentsCount: 0
+      draftDocumentsCount: 0,
+      clientsByPlan: { basic: 0, professional: 0, enterprise: 0, custom: 0 }
     };
   }
 };
