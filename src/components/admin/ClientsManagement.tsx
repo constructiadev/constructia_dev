@@ -424,13 +424,27 @@ function PlatformCredentialsStatus({
   // Filter only configured platforms
   const configuredPlatforms = platforms.filter(platform => {
     const cred = credentials.find(c => c.platform_type === platform.type);
-    const isConfigured = cred && 
-                        cred.username && 
-                        cred.username.trim().length > 0 && 
-                        cred.password && 
-                        cred.password.trim().length > 0 && 
-                        cred.is_active !== false;
-    
+
+    // A platform is configured if:
+    // 1. Credentials exist for this platform
+    // 2. Username is not empty
+    // 3. Password is not empty
+    // 4. is_active is explicitly true (not just "not false")
+    const isConfigured = cred &&
+                        cred.username &&
+                        cred.username.trim().length > 0 &&
+                        cred.password &&
+                        cred.password.trim().length > 0 &&
+                        cred.is_active === true;
+
+    console.log(`🔍 [PlatformCredentials] Platform ${platform.name} for tenant ${client.tenant_id}:`, {
+      exists: !!cred,
+      hasUsername: cred?.username?.trim().length > 0,
+      hasPassword: cred?.password?.trim().length > 0,
+      isActive: cred?.is_active,
+      isConfigured
+    });
+
     return isConfigured;
   });
   
@@ -515,32 +529,38 @@ const ClientsManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('👥 Loading clients from database...');
       const data = await getAllClients();
       console.log('✅ Clients loaded:', data?.length || 0);
-      
-      // Simulate realistic storage usage for development
-      const clientsWithRealisticStorage = (data || []).map(client => ({
-        ...client,
-        storage_used: client.total_storage_used || 0, // Use real data
-        documents_processed: client.total_documents || 0 // Use real data
-      }));
+
+      // Use real database data directly - no simulation needed
+      const clientsWithRealData = (data || []).map(client => {
+        console.log(`📊 [Client: ${client.company_name}] Docs: ${client.total_documents}, Storage: ${client.total_storage_used} bytes`);
+        return {
+          ...client,
+          // Ensure storage_used and documents_processed use the aggregated values
+          storage_used: client.total_storage_used || 0,
+          documents_processed: client.total_documents || 0
+        };
+      });
 
       // Calculate total documents for debugging
-      const totalDocs = clientsWithRealisticStorage.reduce((sum, c) => sum + (c.documents_processed || 0), 0);
+      const totalDocs = clientsWithRealData.reduce((sum, c) => sum + (c.documents_processed || 0), 0);
+      const totalStorage = clientsWithRealData.reduce((sum, c) => sum + (c.storage_used || 0), 0);
       console.log('📊 Total documents across all clients:', totalDocs);
-      console.log('📋 Sample client data:', clientsWithRealisticStorage.slice(0, 3).map(c => ({
+      console.log('📊 Total storage across all clients:', formatBytes(totalStorage));
+      console.log('📋 Client details:', clientsWithRealData.map(c => ({
         name: c.company_name,
         docs: c.documents_processed,
-        storage: c.storage_used,
+        storage: formatBytes(c.storage_used),
         tenant_id: c.tenant_id
       })));
 
       // Debug: Show all credential storage keys
       debugCredentialStorage();
 
-      setClients(clientsWithRealisticStorage);
+      setClients(clientsWithRealData);
     } catch (err) {
       console.error('Error loading clients:', err);
       setError(err instanceof Error ? err.message : 'Error loading clients');
@@ -1132,8 +1152,15 @@ const ClientsManagement: React.FC = () => {
                         {getStoragePercentage(client.storage_used, client.storage_limit)}% usado
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-900">
-                      {client.total_documents || 0} {/* Use total_documents */}
+                    <td className="py-3 px-4">
+                      <div className="text-sm text-gray-900 font-medium">
+                        {client.documents_processed !== undefined ? client.documents_processed : 0}
+                      </div>
+                      {client.documents_processed > 0 && (
+                        <div className="text-xs text-gray-500">
+                          {formatBytes(client.storage_used)} total
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <PlatformCredentialsStatus

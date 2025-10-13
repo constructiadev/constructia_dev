@@ -155,6 +155,8 @@ export const getAllClients = async () => {
 
       const totalSize = (sizeData || []).reduce((sum, doc) => sum + (doc.size_bytes || 0), 0);
 
+      console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${count || 0} documents, ${totalSize} bytes`);
+
       return {
         tenantId,
         count: count || 0,
@@ -177,19 +179,27 @@ export const getAllClients = async () => {
     const combinedClients = directClientsData.map(client => {
       const tenantId = userTenantMap.get(client.user_id) || DEV_TENANT_ID;
       const stats = documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 };
-      return {
+
+      const combinedClient = {
         ...client,
-        tenant_id: tenantId, // Add tenant_id directly to client object
+        tenant_id: tenantId,
         total_documents: stats.total_documents,
         total_storage_used: stats.total_storage_used,
-        // Use real count and sum for documents_processed and storage_used
         documents_processed: stats.total_documents,
         storage_used: stats.total_storage_used,
       };
+
+      console.log(`✅ [getAllClients] Client "${client.company_name}":`, {
+        tenant_id: tenantId.substring(0, 8),
+        documents: stats.total_documents,
+        storage_bytes: stats.total_storage_used,
+        storage_mb: (stats.total_storage_used / 1024 / 1024).toFixed(2)
+      });
+
+      return combinedClient;
     });
 
-    console.log(`✅ [getAllClients] Successfully processed ${combinedClients.length} clients with stats`);
-    console.log('📋 [getAllClients] Sample client:', combinedClients[0]?.company_name || 'N/A');
+    console.log(`✅ [getAllClients] Successfully processed ${combinedClients.length} clients with real database stats`);
 
     return combinedClients;
   } catch (error) {
