@@ -28,6 +28,7 @@ import {
 } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
 import { manualManagementService } from '../../lib/manual-management-service';
+import PlatformCredentialsManager from './PlatformCredentialsManager';
 
 interface Empresa {
   id: string;
@@ -509,6 +510,7 @@ export default function DocumentUpload() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('nalanda');
   const [hasCaeCredentials, setHasCaeCredentials] = useState<boolean>(false);
   const [checkingCredentials, setCheckingCredentials] = useState<boolean>(true);
+  const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
 
   const platformOptions: PlatformOption[] = [
     {
@@ -543,10 +545,34 @@ export default function DocumentUpload() {
     checkCaeCredentials();
   }, [user]);
 
+  // Re-check credentials when modal closes or when navigating back to this page
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 [DocumentUpload] Window focused - rechecking credentials');
+      checkCaeCredentials();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user]);
+
+  // Listen for credentials update events
+  useEffect(() => {
+    const handleCredentialsUpdated = () => {
+      console.log('🔄 [DocumentUpload] Credentials updated - rechecking');
+      checkCaeCredentials();
+    };
+
+    window.addEventListener('credentialsUpdated', handleCredentialsUpdated);
+    return () => window.removeEventListener('credentialsUpdated', handleCredentialsUpdated);
+  }, [user]);
+
   const checkCaeCredentials = async () => {
     try {
       setCheckingCredentials(true);
       const tenantId = user?.tenant_id || DEV_TENANT_ID;
+
+      console.log('🔍 [DocumentUpload] Checking CAE credentials for tenant:', tenantId);
 
       const { data: credentials, error } = await supabaseServiceClient
         .from('credenciales_plataforma')
@@ -554,22 +580,33 @@ export default function DocumentUpload() {
         .eq('tenant_id', tenantId);
 
       if (error) {
-        console.error('Error checking CAE credentials:', error);
+        console.error('❌ [DocumentUpload] Error checking CAE credentials:', error);
         setHasCaeCredentials(false);
         return;
       }
 
-      const validCredentials = (credentials || []).filter(c =>
-        c.is_active &&
-        c.username && c.username.trim().length > 0 &&
-        c.password && c.password.trim().length > 0 &&
-        ['nalanda', 'ctaima', 'ecoordina'].includes(c.platform_type)
-      );
+      console.log('📊 [DocumentUpload] Retrieved credentials:', credentials?.length || 0);
 
-      setHasCaeCredentials(validCredentials.length > 0);
-      console.log('CAE credentials check:', validCredentials.length > 0 ? 'PASS' : 'FAIL');
+      // Check for ANY valid credential (Nalanda, CTAIMA, or Ecoordina)
+      const validCredentials = (credentials || []).filter(c => {
+        const isValid = c.is_active &&
+          c.username && c.username.trim().length > 0 &&
+          c.password && c.password.trim().length > 0 &&
+          ['nalanda', 'ctaima', 'ecoordina'].includes(c.platform_type);
+
+        if (isValid) {
+          console.log('✅ [DocumentUpload] Valid credential found:', c.platform_type);
+        }
+        return isValid;
+      });
+
+      const hasCredentials = validCredentials.length > 0;
+      setHasCaeCredentials(hasCredentials);
+
+      console.log(`${hasCredentials ? '✅' : '❌'} [DocumentUpload] CAE credentials check:`,
+        hasCredentials ? `PASS (${validCredentials.length} platform(s))` : 'FAIL');
     } catch (error) {
-      console.error('Error checking CAE credentials:', error);
+      console.error('❌ [DocumentUpload] Error checking CAE credentials:', error);
       setHasCaeCredentials(false);
     } finally {
       setCheckingCredentials(false);
@@ -621,8 +658,18 @@ export default function DocumentUpload() {
       return;
     }
 
+    // Re-check credentials before upload to ensure they're current
+    await checkCaeCredentials();
+
     if (!hasCaeCredentials) {
-      alert('⚠️ ATENCIÓN: Debe configurar al menos una credencial de plataforma CAE (Nalanda, CTAIMA o Ecoordina) antes de subir documentos.\n\nPor favor, vaya a la sección de Configuración para configurar sus credenciales de plataforma.');
+      const shouldConfigure = confirm(
+        '⚠️ ATENCIÓN: Debe configurar al menos una credencial de plataforma CAE (Nalanda, CTAIMA o Ecoordina) antes de subir documentos.\n\n' +
+        '¿Desea configurar las credenciales ahora?'
+      );
+
+      if (shouldConfigure) {
+        setShowCredentialsModal(true);
+      }
       return;
     }
 
@@ -851,13 +898,15 @@ export default function DocumentUpload() {
                 Debe configurar al menos una credencial de plataforma CAE (Nalanda, CTAIMA o Ecoordina) antes de poder subir documentos.
                 Esta es una directiva obligatoria de la plataforma.
               </p>
-              <a
-                href="#/client/settings"
-                className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                <Globe className="w-4 h-4 mr-2" />
-                Ir a Configuración de Credenciales
-              </a>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowCredentialsModal(true)}
+                  className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  Ir a Configuración de Credenciales
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1072,6 +1121,35 @@ export default function DocumentUpload() {
             {selectedPlatform && (
               <p>🌐 Plataforma: {platformOptions.find(p => p.id === selectedPlatform)?.name}</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Platform Credentials Configuration Modal */}
+      {showCredentialsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Configurar Credenciales de Plataforma</h2>
+              <button
+                onClick={() => {
+                  setShowCredentialsModal(false);
+                  checkCaeCredentials();
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <PlatformCredentialsManager
+                onCredentialsSaved={() => {
+                  console.log('✅ [DocumentUpload] Credentials saved, rechecking...');
+                  checkCaeCredentials();
+                  setShowCredentialsModal(false);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

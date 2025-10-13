@@ -57,13 +57,15 @@ interface PlatformCredential {
 }
 
 interface PlatformCredentialsManagerProps {
-  clientId: string;
+  clientId?: string;
+  onCredentialsSaved?: () => void;
   onCredentialsUpdated?: () => void;
   isReadOnly?: boolean;
 }
 
-export default function PlatformCredentialsManager({ 
-  clientId, 
+export default function PlatformCredentialsManager({
+  clientId,
+  onCredentialsSaved,
   onCredentialsUpdated,
   isReadOnly = false
 }: PlatformCredentialsManagerProps) {
@@ -303,6 +305,13 @@ export default function PlatformCredentialsManager({
       saveCredentialsToStorage(finalCredentials);
 
       setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });
+
+      // CRITICAL: Emit events to notify other components
+      window.dispatchEvent(new CustomEvent('credentialsUpdated', {
+        detail: { tenantId: effectiveTenantId, timestamp: Date.now() }
+      }));
+
+      onCredentialsSaved?.();
       onCredentialsUpdated?.();
 
       setTimeout(() => setMessage(null), 3000);
@@ -349,6 +358,12 @@ export default function PlatformCredentialsManager({
       saveCredentialsToStorage(updatedCredentials);
 
       setMessage({ type: 'success', text: 'Credenciales eliminadas correctamente' });
+
+      // CRITICAL: Emit events to notify other components
+      window.dispatchEvent(new CustomEvent('credentialsUpdated', {
+        detail: { tenantId: effectiveTenantId, timestamp: Date.now() }
+      }));
+
       onCredentialsUpdated?.();
 
       setTimeout(() => setMessage(null), 3000);
