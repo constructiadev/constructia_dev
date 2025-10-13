@@ -106,10 +106,14 @@ export default function PlatformCredentialsManager({
   // CRITICAL: Always use clientId if provided, otherwise fall back to user's tenant_id
   // When called from admin panel, clientId will be the target client's tenant_id
   // When called from client panel, it will use the logged-in user's tenant_id
-  const effectiveTenantId = clientId || user?.tenant_id || 'default';
-  const STORAGE_KEY = `constructia_credentials_${effectiveTenantId}`;
+  const effectiveTenantId = clientId || user?.tenant_id;
+  const STORAGE_KEY = effectiveTenantId ? `constructia_credentials_${effectiveTenantId}` : null;
 
   useEffect(() => {
+    if (!effectiveTenantId) {
+      console.warn('⚠️ [PlatformCredentialsManager] No tenant_id available - user not authenticated');
+      return;
+    }
     console.log(`🔐 [PlatformCredentialsManager] Initializing for tenant: ${effectiveTenantId}`);
     loadCredentialsFromStorage();
   }, [clientId, effectiveTenantId]);
@@ -137,6 +141,13 @@ export default function PlatformCredentialsManager({
 
   const loadCredentialsFromStorage = async () => {
     try {
+      // CRITICAL: Validate tenant_id before making database query
+      if (!effectiveTenantId) {
+        console.warn('⚠️ [PlatformCredentials] Cannot load credentials - no tenant_id');
+        setCredentials([]);
+        return;
+      }
+
       // CRITICAL: Load from database first (source of truth)
       console.log(`🔍 [PlatformCredentials] Loading credentials for tenant: ${effectiveTenantId}`);
 
@@ -148,11 +159,15 @@ export default function PlatformCredentialsManager({
       if (error) {
         console.error('❌ [PlatformCredentials] Database error:', error);
         // Fallback to localStorage on error
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsedCredentials = JSON.parse(stored);
-          setCredentials(parsedCredentials);
-          console.log('⚠️ [PlatformCredentials] Loaded from localStorage (fallback):', parsedCredentials.length);
+        if (STORAGE_KEY) {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            const parsedCredentials = JSON.parse(stored);
+            setCredentials(parsedCredentials);
+            console.log('⚠️ [PlatformCredentials] Loaded from localStorage (fallback):', parsedCredentials.length);
+          } else {
+            setCredentials([]);
+          }
         } else {
           setCredentials([]);
         }
@@ -171,19 +186,26 @@ export default function PlatformCredentialsManager({
 
         setCredentials(formattedCredentials);
         // Sync to localStorage for offline access
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(formattedCredentials));
+        if (STORAGE_KEY) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(formattedCredentials));
+        }
         console.log('✅ [PlatformCredentials] Loaded from database:', formattedCredentials.length, 'credentials');
       } else {
         // No credentials in database, check localStorage
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsedCredentials = JSON.parse(stored);
-          setCredentials(parsedCredentials);
-          console.log('✅ [PlatformCredentials] Loaded from localStorage:', parsedCredentials.length);
+        if (STORAGE_KEY) {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            const parsedCredentials = JSON.parse(stored);
+            setCredentials(parsedCredentials);
+            console.log('✅ [PlatformCredentials] Loaded from localStorage:', parsedCredentials.length);
+          } else {
+            // Create empty state
+            setCredentials([]);
+            console.log('ℹ️ [PlatformCredentials] No credentials found');
+          }
         } else {
-          // Create empty state
           setCredentials([]);
-          console.log('ℹ️ [PlatformCredentials] No credentials found');
+          console.log('ℹ️ [PlatformCredentials] No credentials found - no tenant_id');
         }
       }
     } catch (error) {
@@ -194,6 +216,11 @@ export default function PlatformCredentialsManager({
 
   const saveCredentialsToStorage = (newCredentials: PlatformCredential[]) => {
     try {
+      if (!STORAGE_KEY || !effectiveTenantId) {
+        console.warn('⚠️ [PlatformCredentials] Cannot save - no tenant_id available');
+        return false;
+      }
+
       console.log(`💾 [PlatformCredentialsManager] Saving credentials to key: ${STORAGE_KEY}`);
       console.log(`   Tenant ID: ${effectiveTenantId}`);
       console.log(`   Credentials count: ${newCredentials.length}`);
@@ -219,6 +246,12 @@ export default function PlatformCredentialsManager({
   };
 
   const handleSaveCredential = async () => {
+    if (!effectiveTenantId) {
+      setMessage({ type: 'error', text: 'No hay sesión activa. Por favor inicia sesión.' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     if (!newCredential.username.trim() || !newCredential.password.trim()) {
       setMessage({ type: 'error', text: 'Por favor completa todos los campos' });
       setTimeout(() => setMessage(null), 3000);
