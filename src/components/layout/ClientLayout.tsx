@@ -115,13 +115,20 @@ export default function ClientLayout() {
                     end={item.href === '/client/dashboard'}
                     className={({ isActive }) =>
                       [
-                        'group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                        'group relative flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200',
                         isActive ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'
                       ].join(' ')
                     }
                   >
-                    <Icon className="mr-3 h-5 w-5" />
-                    {item.name}
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <span className="absolute left-0 top-0 bottom-0 w-1 bg-green-600 rounded-r-full nav-indicator" />
+                        )}
+                        <Icon className="mr-3 h-5 w-5" />
+                        {item.name}
+                      </>
+                    )}
                   </NavLink>
                 </li>
               );
