@@ -83,8 +83,95 @@ export interface Tenant {
   id: string;
   name: string;
   status: TenantStatus;
+  description?: string;
+  logo_url?: string;
+  settings?: any;
   created_at: string;
   updated_at: string;
+}
+
+export interface TenantMetadata {
+  id: string;
+  tenant_id: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  company_address?: string;
+  subscription_plan: string;
+  subscription_status: string;
+  subscription_start_date?: string;
+  subscription_end_date?: string;
+  storage_limit: number;
+  storage_used: number;
+  documents_limit: number;
+  documents_count: number;
+  companies_limit: number;
+  companies_count: number;
+  users_limit: number;
+  users_count: number;
+  tokens_available: number;
+  tokens_used: number;
+  monthly_cost: number;
+  total_revenue: number;
+  last_payment_date?: string;
+  next_billing_date?: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  platform_credentials: any;
+  last_activity?: string;
+  last_login?: string;
+  is_trial: boolean;
+  trial_end_date?: string;
+  is_suspended: boolean;
+  suspension_reason?: string;
+  internal_notes?: string;
+  account_manager?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantWithMetadata extends Tenant {
+  metadata?: TenantMetadata;
+  companies_count?: number;
+  projects_count?: number;
+  documents_count?: number;
+  users_count?: number;
+}
+
+export interface TenantMetrics {
+  companies_count: number;
+  projects_count: number;
+  documents_count: number;
+  users_count: number;
+  storage_used: number;
+  last_document_upload?: string;
+  last_user_activity?: string;
+}
+
+export interface AdminTenantOverview {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_status: string;
+  tenant_created_at: string;
+  contact_name?: string;
+  contact_email?: string;
+  subscription_plan: string;
+  subscription_status: string;
+  storage_used: number;
+  storage_limit: number;
+  documents_count: number;
+  companies_count: number;
+  users_count: number;
+  monthly_cost: number;
+  total_revenue: number;
+  last_activity?: string;
+  is_trial: boolean;
+  trial_end_date?: string;
+  is_suspended: boolean;
+  storage_usage_percent: number;
+  actual_companies_count: number;
+  projects_count: number;
+  actual_documents_count: number;
 }
 
 export interface NewUser {
