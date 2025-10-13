@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ClientAuthService, type AuthenticatedClient } from './client-auth-service';
 import { supabase, supabaseServiceClient, logAuditoria } from './supabase-real';
+import { isAuthorizedSuperAdmin } from '../config/security-config';
 
 interface AuthenticatedUser {
   id: string;
@@ -115,6 +116,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // If user is SuperAdmin, create admin user object
       if (userProfile.role === 'SuperAdmin') {
+        // SECURITY: Verify email is authorized for SuperAdmin access
+        if (!isAuthorizedSuperAdmin(userProfile.email)) {
+          console.error('❌ [AuthContext] SECURITY VIOLATION: Unauthorized SuperAdmin detected:', userProfile.email);
+          console.error('❌ [AuthContext] This user should not have SuperAdmin role. Logging out...');
+
+          // Log security violation
+          await logAuditoria(
+            userProfile.tenant_id,
+            userProfile.id,
+            'SECURITY_VIOLATION',
+            'auth_session',
+            {
+              reason: 'Unauthorized SuperAdmin role detected',
+              email: userProfile.email,
+              action: 'forced_logout'
+            },
+            'BLOCKED'
+          );
+
+          // Force logout
+          await supabase.auth.signOut();
+          setUser(null);
+          throw new Error('Acceso denegado: Permisos incorrectos detectados. Por favor contacta al administrador del sistema.');
+        }
+
         const adminUser: AuthenticatedUser = {
           id: userProfile.id,
           email: userProfile.email,
@@ -179,8 +205,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // CRITICAL: Strict role-based authentication
       console.log('🔍 [AuthContext] User role detected:', userProfile?.role);
-      
+
       if (userProfile?.role === 'SuperAdmin') {
+        // SECURITY: Verify email is authorized for SuperAdmin access
+        if (!isAuthorizedSuperAdmin(userProfile.email)) {
+          console.error('❌ [AuthContext] SECURITY VIOLATION: Unauthorized user attempting admin access:', userProfile.email);
+
+          // Log security violation
+          await logAuditoria(
+            userProfile.tenant_id,
+            userProfile.id,
+            'SECURITY_VIOLATION',
+            'admin_login_attempt',
+            {
+              reason: 'Unauthorized user has SuperAdmin role',
+              email: userProfile.email,
+              action: 'login_blocked'
+            },
+            'BLOCKED'
+          );
+
+          // Force logout
+          await supabase.auth.signOut();
+          throw new Error('Acceso denegado: Este usuario no tiene permisos de administrador. Si crees que esto es un error, contacta al administrador del sistema.');
+        }
+
         // Admin authentication
         const adminUser: AuthenticatedUser = {
           id: userProfile.id,

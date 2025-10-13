@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { supabase, supabaseServiceClient } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
+import { isAuthorizedSuperAdmin } from '../../config/security-config';
 import Logo from '../common/Logo';
 
 export default function AdminLogin() {
@@ -20,6 +21,12 @@ export default function AdminLogin() {
     setSubmitting(true);
 
     try {
+      // SECURITY: Check whitelist BEFORE attempting authentication
+      if (!isAuthorizedSuperAdmin(email)) {
+        console.error('❌ [AdminLogin] Unauthorized email attempted admin login:', email);
+        throw new Error('Acceso denegado: Este email no está autorizado para acceso administrativo.');
+      }
+
       // Admin authentication - separate from client auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -51,44 +58,21 @@ export default function AdminLogin() {
           throw new Error(`Error de base de datos: ${profileError.message}`);
         }
       } else if (!userProfile) {
-        // Profile doesn't exist, create it as SuperAdmin
-        const { error: createError } = await supabaseServiceClient
-          .from('users')
-          .upsert({
-            id: authData.user.id,
-            tenant_id: '00000000-0000-0000-0000-000000000001', // Default tenant for admin
-            email: authData.user.email,
-            name: authData.user.user_metadata?.name || 'Super Admin',
-            role: 'SuperAdmin',
-            active: true
-          }, {
-            onConflict: 'tenant_id,email'
-          });
-
-        if (createError) {
-          await supabase.auth.signOut();
-          throw new Error(`Failed to create admin profile: ${createError.message}`);
-        }
-
-        console.log('✅ [AdminLogin] Created new SuperAdmin profile for:', authData.user.email);
+        // SECURITY: Profile doesn't exist - DENY ACCESS
+        // SuperAdmin users must be created via authorized SQL scripts only
+        await supabase.auth.signOut();
+        console.error('❌ [AdminLogin] Access denied: User profile not found');
+        throw new Error('Acceso denegado: Este usuario no tiene permisos de administrador. Los administradores deben ser creados por el equipo técnico.');
       } else if (userProfile.role !== 'SuperAdmin') {
-        // User exists but doesn't have SuperAdmin role - upgrade them for admin login
-        console.log('🔄 [AdminLogin] Upgrading user role to SuperAdmin for admin access');
-        
-        const { error: upgradeError } = await supabaseServiceClient
-          .from('users')
-          .update({
-            role: 'SuperAdmin',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', authData.user.id);
-
-        if (upgradeError) {
-          await supabase.auth.signOut();
-          throw new Error(`Failed to upgrade user to SuperAdmin: ${upgradeError.message}`);
-        }
-
-        console.log('✅ [AdminLogin] Successfully upgraded user to SuperAdmin role');
+        // SECURITY: User exists but is NOT SuperAdmin - DENY ACCESS
+        // NEVER auto-upgrade users to SuperAdmin - this is a critical security violation
+        await supabase.auth.signOut();
+        console.error('❌ [AdminLogin] Access denied: User does not have SuperAdmin role', {
+          userId: authData.user.id,
+          email: authData.user.email,
+          currentRole: userProfile.role
+        });
+        throw new Error('Acceso denegado: No tienes permisos de administrador. Este portal es exclusivo para administradores del sistema.');
       }
 
       // Ensure DEV_ADMIN_USER_ID exists in users table for audit logging

@@ -142,6 +142,7 @@ export class ClientAuthService {
         console.log('✅ [ClientAuth] Auth user created:', authData.user.id);
 
         // STEP 3: Create user profile
+        // SECURITY: Role is ALWAYS 'Cliente' - SuperAdmin can only be created via authorized SQL scripts
         console.log('📋 [ClientAuth] Step 3: Creating user profile...');
         const { data: userProfile, error: userError } = await supabaseServiceClient
           .from('users')

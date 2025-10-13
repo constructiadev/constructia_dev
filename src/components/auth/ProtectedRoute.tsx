@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
+import { isAuthorizedSuperAdmin } from '../../config/security-config';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,12 +9,37 @@ interface ProtectedRouteProps {
   fallbackPath?: string;
 }
 
-export default function ProtectedRoute({ 
-  children, 
-  requireRole, 
-  fallbackPath = '/landing' 
+export default function ProtectedRoute({
+  children,
+  requireRole,
+  fallbackPath = '/landing'
 }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
+
+  // SECURITY: Continuous validation of user role and authorization
+  useEffect(() => {
+    if (!user || loading) return;
+
+    // Validate SuperAdmin users against whitelist
+    if (user.role === 'SuperAdmin') {
+      if (!isAuthorizedSuperAdmin(user.email)) {
+        console.error('❌ [ProtectedRoute] SECURITY VIOLATION: Unauthorized SuperAdmin detected');
+        console.error('❌ [ProtectedRoute] Email:', user.email, 'is not in authorized whitelist');
+        console.error('❌ [ProtectedRoute] Forcing logout for security...');
+
+        signOut().catch(err => console.error('Error during security logout:', err));
+      }
+    }
+
+    // Validate role matches required route
+    if (requireRole === 'admin' && user.role !== 'SuperAdmin') {
+      console.error('❌ [ProtectedRoute] Role mismatch: User with role', user.role, 'attempting admin access');
+    }
+
+    if (requireRole === 'client' && user.role === 'SuperAdmin') {
+      console.error('❌ [ProtectedRoute] Security: SuperAdmin attempting client portal access');
+    }
+  }, [user, loading, requireRole, signOut]);
 
   if (loading) {
     return (
@@ -34,12 +60,23 @@ export default function ProtectedRoute({
 
   // CRITICAL: Strict role-based access control
   if (requireRole === 'admin') {
-    // Only SuperAdmin can access admin routes
+    // SECURITY: Multi-level validation for admin access
     if (user.role !== 'SuperAdmin') {
       console.error('❌ [ProtectedRoute] ADMIN ACCESS DENIED for role:', user.role);
+      console.error('❌ [ProtectedRoute] User:', user.email);
       console.error('❌ [ProtectedRoute] Redirecting to client login - admin access forbidden');
       return <Navigate to="/client-login" replace />;
     }
+
+    // SECURITY: Verify SuperAdmin is in authorized whitelist
+    if (!isAuthorizedSuperAdmin(user.email)) {
+      console.error('❌ [ProtectedRoute] SECURITY VIOLATION: Unauthorized SuperAdmin access attempt');
+      console.error('❌ [ProtectedRoute] Email:', user.email, 'is not authorized');
+      console.error('❌ [ProtectedRoute] Forcing redirect to landing page');
+      return <Navigate to="/landing" replace />;
+    }
+
+    console.log('✅ [ProtectedRoute] Authorized SuperAdmin access granted:', user.email);
   }
 
   if (requireRole === 'client') {
