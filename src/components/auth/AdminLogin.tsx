@@ -30,8 +30,9 @@ export default function AdminLogin() {
         throw new Error(authError?.message || 'Authentication failed');
       }
 
-      // Verify admin role
-      const { data: userProfile, error: profileError } = await supabase
+      // Verify admin role using service client to bypass RLS
+      // This is necessary because the auth session might not be fully synchronized yet
+      const { data: userProfile, error: profileError } = await supabaseServiceClient
         .from('users')
         .select('role')
         .eq('id', authData.user.id)
