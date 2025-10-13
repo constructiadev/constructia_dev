@@ -960,8 +960,10 @@ const ClientsManagement: React.FC = () => {
   };
 
   const getStoragePercentage = (used: number, limit: number) => {
-    if (limit === 0) return 0;
-    return Math.round((used / limit) * 100);
+    if (!limit || limit === 0) return 0;
+    if (!used || used === 0) return 0;
+    const percentage = (used / limit) * 100;
+    return Math.min(Math.round(percentage), 100);
   };
 
   if (loading) {
@@ -1254,14 +1256,13 @@ const ClientsManagement: React.FC = () => {
 
                           return (
                             <div
-                              className={`h-2.5 rounded-full transition-all duration-500 ${
-                                !hasStorage ? 'bg-gray-300' :
+                              className={`h-2.5 rounded-full transition-all duration-300 ${
                                 percentage > 90 ? 'bg-red-500' :
-                                percentage > 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                percentage > 70 ? 'bg-yellow-500' :
+                                percentage > 0 ? 'bg-green-500' : 'bg-gray-300'
                               }`}
                               style={{
-                                width: hasStorage ? `${Math.max(percentage, 2)}%` : '100%',
-                                opacity: hasStorage ? 1 : 0.3
+                                width: `${Math.max(percentage, percentage > 0 ? 3 : 0)}%`
                               }}
                             ></div>
                           );
