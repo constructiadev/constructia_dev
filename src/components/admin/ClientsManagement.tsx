@@ -384,6 +384,7 @@ function PlatformCredentialsStatus({
   }, [client.tenant_id]);
 
   const loadCredentials = async () => {
+    setLoading(true);
     try {
       console.log('🔍 [PlatformCredentials] Loading credentials for tenant:', client.tenant_id);
       console.log('   Client ID:', client.id);
@@ -413,16 +414,10 @@ function PlatformCredentialsStatus({
 
       if (error) {
         console.error('❌ [PlatformCredentials] Database error:', error);
-        // Fallback to localStorage
-        const storageKey = `constructia_credentials_${client.tenant_id}`;
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          const parsedCreds = JSON.parse(stored);
-          setCredentials(Array.isArray(parsedCreds) ? parsedCreds : []);
-          console.log('⚠️ [PlatformCredentials] Loaded from localStorage (fallback):', parsedCreds.length);
-        } else {
-          setCredentials([]);
-        }
+        // Don't fail silently - show error state but don't block UI
+        console.warn('⚠️ [PlatformCredentials] Continuing with empty credentials due to error');
+        setCredentials([]);
+        setLoading(false);
         return;
       }
 
@@ -441,7 +436,8 @@ function PlatformCredentialsStatus({
         setCredentials([]);
       }
     } catch (error) {
-      console.error('Error loading credentials for client:', client.id, error);
+      console.error('❌ [PlatformCredentials] Unexpected error loading credentials:', error);
+      // Set empty credentials on error to prevent UI blocking
       setCredentials([]);
     } finally {
       setLoading(false);
@@ -474,8 +470,8 @@ function PlatformCredentialsStatus({
   // If no tenant_id, show special message
   if (!client.tenant_id) {
     return (
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="w-3 h-3 text-gray-400" />
+      <div className="flex items-center gap-2" title="Este cliente no tiene un tenant asignado. No se pueden gestionar credenciales.">
+        <AlertCircle className="w-3 h-3 text-gray-400" />
         <span className="text-xs text-gray-500">Sin tenant</span>
       </div>
     );
@@ -483,8 +479,8 @@ function PlatformCredentialsStatus({
 
   if (configuredPlatforms.length === 0) {
     return (
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="w-3 h-3 text-orange-500" />
+      <div className="flex items-center gap-2" title="Este cliente no tiene credenciales CAE configuradas">
+        <AlertCircle className="w-3 h-3 text-orange-500" />
         <span className="text-xs text-orange-600 font-medium">Sin configurar</span>
       </div>
     );
@@ -573,9 +569,25 @@ const ClientsManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      console.log('👥 Loading clients from database...');
+      console.log('👥 [ClientsManagement] Loading clients from database...');
+
+      // Check if user is authenticated and has admin role
+      if (!user) {
+        console.error('❌ [ClientsManagement] No authenticated user - cannot load clients');
+        setError('No authenticated user. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
+      if (user.role !== 'SuperAdmin') {
+        console.error('❌ [ClientsManagement] User is not admin - access denied');
+        setError('Access denied. Admin privileges required.');
+        setLoading(false);
+        return;
+      }
+
       const data = await getAllClients();
-      console.log('✅ Clients loaded:', data?.length || 0);
+      console.log('✅ [ClientsManagement] Clients loaded:', data?.length || 0);
 
       // Use real database data directly - no simulation needed
       const clientsWithRealData = (data || []).map(client => {
@@ -605,8 +617,25 @@ const ClientsManagement: React.FC = () => {
 
       setClients(clientsWithRealData);
     } catch (err) {
-      console.error('Error loading clients:', err);
-      setError(err instanceof Error ? err.message : 'Error loading clients');
+      console.error('❌ [ClientsManagement] Error loading clients:', err);
+
+      // Provide user-friendly error messages
+      let errorMessage = 'Error loading clients. Please try again.';
+
+      if (err instanceof Error) {
+        if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
+          errorMessage = 'Network error: Cannot connect to database. Check your connection.';
+        } else if (err.message.includes('not configured')) {
+          errorMessage = 'Database not configured. Please check environment variables.';
+        } else if (err.message.includes('credentials') || err.message.includes('auth')) {
+          errorMessage = 'Authentication error. Please log in again.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
+      setClients([]); // Clear clients on error
     } finally {
       setLoading(false);
     }
@@ -850,7 +879,7 @@ const ClientsManagement: React.FC = () => {
       // Use tenant_id from client object (now included from getAllClients)
       if (!client.tenant_id) {
         console.error('❌ [ClientsManagement] No tenant_id found for client:', client.id);
-        alert('❌ Error: No se encontró el tenant para este cliente. Por favor, contacte al administrador.');
+        alert('❌ Error: Este cliente no tiene un tenant asignado. No se pueden gestionar credenciales sin un tenant.');
         return;
       }
 
@@ -951,17 +980,38 @@ const ClientsManagement: React.FC = () => {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <span className="text-red-800 font-medium">Error: {error}</span>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-red-900 mb-2">Error al cargar clientes</h3>
+              <p className="text-red-800 mb-4">{error}</p>
+              <div className="space-y-2 text-sm text-red-700 mb-4">
+                <p><strong>Posibles soluciones:</strong></p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Verifica tu conexión a internet</li>
+                  <li>Asegúrate de estar autenticado como administrador</li>
+                  <li>Revisa que las credenciales de Supabase estén configuradas</li>
+                  <li>Intenta recargar la página o volver a iniciar sesión</li>
+                </ul>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={loadClients}
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reintentar
+                </button>
+                <button
+                  onClick={() => window.location.href = '/admin/database'}
+                  className="px-4 py-2 bg-white text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  Ir a Diagnóstico
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={loadClients}
-            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Reintentar
-          </button>
         </div>
       </div>
     );
@@ -979,6 +1029,14 @@ const ClientsManagement: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={() => window.location.href = '/admin/database'}
+            className="flex items-center px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            title="Diagnóstico de base de datos"
+          >
+            <Database className="w-4 h-4 mr-2" />
+            Diagnóstico
+          </button>
           <button
             onClick={() => setShowReportModal(true)}
             className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"

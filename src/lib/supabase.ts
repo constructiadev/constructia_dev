@@ -91,6 +91,12 @@ export const getAllClients = async () => {
   try {
     console.log('🔍 [getAllClients] Starting to fetch clients from database...');
 
+    // Check if supabaseServiceClient is properly configured
+    if (!supabaseServiceClient || typeof supabaseServiceClient.from !== 'function') {
+      console.error('❌ [getAllClients] Supabase service client not configured');
+      throw new Error('Database not configured. Please check environment variables.');
+    }
+
     // First, try to fetch clients directly without any joins to test basic connectivity
     const { data: directClientsData, error: directError } = await supabaseServiceClient
       .from('clients')
@@ -99,14 +105,21 @@ export const getAllClients = async () => {
 
     if (directError) {
       console.error('❌ [getAllClients] Error fetching clients directly:', directError);
-      return [];
+      // Provide more specific error information
+      if (directError.message.includes('Failed to fetch')) {
+        throw new Error('Network error: Cannot connect to database');
+      } else if (directError.message.includes('JWT')) {
+        throw new Error('Authentication error: Invalid credentials');
+      } else {
+        throw new Error(`Database error: ${directError.message}`);
+      }
     }
 
     console.log(`✅ [getAllClients] Found ${directClientsData?.length || 0} clients in database (direct query)`);
 
     if (!directClientsData || directClientsData.length === 0) {
       console.log('⚠️ [getAllClients] No clients found in database');
-      return [];
+      return []; // Return empty array, not an error
     }
 
     // Now fetch user data separately to get tenant_ids
@@ -141,30 +154,35 @@ export const getAllClients = async () => {
 
     // Fetch document stats for all relevant tenants using proper aggregate query
     const documentStatsPromises = tenantIds.map(async (tenantId) => {
-      const { count, error: countError } = await supabaseServiceClient
-        .from('documentos')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
+      try {
+        const { count, error: countError } = await supabaseServiceClient
+          .from('documentos')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId);
 
-      const { data: sizeData, error: sizeError } = await supabaseServiceClient
-        .from('documentos')
-        .select('size_bytes')
-        .eq('tenant_id', tenantId);
+        const { data: sizeData, error: sizeError } = await supabaseServiceClient
+          .from('documentos')
+          .select('size_bytes')
+          .eq('tenant_id', tenantId);
 
-      if (countError || sizeError) {
-        console.warn(`⚠️ [getAllClients] Error fetching stats for tenant ${tenantId}:`, countError || sizeError);
+        if (countError || sizeError) {
+          console.warn(`⚠️ [getAllClients] Error fetching stats for tenant ${tenantId}:`, countError || sizeError);
+          return { tenantId, count: 0, totalSize: 0 };
+        }
+
+        const totalSize = (sizeData || []).reduce((sum, doc) => sum + (doc.size_bytes || 0), 0);
+
+        console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${count || 0} documents, ${totalSize} bytes`);
+
+        return {
+          tenantId,
+          count: count || 0,
+          totalSize
+        };
+      } catch (error) {
+        console.error(`❌ [getAllClients] Error fetching stats for tenant ${tenantId}:`, error);
         return { tenantId, count: 0, totalSize: 0 };
       }
-
-      const totalSize = (sizeData || []).reduce((sum, doc) => sum + (doc.size_bytes || 0), 0);
-
-      console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${count || 0} documents, ${totalSize} bytes`);
-
-      return {
-        tenantId,
-        count: count || 0,
-        totalSize
-      };
     });
 
     const documentStats = await Promise.all(documentStatsPromises);
@@ -180,15 +198,16 @@ export const getAllClients = async () => {
 
     // Fetch platform credentials for all tenants
     const credentialsPromises = tenantIds.map(async (tenantId) => {
-      const { data: credentials, error: credError } = await supabaseServiceClient
-        .from('credenciales_plataforma')
-        .select('platform_type, username, password, is_active')
-        .eq('tenant_id', tenantId);
+      try {
+        const { data: credentials, error: credError } = await supabaseServiceClient
+          .from('credenciales_plataforma')
+          .select('platform_type, username, password, is_active')
+          .eq('tenant_id', tenantId);
 
-      if (credError) {
-        console.warn(`⚠️ [getAllClients] Error fetching credentials for tenant ${tenantId}:`, credError);
-        return { tenantId, credentials: [] };
-      }
+        if (credError) {
+          console.warn(`⚠️ [getAllClients] Error fetching credentials for tenant ${tenantId}:`, credError);
+          return { tenantId, credentials: [], configured_platforms_count: 0, has_cae_credentials: false, cae_platforms: [] };
+        }
 
       // Filter to only count valid, active credentials with non-empty username and password
       const validCredentials = (credentials || []).filter(c =>
@@ -204,13 +223,17 @@ export const getAllClients = async () => {
 
       console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${validCredentials.length} valid credentials, ${caeCredentials.length} CAE`);
 
-      return {
-        tenantId,
-        credentials: validCredentials,
-        configured_platforms_count: validCredentials.length,
-        has_cae_credentials: caeCredentials.length > 0,
-        cae_platforms: caeCredentials.map(c => c.platform_type)
-      };
+        return {
+          tenantId,
+          credentials: validCredentials,
+          configured_platforms_count: validCredentials.length,
+          has_cae_credentials: caeCredentials.length > 0,
+          cae_platforms: caeCredentials.map(c => c.platform_type)
+        };
+      } catch (error) {
+        console.error(`❌ [getAllClients] Error fetching credentials for tenant ${tenantId}:`, error);
+        return { tenantId, credentials: [], configured_platforms_count: 0, has_cae_credentials: false, cae_platforms: [] };
+      }
     });
 
     const credentialsStats = await Promise.all(credentialsPromises);

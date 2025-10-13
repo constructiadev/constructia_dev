@@ -49,14 +49,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkSession = async () => {
     try {
       setLoading(true);
-      
+
       // Check if Supabase is properly configured before making requests
       if (!supabase || typeof supabase.auth?.getUser !== 'function') {
         console.warn('⚠️ [AuthContext] Supabase not properly configured - check .env file');
         setUser(null);
+        setLoading(false);
         return;
       }
-      
+
       // Get current authenticated user from Supabase with error handling
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
@@ -70,12 +71,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.error('❌ [AuthContext] Auth error:', authError);
         }
         setUser(null);
+        setLoading(false);
         return;
       }
       
       if (!authUser) {
         console.log('⚠️ [AuthContext] No authenticated user found');
         setUser(null);
+        setLoading(false);
         return;
       }
 
@@ -93,14 +96,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.warn('⚠️ [AuthContext] Network error fetching user profile - Supabase unreachable');
           console.warn('⚠️ [AuthContext] Check VITE_SUPABASE_URL and VITE_SUPABASE_SERVICE_ROLE_KEY in .env file');
           setUser(null);
+          setLoading(false);
           return;
         }
-        throw new Error(`Error fetching user profile: ${userError.message}`);
+        // Don't throw - just log and set user to null
+        console.error('❌ [AuthContext] Continuing without user profile');
+        setUser(null);
+        setLoading(false);
+        return;
       }
 
       if (!userProfile) {
         console.warn('⚠️ [AuthContext] User profile not found');
         setUser(null);
+        setLoading(false);
         return;
       }
 
