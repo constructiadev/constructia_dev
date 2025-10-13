@@ -1130,20 +1130,25 @@ const ClientsManagement: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-gray-900 font-medium mb-1">
                         {formatBytes(client.storage_used)} / {formatBytes(client.storage_limit)}
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1.5 overflow-hidden">
                         {(() => {
                           const percentage = getStoragePercentage(client.storage_used, client.storage_limit);
-                          const displayPercentage = Math.max(percentage, 5); // Minimum 5% for visibility
+                          const hasStorage = client.storage_used > 0;
+
                           return (
-                            <div 
-                              className={`h-2 rounded-full transition-all duration-300 ${
-                                percentage > 90 ? 'bg-red-500' : 
+                            <div
+                              className={`h-2.5 rounded-full transition-all duration-500 ${
+                                !hasStorage ? 'bg-gray-300' :
+                                percentage > 90 ? 'bg-red-500' :
                                 percentage > 70 ? 'bg-yellow-500' : 'bg-green-500'
                               }`}
-                              style={{ width: `${Math.min(displayPercentage, 100)}%` }}
+                              style={{
+                                width: hasStorage ? `${Math.max(percentage, 2)}%` : '100%',
+                                opacity: hasStorage ? 1 : 0.3
+                              }}
                             ></div>
                           );
                         })()}
@@ -1156,11 +1161,6 @@ const ClientsManagement: React.FC = () => {
                       <div className="text-sm text-gray-900 font-medium">
                         {client.documents_processed !== undefined ? client.documents_processed : 0}
                       </div>
-                      {client.documents_processed > 0 && (
-                        <div className="text-xs text-gray-500">
-                          {formatBytes(client.storage_used)} total
-                        </div>
-                      )}
                     </td>
                     <td className="py-3 px-4">
                       <PlatformCredentialsStatus
