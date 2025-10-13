@@ -389,6 +389,14 @@ function PlatformCredentialsStatus({
       console.log('   Client ID:', client.id);
       console.log('   Company:', client.company_name);
 
+      // CRITICAL: If no tenant_id, skip loading
+      if (!client.tenant_id) {
+        console.log('⚠️ [PlatformCredentials] No tenant_id for client:', client.company_name);
+        setCredentials([]);
+        setLoading(false);
+        return;
+      }
+
       // Use credentials from client object if available (already fetched in getAllClients)
       if (client.platform_credentials && client.platform_credentials.length > 0) {
         setCredentials(client.platform_credentials);
@@ -462,6 +470,16 @@ function PlatformCredentialsStatus({
 
   // Check if client has CAE credentials
   const hasCaeCredentials = client.has_cae_credentials || configuredPlatforms.length > 0;
+
+  // If no tenant_id, show special message
+  if (!client.tenant_id) {
+    return (
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3 h-3 text-gray-400" />
+        <span className="text-xs text-gray-500">Sin tenant</span>
+      </div>
+    );
+  }
 
   if (configuredPlatforms.length === 0) {
     return (
