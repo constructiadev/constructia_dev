@@ -379,21 +379,37 @@ function PlatformCredentialsStatus({
     };
   }, [client.tenant_id]);
 
-  const loadCredentials = () => {
+  const loadCredentials = async () => {
     try {
-      // Use tenant_id as the primary key for credentials storage
-      const storageKey = `constructia_credentials_${client.tenant_id}`;
       console.log('🔍 [PlatformCredentials] Loading credentials for tenant:', client.tenant_id);
-      console.log('   Storage key:', storageKey);
       console.log('   Client ID:', client.id);
       console.log('   Company:', client.company_name);
 
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsedCreds = JSON.parse(stored);
-        setCredentials(Array.isArray(parsedCreds) ? parsedCreds : []);
-        console.log('✅ [PlatformCredentials] Found', parsedCreds.length, 'credentials for tenant:', client.tenant_id);
-        console.log('   Platforms configured:', parsedCreds.filter((c: any) => c.is_active).map((c: any) => c.platform_type).join(', '));
+      // CRITICAL: Load from database (source of truth)
+      const { data: dbCredentials, error } = await supabaseServiceClient
+        .from('credenciales_plataforma')
+        .select('*')
+        .eq('tenant_id', client.tenant_id);
+
+      if (error) {
+        console.error('❌ [PlatformCredentials] Database error:', error);
+        // Fallback to localStorage
+        const storageKey = `constructia_credentials_${client.tenant_id}`;
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsedCreds = JSON.parse(stored);
+          setCredentials(Array.isArray(parsedCreds) ? parsedCreds : []);
+          console.log('⚠️ [PlatformCredentials] Loaded from localStorage (fallback):', parsedCreds.length);
+        } else {
+          setCredentials([]);
+        }
+        return;
+      }
+
+      if (dbCredentials && dbCredentials.length > 0) {
+        setCredentials(dbCredentials);
+        console.log('✅ [PlatformCredentials] Found', dbCredentials.length, 'credentials for tenant:', client.tenant_id);
+        console.log('   Platforms configured:', dbCredentials.filter((c: any) => c.is_active).map((c: any) => c.platform_type).join(', '));
       } else {
         console.log('⚠️ [PlatformCredentials] No credentials found for tenant:', client.tenant_id);
         setCredentials([]);

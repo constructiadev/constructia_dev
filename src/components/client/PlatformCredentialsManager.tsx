@@ -46,6 +46,7 @@ import {
   Unlock
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth-context';
+import { supabaseServiceClient } from '../../lib/supabase-real';
 
 interface PlatformCredential {
   platform_type: 'nalanda' | 'ctaima' | 'ecoordina';
@@ -134,44 +135,59 @@ export default function PlatformCredentialsManager({
     }
   }, [selectedPlatformType, credentials, isReadOnly]);
 
-  const loadCredentialsFromStorage = () => {
+  const loadCredentialsFromStorage = async () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsedCredentials = JSON.parse(stored);
-        setCredentials(parsedCredentials);
-        console.log('✅ [PlatformCredentials] Loaded from localStorage:', parsedCredentials.length, 'credentials');
+      // CRITICAL: Load from database first (source of truth)
+      console.log(`🔍 [PlatformCredentials] Loading credentials for tenant: ${effectiveTenantId}`);
+
+      const { data: dbCredentials, error } = await supabaseServiceClient
+        .from('credenciales_plataforma')
+        .select('*')
+        .eq('tenant_id', effectiveTenantId);
+
+      if (error) {
+        console.error('❌ [PlatformCredentials] Database error:', error);
+        // Fallback to localStorage on error
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsedCredentials = JSON.parse(stored);
+          setCredentials(parsedCredentials);
+          console.log('⚠️ [PlatformCredentials] Loaded from localStorage (fallback):', parsedCredentials.length);
+        } else {
+          setCredentials([]);
+        }
+        return;
+      }
+
+      if (dbCredentials && dbCredentials.length > 0) {
+        // Transform database format to component format
+        const formattedCredentials: PlatformCredential[] = dbCredentials.map(cred => ({
+          platform_type: cred.platform_type as 'nalanda' | 'ctaima' | 'ecoordina',
+          username: cred.username,
+          password: cred.password,
+          is_active: cred.is_active,
+          last_updated: cred.last_updated
+        }));
+
+        setCredentials(formattedCredentials);
+        // Sync to localStorage for offline access
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(formattedCredentials));
+        console.log('✅ [PlatformCredentials] Loaded from database:', formattedCredentials.length, 'credentials');
       } else {
-        // Crear credenciales por defecto para demo
-        const defaultCredentials: PlatformCredential[] = [
-          {
-            platform_type: 'nalanda',
-            username: 'demo@construcciones.com',
-            password: 'nalanda2024',
-            is_active: true,
-            last_updated: new Date().toISOString()
-          },
-          {
-            platform_type: 'ctaima',
-            username: 'demo@construcciones.com',
-            password: 'ctaima2024',
-            is_active: false,
-            last_updated: new Date().toISOString()
-          },
-          {
-            platform_type: 'ecoordina',
-            username: '',
-            password: '',
-            is_active: false,
-            last_updated: new Date().toISOString()
-          }
-        ];
-        setCredentials(defaultCredentials);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultCredentials));
-        console.log('✅ [PlatformCredentials] Created default credentials');
+        // No credentials in database, check localStorage
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsedCredentials = JSON.parse(stored);
+          setCredentials(parsedCredentials);
+          console.log('✅ [PlatformCredentials] Loaded from localStorage:', parsedCredentials.length);
+        } else {
+          // Create empty state
+          setCredentials([]);
+          console.log('ℹ️ [PlatformCredentials] No credentials found');
+        }
       }
     } catch (error) {
-      console.error('Error loading credentials from storage:', error);
+      console.error('Error loading credentials:', error);
       setCredentials([]);
     }
   };
@@ -211,8 +227,33 @@ export default function PlatformCredentialsManager({
 
     try {
       setLoading(true);
-      
-      // Actualizar credenciales en el estado local
+
+      console.log(`💾 [PlatformCredentials] Saving ${newCredential.platform_type} credentials for tenant: ${effectiveTenantId}`);
+
+      // CRITICAL: Save to database first
+      const { error: dbError } = await supabaseServiceClient
+        .from('credenciales_plataforma')
+        .upsert({
+          tenant_id: effectiveTenantId,
+          platform_type: newCredential.platform_type,
+          username: newCredential.username,
+          password: newCredential.password,
+          is_active: true,
+          last_updated: new Date().toISOString()
+        }, {
+          onConflict: 'tenant_id,platform_type'
+        });
+
+      if (dbError) {
+        console.error('❌ [PlatformCredentials] Database error:', dbError);
+        setMessage({ type: 'error', text: 'Error al guardar en la base de datos' });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
+
+      console.log('✅ [PlatformCredentials] Saved to database successfully');
+
+      // Update local state
       const updatedCredentials = credentials.filter(c => c.platform_type !== newCredential.platform_type);
       const newCred: PlatformCredential = {
         platform_type: newCredential.platform_type,
@@ -221,20 +262,16 @@ export default function PlatformCredentialsManager({
         is_active: true,
         last_updated: new Date().toISOString()
       };
-      
+
       const finalCredentials = [...updatedCredentials, newCred];
-      
-      // Guardar en localStorage
-      const saved = saveCredentialsToStorage(finalCredentials);
-      
-      if (saved) {
-        setCredentials(finalCredentials);
-        setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });
-        onCredentialsUpdated?.();
-      } else {
-        setMessage({ type: 'error', text: 'Error al guardar credenciales' });
-      }
-      
+      setCredentials(finalCredentials);
+
+      // Also save to localStorage for offline access
+      saveCredentialsToStorage(finalCredentials);
+
+      setMessage({ type: 'success', text: 'Credenciales guardadas correctamente' });
+      onCredentialsUpdated?.();
+
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error saving credential:', error);
@@ -245,33 +282,49 @@ export default function PlatformCredentialsManager({
     }
   };
 
-  const handleDeleteCredential = (platformType: string) => {
+  const handleDeleteCredential = async (platformType: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar estas credenciales?')) {
       return;
     }
 
     try {
-      const updatedCredentials = credentials.map(cred => 
-        cred.platform_type === platformType 
-          ? { ...cred, username: '', password: '', is_active: false, last_updated: new Date().toISOString() }
-          : cred
-      );
-      
-      const saved = saveCredentialsToStorage(updatedCredentials);
-      
-      if (saved) {
-        setCredentials(updatedCredentials);
-        setMessage({ type: 'success', text: 'Credenciales eliminadas correctamente' });
-        onCredentialsUpdated?.();
-      } else {
-        setMessage({ type: 'error', text: 'Error al eliminar credenciales' });
+      setLoading(true);
+
+      console.log(`🗑️ [PlatformCredentials] Deleting ${platformType} credentials for tenant: ${effectiveTenantId}`);
+
+      // CRITICAL: Delete from database first
+      const { error: dbError } = await supabaseServiceClient
+        .from('credenciales_plataforma')
+        .delete()
+        .eq('tenant_id', effectiveTenantId)
+        .eq('platform_type', platformType);
+
+      if (dbError) {
+        console.error('❌ [PlatformCredentials] Database error:', dbError);
+        setMessage({ type: 'error', text: 'Error al eliminar de la base de datos' });
+        setTimeout(() => setMessage(null), 3000);
+        return;
       }
-      
+
+      console.log('✅ [PlatformCredentials] Deleted from database successfully');
+
+      // Update local state
+      const updatedCredentials = credentials.filter(cred => cred.platform_type !== platformType);
+      setCredentials(updatedCredentials);
+
+      // Also update localStorage
+      saveCredentialsToStorage(updatedCredentials);
+
+      setMessage({ type: 'success', text: 'Credenciales eliminadas correctamente' });
+      onCredentialsUpdated?.();
+
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error deleting credential:', error);
       setMessage({ type: 'error', text: 'Error al eliminar credenciales' });
       setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -533,16 +586,16 @@ export default function PlatformCredentialsManager({
         <div className="flex items-start">
           <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-800 mb-2">💾 Almacenamiento Local</h4>
+            <h4 className="font-semibold text-blue-800 mb-2">💾 Almacenamiento Seguro</h4>
             <p className="text-sm text-blue-700 mb-2">
-              Las credenciales se almacenan localmente en tu navegador para evitar problemas de conectividad.
+              Las credenciales se guardan en la base de datos y están disponibles para el administrador.
             </p>
             <div className="text-sm text-blue-600 space-y-1">
-              <div>• 🔐 Almacenamiento seguro en localStorage del navegador</div>
-              <div>• 🔄 Sincronización automática entre pestañas</div>
-              <div>• 📱 Persistencia entre sesiones</div>
-              <div>• 🛡️ No se envían a servidores externos</div>
-              <div>• 🔑 Acceso directo para administradores en modo lectura</div>
+              <div>• 🔐 Almacenamiento en base de datos encriptada</div>
+              <div>• 🔄 Sincronización en tiempo real</div>
+              <div>• 📱 Acceso desde cualquier dispositivo</div>
+              <div>• 👁️ Visible para administradores</div>
+              <div>• 🔑 Aislamiento por tenant (multi-inquilino)</div>
             </div>
           </div>
         </div>
