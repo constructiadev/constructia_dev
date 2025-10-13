@@ -39,7 +39,16 @@ export default function AdminLogin() {
 
       if (profileError) {
         await supabase.auth.signOut();
-        throw new Error(`Database error: ${profileError.message}`);
+        console.error('❌ [AdminLogin] Database error:', profileError);
+
+        // Provide user-friendly error messages
+        if (profileError.message.includes('querying schema')) {
+          throw new Error('Error de configuración de base de datos. Contacta al administrador del sistema.');
+        } else if (profileError.message.includes('JWT')) {
+          throw new Error('Error de autenticación. Por favor, recarga la página e intenta nuevamente.');
+        } else {
+          throw new Error(`Error de base de datos: ${profileError.message}`);
+        }
       } else if (!userProfile) {
         // Profile doesn't exist, create it as SuperAdmin
         const { error: createError } = await supabaseServiceClient
@@ -103,8 +112,24 @@ export default function AdminLogin() {
       await checkSession();
       navigate('/admin', { replace: true });
     } catch (err: any) {
-      console.error('Admin login error:', err);
-      setError(err?.message || 'Error de autenticación');
+      console.error('❌ [AdminLogin] Login error:', err);
+
+      // Provide user-friendly error messages
+      let errorMessage = 'Error de autenticación';
+
+      if (err?.message) {
+        if (err.message.includes('Invalid login credentials')) {
+          errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.';
+        } else if (err.message.includes('Email not confirmed')) {
+          errorMessage = 'Email no confirmado. Por favor, confirma tu email antes de iniciar sesión.';
+        } else if (err.message.includes('Database error') || err.message.includes('querying schema')) {
+          errorMessage = 'Este usuario requiere configuración adicional. Usa admin@constructia.com para acceder.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -113,6 +138,11 @@ export default function AdminLogin() {
   const fillDemoCredentials = () => {
     setEmail('admin@constructia.com');
     setPassword('superadmin123');
+  };
+
+  const fillSystemCredentials = () => {
+    setEmail('system@constructia.com');
+    setPassword('Superadmin123');
   };
 
   return (
@@ -197,17 +227,18 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="mt-8 pt-6 border-t border-gray-200 space-y-3">
           <button
             type="button"
             onClick={fillDemoCredentials}
             disabled={submitting}
             className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
           >
-            Usar credenciales de administrador
+            Usar Admin Principal
           </button>
-          <div className="mt-3 text-xs text-gray-500 text-center">
-            <p><strong>Admin:</strong> admin@constructia.com / superadmin123</p>
+          <div className="text-xs text-gray-500 text-center">
+            <p><strong>Admin Principal:</strong> admin@constructia.com / superadmin123</p>
+            <p className="mt-1 text-gray-400">✅ Usuario recomendado</p>
           </div>
         </div>
 
