@@ -643,27 +643,49 @@ export const calculateDynamicKPIs = async () => {
 
     console.log(`✅ [calculateDynamicKPIs] Loaded ${clients.length} clients and ${receipts.length} receipts`);
 
+    // CRITICAL: Use the document counts already calculated in getAllClients
+    // This prevents duplicate counting and ensures accuracy
+    const totalDocumentsFromClients = clients.reduce((sum, c) => sum + (c.total_documents || 0), 0);
+    console.log(`📊 [calculateDynamicKPIs] Total documents from client aggregation: ${totalDocumentsFromClients}`);
+
     // Extract unique tenant IDs from all clients
     const uniqueTenantIds = [...new Set(clients.map(c => c.tenant_id).filter(Boolean))];
-    console.log(`📋 [calculateDynamicKPIs] Found ${uniqueTenantIds.length} unique tenant(s)`);
+    console.log(`📋 [calculateDynamicKPIs] Found ${uniqueTenantIds.length} unique tenant(s):`, uniqueTenantIds.map(id => id.substring(0, 8)));
 
-    // Fetch documents for all tenants in parallel
+    // Fetch documents for all tenants in parallel (for metadata analysis only)
     const allDocumentsPromises = uniqueTenantIds.map(async (tenantId) => {
       try {
         const docs = await getAllTenantDocumentsNoRLS(tenantId);
-        console.log(`  ✓ Tenant ${tenantId}: ${docs.length} documents`);
-        return docs;
+        console.log(`  ✓ Tenant ${tenantId.substring(0, 8)}: ${docs.length} documents`);
+        return { tenantId, docs };
       } catch (error) {
         console.warn(`  ⚠️ Error fetching documents for tenant ${tenantId}:`, error);
-        return [];
+        return { tenantId, docs: [] };
       }
     });
 
-    const allDocumentsArrays = await Promise.all(allDocumentsPromises);
+    const allDocumentsData = await Promise.all(allDocumentsPromises);
 
-    // Flatten all documents into a single array
-    const allDocuments = allDocumentsArrays.flat();
-    console.log(`📄 [calculateDynamicKPIs] Total documents across all tenants: ${allDocuments.length}`);
+    // Flatten all documents into a single array for metadata analysis
+    const allDocuments = allDocumentsData.flatMap(d => d.docs);
+    console.log(`📄 [calculateDynamicKPIs] Total documents fetched for analysis: ${allDocuments.length}`);
+
+    // Data validation: Compare aggregated count vs fetched count
+    if (totalDocumentsFromClients !== allDocuments.length) {
+      console.warn(`⚠️ [calculateDynamicKPIs] DISCREPANCY DETECTED!`);
+      console.warn(`   - Client aggregation: ${totalDocumentsFromClients} documents`);
+      console.warn(`   - Direct query total: ${allDocuments.length} documents`);
+      console.warn(`   - Difference: ${Math.abs(totalDocumentsFromClients - allDocuments.length)} documents`);
+
+      // Log per-tenant breakdown for debugging
+      allDocumentsData.forEach(({ tenantId, docs }) => {
+        const clientsForTenant = clients.filter(c => c.tenant_id === tenantId);
+        const clientsTotal = clientsForTenant.reduce((sum, c) => sum + (c.total_documents || 0), 0);
+        console.warn(`   - Tenant ${tenantId.substring(0, 8)}: ${docs.length} fetched vs ${clientsTotal} from clients (${clientsForTenant.length} clients)`);
+      });
+    } else {
+      console.log(`✅ [calculateDynamicKPIs] Document counts validated: ${totalDocumentsFromClients} documents`);
+    }
 
     // Calculate active clients (clients with active subscription)
     const activeClients = clients.filter(c => c.subscription_status === 'active').length;
@@ -725,7 +747,7 @@ export const calculateDynamicKPIs = async () => {
       totalRevenue,
       documentsThisMonth,
       avgConfidence: Math.round(avgConfidence * 10) / 10,
-      totalDocuments: allDocuments.length,
+      totalDocuments: totalDocumentsFromClients,
       totalClients: clients.length,
       monthlyRevenueData,
       completedDocumentsCount,
@@ -737,6 +759,8 @@ export const calculateDynamicKPIs = async () => {
 
     console.log('✅ [calculateDynamicKPIs] KPIs calculated successfully:', {
       totalDocuments: result.totalDocuments,
+      totalDocumentsFromAggregation: totalDocumentsFromClients,
+      totalDocumentsFromQuery: allDocuments.length,
       totalClients: result.totalClients,
       activeClients: result.activeClients,
       documentsThisMonth: result.documentsThisMonth

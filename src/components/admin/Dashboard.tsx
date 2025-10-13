@@ -86,11 +86,22 @@ const AdminDashboard: React.FC = () => {
       // Calculate real statistics efficiently
       const totalClients = clients.length;
       const activeClients = clients.filter(c => c.subscription_status === 'active').length;
-      const totalDocuments = dynamicKPIs.totalDocuments || 0;
-      
+
+      // CRITICAL: Use document count directly from client aggregation to prevent discrepancies
+      const totalDocuments = clients.reduce((sum, c) => sum + (c.total_documents || 0), 0);
+      console.log(`📊 [Dashboard] Total documents from clients: ${totalDocuments}`);
+
+      // Validation: Compare with dynamicKPIs
+      if (dynamicKPIs.totalDocuments !== totalDocuments) {
+        console.warn(`⚠️ [Dashboard] Document count mismatch detected!`);
+        console.warn(`   - Direct client aggregation: ${totalDocuments}`);
+        console.warn(`   - From dynamicKPIs: ${dynamicKPIs.totalDocuments}`);
+        console.warn(`   - Using direct aggregation as source of truth`);
+      }
+
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      
+
       const documentsThisMonth = dynamicKPIs.documentsThisMonth || 0;
       
       const monthlyRevenue = receipts.filter(receipt => {
