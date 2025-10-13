@@ -959,13 +959,30 @@ const ClientsManagement: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getStoragePercentage = (used: number, limit: number) => {
-    // CRITICAL: Allow 0 storage to be valid - only reject null/undefined
+  const getStoragePercentage = (used: number, limit: number, options?: { roundDown?: boolean }) => {
     if (limit === null || limit === undefined || limit === 0) return 0;
     if (used === null || used === undefined) return 0;
-    // Even if used is 0, calculate percentage (which will be 0, but validly)
+
     const percentage = (used / limit) * 100;
+
+    if (options?.roundDown) {
+      return Math.min(Math.floor(percentage * 10) / 10, 100);
+    }
+
     return Math.min(Math.round(percentage), 100);
+  };
+
+  const formatStoragePercentage = (used: number, limit: number): string => {
+    if (limit === null || limit === undefined || limit === 0) return '0';
+    if (used === null || used === undefined) return '0';
+
+    const percentage = (used / limit) * 100;
+
+    if (percentage === 0) return '0';
+    if (percentage < 0.1) return '<0.1';
+    if (percentage < 1) return percentage.toFixed(1);
+
+    return Math.round(percentage).toString();
   };
 
   if (loading) {
@@ -1251,38 +1268,49 @@ const ClientsManagement: React.FC = () => {
                       <div className="text-sm text-gray-900 font-medium mb-1">
                         {formatBytes(client.storage_used)} / {formatBytes(client.storage_limit)}
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1.5 overflow-hidden">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1.5 overflow-hidden relative">
                         {(() => {
                           const percentage = getStoragePercentage(client.storage_used, client.storage_limit);
                           const hasStorage = client.storage_used > 0;
+                          const displayPercentage = formatStoragePercentage(client.storage_used, client.storage_limit);
 
-                          // Debug logging for storage calculation issues
-                          if (client.documents_processed > 0 && percentage === 0) {
-                            console.warn(`⚠️ [Storage Display] Client "${client.company_name}" has ${client.documents_processed} docs but 0% storage:`, {
-                              storage_used: client.storage_used,
-                              storage_used_type: typeof client.storage_used,
-                              storage_limit: client.storage_limit,
-                              storage_limit_type: typeof client.storage_limit,
-                              calculated_percentage: percentage
-                            });
+                          let barColor = 'bg-gray-300';
+                          let minWidth = '0%';
+
+                          if (hasStorage) {
+                            if (percentage > 90) {
+                              barColor = 'bg-red-500';
+                            } else if (percentage > 70) {
+                              barColor = 'bg-yellow-500';
+                            } else if (percentage > 50) {
+                              barColor = 'bg-blue-500';
+                            } else {
+                              barColor = 'bg-green-500';
+                            }
+
+                            if (percentage < 2 && percentage > 0) {
+                              minWidth = '8px';
+                            } else if (percentage < 5) {
+                              minWidth = '5%';
+                            } else {
+                              minWidth = `${percentage}%`;
+                            }
                           }
 
                           return (
                             <div
-                              className={`h-2.5 rounded-full transition-all duration-300 ${
-                                percentage > 90 ? 'bg-red-500' :
-                                percentage > 70 ? 'bg-yellow-500' :
-                                percentage > 0 ? 'bg-green-500' : 'bg-gray-300'
-                              }`}
+                              className={`h-2.5 rounded-full transition-all duration-300 ${barColor}`}
                               style={{
-                                width: `${Math.max(percentage, percentage > 0 ? 3 : 0)}%`
+                                width: minWidth,
+                                minWidth: hasStorage && percentage < 2 ? '8px' : undefined
                               }}
+                              title={`${formatBytes(client.storage_used)} de ${formatBytes(client.storage_limit)} usado (${displayPercentage}%)`}
                             ></div>
                           );
                         })()}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {getStoragePercentage(client.storage_used, client.storage_limit)}% usado
+                        {formatStoragePercentage(client.storage_used, client.storage_limit)}% usado
                       </div>
                     </td>
                     <td className="py-3 px-4">
