@@ -128,13 +128,14 @@ export const getAllClients = async () => {
 
     console.log(`📊 [getAllClients] Mapped ${userTenantMap.size} users to tenants`);
 
-    // Extract unique tenant_ids, using DEV_TENANT_ID as fallback for clients without users
-    const tenantIds = [...new Set(directClientsData.map(client => {
-      const tenantId = userTenantMap.get(client.user_id);
-      return tenantId || DEV_TENANT_ID;
-    }))];
+    // Extract unique tenant_ids, ONLY include clients with valid tenant_ids
+    // Do NOT use DEV_TENANT_ID as fallback to avoid duplicate counting
+    const tenantIds = [...new Set(directClientsData
+      .map(client => userTenantMap.get(client.user_id))
+      .filter(Boolean) // Only include valid tenant IDs
+    )];
 
-    console.log(`📊 [getAllClients] Found ${tenantIds.length} unique tenant(s)`);
+    console.log(`📊 [getAllClients] Found ${tenantIds.length} unique tenant(s) with valid IDs`);
 
     // Fetch document stats for all relevant tenants using proper aggregate query
     const documentStatsPromises = tenantIds.map(async (tenantId) => {
@@ -177,12 +178,14 @@ export const getAllClients = async () => {
 
     // Combine all data
     const combinedClients = directClientsData.map(client => {
-      const tenantId = userTenantMap.get(client.user_id) || DEV_TENANT_ID;
-      const stats = documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 };
+      // CRITICAL: Only use tenant_id if it exists, do NOT use fallback
+      // Clients without tenant_id should show 0 documents
+      const tenantId = userTenantMap.get(client.user_id);
+      const stats = tenantId ? (documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 }) : { total_documents: 0, total_storage_used: 0 };
 
       const combinedClient = {
         ...client,
-        tenant_id: tenantId,
+        tenant_id: tenantId || null,
         total_documents: stats.total_documents,
         total_storage_used: stats.total_storage_used,
         documents_processed: stats.total_documents,
@@ -190,7 +193,7 @@ export const getAllClients = async () => {
       };
 
       console.log(`✅ [getAllClients] Client "${client.company_name}":`, {
-        tenant_id: tenantId.substring(0, 8),
+        tenant_id: tenantId ? tenantId.substring(0, 8) : 'none',
         documents: stats.total_documents,
         storage_bytes: stats.total_storage_used,
         storage_mb: (stats.total_storage_used / 1024 / 1024).toFixed(2)
