@@ -77,16 +77,16 @@ export class SupabaseDiagnosticsService {
       console.log('✅ [Diagnostics] Service Key válida');
     }
 
-    // 5. Test de conexión
+    // 5. Test de conexión - Use centralized client to avoid creating new instances
     if (diagnostics.urlStatus === 'valid' && diagnostics.anonKeyStatus === 'valid') {
       try {
         console.log('🔌 [Diagnostics] Probando conexión a Supabase...');
-        
-        const { createClient } = await import('@supabase/supabase-js');
-        const testClient = createClient(supabaseUrl, anonKey);
-        
+
+        // CRITICAL: Use centralized client instead of creating a new instance
+        const { supabaseClient } = await import('../lib/supabase-real');
+
         // Test simple de conexión
-        const { data, error } = await testClient
+        const { data, error } = await supabaseClient
           .from('tenants')
           .select('count')
           .limit(1);
@@ -94,7 +94,7 @@ export class SupabaseDiagnosticsService {
         if (error) {
           diagnostics.connectionTest = 'failed';
           diagnostics.errors.push(`❌ Error de conexión: ${error.message}`);
-          
+
           if (error.message.includes('Failed to fetch')) {
             diagnostics.recommendations.push('Verifica tu conexión a internet y que la URL de Supabase sea correcta');
           } else if (error.message.includes('Invalid API key')) {

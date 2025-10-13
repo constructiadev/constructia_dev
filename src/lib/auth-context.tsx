@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ClientAuthService, type AuthenticatedClient } from './client-auth-service';
-import { supabase, supabaseServiceClient } from './supabase-real';
+import { supabase, supabaseServiceClient, logAuditoria } from './supabase-real';
 
 interface AuthenticatedUser {
   id: string;

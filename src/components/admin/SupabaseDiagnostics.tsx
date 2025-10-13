@@ -250,16 +250,13 @@ export default function SupabaseDiagnostics() {
       console.log('   VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING');
       console.log('   VITE_SUPABASE_SERVICE_ROLE_KEY:', import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
 
-      const { createClient } = await import('@supabase/supabase-js');
-      const testClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      );
+      // CRITICAL: Use centralized client to avoid multiple instances
+      const { supabaseClient } = await import('../../lib/supabase-real');
 
       const startTime = Date.now();
-      
+
       // Test with a simple query that should always work
-      const { data, error } = await testClient
+      const { data, error } = await supabaseClient
         .from('information_schema.tables')
         .select('table_name')
         .limit(1);
@@ -326,15 +323,11 @@ export default function SupabaseDiagnostics() {
     try {
       console.log('🔍 [Diagnostics] Verificando existencia de tablas...');
       
-      // First check if we can access information_schema
-      const { createClient } = await import('@supabase/supabase-js');
-      const testClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-      );
-      
+      // CRITICAL: Use centralized client to avoid multiple instances
+      const { supabaseServiceClient } = await import('../../lib/supabase-real');
+
       // Check what tables actually exist
-      const { data: existingTables, error: schemaError } = await testClient
+      const { data: existingTables, error: schemaError } = await supabaseServiceClient
         .from('information_schema.tables')
         .select('table_name')
         .eq('table_schema', 'public')
@@ -394,24 +387,12 @@ export default function SupabaseDiagnostics() {
     try {
       console.log('🔐 [Diagnostics] Probando funcionalidad de autenticación...');
       
-      // Test both anon and service role clients
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      // Test anon client
-      const anonClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      );
-      
-      // Test service client
-      const serviceClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-      );
+      // CRITICAL: Use centralized clients to avoid multiple instances
+      const { supabaseClient: anonClient, supabaseServiceClient: serviceClient } = await import('../../lib/supabase-real');
 
       // Test anon client auth
       const { data: { user }, error: anonError } = await anonClient.auth.getUser();
-      
+
       // Test service client access
       const { data: serviceData, error: serviceError } = await serviceClient
         .from('auth.users')

@@ -1,12 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+// CRITICAL: This module ONLY re-exports the centralized Supabase clients
+// DO NOT create new client instances here to avoid "Multiple GoTrueClient instances" warning
+
 import { supabaseClient, supabaseServiceClient, DEV_TENANT_ID } from './supabase-real';
 import type { AuthenticatedClient } from '../types';
-import { 
+import {
   getTenantEmpresas,
   getTenantEmpresasNoRLS,
   getTenantUsersNoRLS,
   getTenantObras,
-  getTenantObrasNoRLS, 
+  getTenantObrasNoRLS,
   getTenantStats,
   getCurrentUserTenant,
   getSystemSettings
@@ -21,7 +23,7 @@ export { DEV_TENANT_ID };
 // Export functions from supabase-real for use in other modules
 export { getTenantEmpresasNoRLS, getTenantUsersNoRLS, getTenantObrasNoRLS, getTenantStats, getSystemSettings };
 
-// Use centralized client
+// Re-export centralized client (DO NOT create new instance)
 export const supabase = supabaseClient;
 
 // Helper para obtener datos del cliente actual
