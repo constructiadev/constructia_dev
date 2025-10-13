@@ -172,7 +172,13 @@ export const getAllClients = async () => {
 
         const totalSize = (sizeData || []).reduce((sum, doc) => sum + (doc.size_bytes || 0), 0);
 
-        console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${count || 0} documents, ${totalSize} bytes`);
+        // Debug: Log if we have documents but zero storage
+        if (count > 0 && totalSize === 0) {
+          console.warn(`⚠️ [getAllClients] STORAGE ISSUE - Tenant ${tenantId.substring(0, 8)} has ${count} documents but 0 bytes storage!`);
+          console.warn('   Sample size_bytes values:', sizeData?.slice(0, 5).map(d => d.size_bytes));
+        }
+
+        console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${count || 0} documents, ${totalSize} bytes (${(totalSize / 1024 / 1024).toFixed(2)} MB)`);
 
         return {
           tenantId,

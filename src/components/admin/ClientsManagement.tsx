@@ -960,8 +960,10 @@ const ClientsManagement: React.FC = () => {
   };
 
   const getStoragePercentage = (used: number, limit: number) => {
-    if (!limit || limit === 0) return 0;
-    if (!used || used === 0) return 0;
+    // CRITICAL: Allow 0 storage to be valid - only reject null/undefined
+    if (limit === null || limit === undefined || limit === 0) return 0;
+    if (used === null || used === undefined) return 0;
+    // Even if used is 0, calculate percentage (which will be 0, but validly)
     const percentage = (used / limit) * 100;
     return Math.min(Math.round(percentage), 100);
   };
@@ -1253,6 +1255,17 @@ const ClientsManagement: React.FC = () => {
                         {(() => {
                           const percentage = getStoragePercentage(client.storage_used, client.storage_limit);
                           const hasStorage = client.storage_used > 0;
+
+                          // Debug logging for storage calculation issues
+                          if (client.documents_processed > 0 && percentage === 0) {
+                            console.warn(`⚠️ [Storage Display] Client "${client.company_name}" has ${client.documents_processed} docs but 0% storage:`, {
+                              storage_used: client.storage_used,
+                              storage_used_type: typeof client.storage_used,
+                              storage_limit: client.storage_limit,
+                              storage_limit_type: typeof client.storage_limit,
+                              calculated_percentage: percentage
+                            });
+                          }
 
                           return (
                             <div
