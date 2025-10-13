@@ -189,6 +189,66 @@ export default function ClientCheckout() {
     return monthlyYearlyPrice - yearlyPrice;
   };
 
+  const handleStripePaymentSuccess = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      setProcessing(true);
+
+      console.log('✅ [ClientCheckout] Stripe payment successful - activating client account');
+
+      // CRITICAL: Update client subscription status from trial to active
+      if (user?.tenant_id) {
+        try {
+          const { error: updateError } = await supabaseServiceClient
+            .from('suscripciones')
+            .update({
+              plan: selectedPlan.id === 'basic' ? 'Starter' :
+                    selectedPlan.id === 'professional' ? 'Autonomo' : 'Empresas',
+              estado: 'activa',
+              limites: {
+                max_obras: selectedPlan.id === 'basic' ? 1 :
+                         selectedPlan.id === 'professional' ? 10 : 999,
+                max_trabajadores: selectedPlan.id === 'basic' ? 10 :
+                                 selectedPlan.id === 'professional' ? 100 : 9999,
+                max_documentos: selectedPlan.id === 'basic' ? 100 :
+                               selectedPlan.id === 'professional' ? 500 : 99999,
+                storage_gb: selectedPlan.storage_gb
+              },
+              updated_at: new Date().toISOString()
+            })
+            .eq('tenant_id', user.tenant_id);
+
+          if (updateError) {
+            console.error('❌ [ClientCheckout] Error updating subscription:', updateError);
+          } else {
+            console.log('✅ [ClientCheckout] Subscription activated successfully');
+          }
+        } catch (subscriptionError) {
+          console.error('❌ [ClientCheckout] Error activating subscription:', subscriptionError);
+        }
+      }
+
+      // CRITICAL: Force auth context refresh to update subscription status
+      await checkSession();
+
+      // Close the modal
+      setShowStripeModal(false);
+
+      // Show success message
+      alert(`✅ ¡Pago con tarjeta completado! Tu plan ${selectedPlan.name} está activo. Bienvenido a ConstructIA.`);
+
+      // CRITICAL: Navigate to client dashboard after successful payment
+      navigate('/client/dashboard', { replace: true });
+
+    } catch (error) {
+      console.error('❌ [ClientCheckout] Payment error:', error);
+      alert('❌ Error al procesar el pago. Por favor, inténtalo de nuevo o contacta con soporte.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handlePaymentComplete = async () => {
     if (!selectedPlan) return;
 
