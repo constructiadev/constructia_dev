@@ -178,12 +178,71 @@ export const getAllClients = async () => {
 
     console.log(`📊 [getAllClients] Fetched document stats for ${documentStatsMap.size} tenant(s)`);
 
+    // Fetch platform credentials for all tenants
+    const credentialsPromises = tenantIds.map(async (tenantId) => {
+      const { data: credentials, error: credError } = await supabaseServiceClient
+        .from('credenciales_plataforma')
+        .select('platform_type, username, password, is_active')
+        .eq('tenant_id', tenantId);
+
+      if (credError) {
+        console.warn(`⚠️ [getAllClients] Error fetching credentials for tenant ${tenantId}:`, credError);
+        return { tenantId, credentials: [] };
+      }
+
+      // Filter to only count valid, active credentials with non-empty username and password
+      const validCredentials = (credentials || []).filter(c =>
+        c.is_active &&
+        c.username && c.username.trim().length > 0 &&
+        c.password && c.password.trim().length > 0
+      );
+
+      // Check if at least one CAE platform (nalanda, ctaima, ecoordina) is configured
+      const caeCredentials = validCredentials.filter(c =>
+        ['nalanda', 'ctaima', 'ecoordina'].includes(c.platform_type)
+      );
+
+      console.log(`📊 [getAllClients] Tenant ${tenantId.substring(0, 8)}: ${validCredentials.length} valid credentials, ${caeCredentials.length} CAE`);
+
+      return {
+        tenantId,
+        credentials: validCredentials,
+        configured_platforms_count: validCredentials.length,
+        has_cae_credentials: caeCredentials.length > 0,
+        cae_platforms: caeCredentials.map(c => c.platform_type)
+      };
+    });
+
+    const credentialsStats = await Promise.all(credentialsPromises);
+    const credentialsMap = new Map();
+    credentialsStats.forEach(stat => {
+      credentialsMap.set(stat.tenantId, {
+        configured_platforms_count: stat.configured_platforms_count,
+        has_cae_credentials: stat.has_cae_credentials,
+        cae_platforms: stat.cae_platforms,
+        credentials: stat.credentials
+      });
+    });
+
+    console.log(`📊 [getAllClients] Fetched platform credentials for ${credentialsMap.size} tenant(s)`);
+
     // Combine all data
     const combinedClients = directClientsData.map(client => {
       // CRITICAL: Only use tenant_id if it exists, do NOT use fallback
       // Clients without tenant_id should show 0 documents
       const tenantId = userTenantMap.get(client.user_id);
       const stats = tenantId ? (documentStatsMap.get(tenantId) || { total_documents: 0, total_storage_used: 0 }) : { total_documents: 0, total_storage_used: 0 };
+      const credStats = tenantId ? (credentialsMap.get(tenantId) || {
+        configured_platforms_count: 0,
+        has_cae_credentials: false,
+        cae_platforms: [],
+        credentials: []
+      }) : {
+        configured_platforms_count: 0,
+        has_cae_credentials: false,
+        cae_platforms: [],
+        credentials: []
+      };
 
       const combinedClient = {
         ...client,
@@ -192,13 +251,20 @@ export const getAllClients = async () => {
         total_storage_used: stats.total_storage_used,
         documents_processed: stats.total_documents,
         storage_used: stats.total_storage_used,
+        configured_platforms_count: credStats.configured_platforms_count,
+        has_cae_credentials: credStats.has_cae_credentials,
+        cae_platforms: credStats.cae_platforms,
+        platform_credentials: credStats.credentials
       };
 
       console.log(`✅ [getAllClients] Client "${client.company_name}":`, {
         tenant_id: tenantId ? tenantId.substring(0, 8) : 'none',
         documents: stats.total_documents,
         storage_bytes: stats.total_storage_used,
-        storage_mb: (stats.total_storage_used / 1024 / 1024).toFixed(2)
+        storage_mb: (stats.total_storage_used / 1024 / 1024).toFixed(2),
+        platforms: credStats.configured_platforms_count,
+        has_cae: credStats.has_cae_credentials,
+        cae_platforms: credStats.cae_platforms.join(', ')
       });
 
       return combinedClient;

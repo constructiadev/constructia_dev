@@ -15,15 +15,16 @@ import {
   Globe,
   Target
 } from 'lucide-react';
-import { 
-  getTenantEmpresas, 
-  getEmpresaObras, 
-  createEmpresa, 
-  createObra, 
+import {
+  getTenantEmpresas,
+  getEmpresaObras,
+  createEmpresa,
+  createObra,
   getCurrentUserTenant,
   logAuditoria,
   DEV_TENANT_ID,
-  DEV_ADMIN_USER_ID
+  DEV_ADMIN_USER_ID,
+  supabaseServiceClient
 } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
 import { manualManagementService } from '../../lib/manual-management-service';
@@ -506,6 +507,8 @@ export default function DocumentUpload() {
   const [uploadResults, setUploadResults] = useState<{ [fileId: string]: { success: boolean; message: string } }>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('nalanda');
+  const [hasCaeCredentials, setHasCaeCredentials] = useState<boolean>(false);
+  const [checkingCredentials, setCheckingCredentials] = useState<boolean>(true);
 
   const platformOptions: PlatformOption[] = [
     {
@@ -531,10 +534,47 @@ export default function DocumentUpload() {
     }
   ];
   const documentCategories = [
-    'PRL', 'APTITUD_MEDICA', 'DNI', 'ALTA_SS_TC2', 'CONTRATO_LABORAL', 
-    'CONTRATO PROFESIONAL', 'SEGURO_RC', 'REA', 'CERTIFICACION_FORMACION_PRL', 
+    'PRL', 'APTITUD_MEDICA', 'DNI', 'ALTA_SS_TC2', 'CONTRATO_LABORAL',
+    'CONTRATO PROFESIONAL', 'SEGURO_RC', 'REA', 'CERTIFICACION_FORMACION_PRL',
     'EVAL_RIESGOS', 'CERT_MAQUINARIA', 'PLAN_SEGURIDAD'
   ];
+
+  useEffect(() => {
+    checkCaeCredentials();
+  }, [user]);
+
+  const checkCaeCredentials = async () => {
+    try {
+      setCheckingCredentials(true);
+      const tenantId = user?.tenant_id || DEV_TENANT_ID;
+
+      const { data: credentials, error } = await supabaseServiceClient
+        .from('credenciales_plataforma')
+        .select('platform_type, username, password, is_active')
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        console.error('Error checking CAE credentials:', error);
+        setHasCaeCredentials(false);
+        return;
+      }
+
+      const validCredentials = (credentials || []).filter(c =>
+        c.is_active &&
+        c.username && c.username.trim().length > 0 &&
+        c.password && c.password.trim().length > 0 &&
+        ['nalanda', 'ctaima', 'ecoordina'].includes(c.platform_type)
+      );
+
+      setHasCaeCredentials(validCredentials.length > 0);
+      console.log('CAE credentials check:', validCredentials.length > 0 ? 'PASS' : 'FAIL');
+    } catch (error) {
+      console.error('Error checking CAE credentials:', error);
+      setHasCaeCredentials(false);
+    } finally {
+      setCheckingCredentials(false);
+    }
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -578,6 +618,11 @@ export default function DocumentUpload() {
   const handleUpload = async () => {
     if (!selectedEmpresa || !selectedObra || selectedFiles.length === 0 || !selectedCategory) {
       alert('Por favor selecciona empresa, obra, categoría y al menos un archivo');
+      return;
+    }
+
+    if (!hasCaeCredentials) {
+      alert('⚠️ ATENCIÓN: Debe configurar al menos una credencial de plataforma CAE (Nalanda, CTAIMA o Ecoordina) antes de subir documentos.\n\nPor favor, vaya a la sección de Configuración para configurar sus credenciales de plataforma.');
       return;
     }
 
@@ -785,6 +830,47 @@ export default function DocumentUpload() {
           ✅ SELECCIONA ARCHIVOS SIGUIENDO LA JERARQUIA
         </div>
       </div>
+
+      {/* CAE Credentials Warning */}
+      {checkingCredentials ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <Loader2 className="w-5 h-5 text-gray-500 animate-spin mr-3" />
+            <span className="text-gray-700">Verificando configuración de credenciales CAE...</span>
+          </div>
+        </div>
+      ) : !hasCaeCredentials ? (
+        <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-6 h-6 text-orange-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-900 mb-1">
+                ⚠️ Configuración Requerida: Credenciales CAE
+              </h3>
+              <p className="text-orange-800 text-sm mb-3">
+                Debe configurar al menos una credencial de plataforma CAE (Nalanda, CTAIMA o Ecoordina) antes de poder subir documentos.
+                Esta es una directiva obligatoria de la plataforma.
+              </p>
+              <a
+                href="#/client/settings"
+                className="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                Ir a Configuración de Credenciales
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-3">
+          <div className="flex items-center">
+            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+            <span className="text-green-800 text-sm font-medium">
+              Credenciales CAE configuradas correctamente
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Hierarchical Selection */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

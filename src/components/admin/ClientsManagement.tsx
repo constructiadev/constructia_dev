@@ -64,7 +64,7 @@ interface Client {
   id: string;
   client_id: string;
   company_name: string;
-  tenant_id: string; // Add tenant_id to the Client interface
+  tenant_id: string;
   contact_name: string;
   email: string;
   phone: string;
@@ -82,8 +82,12 @@ interface Client {
   };
   created_at: string;
   updated_at: string;
-  total_documents?: number; // Add total_documents
-  total_storage_used?: number; // Add total_storage_used
+  total_documents?: number;
+  total_storage_used?: number;
+  configured_platforms_count?: number;
+  has_cae_credentials?: boolean;
+  cae_platforms?: string[];
+  platform_credentials?: any[];
 }
 
 interface ClientModalProps {
@@ -385,6 +389,14 @@ function PlatformCredentialsStatus({
       console.log('   Client ID:', client.id);
       console.log('   Company:', client.company_name);
 
+      // Use credentials from client object if available (already fetched in getAllClients)
+      if (client.platform_credentials && client.platform_credentials.length > 0) {
+        setCredentials(client.platform_credentials);
+        console.log('✅ [PlatformCredentials] Using pre-loaded credentials:', client.platform_credentials.length);
+        setLoading(false);
+        return;
+      }
+
       // CRITICAL: Load from database (source of truth)
       const { data: dbCredentials, error } = await supabaseServiceClient
         .from('credenciales_plataforma')
@@ -407,9 +419,15 @@ function PlatformCredentialsStatus({
       }
 
       if (dbCredentials && dbCredentials.length > 0) {
-        setCredentials(dbCredentials);
-        console.log('✅ [PlatformCredentials] Found', dbCredentials.length, 'credentials for tenant:', client.tenant_id);
-        console.log('   Platforms configured:', dbCredentials.filter((c: any) => c.is_active).map((c: any) => c.platform_type).join(', '));
+        // Filter to only valid, active credentials
+        const validCredentials = dbCredentials.filter((c: any) =>
+          c.is_active &&
+          c.username && c.username.trim().length > 0 &&
+          c.password && c.password.trim().length > 0
+        );
+        setCredentials(validCredentials);
+        console.log('✅ [PlatformCredentials] Found', validCredentials.length, 'valid credentials for tenant:', client.tenant_id);
+        console.log('   Platforms configured:', validCredentials.map((c: any) => c.platform_type).join(', '));
       } else {
         console.log('⚠️ [PlatformCredentials] No credentials found for tenant:', client.tenant_id);
         setCredentials([]);
@@ -432,57 +450,48 @@ function PlatformCredentialsStatus({
   }
 
   const platforms = [
-    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-500 text-white' },
-    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-500 text-white' },
-    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-500 text-white' }
+    { type: 'nalanda', name: 'Nalanda', color: 'bg-blue-600 text-white', icon: '🔵' },
+    { type: 'ctaima', name: 'CTAIMA', color: 'bg-green-600 text-white', icon: '🟢' },
+    { type: 'ecoordina', name: 'Ecoordina', color: 'bg-purple-600 text-white', icon: '🟣' }
   ];
-  
-  // Filter only configured platforms
+
+  // Filter only configured platforms - credentials are already filtered in loadCredentials
   const configuredPlatforms = platforms.filter(platform => {
-    const cred = credentials.find(c => c.platform_type === platform.type);
-
-    // A platform is configured if:
-    // 1. Credentials exist for this platform
-    // 2. Username is not empty
-    // 3. Password is not empty
-    // 4. is_active is explicitly true (not just "not false")
-    const isConfigured = cred &&
-                        cred.username &&
-                        cred.username.trim().length > 0 &&
-                        cred.password &&
-                        cred.password.trim().length > 0 &&
-                        cred.is_active === true;
-
-    console.log(`🔍 [PlatformCredentials] Platform ${platform.name} for tenant ${client.tenant_id}:`, {
-      exists: !!cred,
-      hasUsername: cred?.username?.trim().length > 0,
-      hasPassword: cred?.password?.trim().length > 0,
-      isActive: cred?.is_active,
-      isConfigured
-    });
-
-    return isConfigured;
+    return credentials.some(c => c.platform_type === platform.type);
   });
-  
+
+  // Check if client has CAE credentials
+  const hasCaeCredentials = client.has_cae_credentials || configuredPlatforms.length > 0;
+
   if (configuredPlatforms.length === 0) {
     return (
-      <div className="flex items-center">
-        <span className="text-xs text-gray-400">Sin configurar</span>
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3 h-3 text-orange-500" />
+        <span className="text-xs text-orange-600 font-medium">Sin configurar</span>
       </div>
     );
   }
-  
+
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1 items-center">
       {configuredPlatforms.map(platform => (
         <span
           key={platform.type}
-          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${platform.color}`}
-          title={`${platform.name} configurado`}
+          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${platform.color} shadow-sm`}
+          title={`${platform.name} configurado y activo`}
         >
+          <span className="mr-1">{platform.icon}</span>
           {platform.name}
         </span>
       ))}
+      {configuredPlatforms.length > 1 && (
+        <span className="text-xs text-gray-500 font-medium ml-1">
+          +{configuredPlatforms.length}
+        </span>
+      )}
+      {hasCaeCredentials && (
+        <CheckCircle className="w-3 h-3 text-green-600 ml-1" title="Al menos una plataforma CAE configurada" />
+      )}
     </div>
   );
 }
@@ -978,7 +987,7 @@ const ClientsManagement: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -1004,12 +1013,25 @@ const ClientsManagement: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Enterprise</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {clients.filter(c => c.subscription_plan === 'enterprise').length}
+              <p className="text-sm font-medium text-gray-600">Con CAE</p>
+              <p className="text-2xl font-bold text-green-600">
+                {clients.filter(c => c.has_cae_credentials).length}
               </p>
             </div>
-            <Award className="w-8 h-8 text-purple-600" />
+            <Shield className="w-8 h-8 text-green-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-orange-200 bg-orange-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-orange-700">Sin CAE</p>
+              <p className="text-2xl font-bold text-orange-600">
+                {clients.filter(c => !c.has_cae_credentials).length}
+              </p>
+              <p className="text-xs text-orange-600 mt-1">Requieren configuración</p>
+            </div>
+            <AlertCircle className="w-8 h-8 text-orange-600" />
           </div>
         </div>
 
