@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Building2, 
-  FolderOpen, 
+import {
+  LayoutDashboard,
+  Building2,
+  FolderOpen,
   Upload,
   FileText,
   BarChart3,
@@ -12,7 +12,8 @@ import {
   LogOut,
   Bell,
   Search,
-  User
+  User,
+  Receipt
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Documentos', href: '/client/documents', icon: FileText },
   { name: 'Métricas', href: '/client/metrics', icon: BarChart3 },
   { name: 'Suscripción', href: '/client/subscription', icon: CreditCard },
+  { name: 'Mis Recibos', href: '/client/receipts', icon: Receipt },
   { name: 'Configuración', href: '/client/settings', icon: Settings },
 ];
 

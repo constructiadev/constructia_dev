@@ -35,6 +35,7 @@ import Documents from './client/Documents';
 import Metrics from './client/Metrics';
 import Subscription from './client/Subscription';
 import Settings from './client/Settings';
+import ClientReceipts from './client/Receipts';
 
 // Public pages
 import LandingPage from './landing/LandingPage';
@@ -101,6 +102,7 @@ export default function Router() {
         <Route path="documents" element={<Documents />} />
         <Route path="metrics" element={<Metrics />} />
         <Route path="subscription" element={<Subscription />} />
+        <Route path="receipts" element={<ClientReceipts />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

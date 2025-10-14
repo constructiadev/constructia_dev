@@ -27,6 +27,7 @@ import { supabaseServiceClient } from '../../lib/supabase-real';
 import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
 import StripePaymentModal from '../client/StripePaymentModal';
+import { ReceiptService } from '../../lib/receipt-service';
 
 interface SubscriptionPlan {
   id: string;
@@ -229,6 +230,45 @@ export default function ClientCheckout() {
         }
       }
 
+      // CRITICAL: Generate receipt after successful payment
+      if (user && selectedPlan) {
+        try {
+          const clientData = location.state?.clientData;
+          const amount = billingCycle === 'yearly' ? selectedPlan.price_yearly : selectedPlan.price_monthly;
+          const baseAmount = amount / 1.21;
+          const taxAmount = amount - baseAmount;
+
+          const receiptNumber = await ReceiptService.createReceipt({
+            client_id: user.id,
+            client_name: clientData?.name || user.name || 'Cliente',
+            client_email: user.email || '',
+            client_company_name: clientData?.company_name || 'Empresa',
+            client_tax_id: clientData?.cif_nif || '',
+            client_address: clientData?.address || '',
+            amount,
+            base_amount: baseAmount,
+            tax_amount: taxAmount,
+            tax_rate: 21,
+            currency: 'EUR',
+            payment_method: 'Tarjeta de crédito',
+            gateway_name: 'Stripe',
+            description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
+            subscription_plan: selectedPlan.name,
+            transaction_id: `TXN-${Date.now()}`,
+            invoice_items: [{
+              description: `Plan ${selectedPlan.name}`,
+              quantity: 1,
+              unit_price: baseAmount,
+              total: baseAmount
+            }]
+          });
+
+          console.log('✅ [ClientCheckout] Receipt created successfully:', receiptNumber);
+        } catch (receiptError) {
+          console.error('❌ [ClientCheckout] Error creating receipt:', receiptError);
+        }
+      }
+
       // CRITICAL: Force auth context refresh to update subscription status
       await checkSession();
 
@@ -236,7 +276,7 @@ export default function ClientCheckout() {
       setShowStripeModal(false);
 
       // Show success message
-      alert(`✅ ¡Pago con tarjeta completado! Tu plan ${selectedPlan.name} está activo. Bienvenido a ConstructIA.`);
+      alert(`✅ ¡Pago con tarjeta completado! Tu plan ${selectedPlan.name} está activo. Se ha generado tu recibo. Bienvenido a ConstructIA.`);
 
       // CRITICAL: Navigate to client dashboard after successful payment
       navigate('/client/dashboard', { replace: true });
