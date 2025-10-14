@@ -4,9 +4,12 @@ import { fileStorageService } from '../../lib/file-storage-service';
 import { useAuth } from '../../lib/auth-context';
 import { supabaseServiceClient } from '../../lib/supabase-real';
 import { getAllTenantDocumentsNoRLS } from '../../lib/supabase-real';
+import { useSuspensionStatus } from '../../hooks/useSuspensionStatus';
+import SuspensionBlocker from '../common/SuspensionBlocker';
 
 const Documents: React.FC = () => {
   const { user } = useAuth();
+  const { isSuspended, suspensionReason } = useSuspensionStatus();
   const [documentos, setDocumentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -218,9 +221,19 @@ const Documents: React.FC = () => {
   };
 
   const handleDownloadDocument = async (documentPath: string, originalFileName: string) => {
+    // Block download if account is suspended
+    if (isSuspended) {
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Cuenta suspendida: No puede descargar documentos';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      return;
+    }
+
     try {
       const downloadUrl = await fileStorageService.getDownloadUrl(documentPath);
-      
+
       if (downloadUrl) {
         const link = document.createElement('a');
         link.href = downloadUrl;
@@ -249,6 +262,16 @@ const Documents: React.FC = () => {
   };
 
   const handleViewDocument = async (documentPath: string) => {
+    // Block view if account is suspended
+    if (isSuspended) {
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Cuenta suspendida: No puede ver documentos';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      return;
+    }
+
     try {
       const viewUrl = await fileStorageService.getDownloadUrl(documentPath);
       if (viewUrl) {
@@ -346,6 +369,24 @@ const Documents: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Suspension Warning */}
+      {isSuspended && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-6 h-6 text-orange-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-900 mb-1">
+                Cuenta Suspendida - Acceso de Solo Lectura
+              </h3>
+              <p className="text-orange-800 text-sm">
+                Puedes consultar tus documentos, pero no puedes descargarlos ni verlos mientras tu cuenta esté suspendida.
+                Contacta con soporte o actualiza tu suscripción para reactivar todas las funcionalidades.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -504,17 +545,27 @@ const Documents: React.FC = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1">
-                        <button 
+                        <button
                           onClick={() => handleViewDocument(doc.file || doc.filename)}
-                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Ver documento"
+                          disabled={isSuspended}
+                          className={`p-1 transition-colors ${
+                            isSuspended
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-400 hover:text-blue-600'
+                          }`}
+                          title={isSuspended ? "No disponible - Cuenta suspendida" : "Ver documento"}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDownloadDocument(doc.file || doc.filename, doc.original_name)}
-                          className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                          title="Descargar documento"
+                          disabled={isSuspended}
+                          className={`p-1 transition-colors ${
+                            isSuspended
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-400 hover:text-green-600'
+                          }`}
+                          title={isSuspended ? "No disponible - Cuenta suspendida" : "Descargar documento"}
                         >
                           <Download className="w-4 h-4" />
                         </button>

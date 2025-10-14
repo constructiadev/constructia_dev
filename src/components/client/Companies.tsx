@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Building2, FileText, TrendingUp, Users, AlertCircle, CheckCircle, Clock, DollarSign, RefreshCw } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
 import { useClientCompanies } from '../../hooks/useClientData';
+import { useSuspensionStatus } from '../../hooks/useSuspensionStatus';
 
 export default function Companies() {
   const { companies, loading, error, refreshCompanies } = useClientCompanies();
   const { client, stats } = useClientData();
+  const { isSuspended, suspensionReason } = useSuspensionStatus();
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -51,6 +53,23 @@ export default function Companies() {
 
   return (
     <div className="space-y-6">
+      {/* Suspension Warning */}
+      {isSuspended && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-6 h-6 text-orange-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-900 mb-1">
+                Cuenta Suspendida - Acceso de Solo Lectura
+              </h3>
+              <p className="text-orange-800 text-sm">
+                Puedes consultar la información de tus empresas, pero no puedes realizar modificaciones mientras tu cuenta esté suspendida.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">

@@ -29,7 +29,8 @@ import {
 import { useAuth } from '../../lib/auth-context';
 import { manualManagementService } from '../../lib/manual-management-service';
 import PlatformCredentialsManager from './PlatformCredentialsManager';
-import { TenantDataService, ClientSuspensionStatus } from '../../lib/tenant-service';
+import { useSuspensionStatus } from '../../hooks/useSuspensionStatus';
+import SuspensionBlocker from '../common/SuspensionBlocker';
 
 interface Empresa {
   id: string;
@@ -499,6 +500,7 @@ function HierarchicalSelector({ onSelectionChange, selectedEmpresa, selectedObra
 
 export default function DocumentUpload() {
   const { user } = useAuth();
+  const { isSuspended, suspensionReason, checkingSuspension } = useSuspensionStatus();
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
   const [selectedObra, setSelectedObra] = useState<string | null>(null);
@@ -512,8 +514,6 @@ export default function DocumentUpload() {
   const [hasCaeCredentials, setHasCaeCredentials] = useState<boolean>(false);
   const [checkingCredentials, setCheckingCredentials] = useState<boolean>(true);
   const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
-  const [suspensionStatus, setSuspensionStatus] = useState<ClientSuspensionStatus | null>(null);
-  const [checkingSuspension, setCheckingSuspension] = useState<boolean>(true);
 
   const platformOptions: PlatformOption[] = [
     {
@@ -546,26 +546,7 @@ export default function DocumentUpload() {
 
   useEffect(() => {
     checkCaeCredentials();
-    checkSuspensionStatus();
   }, [user]);
-
-  const checkSuspensionStatus = async () => {
-    if (!user?.tenant_id) {
-      setCheckingSuspension(false);
-      return;
-    }
-
-    try {
-      setCheckingSuspension(true);
-      const status = await TenantDataService.checkClientSuspensionStatus(user.tenant_id);
-      setSuspensionStatus(status);
-      console.log('🔍 [DocumentUpload] Suspension status:', status);
-    } catch (error) {
-      console.error('Error checking suspension status:', error);
-    } finally {
-      setCheckingSuspension(false);
-    }
-  };
 
   // Re-check credentials when modal closes or when navigating back to this page
   useEffect(() => {
@@ -637,7 +618,7 @@ export default function DocumentUpload() {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     // Block file selection if account is suspended
-    if (suspensionStatus?.is_suspended) {
+    if (isSuspended) {
       alert('Cuenta suspendida: No puede subir documentos. Contacte con la administración de ConstructIA.');
       event.target.value = '';
       return;
@@ -656,7 +637,7 @@ export default function DocumentUpload() {
     event.preventDefault();
 
     // Block file drop if account is suspended
-    if (suspensionStatus?.is_suspended) {
+    if (isSuspended) {
       alert('Cuenta suspendida: No puede subir documentos. Contacte con la administración de ConstructIA.');
       return;
     }
@@ -690,7 +671,7 @@ export default function DocumentUpload() {
 
   const handleUpload = async () => {
     // CRITICAL: Block upload if account is suspended
-    if (suspensionStatus?.is_suspended) {
+    if (isSuspended) {
       alert(
         'Cuenta suspendida\n\n' +
         'No puede subir documentos mientras su cuenta esté suspendida.\n' +
@@ -924,6 +905,13 @@ export default function DocumentUpload() {
         </div>
       </div>
 
+      {/* Suspension Blocker */}
+      {isSuspended && (
+        <SuspensionBlocker
+          message="No puedes subir documentos mientras tu cuenta esté suspendida. Por favor, contacta con la administración de ConstructIA o actualiza tu suscripción para reactivar esta funcionalidad."
+        />
+      )}
+
       {/* CAE Credentials Warning */}
       {checkingCredentials ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1060,18 +1048,18 @@ export default function DocumentUpload() {
               onChange={handleFileSelect}
               className="hidden"
               id="file-upload"
-              disabled={suspensionStatus?.is_suspended}
+              disabled={isSuspended}
             />
             <label
-              htmlFor={suspensionStatus?.is_suspended ? undefined : "file-upload"}
+              htmlFor={isSuspended ? undefined : "file-upload"}
               className={`px-6 py-2 rounded-lg transition-colors inline-block ${
-                suspensionStatus?.is_suspended
+                isSuspended
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
               }`}
-              title={suspensionStatus?.is_suspended ? 'Cuenta suspendida - No disponible' : 'Seleccionar archivos'}
+              title={isSuspended ? 'Cuenta suspendida - No disponible' : 'Seleccionar archivos'}
             >
-              {suspensionStatus?.is_suspended ? 'No Disponible - Cuenta Suspendida' : 'Seleccionar Archivos'}
+              {isSuspended ? 'No Disponible - Cuenta Suspendida' : 'Seleccionar Archivos'}
             </label>
           </div>
 
@@ -1137,7 +1125,7 @@ export default function DocumentUpload() {
               <button
                 onClick={handleUpload}
                 disabled={
-                  suspensionStatus?.is_suspended ||
+                  isSuspended ||
                   !selectedEmpresa ||
                   !selectedObra ||
                   !selectedCategory ||
@@ -1146,14 +1134,14 @@ export default function DocumentUpload() {
                   uploading
                 }
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-                title={suspensionStatus?.is_suspended ? 'Cuenta suspendida - No puede subir documentos' : ''}
+                title={isSuspended ? 'Cuenta suspendida - No puede subir documentos' : ''}
               >
                 {uploading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Subiendo...
                   </>
-                ) : suspensionStatus?.is_suspended ? (
+                ) : isSuspended ? (
                   <>
                     <AlertCircle className="w-5 h-5 mr-2" />
                     Cuenta Suspendida

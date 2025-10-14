@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter } from 'lucide-react';
+import { Plus, Building2, Calendar, MapPin, DollarSign, BarChart3, Search, Filter, AlertCircle } from 'lucide-react';
 import { useClientProjects } from '../../hooks/useClientData';
 import { useAuth } from '../../lib/auth-context';
 import { ClientIsolatedDataService } from '../../lib/client-isolated-data';
+import { useSuspensionStatus } from '../../hooks/useSuspensionStatus';
 
 interface Project {
   id: string;
@@ -28,6 +29,7 @@ interface Company {
 
 export default function Projects() {
   const { user } = useAuth();
+  const { isSuspended, suspensionReason } = useSuspensionStatus();
   const { projects, loading, error, refreshProjects } = useClientProjects();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -162,6 +164,23 @@ export default function Projects() {
   }
   return (
     <div className="space-y-6">
+      {/* Suspension Warning */}
+      {isSuspended && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-6 h-6 text-orange-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-900 mb-1">
+                Cuenta Suspendida - Acceso de Solo Lectura
+              </h3>
+              <p className="text-orange-800 text-sm">
+                Puedes consultar tus proyectos, pero no puedes crear nuevos ni realizar modificaciones mientras tu cuenta esté suspendida.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -172,8 +191,14 @@ export default function Projects() {
           </div>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          onClick={() => !isSuspended && setShowCreateModal(true)}
+          disabled={isSuspended}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+            isSuspended
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
+          title={isSuspended ? "No disponible - Cuenta suspendida" : ""}
         >
           <Plus className="w-4 h-4" />
           Nuevo Proyecto

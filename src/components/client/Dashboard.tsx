@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  Building2, 
-  FileText, 
-  BarChart3, 
-  Users, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
+import {
+  Building2,
+  FileText,
+  BarChart3,
+  Users,
+  TrendingUp,
+  Clock,
+  CheckCircle,
   AlertCircle,
   Upload,
   FolderOpen,
@@ -22,9 +22,11 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
+import { useSuspensionStatus } from '../../hooks/useSuspensionStatus';
 
 export default function ClientDashboard() {
   const { client, empresas, obras, documentos, stats, loading, error, refreshData } = useClientData();
+  const { isSuspended, suspensionReason } = useSuspensionStatus();
 
   if (loading) {
     return (
@@ -186,22 +188,60 @@ export default function ClientDashboard() {
         </div>
       </div>
 
+      {/* Suspension Warning */}
+      {isSuspended && (
+        <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-6 h-6 text-red-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-900 mb-1">
+                Cuenta Suspendida
+              </h3>
+              <p className="text-red-800 text-sm mb-3">
+                La mayoría de funcionalidades están deshabilitadas. Solo tienes acceso a Configuración y Suscripción.
+                {suspensionReason && ` Motivo: ${suspensionReason}`}
+              </p>
+              <div className="flex space-x-3">
+                <a
+                  href="/client/subscription"
+                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
+                >
+                  Ver Suscripción
+                </a>
+                <a
+                  href="mailto:soporte@constructia.com"
+                  className="inline-flex items-center px-4 py-2 bg-white text-red-600 border-2 border-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-semibold"
+                >
+                  Contactar Soporte
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow-sm p-6 border">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button 
-            onClick={() => window.location.href = '/client/upload'}
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          <button
+            onClick={() => !isSuspended && (window.location.href = '/client/upload')}
+            disabled={isSuspended}
+            className={`flex items-center p-4 border border-gray-200 rounded-lg transition-colors ${
+              isSuspended ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50'
+            }`}
+            title={isSuspended ? "No disponible - Cuenta suspendida" : ""}
           >
-            <Upload className="w-8 h-8 text-green-600 mr-3" />
+            <Upload className={`w-8 h-8 mr-3 ${isSuspended ? 'text-gray-400' : 'text-green-600'}`} />
             <div className="text-left">
-              <p className="font-medium text-gray-900">Subir Documentos</p>
-              <p className="text-sm text-gray-600">Añadir nuevos documentos</p>
+              <p className={`font-medium ${isSuspended ? 'text-gray-400' : 'text-gray-900'}`}>Subir Documentos</p>
+              <p className="text-sm text-gray-600">
+                {isSuspended ? 'No disponible' : 'Añadir nuevos documentos'}
+              </p>
             </div>
           </button>
 
-          <button 
+          <button
             onClick={() => window.location.href = '/client/metrics'}
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -212,7 +252,7 @@ export default function ClientDashboard() {
             </div>
           </button>
 
-          <button 
+          <button
             onClick={() => window.location.href = '/client/settings'}
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >

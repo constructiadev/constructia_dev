@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  FileText, 
-  Clock, 
+import {
+  BarChart3,
+  TrendingUp,
+  FileText,
+  Clock,
   CheckCircle,
   AlertCircle,
   RefreshCw,
@@ -12,6 +12,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useClientData } from '../../hooks/useClientData';
+import { useSuspensionStatus } from '../../hooks/useSuspensionStatus';
 
 interface MetricsData {
   totalDocuments: number;
@@ -26,6 +27,7 @@ interface MetricsData {
 
 export default function Metrics() {
   const { documentos, loading, error, refreshData } = useClientData();
+  const { isSuspended, suspensionReason } = useSuspensionStatus();
   const [metrics, setMetrics] = useState<MetricsData>({
     totalDocuments: 0,
     documentsThisMonth: 0,
@@ -139,6 +141,23 @@ export default function Metrics() {
   }
   return (
     <div className="space-y-6">
+      {/* Suspension Info */}
+      {isSuspended && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 mb-1">
+                Cuenta Suspendida - Métricas Históricas Disponibles
+              </h3>
+              <p className="text-blue-800 text-sm">
+                Puedes ver tus métricas históricas, pero la actualización de datos en tiempo real no está disponible mientras tu cuenta esté suspendida.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
