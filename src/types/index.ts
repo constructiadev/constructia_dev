@@ -39,13 +39,14 @@ export interface AuthenticatedUser {
 
 export interface AuthenticatedClient extends AuthenticatedUser {
   client_record_id: string;
-  client_record_id: string;
   company_name: string;
   subscription_plan: string;
   subscription_status: string;
   storage_used: number;
   storage_limit: number;
   tokens_available: number;
+  is_suspended?: boolean;
+  suspension_reason?: string | null;
   obralia_credentials?: {
     configured: boolean;
     username?: string;

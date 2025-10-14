@@ -726,10 +726,10 @@ export class ClientAuthService {
         console.warn('⚠️ [ClientAuth] Error fetching empresa:', empresaError);
       }
 
-      // Get client record from clients table using user_id
+      // Get client record from clients table using user_id, including suspension status
       let { data: clientRecord, error: clientError } = await supabaseServiceClient
         .from('clients')
-        .select('id')
+        .select('id, subscription_status, suspension_reason')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -779,9 +779,13 @@ export class ClientAuthService {
         }
         
         // Update clientRecord with the newly created record
-        const updatedClientRecord = { id: newClientRecord.id };
+        const updatedClientRecord = {
+          id: newClientRecord.id,
+          subscription_status: 'active',
+          suspension_reason: null
+        };
         console.log('✅ [ClientAuth] Client record verified and assigned:', updatedClientRecord.id);
-        
+
         // Use the verified client record
         clientRecord = updatedClientRecord;
       }
@@ -792,6 +796,9 @@ export class ClientAuthService {
         return null;
       }
 
+      // Determine if account is suspended
+      const isSuspended = clientRecord.subscription_status === 'suspended';
+
       return {
         id: userProfile.id,
         client_record_id: clientRecord.id,
@@ -801,6 +808,8 @@ export class ClientAuthService {
         role: userProfile.role,
         company_name: empresa?.razon_social || 'Empresa',
         subscription_plan: 'professional',
+        is_suspended: isSuspended,
+        suspension_reason: clientRecord.suspension_reason,
         subscription_status: userProfile.active ? 'active' : 'suspended',
         storage_used: Math.floor(Math.random() * 500000000),
         storage_limit: 1073741824,

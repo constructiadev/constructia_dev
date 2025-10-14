@@ -59,6 +59,7 @@ import { supabaseServiceClient, logAuditoria, DEV_TENANT_ID } from '../../lib/su
 import { useAuth } from '../../lib/auth-context';
 import PlatformCredentialsManager from '../client/PlatformCredentialsManager';
 import ClientReport from './ClientReport';
+import { TenantDataService } from '../../lib/tenant-service';
 
 interface Client {
   id: string;
@@ -758,34 +759,67 @@ const ClientsManagement: React.FC = () => {
   };
 
   const handleSuspendClient = async (clientId: string) => {
-    if (!confirm('¿Estás seguro de que quieres suspender este cliente?')) {
+    const client = clients.find(c => c.id === clientId);
+
+    if (!client) {
+      alert('Error: Cliente no encontrado');
+      return;
+    }
+
+    // Prompt for suspension reason
+    const suspensionReason = prompt(
+      `¿Estás seguro de que quieres suspender a ${client.company_name}?\n\n` +
+      'El cliente recibirá una notificación automática y no podrá subir documentos.\n' +
+      'Solo tendrá acceso a Configuración y Suscripción.\n\n' +
+      'Motivo de suspensión (opcional):'
+    );
+
+    // If user clicked cancel
+    if (suspensionReason === null) {
       return;
     }
 
     try {
-      // Update client status in database
-      const { error } = await supabaseServiceClient
-        .from('clients')
-        .update({ 
-          subscription_status: 'suspended',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', clientId);
+      if (!client.tenant_id) {
+        alert('Error: Este cliente no tiene un tenant_id asignado');
+        return;
+      }
 
-      if (error) {
-        console.error('Error suspending client:', error);
-        alert('Error al suspender cliente');
+      if (!user?.id) {
+        alert('Error: No se pudo identificar al administrador');
+        return;
+      }
+
+      // Use the new suspension function that sends notification automatically
+      const result = await TenantDataService.suspendClientAccount(
+        clientId,
+        client.tenant_id,
+        user.id,
+        suspensionReason.trim() || undefined
+      );
+
+      if (!result.success) {
+        console.error('Error suspending client:', result.error);
+        alert(`Error al suspender cliente: ${result.error}`);
         return;
       }
 
       // Update local state
-      setClients(prev => prev.map(c => 
-        c.id === clientId 
-          ? { ...c, subscription_status: 'suspended', updated_at: new Date().toISOString() }
+      setClients(prev => prev.map(c =>
+        c.id === clientId
+          ? {
+              ...c,
+              subscription_status: 'suspended',
+              updated_at: new Date().toISOString()
+            }
           : c
       ));
-      
-      alert('✅ Cliente suspendido correctamente');
+
+      alert(
+        `✅ Cliente suspendido correctamente\n\n` +
+        `Se ha enviado una notificación a ${client.email}\n` +
+        `El cliente solo puede acceder a Configuración y Suscripción.`
+      );
     } catch (error) {
       console.error('Error suspending client:', error);
       alert('Error al suspender cliente');
@@ -793,76 +827,57 @@ const ClientsManagement: React.FC = () => {
   };
 
   const handleActivateClient = async (clientId: string) => {
-    if (!confirm('¿Estás seguro de que quieres activar este cliente?')) {
+    const client = clients.find(c => c.id === clientId);
+
+    if (!client) {
+      alert('Error: Cliente no encontrado');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres reactivar a ${client.company_name}?`)) {
       return;
     }
 
     try {
-      // Get client info for audit logging
-      const client = clients.find(c => c.id === clientId);
-      
-      // Update client status in database
-      const { error } = await supabaseServiceClient
-        .from('clients')
-        .update({ 
-          subscription_status: 'active',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', clientId);
-
-      if (error) {
-        console.error('Error activating client:', error);
-        alert('Error al activar cliente');
+      if (!client.tenant_id) {
+        alert('Error: Este cliente no tiene un tenant_id asignado');
         return;
       }
 
-      // CRITICAL: Log audit event for global admin view
-      if (client) {
-        try {
-          // Get tenant_id for this client
-          const { data: userData, error: userError } = await supabaseServiceClient
-            .from('users')
-            .select('tenant_id')
-            .eq('email', client.email)
-            .maybeSingle();
-          
-          if (userError) {
-            console.warn('⚠️ [ClientsManagement] Could not find user for audit logging:', userError);
-          }
-          
-          const tenantId = userData?.tenant_id || DEV_TENANT_ID;
-          
-          await logAuditoria(
-            tenantId,
-            user?.id || 'admin-user',
-            'admin.client_activated',
-            'cliente',
-            clientId,
-            {
-              company_name: client.company_name,
-              contact_name: client.contact_name,
-              email: client.email,
-              previous_status: client.subscription_status,
-              new_status: 'active',
-              admin_action: true,
-              global_admin_view: true
-            },
-            '127.0.0.1',
-            navigator.userAgent,
-            'success'
-          );
-        } catch (auditError) {
-          console.warn('⚠️ [Audit] Failed to log client activation:', auditError);
-        }
+      if (!user?.id) {
+        alert('Error: No se pudo identificar al administrador');
+        return;
       }
+
+      // Use the new reactivation function that sends notification automatically
+      const result = await TenantDataService.reactivateClientAccount(
+        clientId,
+        client.tenant_id,
+        user.id
+      );
+
+      if (!result.success) {
+        console.error('Error activating client:', result.error);
+        alert(`Error al activar cliente: ${result.error}`);
+        return;
+      }
+
       // Update local state
-      setClients(prev => prev.map(c => 
-        c.id === clientId 
-          ? { ...c, subscription_status: 'active', updated_at: new Date().toISOString() }
+      setClients(prev => prev.map(c =>
+        c.id === clientId
+          ? {
+              ...c,
+              subscription_status: 'active',
+              updated_at: new Date().toISOString()
+            }
           : c
       ));
-      
-      alert('✅ Cliente activado correctamente');
+
+      alert(
+        `✅ Cliente reactivado correctamente\n\n` +
+        `Se ha enviado una notificación a ${client.email}\n` +
+        `El cliente ya puede acceder a todas las funcionalidades.`
+      );
     } catch (error) {
       console.error('Error activating client:', error);
       alert('Error al activar cliente');

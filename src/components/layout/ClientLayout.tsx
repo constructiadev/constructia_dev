@@ -17,6 +17,8 @@ import {
 import { useAuth } from '../../lib/auth-context';
 import Logo from '../common/Logo';
 import ClientMessages from '../client/ClientMessages';
+import SuspendedAccountBanner from '../common/SuspendedAccountBanner';
+import { TenantDataService, ClientSuspensionStatus } from '../../lib/tenant-service';
 
 const navigation = [
   { name: 'Dashboard', href: '/client/dashboard', icon: LayoutDashboard },
@@ -34,20 +36,63 @@ export default function ClientLayout() {
   const { user, signOut } = useAuth();
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [suspensionStatus, setSuspensionStatus] = useState<ClientSuspensionStatus | null>(null);
+  const [checkingSuspension, setCheckingSuspension] = useState(true);
+
+  // Check suspension status
+  useEffect(() => {
+    if (user?.tenant_id) {
+      checkSuspensionStatus();
+
+      // Check suspension status every 60 seconds
+      const interval = setInterval(() => {
+        checkSuspensionStatus();
+      }, 60000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user?.tenant_id]);
 
   // Load unread messages count
   useEffect(() => {
     if (user?.tenant_id && user?.email) {
       loadUnreadCount();
-      
+
       // Set up periodic refresh every 30 seconds to check for new messages
       const interval = setInterval(() => {
         loadUnreadCount();
       }, 30000);
-      
+
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  const checkSuspensionStatus = async () => {
+    if (!user?.tenant_id) return;
+
+    try {
+      setCheckingSuspension(true);
+      const status = await TenantDataService.checkClientSuspensionStatus(user.tenant_id);
+      setSuspensionStatus(status);
+
+      console.log('🔍 [ClientLayout] Suspension status:', status);
+
+      // If suspended and not on allowed pages, redirect to subscription
+      if (status.is_suspended) {
+        const currentPath = window.location.pathname;
+        const allowedPaths = ['/client/settings', '/client/subscription'];
+
+        if (!allowedPaths.some(path => currentPath.startsWith(path))) {
+          console.log('⚠️ [ClientLayout] Redirecting suspended user to subscription page');
+          navigate('/client/subscription', { replace: true });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking suspension status:', error);
+    } finally {
+      setCheckingSuspension(false);
+    }
+  };
 
   const loadUnreadCount = async () => {
     try {
@@ -108,28 +153,42 @@ export default function ClientLayout() {
           <ul className="space-y-2">
             {navigation.map((item) => {
               const Icon = item.icon;
+              const isSuspended = suspensionStatus?.is_suspended || false;
+              const isAllowedForSuspended = item.href === '/client/settings' || item.href === '/client/subscription';
+              const isDisabled = isSuspended && !isAllowedForSuspended;
+
               return (
                 <li key={item.name}>
-                  <NavLink
-                    to={item.href}
-                    end={item.href === '/client/dashboard'}
-                    className={({ isActive }) =>
-                      [
-                        'group relative flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200',
-                        isActive ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'
-                      ].join(' ')
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {isActive && (
-                          <span className="absolute left-0 top-0 bottom-0 w-1 bg-green-600 rounded-r-full nav-indicator" />
-                        )}
-                        <Icon className="mr-3 h-5 w-5" />
-                        {item.name}
-                      </>
-                    )}
-                  </NavLink>
+                  {isDisabled ? (
+                    <div
+                      className="group relative flex items-center px-4 py-3 text-sm font-medium rounded-lg opacity-40 cursor-not-allowed"
+                      title="No disponible - Cuenta suspendida"
+                    >
+                      <Icon className="mr-3 h-5 w-5 text-gray-400" />
+                      <span className="text-gray-400">{item.name}</span>
+                    </div>
+                  ) : (
+                    <NavLink
+                      to={item.href}
+                      end={item.href === '/client/dashboard'}
+                      className={({ isActive }) =>
+                        [
+                          'group relative flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200',
+                          isActive ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'
+                        ].join(' ')
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <span className="absolute left-0 top-0 bottom-0 w-1 bg-green-600 rounded-r-full nav-indicator" />
+                          )}
+                          <Icon className="mr-3 h-5 w-5" />
+                          {item.name}
+                        </>
+                      )}
+                    </NavLink>
+                  )}
                 </li>
               );
             })}
@@ -149,6 +208,14 @@ export default function ClientLayout() {
 
       {/* Main Content */}
       <div className="pl-64">
+        {/* Suspended Account Banner */}
+        {suspensionStatus?.is_suspended && (
+          <SuspendedAccountBanner
+            suspensionReason={suspensionStatus.suspension_reason}
+            companyName={(user as any)?.company_name}
+          />
+        )}
+
         <div className="flex h-16 items-center justify-between bg-white px-6 shadow-sm">
           <h1 className="text-xl font-semibold text-gray-800">
             Portal Cliente

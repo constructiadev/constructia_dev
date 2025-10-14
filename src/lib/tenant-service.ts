@@ -63,7 +63,132 @@ export interface TenantMetrics {
   last_user_activity?: string;
 }
 
+export interface ClientSuspensionStatus {
+  is_suspended: boolean;
+  suspension_reason: string | null;
+  subscription_status: string;
+}
+
 export class TenantDataService {
+  /**
+   * Check if a client is suspended by tenant_id
+   */
+  static async checkClientSuspensionStatus(tenantId: string): Promise<ClientSuspensionStatus> {
+    try {
+      console.log('🔍 [TenantDataService] Checking suspension status for tenant:', tenantId);
+
+      const { data, error } = await supabaseServiceClient
+        .rpc('check_client_suspension_status', { p_tenant_id: tenantId });
+
+      if (error) {
+        console.error('❌ [TenantDataService] Error checking suspension status:', error);
+        // Default to safe state - consider suspended if we can't verify
+        return {
+          is_suspended: false,
+          suspension_reason: null,
+          subscription_status: 'unknown'
+        };
+      }
+
+      const result = data && data.length > 0 ? data[0] : null;
+
+      console.log('✅ [TenantDataService] Suspension status:', result);
+
+      return result || {
+        is_suspended: false,
+        suspension_reason: null,
+        subscription_status: 'unknown'
+      };
+    } catch (error) {
+      console.error('❌ [TenantDataService] Exception checking suspension:', error);
+      return {
+        is_suspended: false,
+        suspension_reason: null,
+        subscription_status: 'unknown'
+      };
+    }
+  }
+
+  /**
+   * Suspend a client account and send notification
+   */
+  static async suspendClientAccount(
+    clientId: string,
+    tenantId: string,
+    adminUserId: string,
+    suspensionReason?: string
+  ): Promise<{ success: boolean; error?: string; message_id?: string }> {
+    try {
+      console.log('🔍 [TenantDataService] Suspending client:', clientId);
+
+      const { data, error } = await supabaseServiceClient
+        .rpc('suspend_client_account', {
+          p_client_id: clientId,
+          p_tenant_id: tenantId,
+          p_admin_user_id: adminUserId,
+          p_suspension_reason: suspensionReason || null
+        });
+
+      if (error) {
+        console.error('❌ [TenantDataService] Error suspending client:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ [TenantDataService] Client suspended successfully:', data);
+
+      return {
+        success: data.success,
+        error: data.error,
+        message_id: data.message_id
+      };
+    } catch (error) {
+      console.error('❌ [TenantDataService] Exception suspending client:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Reactivate a suspended client account
+   */
+  static async reactivateClientAccount(
+    clientId: string,
+    tenantId: string,
+    adminUserId: string
+  ): Promise<{ success: boolean; error?: string; message_id?: string }> {
+    try {
+      console.log('🔍 [TenantDataService] Reactivating client:', clientId);
+
+      const { data, error } = await supabaseServiceClient
+        .rpc('reactivate_client_account', {
+          p_client_id: clientId,
+          p_tenant_id: tenantId,
+          p_admin_user_id: adminUserId
+        });
+
+      if (error) {
+        console.error('❌ [TenantDataService] Error reactivating client:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ [TenantDataService] Client reactivated successfully:', data);
+
+      return {
+        success: data.success,
+        error: data.error,
+        message_id: data.message_id
+      };
+    } catch (error) {
+      console.error('❌ [TenantDataService] Exception reactivating client:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
   static async getAllTenantsWithMetadata(): Promise<TenantWithMetadata[]> {
     try {
       console.log('🔍 [TenantDataService] Fetching all tenants with metadata...');
