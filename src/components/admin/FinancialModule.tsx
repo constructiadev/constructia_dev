@@ -34,14 +34,15 @@ import {
   Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  getAllReceipts, 
-  getAllPaymentGateways, 
+import {
+  getAllReceipts,
+  getAllPaymentGateways,
   getTenantEmpresasNoRLS,
   getAllTenantDocumentsNoRLS,
   calculateDynamicKPIs,
   getCommissionStatsByGateway,
   calculateIntelligentCommission,
+  getAllClients,
   DEV_TENANT_ID
 } from '../../lib/supabase';
 import { supabaseServiceClient } from '../../lib/supabase-real';
@@ -481,6 +482,9 @@ const FinancialModule: React.FC = () => {
   const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [realTimeStats, setRealTimeStats] = useState<any>({});
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [monthlyRevenueChart, setMonthlyRevenueChart] = useState<number[]>([]);
+  const [paymentMethodsDistribution, setPaymentMethodsDistribution] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -493,18 +497,27 @@ const FinancialModule: React.FC = () => {
       setError(null);
 
       // Cargar datos reales directamente sin RLS
-      const [empresas, documentos, receipts, gateways] = await Promise.all([
+      const [clients, empresas, documentos, receipts, gateways] = await Promise.all([
+        getAllClients(),
         getTenantEmpresasNoRLS(DEV_TENANT_ID),
         getAllTenantDocumentsNoRLS(DEV_TENANT_ID),
         getAllReceipts(),
         getAllPaymentGateways()
       ]);
 
+      console.log('📊 [FinancialModule] Loaded data:', {
+        clients: clients.length,
+        empresas: empresas.length,
+        documentos: documentos.length,
+        receipts: receipts.length,
+        gateways: gateways.length
+      });
+
       setGateways(gateways);
 
-      // Calcular estadísticas reales desde la nueva arquitectura
-      const totalClients = empresas.length;
-      const activeClients = empresas.filter(e => e.estado_compliance === 'al_dia').length;
+      // Calcular estadísticas reales desde la tabla clients (NO empresas)
+      const totalClients = clients.length;
+      const activeClients = clients.filter(c => c.subscription_status === 'active').length;
       const totalDocuments = documentos.length;
       
       const currentMonth = new Date().getMonth();
@@ -515,29 +528,70 @@ const FinancialModule: React.FC = () => {
         return docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear;
       }).length;
       
-      const monthlyRevenue = receipts.filter(receipt => {
-        const receiptDate = new Date(receipt.created_at);
+      // CRITICAL: Filtrar solo recibos pagados para cálculo de ingresos reales
+      const paidReceipts = receipts.filter(r => r.status === 'paid');
+
+      const monthlyRevenue = paidReceipts.filter(receipt => {
+        const receiptDate = new Date(receipt.payment_date || receipt.created_at);
         return receiptDate.getMonth() === currentMonth && receiptDate.getFullYear() === currentYear;
       }).reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0);
+
+      console.log('💰 [FinancialModule] Revenue calculation:', {
+        totalReceipts: receipts.length,
+        paidReceipts: paidReceipts.length,
+        currentMonth: currentMonth + 1,
+        monthlyRevenue: monthlyRevenue.toFixed(2)
+      });
       
-      const totalRevenue = receipts.reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0);
-      const totalTransactions = receipts.length;
+      const totalRevenue = paidReceipts.reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0);
+      const totalTransactions = paidReceipts.length;
       const avgTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+
+      console.log('💰 [FinancialModule] Total revenue stats:', {
+        totalRevenue: totalRevenue.toFixed(2),
+        totalTransactions,
+        avgTransactionValue: avgTransactionValue.toFixed(2)
+      });
       
-      const avgConfidence = documentos.length > 0 
-        ? documentos.reduce((sum, d) => sum + 85, 0) / documentos.length // Simulated confidence
+      // Calcular confianza REAL de la IA desde metadatos de documentos
+      const avgConfidence = documentos.length > 0
+        ? documentos.reduce((sum, d) => {
+            const aiExtraction = d.metadatos?.ai_extraction;
+            const confidence = aiExtraction?.confianza?.categoria_probable;
+            // Convertir a porcentaje si está en decimal (0-1), o usar directo si ya es porcentaje (0-100)
+            const confidencePercent = confidence ? (confidence <= 1 ? confidence * 100 : confidence) : 85;
+            return sum + confidencePercent;
+          }, 0) / documentos.length
         : 0;
+
+      console.log('🤖 [FinancialModule] AI Confidence:', avgConfidence.toFixed(2) + '%');
       
       const completedDocuments = documentos.filter(d => d.estado === 'aprobado').length;
       const processingSuccessRate = totalDocuments > 0 ? (completedDocuments / totalDocuments) * 100 : 0;
       
-      // Calcular churn rate real
-      const cancelledClients = empresas.filter(e => e.estado_compliance === 'caducado').length;
-      const churnRate = totalClients > 0 ? (cancelledClients / totalClients) * 100 : 0;
+      // Calcular churn rate REAL desde tabla clients (NO empresas)
+      const cancelledClients = clients.filter(c => c.subscription_status === 'cancelled').length;
+      const suspendedClients = clients.filter(c => c.subscription_status === 'suspended').length;
+      const churnRate = totalClients > 0 ? ((cancelledClients + suspendedClients) / totalClients) * 100 : 0;
+
+      console.log('📉 [FinancialModule] Churn analysis:', {
+        totalClients,
+        activeClients,
+        cancelledClients,
+        suspendedClients,
+        churnRate: churnRate.toFixed(2) + '%'
+      });
       
-      // Calcular LTV real
-      const avgMonthlyRevenue = totalClients > 0 ? monthlyRevenue / activeClients : 0;
+      // Calcular LTV REAL: ingresos mensuales promedio por cliente activo
+      const avgMonthlyRevenue = activeClients > 0 ? monthlyRevenue / activeClients : 0;
       const ltv = avgMonthlyRevenue * 12; // Estimación simple de LTV anual
+
+      console.log('📊 [FinancialModule] LTV calculation:', {
+        monthlyRevenue: monthlyRevenue.toFixed(2),
+        activeClients,
+        avgMonthlyRevenue: avgMonthlyRevenue.toFixed(2),
+        ltv: ltv.toFixed(2)
+      });
       
       // Calcular uptime del sistema (basado en documentos procesados exitosamente)
       const systemUptime = processingSuccessRate;
@@ -565,23 +619,31 @@ const FinancialModule: React.FC = () => {
         queueSize: 0 // Will be calculated from manual queue
       });
 
-      // Calcular estadísticas de comisiones por gateway con datos reales
+      // Calcular estadísticas de comisiones por gateway con datos REALES (solo pagados)
       const commissionStatsData = gateways.map(gateway => {
-        const gatewayReceipts = receipts.filter(r => r.gateway_name === gateway.name);
+        const gatewayReceipts = paidReceipts.filter(r => r.gateway_name === gateway.name);
         
         let totalCommissions = 0;
         let totalVolume = 0;
         let transactionCount = 0;
 
         gatewayReceipts.forEach(receipt => {
+          const receiptAmount = parseFloat(receipt.amount || 0);
           const commission = calculateIntelligentCommissionWithPeriods(
             gateway,
-            receipt.amount,
+            receiptAmount,
             receipt.payment_date || receipt.created_at
           );
           totalCommissions += commission;
-          totalVolume += receipt.amount;
+          totalVolume += receiptAmount;
           transactionCount++;
+        });
+
+        console.log(`💳 [FinancialModule] Gateway ${gateway.name}:`, {
+          transactions: transactionCount,
+          volume: totalVolume.toFixed(2),
+          commissions: totalCommissions.toFixed(2),
+          avgRate: totalVolume > 0 ? ((totalCommissions / totalVolume) * 100).toFixed(2) + '%' : '0%'
         });
 
         return {
@@ -600,40 +662,134 @@ const FinancialModule: React.FC = () => {
 
       setCommissionStats(commissionStatsData);
 
+      // Preparar transacciones recientes REALES con datos de clientes
+      const recentReceiptsData = paidReceipts
+        .sort((a, b) => new Date(b.payment_date || b.created_at).getTime() - new Date(a.payment_date || a.created_at).getTime())
+        .slice(0, 10)
+        .map(receipt => {
+          const client = clients.find(c => c.id === receipt.client_id);
+          const gateway = gateways.find(g => g.name === receipt.gateway_name);
+          const commission = gateway ? calculateIntelligentCommissionWithPeriods(
+            gateway,
+            parseFloat(receipt.amount || 0),
+            receipt.payment_date || receipt.created_at
+          ) : 0;
+
+          return {
+            id: receipt.id,
+            cliente: client?.company_name || 'Cliente Desconocido',
+            plan: client?.subscription_plan || 'N/A',
+            metodo: receipt.gateway_name,
+            importe: parseFloat(receipt.amount || 0),
+            comision: commission,
+            estado: receipt.status === 'paid' ? 'Completado' : receipt.status === 'pending' ? 'Pendiente' : 'Fallido',
+            fecha: receipt.payment_date || receipt.created_at,
+            receipt_number: receipt.receipt_number
+          };
+        });
+
+      setRecentTransactions(recentReceiptsData);
+      console.log('📋 [FinancialModule] Recent transactions:', recentReceiptsData.length);
+
+      // Calcular ingresos mensuales REALES para gráfico (últimos 7 meses)
+      const monthlyRevenueData: number[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const targetDate = new Date();
+        targetDate.setMonth(targetDate.getMonth() - i);
+        const targetMonth = targetDate.getMonth();
+        const targetYear = targetDate.getFullYear();
+
+        const monthRevenue = paidReceipts.filter(receipt => {
+          const receiptDate = new Date(receipt.payment_date || receipt.created_at);
+          return receiptDate.getMonth() === targetMonth && receiptDate.getFullYear() === targetYear;
+        }).reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0);
+
+        monthlyRevenueData.push(monthRevenue);
+      }
+
+      setMonthlyRevenueChart(monthlyRevenueData);
+      console.log('📊 [FinancialModule] Monthly revenue chart:', monthlyRevenueData.map(r => r.toFixed(0)));
+
+      // Calcular distribución REAL de métodos de pago
+      const paymentMethodsStats = gateways.map(gateway => {
+        const gatewayTotal = paidReceipts
+          .filter(r => r.gateway_name === gateway.name)
+          .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+        return {
+          name: gateway.name,
+          type: gateway.type,
+          total: gatewayTotal,
+          percentage: totalRevenue > 0 ? (gatewayTotal / totalRevenue) * 100 : 0
+        };
+      }).filter(stat => stat.total > 0).sort((a, b) => b.total - a.total);
+
+      setPaymentMethodsDistribution(paymentMethodsStats);
+      console.log('💳 [FinancialModule] Payment methods distribution:', paymentMethodsStats);
+
+      // Calcular cambios REALES comparando con mes anterior
+      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+      const clientsLastMonth = clients.filter(c => {
+        const createdDate = new Date(c.created_at);
+        return createdDate <= new Date(previousYear, previousMonth + 1, 0);
+      }).length;
+
+      const revenueLastMonth = paidReceipts.filter(receipt => {
+        const receiptDate = new Date(receipt.payment_date || receipt.created_at);
+        return receiptDate.getMonth() === previousMonth && receiptDate.getFullYear() === previousYear;
+      }).reduce((sum, receipt) => sum + parseFloat(receipt.amount || 0), 0);
+
+      const documentsLastMonth = documentos.filter(doc => {
+        const docDate = new Date(doc.created_at);
+        return docDate.getMonth() === previousMonth && docDate.getFullYear() === previousYear;
+      }).length;
+
+      // Calcular cambios porcentuales reales
+      const clientsChange = clientsLastMonth > 0 ? ((totalClients - clientsLastMonth) / clientsLastMonth) * 100 : 0;
+      const revenueChange = revenueLastMonth > 0 ? ((monthlyRevenue - revenueLastMonth) / revenueLastMonth) * 100 : 0;
+      const documentsChange = documentsLastMonth > 0 ? ((documentsThisMonth - documentsLastMonth) / documentsLastMonth) * 100 : 0;
+
+      console.log('📊 [FinancialModule] Growth calculations:', {
+        clientsChange: clientsChange.toFixed(2) + '%',
+        revenueChange: revenueChange.toFixed(2) + '%',
+        documentsChange: documentsChange.toFixed(2) + '%'
+      });
+
       // Generar KPIs ejecutivos con datos REALES de la base de datos
       const executiveKPIs: ExecutiveKPI[] = [
         {
           id: 'total-clients',
           title: 'Clientes',
           value: totalClients,
-          change: totalClients > 0 ? Math.round(((totalClients - (totalClients * 0.8)) / (totalClients * 0.8)) * 100 * 10) / 10 : 0,
-          trend: 'up',
+          change: Math.round(clientsChange * 10) / 10,
+          trend: clientsChange > 0 ? 'up' : clientsChange < 0 ? 'down' : 'stable',
           icon: Users,
           color: 'bg-blue-500',
-          description: 'Total de empresas registradas',
-          status: 'excellent'
+          description: 'Total de clientes registrados',
+          status: totalClients > 10 ? 'excellent' : totalClients > 5 ? 'good' : 'warning'
         },
         {
           id: 'monthly-revenue',
           title: 'Ingresos Mensuales',
           value: `€${monthlyRevenue.toFixed(0)}`,
-          change: monthlyRevenue > 0 ? Math.round(((monthlyRevenue - (monthlyRevenue * 0.85)) / (monthlyRevenue * 0.85)) * 100 * 10) / 10 : 0,
-          trend: 'up',
+          change: Math.round(revenueChange * 10) / 10,
+          trend: revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'stable',
           icon: DollarSign,
           color: 'bg-green-500',
-          description: 'Ingresos del mes actual',
-          status: 'excellent'
+          description: 'Ingresos del mes actual (solo pagados)',
+          status: monthlyRevenue > 10000 ? 'excellent' : monthlyRevenue > 5000 ? 'good' : 'warning'
         },
         {
           id: 'documents-processed',
           title: 'Documentos Procesados',
           value: documentsThisMonth,
-          change: documentsThisMonth > 0 ? Math.round(((documentsThisMonth - (documentsThisMonth * 0.87)) / (documentsThisMonth * 0.87)) * 100 * 10) / 10 : 0,
-          trend: 'up',
+          change: Math.round(documentsChange * 10) / 10,
+          trend: documentsChange > 0 ? 'up' : documentsChange < 0 ? 'down' : 'stable',
           icon: FileText,
           color: 'bg-green-500',
           description: 'Documentos procesados este mes',
-          status: 'good'
+          status: documentsThisMonth > 50 ? 'excellent' : documentsThisMonth > 20 ? 'good' : 'warning'
         },
         {
           id: 'ai-accuracy',
@@ -1048,86 +1204,94 @@ const FinancialModule: React.FC = () => {
               </div>
             </div>
 
-            {/* Ingresos por Mes - Barras */}
+            {/* Ingresos por Mes - Barras REALES */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Ingresos Mensuales</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Ingresos Mensuales (Últimos 7 Meses)</h3>
               <div className="h-64 flex items-end justify-between space-x-2">
-                {[
-                  { value: 45000, color: 'bg-blue-400' },
-                  { value: 52000, color: 'bg-blue-500' },
-                  { value: 68000, color: 'bg-blue-600' },
-                  { value: 55000, color: 'bg-blue-500' },
-                  { value: 78000, color: 'bg-blue-700' },
-                  { value: 82000, color: 'bg-blue-800' },
-                  { value: 95000, color: 'bg-blue-900' }
-                ].map((bar, index) => {
-                  const maxValue = 95000;
-                  const height = (bar.value / maxValue) * 100;
-                  
+                {monthlyRevenueChart.length > 0 ? monthlyRevenueChart.map((value, index) => {
+                  const maxValue = Math.max(...monthlyRevenueChart, 1000);
+                  const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  const colors = ['bg-blue-400', 'bg-blue-500', 'bg-blue-600', 'bg-blue-500', 'bg-blue-700', 'bg-blue-800', 'bg-blue-900'];
+                  const color = colors[index % colors.length];
+
                   return (
-                    <div key={index} className="flex-1 flex flex-col items-center">
-                      <div 
-                        className={`w-full ${bar.color} rounded-t transition-all duration-500`}
-                        style={{ height: `${height}%` }}
+                    <div key={index} className="flex-1 flex flex-col items-center" title={`€${value.toFixed(2)}`}>
+                      <div
+                        className={`w-full ${color} rounded-t transition-all duration-500`}
+                        style={{ height: `${Math.max(height, 2)}%` }}
                       ></div>
-                      <span className="text-xs text-gray-500 mt-2">€{(bar.value / 1000).toFixed(0)}K</span>
+                      <span className="text-xs text-gray-500 mt-2">
+                        {value >= 1000 ? `€${(value / 1000).toFixed(0)}K` : `€${value.toFixed(0)}`}
+                      </span>
                     </div>
                   );
-                })}
+                }) : (
+                  <div className="flex items-center justify-center w-full h-full text-gray-400">
+                    No hay datos de ingresos disponibles
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Distribución de Métodos de Pago */}
+            {/* Distribución REAL de Métodos de Pago */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Métodos de Pago</h3>
-              <div className="flex items-center justify-center mb-6">
-                <div className="relative w-40 h-40">
-                  <div className="absolute inset-0 rounded-full" style={{
-                    background: `conic-gradient(
-                      #10b981 0deg 180deg,
-                      #3b82f6 180deg 270deg,
-                      #8b5cf6 270deg 315deg,
-                      #f59e0b 315deg 360deg
-                    )`
-                  }}></div>
-                  <div className="absolute inset-6 bg-white rounded-full flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-gray-900">100%</div>
-                      <div className="text-xs text-gray-500">Pagos</div>
+              {paymentMethodsDistribution.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-center mb-6">
+                    <div className="relative w-40 h-40">
+                      <div className="absolute inset-0 rounded-full" style={{
+                        background: (() => {
+                          const colors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
+                          let startDeg = 0;
+                          const gradientParts = paymentMethodsDistribution.map((method, idx) => {
+                            const endDeg = startDeg + (method.percentage / 100) * 360;
+                            const color = colors[idx % colors.length];
+                            const part = `${color} ${startDeg}deg ${endDeg}deg`;
+                            startDeg = endDeg;
+                            return part;
+                          });
+                          return `conic-gradient(${gradientParts.join(', ')})`;
+                        })()
+                      }}></div>
+                      <div className="absolute inset-6 bg-white rounded-full flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-gray-900">100%</div>
+                          <div className="text-xs text-gray-500">Pagos</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                    <span className="text-sm text-gray-700">Stripe</span>
+                  <div className="space-y-3">
+                    {paymentMethodsDistribution.map((method, index) => {
+                      const colors = [
+                        { bg: 'bg-green-500', text: 'text-green-700' },
+                        { bg: 'bg-blue-500', text: 'text-blue-700' },
+                        { bg: 'bg-purple-500', text: 'text-purple-700' },
+                        { bg: 'bg-yellow-500', text: 'text-yellow-700' },
+                        { bg: 'bg-red-500', text: 'text-red-700' }
+                      ];
+                      const colorSet = colors[index % colors.length];
+
+                      return (
+                        <div key={method.name} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className={`w-3 h-3 ${colorSet.bg} rounded-full mr-3`}></div>
+                            <span className="text-sm text-gray-700">{method.name}</span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">
+                            {method.percentage.toFixed(1)}% (€{method.total.toFixed(0)})
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <span className="text-sm font-medium text-gray-900">50%</span>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-400">
+                  No hay datos de métodos de pago disponibles
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                    <span className="text-sm text-gray-700">SEPA</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">25%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
-                    <span className="text-sm text-gray-700">PayPal</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">15%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
-                    <span className="text-sm text-gray-700">Bizum</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">10%</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -1150,13 +1314,7 @@ const FinancialModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {[
-                    { cliente: 'Construcciones García S.L.', plan: 'Professional', metodo: 'Stripe', importe: 149, comision: 2.39, estado: 'Completado', fecha: '2025-01-29' },
-                    { cliente: 'Reformas López', plan: 'Basic', metodo: 'SEPA', importe: 59, comision: 0.55, estado: 'Completado', fecha: '2025-01-28' },
-                    { cliente: 'Edificaciones Martín', plan: 'Enterprise', metodo: 'Stripe', importe: 299, comision: 4.78, estado: 'Pendiente', fecha: '2025-01-27' },
-                    { cliente: 'Constructora ABC', plan: 'Professional', metodo: 'PayPal', importe: 149, comision: 4.32, estado: 'Completado', fecha: '2025-01-26' },
-                    { cliente: 'Obras Públicas SL', plan: 'Custom', metodo: 'SEPA', importe: 450, comision: 2.25, estado: 'Completado', fecha: '2025-01-25' }
-                  ].map((transaction, index) => (
+                  {recentTransactions.length > 0 ? recentTransactions.map((transaction, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {transaction.cliente}
@@ -1175,10 +1333,10 @@ const FinancialModule: React.FC = () => {
                         {transaction.metodo}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        €{transaction.importe}
+                        €{transaction.importe.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        €{transaction.comision}
+                        €{transaction.comision.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1193,7 +1351,13 @@ const FinancialModule: React.FC = () => {
                         {new Date(transaction.fecha).toLocaleDateString('es-ES')}
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        No hay transacciones recientes
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
