@@ -40,6 +40,11 @@ export interface AuthenticatedUser {
 export interface AuthenticatedClient extends AuthenticatedUser {
   client_record_id: string;
   company_name: string;
+  cif_nif?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  phone?: string;
   subscription_plan: string;
   subscription_status: string;
   storage_used: number;

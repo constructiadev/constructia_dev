@@ -654,29 +654,30 @@ export const updateSystemSetting = async (key: string, value: any, description?:
 // Helper para obtener todos los recibos (admin)
 export const getAllReceipts = async () => {
   try {
+    // Get all receipts with client information from the clients table
     const { data, error } = await supabaseClient
       .from('receipts')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select(`
+        *,
+        clients:client_id (
+          id,
+          company_name,
+          contact_name,
+          email,
+          subscription_plan
+        )
+      `)
+      .order('payment_date', { ascending: false });
 
     if (error) {
-      console.warn('Error getting all receipts:', error);
+      console.warn('⚠️ Error getting all receipts:', error);
       return [];
     }
-    
-    // Transform receipts to include mock client info
-    const receipts = (data || []).map(receipt => ({
-      ...receipt,
-      clients: {
-        company_name: 'Empresa Cliente',
-        contact_name: 'Contacto',
-        email: 'contacto@empresa.com'
-      }
-    }));
-    
-    return receipts;
+
+    console.log('✅ [getAllReceipts] Loaded', data?.length || 0, 'receipts from database');
+    return data || [];
   } catch (error) {
-    console.error('Error getting all receipts:', error);
+    console.error('❌ Error getting all receipts:', error);
     return [];
   }
 };

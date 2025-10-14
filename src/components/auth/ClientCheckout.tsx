@@ -234,12 +234,33 @@ export default function ClientCheckout() {
       if (user && selectedPlan) {
         try {
           const clientData = location.state?.clientData;
+
+          // CRITICAL FIX: Get the correct client_record_id from the clients table
+          console.log('🔍 [ClientCheckout] Looking up client record for user:', user.id);
+          const { data: clientRecord, error: clientLookupError } = await supabaseServiceClient
+            .from('clients')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (clientLookupError) {
+            console.error('❌ [ClientCheckout] Error looking up client record:', clientLookupError);
+            throw new Error('No se pudo encontrar el registro del cliente');
+          }
+
+          if (!clientRecord) {
+            console.error('❌ [ClientCheckout] No client record found for user:', user.id);
+            throw new Error('No se encontró el registro del cliente');
+          }
+
+          console.log('✅ [ClientCheckout] Client record found:', clientRecord.id);
+
           const amount = billingCycle === 'yearly' ? selectedPlan.price_yearly : selectedPlan.price_monthly;
           const baseAmount = amount / 1.21;
           const taxAmount = amount - baseAmount;
 
           const receiptNumber = await ReceiptService.createReceipt({
-            client_id: user.id,
+            client_id: clientRecord.id, // FIXED: Use client_record_id instead of user.id
             client_name: clientData?.name || user.name || 'Cliente',
             client_email: user.email || '',
             client_company_name: clientData?.company_name || 'Empresa',
@@ -254,7 +275,7 @@ export default function ClientCheckout() {
             gateway_name: 'Stripe',
             description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
             subscription_plan: selectedPlan.name,
-            transaction_id: `TXN-${Date.now()}`,
+            transaction_id: `STRIPE-${Date.now()}`,
             invoice_items: [{
               description: `Plan ${selectedPlan.name}`,
               quantity: 1,
@@ -266,6 +287,8 @@ export default function ClientCheckout() {
           console.log('✅ [ClientCheckout] Receipt created successfully:', receiptNumber);
         } catch (receiptError) {
           console.error('❌ [ClientCheckout] Error creating receipt:', receiptError);
+          // Don't fail the entire payment process if receipt creation fails
+          alert('⚠️ Pago exitoso pero hubo un problema generando el recibo. Contacta con soporte.');
         }
       }
 
@@ -300,31 +323,31 @@ export default function ClientCheckout() {
 
     try {
       setProcessing(true);
-      
-      console.log('💳 [ClientCheckout] Processing payment for plan:', selectedPlan.name);
-      
-      // Simular procesamiento de pago
+
+      console.log('💳 [ClientCheckout] Processing SEPA payment for plan:', selectedPlan.name);
+
+      // Simular procesamiento de pago SEPA
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
+
       // Simular éxito del pago (95% éxito)
       if (Math.random() > 0.05) {
-        console.log('✅ [ClientCheckout] Payment successful - activating client account');
-        
+        console.log('✅ [ClientCheckout] SEPA payment successful - activating client account');
+
         // CRITICAL: Update client subscription status from trial to active
         if (user?.tenant_id) {
           try {
             const { error: updateError } = await supabaseServiceClient
               .from('suscripciones')
               .update({
-                plan: selectedPlan.id === 'basic' ? 'Starter' : 
+                plan: selectedPlan.id === 'basic' ? 'Starter' :
                       selectedPlan.id === 'professional' ? 'Autonomo' : 'Empresas',
                 estado: 'activa',
                 limites: {
-                  max_obras: selectedPlan.id === 'basic' ? 1 : 
+                  max_obras: selectedPlan.id === 'basic' ? 1 :
                            selectedPlan.id === 'professional' ? 10 : 999,
-                  max_trabajadores: selectedPlan.id === 'basic' ? 10 : 
+                  max_trabajadores: selectedPlan.id === 'basic' ? 10 :
                                    selectedPlan.id === 'professional' ? 100 : 9999,
-                  max_documentos: selectedPlan.id === 'basic' ? 100 : 
+                  max_documentos: selectedPlan.id === 'basic' ? 100 :
                                  selectedPlan.id === 'professional' ? 500 : 99999,
                   storage_gb: selectedPlan.storage_gb
                 },
@@ -341,19 +364,81 @@ export default function ClientCheckout() {
             console.error('❌ [ClientCheckout] Error activating subscription:', subscriptionError);
           }
         }
-        
+
+        // CRITICAL FIX: Generate receipt after successful SEPA payment
+        if (user && selectedPlan) {
+          try {
+            const clientData = location.state?.clientData;
+
+            // CRITICAL FIX: Get the correct client_record_id from the clients table
+            console.log('🔍 [ClientCheckout] Looking up client record for user:', user.id);
+            const { data: clientRecord, error: clientLookupError } = await supabaseServiceClient
+              .from('clients')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (clientLookupError) {
+              console.error('❌ [ClientCheckout] Error looking up client record:', clientLookupError);
+              throw new Error('No se pudo encontrar el registro del cliente');
+            }
+
+            if (!clientRecord) {
+              console.error('❌ [ClientCheckout] No client record found for user:', user.id);
+              throw new Error('No se encontró el registro del cliente');
+            }
+
+            console.log('✅ [ClientCheckout] Client record found:', clientRecord.id);
+
+            const amount = billingCycle === 'yearly' ? selectedPlan.price_yearly : selectedPlan.price_monthly;
+            const baseAmount = amount / 1.21;
+            const taxAmount = amount - baseAmount;
+
+            const receiptNumber = await ReceiptService.createReceipt({
+              client_id: clientRecord.id, // FIXED: Use client_record_id instead of user.id
+              client_name: sepaFormData.deudor_nombre || clientData?.name || user.name || 'Cliente',
+              client_email: user.email || '',
+              client_company_name: clientData?.company_name || 'Empresa',
+              client_tax_id: sepaFormData.deudor_identificacion || clientData?.cif_nif || '',
+              client_address: `${sepaFormData.deudor_direccion}, ${sepaFormData.deudor_codigo_postal} ${sepaFormData.deudor_ciudad}` || clientData?.address || '',
+              amount,
+              base_amount: baseAmount,
+              tax_amount: taxAmount,
+              tax_rate: 21,
+              currency: 'EUR',
+              payment_method: 'Domiciliación SEPA',
+              gateway_name: 'SEPA',
+              description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
+              subscription_plan: selectedPlan.name,
+              transaction_id: `SEPA-${Date.now()}`,
+              invoice_items: [{
+                description: `Plan ${selectedPlan.name}`,
+                quantity: 1,
+                unit_price: baseAmount,
+                total: baseAmount
+              }]
+            });
+
+            console.log('✅ [ClientCheckout] SEPA Receipt created successfully:', receiptNumber);
+          } catch (receiptError) {
+            console.error('❌ [ClientCheckout] Error creating receipt:', receiptError);
+            // Don't fail the entire payment process if receipt creation fails
+            alert('⚠️ Pago exitoso pero hubo un problema generando el recibo. Contacta con soporte.');
+          }
+        }
+
         // CRITICAL: Force auth context refresh to update subscription status
         await checkSession();
-        
+
         // Show success message
         const paymentMethodText = selectedPaymentMethod === 'stripe' ? 'tarjeta de crédito' :
                                  selectedPaymentMethod === 'sepa' ? 'SEPA' : 'método seleccionado';
-        
-        alert(`✅ ¡Pago con ${paymentMethodText} completado! Tu plan ${selectedPlan.name} está activo. Bienvenido a ConstructIA.`);
-        
+
+        alert(`✅ ¡Pago con ${paymentMethodText} completado! Tu plan ${selectedPlan.name} está activo. Se ha generado tu recibo. Bienvenido a ConstructIA.`);
+
         // CRITICAL: Navigate to client dashboard after successful payment
         navigate('/client/dashboard', { replace: true });
-        
+
       } else {
         throw new Error('Error en el procesamiento del pago');
       }
