@@ -1371,10 +1371,262 @@ export const savePaymentGatewayLogo = async (gatewayId: string, logoBase64: stri
     if (error) {
       throw new Error(`Error saving gateway logo: ${error.message}`);
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error saving gateway logo:', error);
     throw error;
+  }
+};
+
+// ============================================
+// MRR (Monthly Recurring Revenue) Functions
+// ============================================
+
+export interface MRRMetrics {
+  total_mrr: number;
+  active_clients: number;
+  churned_mrr: number;
+  churned_clients: number;
+  avg_revenue_per_client: number;
+  growth_rate_percentage: number;
+  net_mrr: number;
+  calculated_at: string;
+}
+
+export interface MRRByPlan {
+  plan_name: string;
+  client_count: number;
+  total_mrr: number;
+  percentage_of_total_mrr: number;
+  avg_storage_used: number;
+  avg_documents_processed: number;
+}
+
+export interface MRRByClient {
+  id: string;
+  client_id: string;
+  company_name: string;
+  email: string;
+  subscription_plan: string;
+  subscription_status: string;
+  monthly_revenue: number;
+  storage_used: number;
+  storage_limit: number;
+  documents_processed: number;
+  tokens_available: number;
+  signup_date: string;
+  updated_at: string;
+  revenue_status: string;
+}
+
+export interface ChurnedMRRDetail {
+  id: string;
+  company_name: string;
+  email: string;
+  subscription_plan: string;
+  subscription_status: string;
+  monthly_revenue_lost: number;
+  cancellation_date: string;
+  original_signup_date: string;
+  days_as_customer: number;
+}
+
+// Obtener métricas generales de MRR
+export const getMRRMetrics = async (): Promise<MRRMetrics | null> => {
+  try {
+    console.log('📊 [getMRRMetrics] Fetching MRR summary from v_mrr_summary...');
+
+    const { data, error } = await supabaseServiceClient
+      .from('v_mrr_summary')
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('❌ [getMRRMetrics] Error:', error);
+      throw new Error(`Error fetching MRR metrics: ${error.message}`);
+    }
+
+    console.log('✅ [getMRRMetrics] Retrieved metrics:', data);
+    return data;
+  } catch (error) {
+    console.error('Error getting MRR metrics:', error);
+    return null;
+  }
+};
+
+// Obtener MRR desglosado por plan
+export const getMRRByPlan = async (): Promise<MRRByPlan[]> => {
+  try {
+    console.log('📊 [getMRRByPlan] Fetching MRR breakdown by plan...');
+
+    const { data, error } = await supabaseServiceClient
+      .from('v_mrr_by_plan')
+      .select('*');
+
+    if (error) {
+      console.error('❌ [getMRRByPlan] Error:', error);
+      throw new Error(`Error fetching MRR by plan: ${error.message}`);
+    }
+
+    console.log('✅ [getMRRByPlan] Retrieved', data?.length || 0, 'plan breakdowns');
+    return data || [];
+  } catch (error) {
+    console.error('Error getting MRR by plan:', error);
+    return [];
+  }
+};
+
+// Obtener MRR por cliente (detalle individual)
+export const getMRRByClient = async (): Promise<MRRByClient[]> => {
+  try {
+    console.log('📊 [getMRRByClient] Fetching individual client MRR...');
+
+    const { data, error } = await supabaseServiceClient
+      .from('v_mrr_by_client')
+      .select('*');
+
+    if (error) {
+      console.error('❌ [getMRRByClient] Error:', error);
+      throw new Error(`Error fetching MRR by client: ${error.message}`);
+    }
+
+    console.log('✅ [getMRRByClient] Retrieved', data?.length || 0, 'client records');
+    return data || [];
+  } catch (error) {
+    console.error('Error getting MRR by client:', error);
+    return [];
+  }
+};
+
+// Obtener detalles de clientes con MRR cancelado (churn)
+export const getChurnedMRRDetails = async (): Promise<ChurnedMRRDetail[]> => {
+  try {
+    console.log('📊 [getChurnedMRRDetails] Fetching churned client details...');
+
+    const { data, error} = await supabaseServiceClient
+      .from('v_churned_mrr')
+      .select('*');
+
+    if (error) {
+      console.error('❌ [getChurnedMRRDetails] Error:', error);
+      throw new Error(`Error fetching churned MRR: ${error.message}`);
+    }
+
+    console.log('✅ [getChurnedMRRDetails] Retrieved', data?.length || 0, 'churned clients');
+    return data || [];
+  } catch (error) {
+    console.error('Error getting churned MRR details:', error);
+    return [];
+  }
+};
+
+// Obtener histórico de MRR (snapshots mensuales)
+export const getMRRHistorical = async (months: number = 12): Promise<any[]> => {
+  try {
+    console.log(`📊 [getMRRHistorical] Fetching last ${months} months of MRR data...`);
+
+    const { data, error } = await supabaseServiceClient
+      .from('mrr_analytics')
+      .select('*')
+      .order('mes', { ascending: false })
+      .limit(months);
+
+    if (error) {
+      console.error('❌ [getMRRHistorical] Error:', error);
+      throw new Error(`Error fetching MRR historical: ${error.message}`);
+    }
+
+    console.log('✅ [getMRRHistorical] Retrieved', data?.length || 0, 'monthly snapshots');
+    return data || [];
+  } catch (error) {
+    console.error('Error getting MRR historical:', error);
+    return [];
+  }
+};
+
+// Validar que todos los clientes tengan suscripción asignada
+export const validateAllClientsHaveSubscription = async (): Promise<any[]> => {
+  try {
+    console.log('🔍 [validateAllClientsHaveSubscription] Checking for subscription issues...');
+
+    const { data, error } = await supabaseServiceClient
+      .rpc('validate_all_clients_have_subscription');
+
+    if (error) {
+      console.error('❌ [validateAllClientsHaveSubscription] Error:', error);
+      throw new Error(`Error validating subscriptions: ${error.message}`);
+    }
+
+    console.log('✅ [validateAllClientsHaveSubscription] Found', data?.length || 0, 'issues');
+    return data || [];
+  } catch (error) {
+    console.error('Error validating subscriptions:', error);
+    return [];
+  }
+};
+
+// Forzar recálculo del snapshot mensual de MRR
+export const recalculateMRRSnapshot = async (): Promise<boolean> => {
+  try {
+    console.log('🔄 [recalculateMRRSnapshot] Recalculating monthly MRR snapshot...');
+
+    const { error } = await supabaseServiceClient
+      .rpc('sp_calculate_monthly_mrr_snapshot');
+
+    if (error) {
+      console.error('❌ [recalculateMRRSnapshot] Error:', error);
+      throw new Error(`Error recalculating MRR snapshot: ${error.message}`);
+    }
+
+    console.log('✅ [recalculateMRRSnapshot] Snapshot recalculated successfully');
+    return true;
+  } catch (error) {
+    console.error('Error recalculating MRR snapshot:', error);
+    return false;
+  }
+};
+
+// Exportar datos de MRR para BI (formato agregado)
+export const exportMRRDataAggregated = async (): Promise<any[]> => {
+  try {
+    console.log('📤 [exportMRRDataAggregated] Exporting aggregated MRR data for BI...');
+
+    const { data, error } = await supabaseServiceClient
+      .from('v_bi_revenue_aggregated')
+      .select('*');
+
+    if (error) {
+      console.error('❌ [exportMRRDataAggregated] Error:', error);
+      throw new Error(`Error exporting aggregated MRR data: ${error.message}`);
+    }
+
+    console.log('✅ [exportMRRDataAggregated] Retrieved', data?.length || 0, 'aggregated records');
+    return data || [];
+  } catch (error) {
+    console.error('Error exporting aggregated MRR data:', error);
+    return [];
+  }
+};
+
+// Exportar datos de MRR para BI (formato detallado por cliente)
+export const exportMRRDataDetailed = async (): Promise<any[]> => {
+  try {
+    console.log('📤 [exportMRRDataDetailed] Exporting detailed MRR data for BI...');
+
+    const { data, error } = await supabaseServiceClient
+      .from('v_bi_client_revenue_detail')
+      .select('*');
+
+    if (error) {
+      console.error('❌ [exportMRRDataDetailed] Error:', error);
+      throw new Error(`Error exporting detailed MRR data: ${error.message}`);
+    }
+
+    console.log('✅ [exportMRRDataDetailed] Retrieved', data?.length || 0, 'detailed client records');
+    return data || [];
+  } catch (error) {
+    console.error('Error exporting detailed MRR data:', error);
+    return [];
   }
 };
