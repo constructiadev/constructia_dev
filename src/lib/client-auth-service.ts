@@ -188,9 +188,31 @@ export class ClientAuthService {
         createdEmpresa = empresa;
         console.log('✅ [ClientAuth] Empresa created');
 
-        // STEP 5: Create CAE platform credentials (adaptadores) - ALWAYS IN DATABASE
+        // STEP 5: Create CAE platform credentials - SAVE TO credenciales_plataforma TABLE
         console.log('📋 [ClientAuth] Step 5: Creating CAE credentials...');
         if (registrationData.cae_credentials.length > 0) {
+          // CRITICAL: Save to credenciales_plataforma table (unified storage)
+          const platformCredentials = registrationData.cae_credentials.map(cred => ({
+            tenant_id: newTenant.id,
+            platform_type: cred.platform,
+            username: cred.username,
+            password: cred.password,
+            is_active: true,
+            last_updated: new Date().toISOString()
+          }));
+
+          const { error: credentialsError } = await supabaseServiceClient
+            .from('credenciales_plataforma')
+            .insert(platformCredentials);
+
+          if (credentialsError) {
+            console.error('❌ [ClientAuth] Error creating platform credentials:', credentialsError);
+            throw new Error(`Error al guardar las credenciales CAE: ${credentialsError.message}`);
+          }
+
+          console.log('✅ [ClientAuth] CAE credentials saved to credenciales_plataforma table:', platformCredentials.length);
+
+          // ALSO save to adaptadores table for backward compatibility with existing integrations
           const adaptadores = registrationData.cae_credentials.map(cred => ({
             tenant_id: newTenant.id,
             plataforma: cred.platform,
@@ -208,11 +230,11 @@ export class ClientAuthService {
             .insert(adaptadores);
 
           if (adaptadoresError) {
-            console.error('❌ [ClientAuth] Error creating adaptadores:', adaptadoresError);
-            throw new Error(`Error al guardar las credenciales CAE: ${adaptadoresError.message}`);
+            console.warn('⚠️ [ClientAuth] Warning: Could not save to adaptadores table (legacy):', adaptadoresError.message);
+            // Don't fail registration if legacy table insert fails
+          } else {
+            console.log('✅ [ClientAuth] Legacy adaptadores records created for compatibility');
           }
-          
-          console.log('✅ [ClientAuth] CAE credentials saved in database');
         }
 
         // STEP 6: Create client record in old schema for compatibility

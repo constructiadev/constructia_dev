@@ -29,31 +29,49 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
   const loadIntegrations = async () => {
     try {
       if (!refreshing) setLoading(true);
-      
-      // Cargar credenciales desde localStorage
-      const storageKey = `constructia_credentials_${clientId || 'default'}`;
-      const stored = localStorage.getItem(storageKey);
+
+      console.log('🔍 [IntegrationStatus] Loading integrations for client:', clientId);
+
+      // CRITICAL: Load from database first (source of truth)
       let credentials: any[] = [];
-      
-      if (stored) {
-        credentials = JSON.parse(stored);
+
+      if (clientId) {
+        const { data: dbCredentials, error } = await supabase
+          .from('credenciales_plataforma')
+          .select('*')
+          .eq('tenant_id', clientId);
+
+        if (error) {
+          console.error('❌ [IntegrationStatus] Database error:', error);
+          // Fallback to localStorage on error
+          const storageKey = `constructia_credentials_${clientId}`;
+          const stored = localStorage.getItem(storageKey);
+          if (stored) {
+            credentials = JSON.parse(stored);
+            console.log('⚠️ [IntegrationStatus] Loaded from localStorage (fallback):', credentials.length);
+          }
+        } else if (dbCredentials && dbCredentials.length > 0) {
+          credentials = dbCredentials;
+          console.log('✅ [IntegrationStatus] Loaded from database:', credentials.length, 'credentials');
+        }
       }
-      
+
       // Transform to integration status format
       const platforms = [
         { type: 'nalanda', name: 'Obralia/Nalanda', description: 'Plataforma de gestión de documentos' },
         { type: 'ctaima', name: 'CTAIMA', description: 'Sistema de coordinación de actividades' },
         { type: 'ecoordina', name: 'Ecoordina', description: 'Plataforma de coordinación empresarial' }
       ];
-      
+
       const integrationStatus = platforms.map(platform => {
         const credential = credentials.find(c => c.platform_type === platform.type);
-        const isConfigured = credential && 
-                           credential.username && 
-                           credential.username.trim().length > 0 && 
-                           credential.password && 
-                           credential.password.trim().length > 0;
-        
+        const isConfigured = credential &&
+                           credential.username &&
+                           credential.username.trim().length > 0 &&
+                           credential.password &&
+                           credential.password.trim().length > 0 &&
+                           credential.is_active;
+
         return {
           ...platform,
           configured: isConfigured || false,
@@ -62,7 +80,7 @@ function IntegrationStatus({ clientId }: { clientId: string }) {
           is_active: credential?.is_active || false
         };
       });
-      
+
       setIntegrations(integrationStatus);
     } catch (error) {
       console.error('Error loading integrations:', error);
@@ -292,8 +310,8 @@ export default function Settings() {
             <h2 className="text-xl font-semibold text-gray-900">Credenciales de Plataformas CAE</h2>
           </div>
           
-          <PlatformCredentialsManager 
-            clientId={client?.id || ''}
+          <PlatformCredentialsManager
+            clientId={client?.tenant_id || ''}
             onCredentialsUpdated={() => {
               refreshData();
               // Force refresh of integration status
@@ -309,7 +327,7 @@ export default function Settings() {
             <h2 className="text-xl font-semibold text-gray-900">Estado de Integración</h2>
           </div>
           
-          <IntegrationStatus clientId={client?.id || ''} />
+          <IntegrationStatus clientId={client?.tenant_id || ''} />
         </div>
       </div>
     </>
