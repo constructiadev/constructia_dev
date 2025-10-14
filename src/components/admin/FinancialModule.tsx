@@ -1114,93 +1114,147 @@ const FinancialModule: React.FC = () => {
             })}
           </div>
 
-          {/* Insights de IA */}
+          {/* Insights de IA - USANDO DATOS REALES */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-              <div className="flex items-center mb-3">
-                <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                <h3 className="font-semibold text-green-800">Crecimiento Acelerado de Clientes</h3>
-              </div>
-              <p className="text-sm text-green-700">
-                Se observa un crecimiento del 23% en nuevos clientes este mes.
-              </p>
-              <div className="mt-3 text-xs text-green-600">
-                Confianza: 87%
-              </div>
-            </div>
+            {aiInsights.length > 0 ? (
+              aiInsights.slice(0, 3).map((insight, index) => {
+                const colors = [
+                  { bg: 'bg-green-50', border: 'border-green-200', icon: 'text-green-600', title: 'text-green-800', text: 'text-green-700', conf: 'text-green-600' },
+                  { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: 'text-yellow-600', title: 'text-yellow-800', text: 'text-yellow-700', conf: 'text-yellow-600' },
+                  { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-600', title: 'text-blue-800', text: 'text-blue-700', conf: 'text-blue-600' }
+                ];
+                const colorSet = colors[index % colors.length];
+                const Icon = insight.priority === 'high' ? AlertTriangle : insight.priority === 'medium' ? CheckCircle : TrendingUp;
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-              <div className="flex items-center mb-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
-                <h3 className="font-semibold text-yellow-800">Optimizar Procesamiento de Documentos</h3>
-              </div>
-              <p className="text-sm text-yellow-700">
-                La precisión de IA está en 94.2%. Recomiendo ajustar los parámetros del modelo para alcanzar el 97% objetivo.
-              </p>
-              <div className="mt-3 text-xs text-yellow-600">
-                Confianza: 92%
-              </div>
-            </div>
+                return (
+                  <div key={insight.id || index} className={`${colorSet.bg} border ${colorSet.border} rounded-xl p-6`}>
+                    <div className="flex items-center mb-3">
+                      <Icon className={`w-5 h-5 ${colorSet.icon} mr-2`} />
+                      <h3 className={`font-semibold ${colorSet.title}`}>{insight.title}</h3>
+                    </div>
+                    <p className={`text-sm ${colorSet.text}`}>
+                      {insight.message}
+                    </p>
+                    {insight.confidence && (
+                      <div className={`mt-3 text-xs ${colorSet.conf}`}>
+                        Confianza: {Math.round(insight.confidence * 100)}%
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                  <div className="flex items-center mb-3">
+                    <Activity className="w-5 h-5 text-blue-600 mr-2" />
+                    <h3 className="font-semibold text-blue-800">Estado del Sistema Financiero</h3>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    Sistema operativo. Actualmente hay {realTimeStats.totalClients || 0} clientes registrados con {realTimeStats.documentsThisMonth || 0} documentos procesados este mes.
+                  </p>
+                </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-              <div className="flex items-center mb-3">
-                <TrendingUp className="w-5 h-5 text-blue-600 mr-2" />
-                <h3 className="font-semibold text-blue-800">Uso Elevado de Almacenamiento</h3>
-              </div>
-              <p className="text-sm text-blue-700">
-                Varios clientes están cerca del límite de almacenamiento. Considerar ofertas de upgrade automático.
-              </p>
-              <div className="mt-3 text-xs text-blue-600">
-                Confianza: 95%
-              </div>
-            </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                  <div className="flex items-center mb-3">
+                    <Receipt className="w-5 h-5 text-yellow-600 mr-2" />
+                    <h3 className="font-semibold text-yellow-800">Sin Datos de Ingresos</h3>
+                  </div>
+                  <p className="text-sm text-yellow-700">
+                    No se han registrado pagos aún. La tabla 'receipts' está vacía. Los gráficos mostrarán datos cuando se registren transacciones.
+                  </p>
+                </div>
+
+                <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                  <div className="flex items-center mb-3">
+                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                    <h3 className="font-semibold text-green-800">Precisión IA Operativa</h3>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    Sistema de clasificación funcionando con {(realTimeStats.avgConfidence || 0).toFixed(1)}% de precisión promedio en {realTimeStats.totalDocuments || 0} documentos.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Gráficos Financieros */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Evolución de Ingresos */}
+            {/* Evolución de Ingresos - USANDO DATOS REALES */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Evolución de Ingresos</h3>
+              <div className="text-center mb-4">
+                <div className="text-2xl font-bold text-green-600">
+                  €{monthlyRevenueChart.reduce((sum, val) => sum + val, 0).toFixed(0)}
+                </div>
+                <div className="text-sm text-gray-600">Ingresos totales (últimos 7 meses)</div>
+              </div>
               <div className="h-64 relative">
-                <svg className="w-full h-full" viewBox="0 0 400 200">
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
-                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
-                    </linearGradient>
-                  </defs>
-                  
-                  <g stroke="#f3f4f6" strokeWidth="1">
-                    {[0, 1, 2, 3, 4].map(i => (
-                      <line key={i} x1="0" y1={i * 40} x2="400" y2={i * 40} />
-                    ))}
-                  </g>
-                  
-                  <path
-                    d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60 L 380 200 L 20 200 Z"
-                    fill="url(#revenueGradient)"
-                  />
-                  <path
-                    d="M 20 180 L 80 160 L 140 140 L 200 120 L 260 100 L 320 80 L 380 60"
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="3"
-                  />
-                  
-                  {[
-                    { x: 20, y: 180 }, { x: 80, y: 160 }, { x: 140, y: 140 },
-                    { x: 200, y: 120 }, { x: 260, y: 100 }, { x: 320, y: 80 }, { x: 380, y: 60 }
-                  ].map((point, index) => (
-                    <circle
-                      key={index}
-                      cx={point.x}
-                      cy={point.y}
-                      r="4"
-                      fill="#10b981"
-                      className="hover:r-6 transition-all cursor-pointer"
-                    />
-                  ))}
-                </svg>
+                {monthlyRevenueChart.length > 0 && monthlyRevenueChart.some(v => v > 0) ? (
+                  <svg className="w-full h-full" viewBox="0 0 400 200">
+                    <defs>
+                      <linearGradient id="revenueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.3"/>
+                        <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
+                      </linearGradient>
+                    </defs>
+
+                    <g stroke="#f3f4f6" strokeWidth="1">
+                      {[0, 1, 2, 3, 4].map(i => (
+                        <line key={i} x1="0" y1={i * 40} x2="400" y2={i * 40} />
+                      ))}
+                    </g>
+
+                    {(() => {
+                      const maxValue = Math.max(...monthlyRevenueChart, 1);
+                      const width = 360;
+                      const height = 140;
+                      const stepX = width / (monthlyRevenueChart.length - 1 || 1);
+
+                      // Generate line path
+                      const linePath = monthlyRevenueChart.map((value, index) => {
+                        const x = 20 + (index * stepX);
+                        const y = 180 - ((value / maxValue) * height);
+                        return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+                      }).join(' ');
+
+                      // Generate area path
+                      const areaPath = `${linePath} L ${20 + ((monthlyRevenueChart.length - 1) * stepX)} 200 L 20 200 Z`;
+
+                      // Generate points
+                      const points = monthlyRevenueChart.map((value, index) => ({
+                        x: 20 + (index * stepX),
+                        y: 180 - ((value / maxValue) * height),
+                        value
+                      }));
+
+                      return (
+                        <>
+                          <path d={areaPath} fill="url(#revenueGradient)" />
+                          <path d={linePath} fill="none" stroke="#10b981" strokeWidth="3" />
+                          {points.map((point, index) => (
+                            <circle
+                              key={index}
+                              cx={point.x}
+                              cy={point.y}
+                              r="4"
+                              fill="#10b981"
+                              className="hover:r-6 transition-all cursor-pointer"
+                            >
+                              <title>€{point.value.toFixed(2)}</title>
+                            </circle>
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <Receipt className="w-12 h-12 mb-3 opacity-50" />
+                    <p className="text-sm font-medium">No hay datos de ingresos</p>
+                    <p className="text-xs mt-1">La tabla 'receipts' está vacía</p>
+                  </div>
+                )}
               </div>
             </div>
 
