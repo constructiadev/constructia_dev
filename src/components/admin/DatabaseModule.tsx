@@ -40,9 +40,10 @@ import {
   X
 } from 'lucide-react';
 import SupabaseDiagnostics from './SupabaseDiagnostics';
-import { 
-  supabase, 
-  supabaseServiceClient, 
+import OrphanedUsersCheck from './OrphanedUsersCheck';
+import {
+  supabase,
+  supabaseServiceClient,
   DEV_TENANT_ID,
   getTenantStats,
   getSystemSettings,
@@ -329,7 +330,10 @@ export default function DatabaseModule() {
 
       {/* Tab: Diagnóstico */}
       {activeTab === 'diagnostico' && (
-        <SupabaseDiagnostics />
+        <div className="space-y-6">
+          <SupabaseDiagnostics />
+          <OrphanedUsersCheck />
+        </div>
       )}
 
       {/* Tab: Estadísticas */}

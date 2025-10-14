@@ -733,28 +733,67 @@ const ClientsManagement: React.FC = () => {
   };
 
   const handleDeleteClient = async (clientId: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este cliente? Esta acción no se puede deshacer.')) {
-      try {
-        // Delete client from database
-        const { error } = await supabaseServiceClient
-          .from('clients')
-          .delete()
-          .eq('id', clientId);
+    const client = clients.find(c => c.id === clientId);
 
-        if (error) {
-          console.error('Error deleting client:', error);
-          alert('Error al eliminar cliente');
-          return;
-        }
+    if (!client) {
+      alert('Error: Cliente no encontrado');
+      return;
+    }
 
-        // Update local state
-        setClients(prev => prev.filter(c => c.id !== clientId));
-        
-        alert('✅ Cliente eliminado correctamente');
-      } catch (error) {
-        console.error('Error deleting client:', error);
-        alert('Error al eliminar cliente');
+    // Enhanced confirmation dialog with detailed information
+    const confirmMessage = `⚠️ ADVERTENCIA: Esta acción eliminará permanentemente los siguientes datos:\n\n` +
+      `📋 CLIENTE:\n` +
+      `   • Empresa: ${client.company_name}\n` +
+      `   • ID: ${client.client_id}\n` +
+      `   • Contacto: ${client.contact_name}\n` +
+      `   • Email: ${client.email}\n` +
+      `   • Documentos procesados: ${client.documents_processed || 0}\n` +
+      `   • Fecha de registro: ${new Date(client.created_at).toLocaleDateString()}\n\n` +
+      `👤 USUARIO ASOCIADO:\n` +
+      `   • El acceso de login de ${client.email} será eliminado\n` +
+      `   • El usuario NO podrá volver a acceder a la plataforma\n\n` +
+      `⚠️ ESTA ACCIÓN NO SE PUEDE DESHACER\n` +
+      `✓ Los registros de auditoría se preservarán\n\n` +
+      `¿Estás seguro de que deseas continuar?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      console.log(`🗑️ [ClientsManagement] Deleting client ${client.company_name} (${clientId})`);
+      console.log(`   Associated user email: ${client.email}`);
+
+      // Delete client from database
+      // The database trigger will automatically delete the associated user
+      const { error } = await supabaseServiceClient
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) {
+        console.error('❌ [ClientsManagement] Error deleting client:', error);
+        alert(`Error al eliminar cliente: ${error.message || 'Error desconocido'}`);
+        return;
       }
+
+      console.log(`✅ [ClientsManagement] Client deleted successfully`);
+      console.log(`   Database trigger automatically deleted associated user`);
+
+      // Update local state
+      setClients(prev => prev.filter(c => c.id !== clientId));
+
+      // Success message indicating both client and user were deleted
+      alert(
+        `✅ Cliente y usuario eliminados correctamente\n\n` +
+        `📋 Cliente eliminado: ${client.company_name}\n` +
+        `👤 Usuario eliminado: ${client.email}\n\n` +
+        `Los datos han sido removidos de la base de datos.\n` +
+        `Los registros de auditoría se han preservado.`
+      );
+    } catch (error) {
+      console.error('❌ [ClientsManagement] Exception deleting client:', error);
+      alert(`Error al eliminar cliente: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   };
 
