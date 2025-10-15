@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   CreditCard, 
@@ -61,23 +61,6 @@ export default function StripePaymentModal({
   });
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [processingStep, setProcessingStep] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      // Pre-fill with demo data for development
-      setCardData({
-        number: '4242 4242 4242 4242',
-        expiry: '12/28',
-        cvc: '123',
-        name: 'Juan García Martínez',
-        email: 'juan@construccionesgarcia.com',
-        address: 'Calle Construcción 123',
-        city: 'Madrid',
-        postalCode: '28001',
-        country: 'ES'
-      });
-    }
-  }, [isOpen]);
 
   const validateForm = (): boolean => {
     const newErrors: {[key: string]: string} = {};
