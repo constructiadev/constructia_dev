@@ -18,6 +18,7 @@ export interface ReceiptData {
   subscription_plan: string;
   transaction_id: string;
   invoice_items?: any[];
+  status?: 'pending' | 'paid' | 'failed' | 'refunded';
 }
 
 export class ReceiptService {
@@ -49,8 +50,8 @@ export class ReceiptService {
         description: data.description,
         subscription_plan: data.subscription_plan,
         transaction_id: data.transaction_id,
-        status: 'paid',
-        payment_date: new Date().toISOString(),
+        status: data.status || 'paid',
+        payment_date: data.status === 'pending' ? null : new Date().toISOString(),
         receipt_html: receiptHTML,
         client_company_name: data.client_company_name,
         client_tax_id: data.client_tax_id,
@@ -597,6 +598,108 @@ export class ReceiptService {
     } catch (error) {
       console.error('❌ [ReceiptService] Fatal error fetching analytics:', error);
       throw error;
+    }
+  }
+
+  static async updateReceiptStatus(
+    receiptId: string,
+    status: 'pending' | 'paid' | 'failed' | 'refunded',
+    transactionId?: string,
+    paymentMethod?: string,
+    gatewayName?: string
+  ): Promise<void> {
+    try {
+      console.log(`📄 [ReceiptService] Updating receipt ${receiptId} to status: ${status}`);
+
+      const updateData: any = {
+        status,
+        updated_at: new Date().toISOString()
+      };
+
+      if (status === 'paid') {
+        updateData.payment_date = new Date().toISOString();
+      }
+
+      if (transactionId) {
+        updateData.transaction_id = transactionId;
+      }
+
+      if (paymentMethod) {
+        updateData.payment_method = paymentMethod;
+      }
+
+      if (gatewayName) {
+        updateData.gateway_name = gatewayName;
+      }
+
+      const { error } = await supabaseServiceClient
+        .from('receipts')
+        .update(updateData)
+        .eq('id', receiptId);
+
+      if (error) {
+        console.error('❌ [ReceiptService] Error updating receipt status:', error);
+        throw new Error(`Error al actualizar el estado del recibo: ${error.message}`);
+      }
+
+      console.log('✅ [ReceiptService] Receipt status updated successfully');
+    } catch (error) {
+      console.error('❌ [ReceiptService] Fatal error updating receipt status:', error);
+      throw error;
+    }
+  }
+
+  static async updateReceiptAmount(
+    receiptId: string,
+    amount: number,
+    baseAmount: number,
+    taxAmount: number
+  ): Promise<void> {
+    try {
+      console.log(`📄 [ReceiptService] Updating receipt ${receiptId} amount to: €${amount}`);
+
+      const { error } = await supabaseServiceClient
+        .from('receipts')
+        .update({
+          amount,
+          base_amount: baseAmount,
+          tax_amount: taxAmount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', receiptId);
+
+      if (error) {
+        console.error('❌ [ReceiptService] Error updating receipt amount:', error);
+        throw new Error(`Error al actualizar el monto del recibo: ${error.message}`);
+      }
+
+      console.log('✅ [ReceiptService] Receipt amount updated successfully');
+    } catch (error) {
+      console.error('❌ [ReceiptService] Fatal error updating receipt amount:', error);
+      throw error;
+    }
+  }
+
+  static async findPendingReceiptByClientId(clientId: string): Promise<any | null> {
+    try {
+      const { data, error } = await supabaseServiceClient
+        .from('receipts')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ [ReceiptService] Error finding pending receipt:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ [ReceiptService] Fatal error finding pending receipt:', error);
+      return null;
     }
   }
 

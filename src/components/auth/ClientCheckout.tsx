@@ -230,7 +230,7 @@ export default function ClientCheckout() {
         }
       }
 
-      // CRITICAL: Generate receipt after successful payment
+      // CRITICAL: Generate or update receipt after successful payment
       if (user && selectedPlan) {
         try {
           const clientData = location.state?.clientData;
@@ -259,34 +259,57 @@ export default function ClientCheckout() {
           const baseAmount = amount / 1.21;
           const taxAmount = amount - baseAmount;
 
-          const receiptNumber = await ReceiptService.createReceipt({
-            client_id: clientRecord.id, // FIXED: Use client_record_id instead of user.id
-            client_name: clientData?.name || user.name || 'Cliente',
-            client_email: user.email || '',
-            client_company_name: clientData?.company_name || 'Empresa',
-            client_tax_id: clientData?.cif_nif || '',
-            client_address: clientData?.address || '',
-            amount,
-            base_amount: baseAmount,
-            tax_amount: taxAmount,
-            tax_rate: 21,
-            currency: 'EUR',
-            payment_method: 'Tarjeta de crédito',
-            gateway_name: 'Stripe',
-            description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
-            subscription_plan: selectedPlan.name,
-            transaction_id: `STRIPE-${Date.now()}`,
-            invoice_items: [{
-              description: `Plan ${selectedPlan.name}`,
-              quantity: 1,
-              unit_price: baseAmount,
-              total: baseAmount
-            }]
-          });
+          // Check if there's a pending receipt from registration
+          const pendingReceipt = await ReceiptService.findPendingReceiptByClientId(clientRecord.id);
 
-          console.log('✅ [ClientCheckout] Receipt created successfully:', receiptNumber);
+          if (pendingReceipt) {
+            console.log('📄 [ClientCheckout] Found pending receipt from registration, updating it...');
+
+            // Update the existing receipt with payment details
+            await ReceiptService.updateReceiptAmount(pendingReceipt.id, amount, baseAmount, taxAmount);
+            await ReceiptService.updateReceiptStatus(
+              pendingReceipt.id,
+              'paid',
+              `STRIPE-${Date.now()}`,
+              'Tarjeta de crédito',
+              'Stripe'
+            );
+
+            console.log('✅ [ClientCheckout] Pending receipt updated to paid:', pendingReceipt.receipt_number);
+          } else {
+            console.log('📄 [ClientCheckout] No pending receipt found, creating new one...');
+
+            // Create a new receipt if no pending one exists
+            const receiptNumber = await ReceiptService.createReceipt({
+              client_id: clientRecord.id,
+              client_name: clientData?.name || user.name || 'Cliente',
+              client_email: user.email || '',
+              client_company_name: clientData?.company_name || 'Empresa',
+              client_tax_id: clientData?.cif_nif || '',
+              client_address: clientData?.address || '',
+              amount,
+              base_amount: baseAmount,
+              tax_amount: taxAmount,
+              tax_rate: 21,
+              currency: 'EUR',
+              payment_method: 'Tarjeta de crédito',
+              gateway_name: 'Stripe',
+              description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
+              subscription_plan: selectedPlan.name,
+              transaction_id: `STRIPE-${Date.now()}`,
+              status: 'paid',
+              invoice_items: [{
+                description: `Plan ${selectedPlan.name}`,
+                quantity: 1,
+                unit_price: baseAmount,
+                total: baseAmount
+              }]
+            });
+
+            console.log('✅ [ClientCheckout] New receipt created successfully:', receiptNumber);
+          }
         } catch (receiptError) {
-          console.error('❌ [ClientCheckout] Error creating receipt:', receiptError);
+          console.error('❌ [ClientCheckout] Error creating/updating receipt:', receiptError);
           // Don't fail the entire payment process if receipt creation fails
           alert('⚠️ Pago exitoso pero hubo un problema generando el recibo. Contacta con soporte.');
         }
@@ -365,7 +388,7 @@ export default function ClientCheckout() {
           }
         }
 
-        // CRITICAL FIX: Generate receipt after successful SEPA payment
+        // CRITICAL: Generate or update receipt after successful SEPA payment
         if (user && selectedPlan) {
           try {
             const clientData = location.state?.clientData;
@@ -394,34 +417,57 @@ export default function ClientCheckout() {
             const baseAmount = amount / 1.21;
             const taxAmount = amount - baseAmount;
 
-            const receiptNumber = await ReceiptService.createReceipt({
-              client_id: clientRecord.id, // FIXED: Use client_record_id instead of user.id
-              client_name: sepaFormData.deudor_nombre || clientData?.name || user.name || 'Cliente',
-              client_email: user.email || '',
-              client_company_name: clientData?.company_name || 'Empresa',
-              client_tax_id: sepaFormData.deudor_identificacion || clientData?.cif_nif || '',
-              client_address: `${sepaFormData.deudor_direccion}, ${sepaFormData.deudor_codigo_postal} ${sepaFormData.deudor_ciudad}` || clientData?.address || '',
-              amount,
-              base_amount: baseAmount,
-              tax_amount: taxAmount,
-              tax_rate: 21,
-              currency: 'EUR',
-              payment_method: 'Domiciliación SEPA',
-              gateway_name: 'SEPA',
-              description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
-              subscription_plan: selectedPlan.name,
-              transaction_id: `SEPA-${Date.now()}`,
-              invoice_items: [{
-                description: `Plan ${selectedPlan.name}`,
-                quantity: 1,
-                unit_price: baseAmount,
-                total: baseAmount
-              }]
-            });
+            // Check if there's a pending receipt from registration
+            const pendingReceipt = await ReceiptService.findPendingReceiptByClientId(clientRecord.id);
 
-            console.log('✅ [ClientCheckout] SEPA Receipt created successfully:', receiptNumber);
+            if (pendingReceipt) {
+              console.log('📄 [ClientCheckout] Found pending receipt from registration, updating it...');
+
+              // Update the existing receipt with payment details
+              await ReceiptService.updateReceiptAmount(pendingReceipt.id, amount, baseAmount, taxAmount);
+              await ReceiptService.updateReceiptStatus(
+                pendingReceipt.id,
+                'paid',
+                `SEPA-${Date.now()}`,
+                'Domiciliación SEPA',
+                'SEPA'
+              );
+
+              console.log('✅ [ClientCheckout] Pending receipt updated to paid:', pendingReceipt.receipt_number);
+            } else {
+              console.log('📄 [ClientCheckout] No pending receipt found, creating new one...');
+
+              // Create a new receipt if no pending one exists
+              const receiptNumber = await ReceiptService.createReceipt({
+                client_id: clientRecord.id,
+                client_name: sepaFormData.deudor_nombre || clientData?.name || user.name || 'Cliente',
+                client_email: user.email || '',
+                client_company_name: clientData?.company_name || 'Empresa',
+                client_tax_id: sepaFormData.deudor_identificacion || clientData?.cif_nif || '',
+                client_address: `${sepaFormData.deudor_direccion}, ${sepaFormData.deudor_codigo_postal} ${sepaFormData.deudor_ciudad}` || clientData?.address || '',
+                amount,
+                base_amount: baseAmount,
+                tax_amount: taxAmount,
+                tax_rate: 21,
+                currency: 'EUR',
+                payment_method: 'Domiciliación SEPA',
+                gateway_name: 'SEPA',
+                description: `Suscripción ${selectedPlan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
+                subscription_plan: selectedPlan.name,
+                transaction_id: `SEPA-${Date.now()}`,
+                status: 'paid',
+                invoice_items: [{
+                  description: `Plan ${selectedPlan.name}`,
+                  quantity: 1,
+                  unit_price: baseAmount,
+                  total: baseAmount
+                }]
+              });
+
+              console.log('✅ [ClientCheckout] New SEPA receipt created successfully:', receiptNumber);
+            }
           } catch (receiptError) {
-            console.error('❌ [ClientCheckout] Error creating receipt:', receiptError);
+            console.error('❌ [ClientCheckout] Error creating/updating receipt:', receiptError);
             // Don't fail the entire payment process if receipt creation fails
             alert('⚠️ Pago exitoso pero hubo un problema generando el recibo. Contacta con soporte.');
           }

@@ -2,6 +2,7 @@
 import { supabase, supabaseServiceClient } from './supabase-real';
 import { getCurrentUserTenant, DEV_TENANT_ID, logAuditoria } from './supabase-real';
 import type { AuthenticatedClient } from '../types';
+import { ReceiptService } from './receipt-service';
 
 interface ClientRegistrationData {
   // User data
@@ -271,6 +272,50 @@ export class ClientAuthService {
 
         createdClientRecord = clientRecord;
         console.log('✅ [ClientAuth] Client record created');
+
+        // STEP 6.5: Generate initial receipt for registration (in pending status until checkout)
+        console.log('📋 [ClientAuth] Step 6.5: Generating registration receipt...');
+        let registrationReceiptNumber: string | null = null;
+        try {
+          const receiptData = {
+            client_id: clientRecord.id,
+            client_name: registrationData.contact_name,
+            client_email: registrationData.email,
+            client_company_name: registrationData.company_name,
+            client_tax_id: registrationData.cif_nif,
+            client_address: `${registrationData.address}, ${registrationData.postal_code} ${registrationData.city}`,
+            amount: 0, // Will be updated during checkout
+            base_amount: 0,
+            tax_amount: 0,
+            tax_rate: 21, // IVA estándar en España
+            currency: 'EUR',
+            payment_method: 'Pendiente',
+            gateway_name: 'Registro',
+            description: 'Registro inicial en la plataforma ConstructIA',
+            subscription_plan: 'Starter (Trial)',
+            transaction_id: `REG-${Date.now()}-${clientRecord.id.substring(0, 8)}`,
+            status: 'pending' as const,
+            invoice_items: [{
+              description: 'Plan Starter - Período de prueba',
+              quantity: 1,
+              unit_price: 0,
+              total: 0
+            }]
+          };
+
+          registrationReceiptNumber = await ReceiptService.createReceipt(receiptData);
+          console.log('✅ [ClientAuth] Registration receipt created:', registrationReceiptNumber);
+
+          // Update client record with receipt reference
+          await supabaseServiceClient
+            .from('clients')
+            .update({ last_receipt_number: registrationReceiptNumber })
+            .eq('id', clientRecord.id);
+
+        } catch (receiptError) {
+          console.error('⚠️ [ClientAuth] Warning: Could not create registration receipt (non-critical):', receiptError);
+          // Don't fail registration if receipt creation fails - it can be generated later
+        }
 
         // STEP 7: Create subscription record in trial status (requires checkout to activate)
         console.log('📋 [ClientAuth] Step 7: Creating trial subscription...');

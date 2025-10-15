@@ -1419,6 +1419,241 @@ const FinancialModule: React.FC = () => {
         </>
       )}
 
+      {/* Tab: Recibos Globales */}
+      {activeTab === 'receipts' && (
+        <div className="space-y-6">
+          {/* KPIs de Recibos */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Total Acumulado */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-2">
+                <Receipt className="w-8 h-8 text-green-600" />
+                <span className="text-sm text-green-600 font-medium">Acumulado</span>
+              </div>
+              <div className="text-3xl font-bold text-green-900">
+                {recentTransactions.length}
+              </div>
+              <p className="text-sm text-green-700 mt-1">Total de recibos generados</p>
+              <div className="mt-2 text-xs text-green-600">
+                €{recentTransactions.reduce((sum, t) => sum + t.importe, 0).toFixed(2)} en ingresos
+              </div>
+            </div>
+
+            {/* Recibos del Mes Actual */}
+            <div className="bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-2">
+                <Calendar className="w-8 h-8 text-blue-600" />
+                <span className="text-sm text-blue-600 font-medium">Este Mes</span>
+              </div>
+              <div className="text-3xl font-bold text-blue-900">
+                {(() => {
+                  const currentMonth = new Date().getMonth();
+                  const currentYear = new Date().getFullYear();
+                  return recentTransactions.filter(t => {
+                    const date = new Date(t.fecha);
+                    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                  }).length;
+                })()}
+              </div>
+              <p className="text-sm text-blue-700 mt-1">Recibos emitidos en {new Date().toLocaleDateString('es-ES', { month: 'long' })}</p>
+              <div className="mt-2 text-xs text-blue-600">
+                €{(() => {
+                  const currentMonth = new Date().getMonth();
+                  const currentYear = new Date().getFullYear();
+                  return recentTransactions.filter(t => {
+                    const date = new Date(t.fecha);
+                    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                  }).reduce((sum, t) => sum + t.importe, 0).toFixed(2);
+                })()} en ingresos
+              </div>
+            </div>
+
+            {/* Ingresos Totales */}
+            <div className="bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-2">
+                <DollarSign className="w-8 h-8 text-purple-600" />
+                <span className="text-sm text-purple-600 font-medium">Total</span>
+              </div>
+              <div className="text-3xl font-bold text-purple-900">
+                €{realTimeStats.totalRevenue?.toFixed(0) || '0'}
+              </div>
+              <p className="text-sm text-purple-700 mt-1">Ingresos totales acumulados</p>
+              <div className="mt-2 text-xs text-purple-600">
+                €{(realTimeStats.totalRevenue / Math.max(recentTransactions.length, 1))?.toFixed(2) || '0'} promedio/recibo
+              </div>
+            </div>
+
+            {/* Clientes con Pagos */}
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-2">
+                <Users className="w-8 h-8 text-orange-600" />
+                <span className="text-sm text-orange-600 font-medium">Clientes</span>
+              </div>
+              <div className="text-3xl font-bold text-orange-900">
+                {(() => {
+                  const uniqueClients = new Set(recentTransactions.map(t => t.cliente));
+                  return uniqueClients.size;
+                })()}
+              </div>
+              <p className="text-sm text-orange-700 mt-1">Clientes con recibos</p>
+              <div className="mt-2 text-xs text-orange-600">
+                {(() => {
+                  const uniqueClients = new Set(recentTransactions.map(t => t.cliente));
+                  return ((uniqueClients.size / Math.max(realTimeStats.totalClients, 1)) * 100).toFixed(1);
+                })()}% del total
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla de Todos los Recibos */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Todos los Recibos Generados</h3>
+                <p className="text-sm text-gray-600 mt-1">Vista global de todos los recibos de la plataforma</p>
+              </div>
+              <button
+                onClick={exportFinancialReport}
+                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar CSV
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Nº Recibo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Plan
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Método de Pago
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Importe
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Comisión
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {recentTransactions.length > 0 ? recentTransactions.map((transaction, index) => (
+                    <tr key={transaction.id || index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Receipt className="w-4 h-4 text-gray-400 mr-2" />
+                          <span className="text-sm font-medium text-gray-900">
+                            {transaction.receipt_number || `REC-${index + 1}`}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{transaction.cliente}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          transaction.plan === 'Enterprise' ? 'bg-purple-100 text-purple-800' :
+                          transaction.plan === 'Professional' ? 'bg-blue-100 text-blue-800' :
+                          transaction.plan === 'Custom' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {transaction.plan}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <CreditCard className="w-4 h-4 mr-2 text-gray-400" />
+                          {transaction.metodo}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        €{transaction.importe.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                        €{transaction.comision.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          transaction.estado === 'Completado' ? 'bg-green-100 text-green-800' :
+                          transaction.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {transaction.estado}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(transaction.fecha).toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center">
+                        <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500 font-medium">No hay recibos generados aún</p>
+                        <p className="text-gray-400 text-sm mt-1">
+                          Los recibos se generarán automáticamente cuando los clientes completen el registro y checkout
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Resumen por Métodos de Pago */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Distribución por Método de Pago</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {paymentMethodsDistribution.map((method, index) => {
+                const colors = [
+                  { bg: 'bg-green-50', text: 'text-green-700', badge: 'bg-green-100 text-green-800', icon: 'text-green-600' },
+                  { bg: 'bg-blue-50', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-800', icon: 'text-blue-600' },
+                  { bg: 'bg-purple-50', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-800', icon: 'text-purple-600' }
+                ];
+                const colorSet = colors[index % colors.length];
+
+                return (
+                  <div key={method.name} className={`${colorSet.bg} rounded-lg p-6 border border-gray-200`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <CreditCard className={`w-8 h-8 ${colorSet.icon}`} />
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colorSet.badge}`}>
+                        {method.percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                    <h4 className={`font-semibold ${colorSet.text} mb-2`}>{method.name}</h4>
+                    <div className="text-2xl font-bold text-gray-900 mb-1">
+                      €{method.total.toFixed(2)}
+                    </div>
+                    <p className={`text-sm ${colorSet.text}`}>
+                      {recentTransactions.filter(t => t.metodo === method.name).length} recibos
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab: Comisiones por Pasarela de Pago */}
       {activeTab === 'gateways' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
